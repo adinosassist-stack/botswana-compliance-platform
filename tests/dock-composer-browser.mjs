@@ -58,6 +58,20 @@ try{
     await audio.click();await page.locator('#thebeVoiceScreen').waitFor({state:'visible'});
     await page.waitForFunction(()=>window.voiceStarts.length===1);
     assert.equal(await page.evaluate(()=>voiceStarts[0].mode),workspace?'workspace':'marketing');
+    // The voice controller is nonmodal: text input stays editable during a live session.
+    await input.fill('I can continue typing during voice');
+    assert.equal(await input.inputValue(),'I can continue typing during voice','typing remains available with voice orb open');
+    assert(await page.locator('#thebeVoiceScreen').isVisible(),'voice orb remains visible during typing');
+    await page.evaluate(()=>{
+      dispatchEvent(new CustomEvent('thebe-live-event',{detail:{event:{type:'conversation.item.input_audio_transcription.delta',delta:'Show my open invoices'}}}));
+      dispatchEvent(new CustomEvent('thebe-live-event',{detail:{event:{type:'response.output_audio_transcript.delta',delta:'Here are your outstanding invoices'}}}));
+    });
+    const activity=dock.locator('.thebe-ai-voice-chat-activity');
+    assert(await activity.isVisible(),'voice transcription activity appears inside the dock conversation');
+    assert((await activity.innerText()).includes('Show my open invoices'),'user speech appears in the conversation');
+    assert((await activity.innerText()).includes('Here are your outstanding invoices'),'assistant speech appears in the conversation');
+    assert.equal(await input.inputValue(),'I can continue typing during voice','voice transcription cannot overwrite typed draft');
+    await input.fill('');
     await page.locator('.thebe-voice-float-toggle').click();
      await page.locator('.thebe-voice-exit').click();
     if(workspace){
