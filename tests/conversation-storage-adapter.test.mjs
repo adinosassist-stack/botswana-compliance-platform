@@ -9,7 +9,7 @@ const message={role:"user",sourceKind:"voice_final",content:"Show sales",idempot
 assert.equal((await appendConversationMessageRehearsal({env,actor,conversation,membership,message,id:()=>"msg1"})).ok,true);
 assert(calls.every(c=>c.args[0]==="A"&&c.args[1]==="thread"));
 assert.equal((await listConversationMessagesRehearsal({env,actor,conversation,membership,limit:999})).ok,true);
-assert.equal(calls.at(-1).args[2],25);
+assert.equal(calls.at(-1).args[2],50);
 const old=calls.length;
 assert.equal((await appendConversationMessageRehearsal({env,actor:{...actor,tenantId:"B"},conversation,membership,message})).ok,false);
 assert.equal(calls.length,old);
