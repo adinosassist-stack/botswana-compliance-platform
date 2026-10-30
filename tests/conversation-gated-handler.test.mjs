@@ -8,5 +8,8 @@ for(const change of [{privacyApproved:false},{migrationQualified:false},{deploym
  const response=await handleGatedConversationRehearsal({...base,...change});assert.equal(response.status,404);
 }
 const response=await handleGatedConversationRehearsal({...base,context:{session:{authenticated:false}}});
-assert.equal(response.status,403);
+assert.equal(response.status,503,"missing staging schema must fail closed before session handling");
+const qualifiedEnv={...env,DB:{prepare(){return {bind(){return {async all(){return {results:[{name:"thebe_conversations_rehearsal"},{name:"thebe_conversation_members_rehearsal"},{name:"thebe_conversation_messages_rehearsal"}]}}}}}}}};
+const denied=await handleGatedConversationRehearsal({...base,env:qualifiedEnv,context:{session:{authenticated:false}}});
+assert.equal(denied.status,403,"qualified schema still denies unauthenticated access");
 console.log("Conversation staging-only handler composition gate PASS");
