@@ -1,0 +1,49 @@
+name: POP staging schema inspection (read-only)
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        required: true
+        description: Exact current main SHA
+        type: string
+permissions:
+  contents: read
+jobs:
+  inspect:
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    concurrency:
+      group: thebe-desk-production
+      cancel-in-progress: false
+    steps:
+      - name: Inspect isolated POP staging schema
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PROD_D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_SHA" == "$EXPECTED_SHA" && "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$PROD_D1_DATABASE_ID" == 8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce ]]
+          [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[a-f0-9]{32}$ && -n "$CLOUDFLARE_API_TOKEN" ]]
+          node --input-type=module <<'NODE'
+          const id='812f9021-890b-41e6-8fa1-6001f90a9b53',account=process.env.CLOUDFLARE_ACCOUNT_ID;
+          if(id===process.env.PROD_D1_DATABASE_ID)throw Error('staging target equals production');
+          const root=`https://api.cloudflare.com/client/v4/accounts/${account}/d1/database/${id}`;
+          const headers={authorization:`Bearer ${process.env.CLOUDFLARE_API_TOKEN}`,accept:'application/json'};
+          const meta=await fetch(root,{headers,method:'GET',redirect:'error',signal:AbortSignal.timeout(15000)});
+          if(!meta.ok)throw Error('staging metadata HTTP '+meta.status);
+          const m=await meta.json();
+          if(m.success!==true||m.result?.name!=='bw-compliance-os-pop-staging'||m.result?.uuid?.toLowerCase()!==id)throw Error('staging identity mismatch');
+          const sql="SELECT name,type FROM sqlite_master WHERE type IN ('table','index') AND name NOT LIKE 'sqlite_%' ORDER BY type,name";
+          const res=await fetch(root+'/query',{headers:{...headers,'content-type':'application/json'},method:'POST',redirect:'error',body:JSON.stringify({sql,params:[]}),signal:AbortSignal.timeout(15000)});
+          if(!res.ok)throw Error('staging SELECT HTTP '+res.status);
+          const body=await res.json();
+          if(body.success!==true||!Array.isArray(body.result)||body.result.some(x=>x.success!==true||!Array.isArray(x.results)))throw Error('invalid SELECT result');
+          const objects=body.result.flatMap(x=>x.results);
+          console.log(JSON.stringify({kind:'pop_staging_schema_readonly',staging_name:m.result.name,staging_uuid:id,objects,object_count:objects.length,production_unchanged:true,staging_mutated:false,restore_tested:false}));
+          NODE

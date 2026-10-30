@@ -1,0 +1,61 @@
+name: POP production D1 Time Travel bookmark (read-only)
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact main SHA for this read-only inspection
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 5
+    concurrency:
+      group: thebe-desk-production
+      cancel-in-progress: false
+    steps:
+      - name: Inspect Time Travel bookmark without mutation
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main ]] || exit 1
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          [[ "$EXPECTED_SHA" == "$GITHUB_SHA" ]] || exit 1
+          [[ "$D1_DATABASE_ID" == "8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce" ]] || exit 1
+          [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[0-9a-f]{32}$ ]] || exit 1
+          [[ -n "$CLOUDFLARE_API_TOKEN" ]] || exit 1
+          node --input-type=module <<'NODE'
+          import {createHash} from 'node:crypto';
+          const id=process.env.D1_DATABASE_ID,account=process.env.CLOUDFLARE_ACCOUNT_ID;
+          const base=`https://api.cloudflare.com/client/v4/accounts/${account}/d1/database/${id}`;
+          const get=async(path)=>{
+            const res=await fetch(base+path,{method:'GET',redirect:'error',signal:AbortSignal.timeout(15000),headers:{Authorization:`Bearer ${process.env.CLOUDFLARE_API_TOKEN}`,Accept:'application/json'}});
+            if(!res.ok)throw Error(`read-only Cloudflare request failed status=${res.status}`);
+            const data=await res.json();
+            if(data.success!==true)throw Error('Cloudflare response unsuccessful');
+            return data.result;
+          };
+          const db=await get('');
+          if(db?.uuid?.toLowerCase()!==id.toLowerCase()||db?.name!=='bw-compliance-os')throw Error('production database identity mismatch');
+          const version=db?.version??'unknown';
+          const result=await get('/time_travel/bookmark');
+          const bookmark=result?.bookmark;
+          if(typeof bookmark!=='string'||!bookmark.length)throw Error('no valid Time Travel bookmark returned');
+          const fingerprint=createHash('sha256').update(bookmark).digest('hex');
+          const status={kind:'production_pop_time_travel_read_only',database_name:db.name,database_uuid:id,backend_version:version,bookmark_present:true,bookmark_sha256:fingerprint,checked_at:new Date().toISOString(),production_write:false,restore_tested:false,backup_restorability_verified:false};
+          console.log(JSON.stringify(status));
+          if(process.env.GITHUB_STEP_SUMMARY) {
+            const {appendFileSync}=await import('node:fs');
+            appendFileSync(process.env.GITHUB_STEP_SUMMARY,'Time Travel bookmark available. Restore NOT tested; staging recovery NOT verified. Bookmark fingerprint: '+fingerprint+'\n');
+          }
+          NODE
