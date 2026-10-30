@@ -7,6 +7,9 @@ const base={request,env,deployment:{environment:"staging",production:false},priv
 for(const change of [{privacyApproved:false},{migrationQualified:false},{deployment:{environment:"production",production:true}},{env:{...env,CONVERSATION_REHEARSAL_ENABLED:"false"}}]){
  const response=await handleGatedConversationRehearsal({...base,...change});assert.equal(response.status,404);
 }
-const response=await handleGatedConversationRehearsal({...base,context:{session:{authenticated:false}}});
+// Once enabled, schema qualification precedes the HTTP authentication boundary.
+assert.equal((await handleGatedConversationRehearsal(base)).status,503);
+const qualified={...env,DB:{prepare(){return {bind(){return {async all(){return {success:true,results:["thebe_conversations_rehearsal","thebe_conversation_members_rehearsal","thebe_conversation_messages_rehearsal"].map(name=>({name}))}}}}}}}};
+const response=await handleGatedConversationRehearsal({...base,env:qualified,context:{session:{authenticated:false}}});
 assert.equal(response.status,403);
 console.log("Conversation staging-only handler composition gate PASS");
