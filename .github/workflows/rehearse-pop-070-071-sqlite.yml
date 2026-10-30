@@ -5,6 +5,9 @@ on:
       - 'cloudflare/migrations/070_payment_pop_documents.sql'
       - 'cloudflare/migrations/071_payment_pop_runtime_compat.sql'
       - 'scripts/rehearse-pop-070-071-sqlite.py'
+      - 'scripts/rehearse-pop-070-071-adversarial.py'
+      - 'scripts/plan-production-pop-070-071.mjs'
+      - 'tests/pop-ordered-preflight.test.mjs'
       - '.github/workflows/rehearse-pop-070-071-sqlite.yml'
   workflow_dispatch:
 permissions:
@@ -16,6 +19,17 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+      - name: Check pinned offline plan and source-drift rejection
+        run: |
+          node scripts/plan-production-pop-070-071.mjs
+          node --test tests/pop-ordered-preflight.test.mjs
       - name: Run offline migration simulation
         run: python3 scripts/rehearse-pop-070-071-sqlite.py
+      - name: Reject interrupted and duplicate 071 replay without changing fixture evidence
+        run: python3 scripts/rehearse-pop-070-071-adversarial.py

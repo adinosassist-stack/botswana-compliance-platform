@@ -1,0 +1,10 @@
+import assert from "node:assert/strict";
+import {inspectConversationStagingSchema as inspect} from "../scripts/inspect-conversation-staging-schema.mjs";
+const id="95c48030-0395-44cb-aa95-622beaf4efdf",accountId="a".repeat(32);
+let called=0;
+const fetcher=async(url,options)=>{called++;assert.equal(options.method,"POST");assert(url.endsWith("/"+id+"/query"));assert.equal(JSON.parse(options.body).sql,"SELECT name FROM sqlite_master WHERE type='table' ORDER BY name");return {ok:true,json:async()=>({success:true,result:[{success:true,results:[{name:"_cf_KV"}]}]})}};
+await assert.rejects(inspect({accountId,token:"synthetic",databaseId:"8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce",fetcher}),/isolated_staging_credentials_required/);
+assert.equal(called,0);
+const result=await inspect({accountId,token:"synthetic",databaseId:id,fetcher});
+assert.equal(result.schemaReady,false);assert(result.missingTables.includes("sessions"));assert.equal(called,1);
+console.log("Read-only conversation staging schema inspector PASS");

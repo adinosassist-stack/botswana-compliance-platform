@@ -43,6 +43,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          node --test tests/api-client-deadline-classification.test.mjs tests/ai-dock-network-diagnostics-1934.test.mjs
           node --check cloudflare/src/client-runtime-identity.js
           node --check cloudflare/src/agentic-entry.js
           node --check cloudflare/src/agentic-live-voice-v270.js

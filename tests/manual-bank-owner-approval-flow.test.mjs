@@ -11,9 +11,9 @@ const to=worker.indexOf('if(url.pathname==="/api/payments/ai-credit-checkout"',f
 assert.ok(from>0&&to>from,'manual-bank approval handler still exists');
 const route='(async()=>{'+worker.slice(from,to)+'return {status:404,body:{error:"unmatched_route"}};})()';
 const sid='11111111-1111-4111-8111-111111111111';
-function fixture({action='approve',confirmed=true,amountMatched=true,transactionMatched=true,role='owner',orderStatus='pending',reviewStatus='submitted',reviewOwner=null,matchingFulfillment=true,settles=true}={}){
+function fixture({action='approve',confirmed=true,amountMatched=true,transactionMatched=true,role='owner',orderStatus='pending',reviewStatus='submitted',reviewOwner=null,matchingFulfillment=true,settles=true,auditFails=false}={}){
   const state={writes:[],settlements:0,audits:0,status:reviewStatus,orderStatus,providerPaymentId:orderStatus==='paid'?'BANK-123':null,matchingFulfillment,settles};
-  const db={prepare(sql){
+  const db={async batch(statements){const results=[];for(const statement of statements)results.push(await statement.run());return results},prepare(sql){
     let args=[];
     return {
       bind(...values){args=values;return this},
@@ -54,7 +54,11 @@ function fixture({action='approve',confirmed=true,amountMatched=true,transaction
       state.orderStatus='paid';state.providerPaymentId='BANK-123';
       return {ok:true,status:'paid'};
     },
-    writeAudit:async()=>{state.audits++},
+    writeAudit:async()=>{if(auditFails)throw Error("audit_write_failed")},
+    appendSealedAuditEvent:async(environment,{mutation,completionReceipt})=>{
+      const [changed]=await environment.DB.batch([mutation,completionReceipt]);state.audits++;
+      return {ok:Number(changed.meta?.changes)===1};
+    },
     id:()=>sid
   });
   return {state,run:()=>vm.runInContext(route,context)};
@@ -136,7 +140,7 @@ test('final approval and failed-settlement reset use reviewer-fenced compare-and
  const successful=fixture();await successful.run();
  const final=successful.state.writes.find(w=>w.sql.includes("status='approved'"));
  assert.ok(final);assert.match(final.sql,/reviewed_by_user_id=\\?/);
- assert.equal(final.args.at(-1),'admin');
+ assert.equal(final.args[4],'admin');
  const failing=fixture({settles:false});await failing.run();
  const reset=failing.state.writes.find(w=>w.sql.includes("status='submitted',reviewed_by_user_id=NULL"));
  assert.ok(reset);assert.match(reset.sql,/reviewed_by_user_id=\\?/);
@@ -149,4 +153,11 @@ test('bank amount and bank transaction must each be explicitly reconciled before
   assert.equal(r.status,400);assert.equal(r.body.error,error);
   assert.equal(f.state.settlements,0);assert.equal(f.state.writes.length,0);
  }
+});
+
+test('audit refusal cannot leave a newly approved payment review',async()=>{
+ const f=fixture({auditFails:true});
+ await assert.rejects(f.run(),/audit_write_failed/);
+ assert.notEqual(f.state.status,'approved');
+ assert.equal(f.state.settlements,0,'audit unavailability must be detected before settlement');
 });

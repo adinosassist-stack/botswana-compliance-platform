@@ -27,7 +27,7 @@ try{
     await page.route('http://localhost/**',route=>{
       const pathname=new URL(route.request().url()).pathname;
       if(pathname==='/'){
-        const document=workspace?fixture:fixture.replace('id="marketingGate" class="hidden" style="display:none"','id="marketingGate"').replace('id="appShell" class="shell"','id="appShell" class="shell hidden" style="display:none"');
+        const document=workspace?fixture:fixture.replace('id="marketingGate" class="hidden" style="display:none"','id="marketingGate"').replace('id="appShell" class="shell"','id="appShell" class="shell hidden" style="display:none;visibility:hidden"');
         return route.fulfill({contentType:'text/html',body:document});
       }
       if(pathname.endsWith('.js')&&!pathname.includes('thebe-live-voice')&&!pathname.includes('thebe-dock-recovery-geometry-v269'))return route.fulfill({contentType:'application/javascript',body:''});
@@ -50,6 +50,27 @@ try{
       assert.equal(await presets.isVisible(),false,'workspace dock must not show preset question tiles');
       assert(await input.isVisible(),'workspace composer remains available without presets');
     }
+    // Exercise both actual surfaces before the later privacy-reset scenario exits Workspace.
+    const unsentDraft='Draft must survive mobile viewport and keyboard changes';
+    await input.fill(unsentDraft);
+    for(const [width,height] of [[320,900],[360,900],[390,900],[390,430],[768,900],[1100,900],[1440,960]]){
+      await page.setViewportSize({width,height});
+      await page.waitForFunction(({width,height})=>innerWidth===width&&innerHeight===height,{width,height});
+      // Let the resize listener apply its intentional desktop-to-mobile collapse.
+      await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+      if(await dock.isHidden())await page.locator('#thebeAiDockPill').click();
+      await dock.waitFor({state:'visible'});
+      assert.equal(await input.inputValue(),unsentDraft,'same-surface resize preserves draft');
+      assert.equal(await page.evaluate(()=>window.ThebeAiDock.state().workspaceVisible),workspace,'resize preserves surface identity');
+      for(const control of [dock.locator('.thebe-ai-compose'),input,send]){
+        await control.waitFor({state:'visible'});
+        const bounds=await control.evaluate(el=>{const r=el.getBoundingClientRect();return {control:el.className,left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth,height:innerHeight,dock:window.ThebeAiDock.state(),display:getComputedStyle(el).display,dockDisplay:getComputedStyle(document.querySelector("#thebeAiDock")).display}});
+        assert(bounds.left>=-1&&bounds.right<=bounds.width+1,'composer controls stay horizontally within viewport');
+        assert(bounds.bottom>bounds.top,'composer controls retain hit targets: '+JSON.stringify({workspace,width,height,bounds}));
+        assert(bounds.top>=-1&&bounds.bottom<=bounds.height+1,'composer controls remain vertically accessible: '+JSON.stringify({workspace,width,height,bounds}));
+      }
+    }
+    await input.fill('');
     assert(await audio.isVisible(),'idle voice is available');assert(await send.isHidden(),'idle send hidden');
     assert.equal(await plus.isVisible(),workspace,'files restricted to workspace');
     await input.fill('a');assert(await send.isVisible(),'one character offers send');assert(await audio.isHidden());
@@ -58,7 +79,20 @@ try{
     await audio.click();await page.locator('#thebeVoiceScreen').waitFor({state:'visible'});
     await page.waitForFunction(()=>window.voiceStarts.length===1);
     assert.equal(await page.evaluate(()=>voiceStarts[0].mode),workspace?'workspace':'marketing');
-    await page.locator('.thebe-voice-exit').click();
+    await input.fill('I can continue typing during voice');
+    await page.evaluate(()=>{
+      dispatchEvent(new CustomEvent('thebe-live-event',{detail:{event:{type:'conversation.item.input_audio_transcription.delta',delta:'Show my open invoices'}}}));
+      dispatchEvent(new CustomEvent('thebe-live-event',{detail:{event:{type:'response.output_audio_transcript.delta',delta:'Here are your outstanding invoices'}}}));
+    });
+    const activity=dock.locator('.thebe-ai-voice-chat-activity');
+    await activity.waitFor({state:'visible'});
+    assert((await activity.innerText()).includes('Show my open invoices'),'user speech appears in dock');
+    assert((await activity.innerText()).includes('Here are your outstanding invoices'),'assistant speech appears in dock');
+    assert.equal(await input.inputValue(),'I can continue typing during voice','voice cannot overwrite typed draft');
+    assert(await page.locator('#thebeVoiceScreen').isVisible(),'voice remains active while typing');
+    await input.fill('');
+    await page.locator('.thebe-voice-float-toggle').click();
+     await page.locator('.thebe-voice-exit').click();
     if(workspace){
       const resize=dock.locator('.thebe-workspace-dock-resize-handle');
       await resize.waitFor({state:'visible'});
@@ -99,11 +133,11 @@ try{
       await page.waitForFunction(()=>!window.ThebeAiDock.state().textBusy);
       assert(await dock.locator('.thebe-ai-attachments').isHidden(),'successful review clears files');assert(await audio.isVisible());
       await dock.locator('input[type=file]').setInputFiles(file);
-      await page.evaluate(()=>{document.querySelector('#appShell').style.display='none';document.querySelector('#marketingGate').style.display='block';document.querySelector('#marketingGate').classList.remove('hidden')});
+      await page.evaluate(()=>{document.querySelector('#appShell').style.display='none';document.querySelector('#appShell').style.visibility='hidden';document.querySelector('#marketingGate').style.display='block';document.querySelector('#marketingGate').classList.remove('hidden')});
       await page.waitForFunction(()=>!window.ThebeAiDock.state().workspaceVisible);
       assert(await dock.locator('.thebe-ai-quick').isVisible(),'public shortcuts return after workspace exit');
       assert(await dock.locator('.thebe-ai-attachments').isHidden(),'leaving workspace clears files');assert(await plus.isHidden());
-      await page.evaluate(()=>{document.querySelector('#appShell').style.display='';document.querySelector('#marketingGate').style.display='none';document.querySelector('#marketingGate').classList.add('hidden')});
+      await page.evaluate(()=>{document.querySelector('#appShell').style.display='';document.querySelector('#appShell').style.visibility='visible';document.querySelector('#marketingGate').style.display='none';document.querySelector('#marketingGate').classList.add('hidden')});
       await page.waitForFunction(()=>window.ThebeAiDock.state().workspaceVisible);
       if(await dock.isHidden())await page.locator('#thebeAiDockPill').click();
       await page.evaluate(()=>{window.apiJson=async()=>{throw new Error('Connection lost')}});
@@ -116,24 +150,46 @@ try{
       await page.waitForFunction(()=>window.ThebeAiDock.state().textBusy);
       for(let i=0;i<100&&!captured;i++)await page.waitForTimeout(20);
       assert(captured,'text-only request started');
-      await page.evaluate(()=>{document.querySelector('#appShell').style.display='none';document.querySelector('#marketingGate').style.display='block';document.querySelector('#marketingGate').classList.remove('hidden')});
+      await page.evaluate(()=>{document.querySelector('#appShell').style.display='none';document.querySelector('#appShell').style.visibility='hidden';document.querySelector('#marketingGate').style.display='block';document.querySelector('#marketingGate').classList.remove('hidden')});
       await page.waitForFunction(()=>!window.ThebeAiDock.state().workspaceVisible);
       assert.equal(await page.evaluate(()=>window.ThebeAiDock.state().textBusy),false,'leaving the workspace cancels text-only requests');
       resolveReview({summary:'Private late response must be discarded',references:[],priorities:[]});
       await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
       assert(!(await dock.innerText()).includes('Private late response'),'late private response cannot appear on public surface');
+      // Explicit auth-surface state must win even if responsive CSS renders the shell.
+      for(const hiddenState of ['hidden','class']){
+        await page.evaluate(()=>{
+          const shell=document.querySelector('#appShell'),market=document.querySelector('#marketingGate');
+          shell.hidden=false;shell.classList.remove('hidden');
+          shell.style.setProperty('display','grid','important');shell.style.setProperty('visibility','visible','important');
+          market.style.display='none';market.classList.add('hidden');
+        });
+        await page.waitForFunction(()=>window.ThebeAiDock.state().workspaceVisible);
+        if(await dock.isHidden())await page.locator('#thebeAiDockPill').click();
+        await input.fill('Private draft before explicit workspace exit');
+        await page.evaluate(state=>{
+          const shell=document.querySelector('#appShell'),market=document.querySelector('#marketingGate');
+          market.style.display='block';market.classList.remove('hidden');
+          if(state==='hidden')shell.hidden=true;else shell.classList.add('hidden');
+        },hiddenState);
+        await page.waitForFunction(()=>!window.ThebeAiDock.state().workspaceVisible,null,{timeout:5000});
+        assert.equal(await input.inputValue(),'','explicit workspace exit clears the private draft');
+        assert(await plus.isHidden(),'explicit workspace exit removes private attachment controls');
+      }
     }else{
       await input.fill('What does Thebe cost?');await send.click();
       assert((await dock.innerText()).match(/pricing|price|plan/i),'public question returns a useful answer');
       assert.equal(captured,null,'public never calls private advisor');
     }
-    for(const width of [390,768,1100,1440]){
-      await page.setViewportSize({width,height:900});
-      await page.waitForTimeout(100);
+    if(!workspace){
+      // Intentional mobile background concealment is not a surface exit; auth navigation is.
+      await page.setViewportSize({width:390,height:900});
+      await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
       if(await dock.isHidden())await page.locator('#thebeAiDockPill').click();
       await dock.waitFor({state:'visible'});
-      const geometry=await dock.locator('.thebe-ai-compose').evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:innerWidth}});
-      assert(geometry.left>=-1&&geometry.right<=geometry.width+1,'composer stays within viewport');
+      await page.evaluate(()=>document.querySelector('#marketingGate').classList.add('hidden'));
+      await dock.waitFor({state:'hidden'});
+      assert(await page.locator('#thebeAiDockPill').isHidden(),'leaving Market hides its launcher too');
     }
     assert.deepEqual(errors,[]);await page.close();
   }

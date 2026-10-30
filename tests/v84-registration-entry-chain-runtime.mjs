@@ -89,9 +89,10 @@ const registrationBody={
   plan:"business",
   turnstileToken:proof
 };
+let conversionId="new-registration-1234567890";
 const registerRequest=()=>new Request(`${origin}/api/auth/register`,{
   method:"POST",
-  headers:{"content-type":"application/json","origin":origin,"cf-connecting-ip":ip},
+  headers:{"content-type":"application/json","origin":origin,"cf-connecting-ip":ip,cookie:`thebe_cv=${conversionId}`},
   body:JSON.stringify(registrationBody)
 });
 
@@ -102,11 +103,37 @@ assert.equal(registrationPayload.ok,true);
 assert.equal(sqlite.prepare("SELECT count(*) count FROM users WHERE email=?").get(registrationBody.email).count,1);
 assert.equal(sqlite.prepare("SELECT count(*) count FROM memberships WHERE user_id=(SELECT id FROM users WHERE email=?) AND role='owner' AND status='active'").get(registrationBody.email).count,1);
 assert.equal(sqlite.prepare("SELECT count(*) count FROM auth_rate_limits WHERE scope='registration_proof_replay'").get().count,1,"proof nonce must be claimed exactly once");
+assert.equal(sqlite.prepare("SELECT count(*) n FROM audit_events WHERE event_type='MARKETING_REGISTRATION_SUCCESS' AND entity_id=?").get(conversionId).n,1,"the full server chain records a committed new registration");
 
 const replayResponse=await releaseEntry.fetch(registerRequest(),env,ctx);
 assert.equal(replayResponse.status,403,"the same one-time proof must still be rejected on replay");
 const replayPayload=await replayResponse.json();
 assert.equal(replayPayload.error,"registration_protection_failed");
 assert.equal(sqlite.prepare("SELECT count(*) count FROM users WHERE email=?").get(registrationBody.email).count,1);
+
+async function freshProof(){
+  const response=await releaseEntry.fetch(new Request(`${origin}/api/auth/registration-proof/challenge`,{
+    method:"POST",headers:{"content-type":"application/json",origin,"cf-connecting-ip":ip},body:"{}"
+  }),env,ctx);
+  assert.equal(response.status,200);
+  const challenge=await response.json();
+  return JSON.stringify({challenge:challenge.token,counter:await solve(challenge.token,challenge.difficulty),honeypot:""});
+}
+registrationBody.turnstileToken=await freshProof();
+conversionId="existing-registration-1234567890";
+const existingResponse=await releaseEntry.fetch(registerRequest(),env,ctx);
+assert.equal(existingResponse.status,202);
+assert.deepEqual(await existingResponse.json(),registrationPayload,"existing and new accounts retain the same public response");
+assert.equal(sqlite.prepare("SELECT count(*) n FROM audit_events WHERE event_type='MARKETING_REGISTRATION_SUCCESS' AND entity_id=?").get(conversionId).n,0,"existing-account acceptance is not counted as a new signup");
+
+sqlite.exec("CREATE TRIGGER registration_test_failure BEFORE INSERT ON subscriptions BEGIN SELECT RAISE(ABORT,'constraint simulated'); END;");
+registrationBody.email="rollback-registration@example.invalid";
+registrationBody.turnstileToken=await freshProof();
+conversionId="rollback-registration-1234567890";
+const rollbackResponse=await releaseEntry.fetch(registerRequest(),env,ctx);
+assert.equal(rollbackResponse.status,202);
+assert.deepEqual(await rollbackResponse.json(),registrationPayload,"constraint failures keep the enumeration-safe response");
+assert.equal(sqlite.prepare("SELECT count(*) n FROM users WHERE email=?").get(registrationBody.email).n,0,"account creation rolled back");
+assert.equal(sqlite.prepare("SELECT count(*) n FROM audit_events WHERE event_type='MARKETING_REGISTRATION_SUCCESS' AND entity_id=?").get(conversionId).n,0,"a rolled-back registration must never emit success");
 
 console.log("V84 full registration entry-chain single-consumption runtime: PASS");

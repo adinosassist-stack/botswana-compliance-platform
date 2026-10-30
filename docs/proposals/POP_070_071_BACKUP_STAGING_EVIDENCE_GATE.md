@@ -17,6 +17,16 @@ This checklist is a **hold point**, not authorization to migrate production. Nev
 If any item is unknown or unverified, **STOP**. Do not represent a proposed backup as completed.
 
 ## Production-compatible staging rehearsal — mandatory
+Repository-only pre-070 candidate preparation is available with
+`python3 scripts/prepare-pop-pre070-baseline.py` (manifest) or `--schema`
+(candidate SQL). It removes only the byte-identical embedded 070 from the
+checksum-pinned consolidated schema, preserving unrelated schema and seed SQL.
+Offline tests verify complete schema/seed equivalence after reapplying 070,
+ordered 071, fixture survival, FK integrity, source-drift rejection and unsafe
+071 replay rejection. This candidate is **not a production snapshot**. Compare
+it independently against the current production schema before accepting it as
+the staging baseline. No remote initialization or execution authority is granted.
+
 1. Use a distinct, isolated staging D1 database with explicit name/UUID. Confirm it is NOT the production UUID.
 2. Build schema from reviewed production-compatible baseline; verify tenant/payment_orders/manual_payment_submissions columns, indexes, FKs and existing objects.
 3. Apply exact checksum-pinned migration 070 then 071 only on that isolated staging target.
