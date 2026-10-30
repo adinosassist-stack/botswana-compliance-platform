@@ -27,7 +27,7 @@ try{
     await page.route('http://localhost/**',route=>{
       const pathname=new URL(route.request().url()).pathname;
       if(pathname==='/'){
-        const document=workspace?fixture:fixture.replace('id="marketingGate" class="hidden" style="display:none"','id="marketingGate"').replace('id="appShell" class="shell"','id="appShell" class="shell hidden" style="display:none"');
+        const document=workspace?fixture:fixture.replace('id="marketingGate" class="hidden" style="display:none"','id="marketingGate"').replace('id="appShell" class="shell"','id="appShell" class="shell hidden" style="display:none;visibility:hidden"');
         return route.fulfill({contentType:'text/html',body:document});
       }
       if(pathname.endsWith('.js')&&!pathname.includes('thebe-live-voice')&&!pathname.includes('thebe-dock-recovery-geometry-v269'))return route.fulfill({contentType:'application/javascript',body:''});
@@ -131,11 +131,11 @@ try{
       await page.waitForFunction(()=>!window.ThebeAiDock.state().textBusy);
       assert(await dock.locator('.thebe-ai-attachments').isHidden(),'successful review clears files');assert(await audio.isVisible());
       await dock.locator('input[type=file]').setInputFiles(file);
-      await page.evaluate(()=>{document.querySelector('#appShell').style.display='none';document.querySelector('#marketingGate').style.display='block';document.querySelector('#marketingGate').classList.remove('hidden')});
+      await page.evaluate(()=>{document.querySelector('#appShell').style.display='none';document.querySelector('#appShell').style.visibility='hidden';document.querySelector('#marketingGate').style.display='block';document.querySelector('#marketingGate').classList.remove('hidden')});
       await page.waitForFunction(()=>!window.ThebeAiDock.state().workspaceVisible);
       assert(await dock.locator('.thebe-ai-quick').isVisible(),'public shortcuts return after workspace exit');
       assert(await dock.locator('.thebe-ai-attachments').isHidden(),'leaving workspace clears files');assert(await plus.isHidden());
-      await page.evaluate(()=>{document.querySelector('#appShell').style.display='';document.querySelector('#marketingGate').style.display='none';document.querySelector('#marketingGate').classList.add('hidden')});
+      await page.evaluate(()=>{document.querySelector('#appShell').style.display='';document.querySelector('#appShell').style.visibility='visible';document.querySelector('#marketingGate').style.display='none';document.querySelector('#marketingGate').classList.add('hidden')});
       await page.waitForFunction(()=>window.ThebeAiDock.state().workspaceVisible);
       if(await dock.isHidden())await page.locator('#thebeAiDockPill').click();
       await page.evaluate(()=>{window.apiJson=async()=>{throw new Error('Connection lost')}});
@@ -148,7 +148,7 @@ try{
       await page.waitForFunction(()=>window.ThebeAiDock.state().textBusy);
       for(let i=0;i<100&&!captured;i++)await page.waitForTimeout(20);
       assert(captured,'text-only request started');
-      await page.evaluate(()=>{document.querySelector('#appShell').style.display='none';document.querySelector('#marketingGate').style.display='block';document.querySelector('#marketingGate').classList.remove('hidden')});
+      await page.evaluate(()=>{document.querySelector('#appShell').style.display='none';document.querySelector('#appShell').style.visibility='hidden';document.querySelector('#marketingGate').style.display='block';document.querySelector('#marketingGate').classList.remove('hidden')});
       await page.waitForFunction(()=>!window.ThebeAiDock.state().workspaceVisible);
       assert.equal(await page.evaluate(()=>window.ThebeAiDock.state().textBusy),false,'leaving the workspace cancels text-only requests');
       resolveReview({summary:'Private late response must be discarded',references:[],priorities:[]});
