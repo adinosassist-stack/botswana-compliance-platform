@@ -1,0 +1,39 @@
+name: Conversation storage rehearsal checks
+on:
+  pull_request:
+    paths:
+      - "cloudflare/src/conversation-*.js"
+      - "docs/rehearsals/conversation-storage-schema.sql"
+      - "tests/conversation-*.mjs"
+      - "tests/conversation-*.py"
+      - ".github/workflows/conversation-rehearsal-checks.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  conversation-rehearsal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify conversation access and cursor tests
+        run: |
+          node tests/conversation-access-policy.test.mjs
+          node tests/conversation-storage-adapter.test.mjs
+          node tests/conversation-atomic-idempotency.test.mjs
+          node tests/conversation-failure-isolation.test.mjs
+          node tests/conversation-session-boundary.test.mjs
+          node tests/conversation-cursor.test.mjs
+          node tests/conversation-page-reauthorization.test.mjs
+          node tests/conversation-page-reader.test.mjs
+      - name: Verify real SQLite rehearsal
+        run: |
+          python tests/conversation-sqlite-rehearsal.py
+          python tests/conversation-sqlite-concurrent-writers.py
+          python tests/conversation-sqlite-keyset-pagination.py
