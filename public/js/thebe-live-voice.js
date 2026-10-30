@@ -739,7 +739,10 @@
     const gate=document.getElementById("marketingGate");
     if(!gate)return false;
     const style=getComputedStyle(gate);
-    return !gate.classList.contains("hidden")&&style.display!=="none"&&style.visibility!=="hidden";
+    // Mobile dock CSS deliberately conceals the underlying Market surface.
+    // That presentation state must not make the dock hide its own surface.
+    const concealedByDock=mobileDockMode()&&document.body.classList.contains("thebe-ai-mobile-open")&&dock?.dataset.surface==="public"&&gate.style.visibility!=="hidden";
+    return !gate.hidden&&!gate.classList.contains("hidden")&&style.display!=="none"&&(style.visibility!=="hidden"||concealedByDock);
   }
   function surfaceMode(){
     if(shellVisible())return "workspace";

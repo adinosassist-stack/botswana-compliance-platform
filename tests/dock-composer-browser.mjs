@@ -64,7 +64,7 @@ try{
       assert.equal(await page.evaluate(()=>window.ThebeAiDock.state().workspaceVisible),workspace,'resize preserves surface identity');
       for(const control of [dock.locator('.thebe-ai-compose'),input,send]){
         await control.waitFor({state:'visible'});
-        const bounds=await control.evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth,height:innerHeight}});
+        const bounds=await control.evaluate(el=>{const r=el.getBoundingClientRect();return {control:el.className,left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth,height:innerHeight,dock:window.ThebeAiDock.state(),display:getComputedStyle(el).display,dockDisplay:getComputedStyle(document.querySelector("#thebeAiDock")).display}});
         assert(bounds.left>=-1&&bounds.right<=bounds.width+1,'composer controls stay horizontally within viewport');
         assert(bounds.bottom>bounds.top,'composer controls retain hit targets: '+JSON.stringify({workspace,width,height,bounds}));
         assert(bounds.top>=-1&&bounds.bottom<=bounds.height+1,'composer controls remain vertically accessible: '+JSON.stringify({workspace,width,height,bounds}));
@@ -160,6 +160,16 @@ try{
       await input.fill('What does Thebe cost?');await send.click();
       assert((await dock.innerText()).match(/pricing|price|plan/i),'public question returns a useful answer');
       assert.equal(captured,null,'public never calls private advisor');
+    }
+    if(!workspace){
+      // Intentional mobile background concealment is not a surface exit; auth navigation is.
+      await page.setViewportSize({width:390,height:900});
+      await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+      if(await dock.isHidden())await page.locator('#thebeAiDockPill').click();
+      await dock.waitFor({state:'visible'});
+      await page.evaluate(()=>document.querySelector('#marketingGate').classList.add('hidden'));
+      await dock.waitFor({state:'hidden'});
+      assert(await page.locator('#thebeAiDockPill').isHidden(),'leaving Market hides its launcher too');
     }
     assert.deepEqual(errors,[]);await page.close();
   }
