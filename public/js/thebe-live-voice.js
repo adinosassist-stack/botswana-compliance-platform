@@ -1034,7 +1034,60 @@
     if(phase==="error")return "error";
     return "idle";
   }
+  function mountFloatingVoiceStyles(){
+    if(document.getElementById("thebeFloatingVoiceStyle"))return;
+    const style=document.createElement("style");style.id="thebeFloatingVoiceStyle";
+    style.textContent=`
+html body dialog#thebeVoiceScreen[open]{
+ position:fixed!important;inset:auto 18px 92px auto!important;
+ width:180px!important;height:auto!important;min-width:0!important;max-width:calc(100vw - 24px)!important;
+ min-height:0!important;max-height:calc(100dvh - 110px)!important;
+ margin:0!important;padding:12px!important;z-index:990!important;
+ display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:center!important;
+ gap:8px!important;overflow:visible!important;
+ border:1px solid rgba(123,176,230,.48)!important;border-radius:22px!important;
+ background:#141d2b!important;box-shadow:0 12px 45px #0008!important;
+ color:#f6fbff!important;
+}
+html body dialog#thebeVoiceScreen h2,html body dialog#thebeVoiceScreen .thebe-voice-context{display:none!important}
+html body dialog#thebeVoiceScreen .thebe-voice-float-toggle{
+ display:grid!important;place-items:center!important;border:0!important;background:transparent!important;
+ width:112px!important;height:112px!important;padding:0!important;margin:0!important;
+ cursor:pointer!important;border-radius:50%!important;
+}
+html body dialog#thebeVoiceScreen .thebe-voice-sphere{
+ display:block!important;position:relative!important;width:104px!important;height:104px!important;
+ min-width:104px!important;max-width:104px!important;min-height:104px!important;max-height:104px!important;
+ margin:0!important;aspect-ratio:1!important;border-radius:50%!important;
+ background:radial-gradient(circle at 32% 27%,#dff8ff 0%,#91d9ff 24%,#2a93f5 54%,#08409b 82%)!important;
+ box-shadow:inset 0 0 16px #d2faff99,0 0 25px #2786ff88!important;
+ animation:thebe-voice-breathe 3s ease-in-out infinite!important;
+}
+html body dialog#thebeVoiceScreen .thebe-voice-sphere[data-phase="listening"],
+html body dialog#thebeVoiceScreen .thebe-voice-sphere[data-phase="speaking"]{animation-duration:1.2s!important}
+html body dialog#thebeVoiceScreen .thebe-voice-screen-status{
+ display:block!important;font-size:11px!important;line-height:1.3!important;text-align:center!important;
+ margin:0!important;max-width:150px!important;color:#d9efff!important
+}
+html body dialog#thebeVoiceScreen .thebe-voice-screen-transcript{display:none!important}
+html body dialog#thebeVoiceScreen .thebe-voice-screen-controls[hidden]{display:none!important}
+html body dialog#thebeVoiceScreen .thebe-voice-screen-controls:not([hidden]){
+ display:flex!important;flex-direction:column!important;gap:6px!important;width:100%!important
+}
+html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
+ width:100%!important;min-height:38px!important;font-size:12px!important
+}
+@media(max-width:600px){
+ html body dialog#thebeVoiceScreen[open]{right:12px!important;bottom:calc(118px + env(safe-area-inset-bottom))!important;width:144px!important;padding:9px!important}
+ html body dialog#thebeVoiceScreen .thebe-voice-float-toggle{width:92px!important;height:92px!important}
+ html body dialog#thebeVoiceScreen .thebe-voice-sphere{width:86px!important;height:86px!important;min-width:86px!important;min-height:86px!important;max-width:86px!important;max-height:86px!important}
+}
+@media(prefers-reduced-motion:reduce){html body dialog#thebeVoiceScreen .thebe-voice-sphere{animation:none!important}}
+`;
+    document.head.append(style);
+  }
   function openVoiceScreen(){
+    mountFloatingVoiceStyles();
     if(!voiceScreen){
       voiceScreen=el("dialog","thebe-voice-screen");voiceScreen.id="thebeVoiceScreen";
       voiceScreen.setAttribute("aria-labelledby","thebeVoiceScreenTitle");
@@ -1043,11 +1096,19 @@
       voiceScreenOrb=el("div","thebe-voice-sphere");voiceScreenOrb.setAttribute("aria-hidden","true");
       voiceScreenStatus=el("p","thebe-voice-screen-status","Connecting…");voiceScreenStatus.setAttribute("role","status");voiceScreenTranscript=el("div","thebe-voice-screen-transcript");voiceScreenTranscript.hidden=true;voiceScreenTranscript.setAttribute("aria-live","polite");
       const controls=el("div","thebe-voice-screen-controls");
+      controls.id="thebeVoiceMiniControls";
+      controls.hidden=true;
+      const toggle=el("button","thebe-voice-float-toggle");
+      toggle.type="button";toggle.setAttribute("aria-label","Voice options");
+      toggle.setAttribute("aria-expanded","false");toggle.setAttribute("aria-controls",controls.id);
+      toggle.title="Voice options";
+      toggle.addEventListener("click",()=>{controls.hidden=!controls.hidden;toggle.setAttribute("aria-expanded",String(!controls.hidden))});
+      toggle.append(voiceScreenOrb);
       const mute=el("button","","Mute microphone");mute.type="button";mute.setAttribute("aria-pressed","false");
       mute.addEventListener("click",()=>{const muted=mute.getAttribute("aria-pressed")!=="true";global.ThebeLiveVoice?.setMuted?.(muted);mute.setAttribute("aria-pressed",String(muted));mute.textContent=muted?"Unmute microphone":"Mute microphone"});
-      const exit=el("button","thebe-voice-exit","End voice");exit.type="button";exit.autofocus=true;
+      const exit=el("button","thebe-voice-exit","End voice");exit.type="button";exit.autofocus=false;
       exit.addEventListener("click",()=>closeVoiceScreen(true));
-      controls.append(mute,exit);voiceScreen.append(title,context,voiceScreenOrb,voiceScreenStatus,voiceScreenTranscript,controls);
+      controls.append(mute,exit);voiceScreen.append(title,context,toggle,voiceScreenStatus,voiceScreenTranscript,controls);
       voiceScreen.addEventListener("cancel",event=>{event.preventDefault();closeVoiceScreen(true)});
       voiceScreen.addEventListener("keydown",event=>{
         if(event.key!=="Tab")return;
@@ -1062,7 +1123,9 @@
       voiceReturnFocus=document.activeElement;
       voiceScreen.querySelector('.thebe-voice-context').textContent=shellVisible()?"Same Thebe AI · current workspace context":"Thebe Desk · public voice sample · no workspace data";
       const mute=voiceScreen.querySelector('[aria-pressed]');mute.setAttribute("aria-pressed","false");mute.textContent="Mute microphone";
-      voiceScreen.showModal();document.body.classList.add("thebe-voice-active");
+      voiceScreen.show();
+      // Keep the composer editable while the voice session remains live.
+      if(voiceReturnFocus?.isConnected)voiceReturnFocus.focus({preventScroll:true});
     }
   }
   function closeVoiceScreen(stopSession=false){
@@ -1074,6 +1137,7 @@
   function setPhase(phase,label,sub){
     voicePhase=phase||"idle";
     if(voiceScreenOrb)voiceScreenOrb.dataset.phase=voicePhase;
+    syncVoiceChatActivity();
     if(voiceScreenStatus)voiceScreenStatus.textContent=label||"Talk to Thebe";
     if(orb){
       orb.dataset.phase=voicePhase;
@@ -1096,9 +1160,22 @@
     if(mascot)mascot.dataset.attention=count?"true":"false";
     if(dock)dock.dataset.agentAttention=count?"true":"false";
   }
+  let voiceChatActivity=null;
+  function syncVoiceChatActivity(){
+    if(!voiceChatActivity)return;
+    const active=["connecting","ready","listening","thinking","speaking"].includes(voicePhase);
+    voiceChatActivity.hidden=!active&&!voiceInput&&!voiceOutput;
+    if(voiceChatActivity.hidden)return;
+    voiceChatActivity.replaceChildren();
+    const heading=el("div","thebe-ai-voice-activity-heading","Voice conversation · "+(voicePhase==="listening"?"Listening":voicePhase==="thinking"?"Thinking":voicePhase==="speaking"?"Speaking":voicePhase==="connecting"?"Connecting":"Connected"));
+    voiceChatActivity.append(heading);
+    if(voiceInput){const line=el("div","thebe-ai-live-line");line.append(el("b","","You"),document.createTextNode(clean(voiceInput,600)));voiceChatActivity.append(line)}
+    if(voiceOutput){const line=el("div","thebe-ai-live-line");line.append(el("b","","Thebe"),document.createTextNode(clean(voiceOutput,600)));voiceChatActivity.append(line)}
+  }
   function renderVoiceTranscript(){
     const user=clean(voiceInput,360),assistant=clean(voiceOutput,360);
     if(voiceScreenTranscript){voiceScreenTranscript.replaceChildren();voiceScreenTranscript.hidden=!user&&!assistant;if(user){const line=el("div","thebe-voice-caption");line.append(el("b","","You"),el("span","",user));voiceScreenTranscript.append(line)}if(assistant){const line=el("div","thebe-voice-caption");line.append(el("b","","Thebe"),el("span","",assistant));voiceScreenTranscript.append(line)}}
+    syncVoiceChatActivity();
     if(!transcriptBox)return;
     transcriptBox.replaceChildren();
     if(!user&&!assistant){transcriptBox.hidden=true;return}
@@ -1732,7 +1809,8 @@
 
     responseBox=el("div","thebe-ai-response");responseBox.id="thebeAiDockResponse";responseBox.setAttribute("role","status");responseBox.setAttribute("aria-live","polite");responseBox.setAttribute("aria-busy","false");responseMessage("Ready when you are. Ask about this screen, request a brief, or choose a priority action.");
 
-    scroll.append(contextBar,modeRail,voiceCard,quick,responseBox);
+    voiceChatActivity=el("div","thebe-ai-voice-chat-activity");voiceChatActivity.hidden=true;voiceChatActivity.setAttribute("role","status");voiceChatActivity.setAttribute("aria-live","polite");
+    scroll.append(contextBar,modeRail,voiceCard,quick,voiceChatActivity,responseBox);
 
     latestResponseButton=el("button","thebe-ai-latest-response","Latest response ↓");
     latestResponseButton.type="button";
