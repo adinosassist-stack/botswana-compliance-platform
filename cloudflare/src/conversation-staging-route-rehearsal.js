@@ -16,6 +16,15 @@ export function createConversationStagingRoute(resolveAuthenticatedContext){
    const match=/^\/api\/conversation-staging\/threads\/([A-Za-z0-9_-]{1,128})\/messages$/.exec(url.pathname);
    if(!match)return fail(404,"not_found");
    if(!["GET","POST"].includes(request.method))return fail(405,"method_not_allowed");
+   // Do not trust a binding alias or configured UUID alone: a provisioned
+   // marker inside the isolated D1 must match the known staging identity.
+   const stagingId="95c48030-0395-44cb-aa95-622beaf4efdf";
+   if(env.CONVERSATION_STAGING_D1_ID!==stagingId||!env.DB?.prepare)
+      return fail(503,"staging_database_identity_required");
+   try{
+     const marker=await env.DB.prepare("SELECT COUNT(*) AS marker_count, MIN(database_uuid) AS database_uuid FROM thebe_conversation_staging_identity").first();
+     if(Number(marker?.marker_count)!==1||marker?.database_uuid!==stagingId)return fail(503,"staging_database_identity_required");
+   }catch{return fail(503,"staging_database_identity_required")}
    const result=await conversationStagingGateway({
      request,env,threadId:match[1],resolveAuthenticatedContext
    });
