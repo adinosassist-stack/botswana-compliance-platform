@@ -37,5 +37,22 @@ with tempfile.TemporaryDirectory() as temp:
     assert db.execute("SELECT COUNT(*) FROM thebe_conversation_messages_rehearsal").fetchone()[0]==1
     rows=db.execute("SELECT tenant_id,conversation_id,content_redacted FROM thebe_conversation_messages_rehearsal").fetchall()
     assert rows==[("A","chat","Show invoices")]
+    # Same key with changed content must not silently overwrite the first turn.
+    conflict=db.execute(
+        "INSERT INTO thebe_conversation_messages_rehearsal "
+        "(tenant_id,conversation_id,id,role,source_kind,content_redacted,idempotency_key) "
+        "VALUES (?,?,?,?,?,?,?) ON CONFLICT(tenant_id,conversation_id,idempotency_key) DO NOTHING",
+        ("A","chat","conflict","user","voice_final","Different request","same-final-event"))
+    assert conflict.rowcount==0
+    assert db.execute("SELECT content_redacted FROM thebe_conversation_messages_rehearsal WHERE tenant_id='A' AND conversation_id='chat'").fetchone()[0]=="Show invoices"
+    # The same idempotency key in a separate tenant must remain independently scoped.
+    db.execute("INSERT INTO thebe_conversations_rehearsal(tenant_id,id,created_by_user_id) VALUES ('B','chat','ownerB')")
+    other=db.execute(
+        "INSERT INTO thebe_conversation_messages_rehearsal "
+        "(tenant_id,conversation_id,id,role,source_kind,content_redacted,idempotency_key) "
+        "VALUES (?,?,?,?,?,?,?) ON CONFLICT(tenant_id,conversation_id,idempotency_key) DO NOTHING",
+        ("B","chat","other","user","voice_final","Tenant B request","same-final-event"))
+    assert other.rowcount==1
+    assert db.execute("SELECT COUNT(*) FROM thebe_conversation_messages_rehearsal").fetchone()[0]==2
     db.close()
-print("Actual SQLite concurrent idempotent insert: PASS")
+print("Actual SQLite concurrency, conflict and tenant isolation: PASS")
