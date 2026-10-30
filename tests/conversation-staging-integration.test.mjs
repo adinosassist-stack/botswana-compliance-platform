@@ -22,7 +22,7 @@ assert.deepEqual(calls.slice(0,2).map(x=>x.params),[["A","thread","u"],["A","thr
 calls=[];
 session={...session,tenantId:"B"};
 response=await worker.fetch(new Request(path),env);
-assert.equal(response.status,401===response.status?401:403);assert.equal(calls.filter(x=>x.sql.includes("INSERT")).length,0);
+assert.equal(response.status,401);assert.equal(calls.filter(x=>x.sql.includes("INSERT")).length,0);
 session={authenticated:true,active:true,userId:"u",tenantId:"A",csrfVerified:true};
 calls=[];
 const payload=JSON.stringify({role:"user",sourceKind:"voice_final",content:"Hello from voice",idempotencyKey:"key1"});
