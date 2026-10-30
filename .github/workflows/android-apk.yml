@@ -1,0 +1,42 @@
+name: Android test APK
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'android-app/**'
+      - '.github/workflows/android-apk.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'android-app/**'
+      - '.github/workflows/android-apk.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify runner Android SDK and install platform 35 if needed
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ANDROID_HOME:?GitHub Android runner SDK required}"
+          test -d "$ANDROID_HOME/cmdline-tools"
+          if [ ! -d "$ANDROID_HOME/platforms/android-35" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -path '*/bin/sdkmanager' -type f | head -n 1)"
+            test -n "$SDKMANAGER"
+            "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0"
+          fi
+      - name: Build debug APK
+        working-directory: android-app
+        run: gradle --no-daemon :app:assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: thebe-desk-debug-apk
+          path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
