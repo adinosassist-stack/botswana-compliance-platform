@@ -1,0 +1,24 @@
+name: Agentic workflow contract tests
+on:
+  pull_request:
+    paths:
+      - 'server/agentic/**'
+      - 'tests/agentic-*.test.mjs'
+      - '.github/workflows/agentic-workflow-contract.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  agentic-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          for f in server/agentic/*.mjs tests/agentic-*.test.mjs; do node --check "$f"; done
+      - name: Agentic isolated tests
+        run: node --test tests/agentic-*.test.mjs
