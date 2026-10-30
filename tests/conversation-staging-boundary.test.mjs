@@ -9,7 +9,7 @@ assert.equal((await handle({env,request:post,context:{...context,csrfVerified:fa
 assert.equal((await handle({env,request:post,context,threadId:"foreign"})).status,403);
 assert.equal((await handle({env,request:post,context:{...context,session:{...context.session,active:false}},threadId:"chat"})).status,401);
 assert.equal((await handle({env,request:request("POST",{"content-type":"text/plain"}),context,threadId:"chat"})).status,415);
-assert.equal((await handle({env,request:request("POST",{"content-type":"application/json"}),context,threadId:"chat"})).status,200);
+assert.equal((await handle({env,request:request("POST",{"content-type":"application/json"},null),context,threadId:"chat"})).status,400);
 assert.equal((await handle({env,request:request("POST",{"content-type":"application/json","content-length":"999999"}),context,threadId:"chat"})).status,413);
 assert.equal((await handle({env:{},request:request("GET"),context,threadId:"chat"})).status,503);
 assert.equal((await handle({env,request:request("POST",{"content-type":"application/json","content-length":"10"},{role:"user",sourceKind:"typed",content:"x".repeat(9000),idempotencyKey:"oversized"}),context,threadId:"chat"})).status,413);
