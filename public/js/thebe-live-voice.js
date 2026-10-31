@@ -1623,7 +1623,9 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
         method:"POST",
         headers:{"content-type":"application/json"},
         body:JSON.stringify({mode:requestedMode,question:contextualQuestion(q),...(attachments.length?{attachments}:{})}),
-        ...(attachments.length?{timeoutMs:120000}:{}),
+        // Workspace context assembly and model inference can exceed the generic 18s API deadline.
+        // Keep a bounded advisor-specific deadline; preserve transport idempotency and truthful errors.
+        timeoutMs:attachments.length?120000:45000,
         signal:controller.signal
       });
       if(runId!==textRunId)return;
