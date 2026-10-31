@@ -1,0 +1,14 @@
+import assert from "node:assert/strict";
+import {conversationStagingBoundary as handle} from "../cloudflare/src/conversation-staging-boundary-rehearsal.js";
+const context={session:{authenticated:true,active:true,userId:"u",tenantId:"A"},workspaceMembership:{active:true,userId:"u",tenantId:"A",conversationId:"chat",role:"member"},conversation:{id:"chat",tenantId:"A",status:"active"},csrfVerified:true};
+let writes=0;
+const env={DB:{prepare(){return{bind(){return{async run(){writes++;return{success:true,meta:{changes:1}}},async first(){return null}}}}}}};
+const req=(parts,declared=null)=>({method:"POST",headers:{get:k=>k==="content-type"?"application/json":k==="content-length"?declared:null},body:new ReadableStream({start(controller){for(const p of parts)controller.enqueue(new TextEncoder().encode(p));controller.close()}})});
+const payload=JSON.stringify({role:"user",sourceKind:"typed",content:"Hello",idempotencyKey:"m1"});
+assert.equal((await handle({env,request:req([payload.slice(0,7),payload.slice(7)]),context,threadId:"chat",id:()=>"msg1"})).status,200);
+assert.equal(writes,1);
+assert.equal((await handle({env,request:req(['x'.repeat(9000)],"2"),context,threadId:"chat"})).status,413);
+assert.equal((await handle({env,request:req([payload],"99999"),context,threadId:"chat"})).status,413);
+assert.equal((await handle({env,request:req(["{"],"1"),context,threadId:"chat"})).status,400);
+assert.equal(writes,1);
+console.log("Conversation bounded stream reader PASS");
