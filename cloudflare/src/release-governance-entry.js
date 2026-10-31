@@ -415,6 +415,16 @@ export default {
       });
     }
 
+    // Isolated staging opt-in only: sanitized readiness duration. No SQL, identities or secrets.
+    if(method==="GET"&&path==="/api/ready"&&String(env?.APP_ENV||"")==="staging"&&String(env?.THEBE_READINESS_TIMING_DIAGNOSTIC||"")==="1"){
+      const began=performance.now();
+      const response=await base.fetch(request,downstreamEnv,ctx);
+      const duration=Math.max(0,Math.round(performance.now()-began));
+      const decorated=await decorateResponse(request,env,response);
+      const headers=new Headers(decorated.headers);
+      headers.set("server-timing",`ready_base;dur=${Math.min(duration,60000)}`);
+      return new Response(decorated.body,{status:decorated.status,statusText:decorated.statusText,headers});
+    }
     const response=await base.fetch(request,downstreamEnv,ctx);
     await recordRegistrationSuccess({request,path,env,response,ctx,registrationCreated:registrationOutcome.created});
     return decorateResponse(request,env,response);
