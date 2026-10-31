@@ -25,3 +25,21 @@ test('absent index fails closed',async()=>{
 test('missing D1 binding refuses execution',async()=>{
  await assert.rejects(probeStagingReadiness(null),/staging_d1_binding_required/);
 });
+
+test('isolated staging probes track every production core schema readiness statement',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const worker=readFileSync(new URL('../cloudflare/src/worker.js',import.meta.url),'utf8');
+ const start=worker.indexOf('async function currentSchemaReady(env)');
+ const end=worker.indexOf('function deploymentReadiness(env)',start);
+ assert.ok(start>=0&&end>start,'production schema gate must be present');
+ const gate=worker.slice(start,end);
+ const probes=[...gate.matchAll(/env\\.DB\\.prepare\\("([^"]+)"\\)/g)].map(m=>m[1]);
+ assert.equal(probes.length,16,'production schema probe count changed; review isolated staging parity');
+ const queries=[];
+ const db={prepare(sql){queries.push(sql);return {first:async()=>({ok:1})}}};
+ const report=await probeStagingReadiness(db);
+ assert.equal(report.ok,true);
+ assert.equal(queries.length,17);
+ assert.equal(queries[0],'SELECT 1 AS ok');
+ assert.deepEqual(queries.slice(1),probes,'isolated staging must match the exact ordered production D1 schema checks');
+});
