@@ -1,0 +1,50 @@
+name: Consolidated Launch Offline Qualification
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/consolidated-launch-offline.yml
+  pull_request:
+    paths:
+      - .github/workflows/consolidated-launch-offline.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  readiness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [staging, advisor, recovery]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Offline qualification only
+        env:
+          SUITE: ${{ matrix.suite }}
+        run: |
+          set -euo pipefail
+          case "$SUITE" in
+            staging) node --test tests/isolated-readiness-config.test.mjs tests/probe-staging-readiness.test.mjs ;;
+            advisor) node --test tests/isolated-ai-diagnostic-gate.test.mjs tests/advisor-stage-timing.test.mjs ;;
+            recovery) node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs ;;
+            *) exit 1 ;;
+          esac
+  summary:
+    needs: [readiness]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          RESULT: ${{ needs.readiness.result }}
+        run: |
+          echo "Offline qualification: $RESULT" >> "$GITHUB_STEP_SUMMARY"
+          echo 'No deployment, cloud writes, recovery execution, AI activation or payment approval performed.' >> "$GITHUB_STEP_SUMMARY"
+          test "$RESULT" = success
