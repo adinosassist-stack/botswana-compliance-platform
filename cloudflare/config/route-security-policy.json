@@ -18,6 +18,16 @@
         "HEAD"
       ],
       "kind": "exact",
+      "pattern": "/api/health",
+      "security": "public_probe",
+      "feature": "health"
+    },
+    {
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "kind": "exact",
       "pattern": "/api/ready",
       "security": "public_probe",
       "feature": "health"

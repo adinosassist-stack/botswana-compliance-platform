@@ -72,7 +72,9 @@ ok(api.includes('credentials:"omit"'),"presigned upload omits application creden
 ok(api.includes('referrerPolicy:"no-referrer"'),"presigned upload suppresses referrer leakage");
 ok(api.includes('target.protocol!=="https:"&&!localHttp'),"presigned upload blocks insecure non-local destinations");
 
-ok(policy.preAuthRoutes.flatMap(r=>r.methods).length===25,"pre-auth method/route allowlist count is locked");
+ok(policy.preAuthRoutes.flatMap(r=>r.methods).length===27,"pre-auth method/route allowlist count includes the two read-only health methods");
+const healthRoute=policy.preAuthRoutes.filter(r=>r.pattern==="/api/health");
+ok(healthRoute.length===1&&healthRoute[0].kind==="exact"&&healthRoute[0].security==="public_probe"&&healthRoute[0].feature==="health"&&JSON.stringify(healthRoute[0].methods)===JSON.stringify(["GET","HEAD"]),"public health inventory permits only GET and HEAD probes");
 ok(Object.keys(policy.workspaceFeaturePrefixes).length===26,"authenticated feature-family inventory count is locked");
 ok(Array.isArray(policy.workspaceFeaturePrefixes.property)&&policy.workspaceFeaturePrefixes.property.includes("/api/property/"),"Property workspace API family is explicitly classified");
 ok(routeAudit.includes('Unclassified pre-auth route(s)'),"route audit fails on unexpected pre-auth routes");
