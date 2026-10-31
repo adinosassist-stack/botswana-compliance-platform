@@ -1,3 +1,4 @@
+import {billingDashboardRows,billingDashboardAggregate} from './billing-dashboard-reads.js';
 import {appendSealedAuditEvent} from './audit-lineage-writer.js';
 
 // Platform-only controls for an existing, verified manual-bank subscription.
@@ -15,8 +16,9 @@ export async function subscriptionDashboard(db,{after="",search="",status="all"}
     AND (?='all' OR (?='active' AND s.status='active' AND datetime(s.current_period_ends_at)>datetime('now'))
       OR (?='paused' AND s.status='paused') OR (?='renewal' AND datetime(s.current_period_ends_at)>datetime('now') AND datetime(s.current_period_ends_at)<=datetime('now','+7 days')))
     ORDER BY s.tenant_id LIMIT 51`).bind(after,search,search,search,status,status,status,status).all();
-  const items=(rows.results||[]).slice(0,50);
-  return {items,counts:{active:Number(counts?.active||0),paused:Number(counts?.paused||0)},nextAfter:(rows.results||[]).length>50?items.at(-1).tenant_id:null};
+  billingDashboardAggregate(counts,['active','paused']);
+  const records=billingDashboardRows(rows),items=records.slice(0,50);
+  return {items,counts:{active:Number(counts?.active||0),paused:Number(counts?.paused||0)},nextAfter:records.length>50?items.at(-1).tenant_id:null};
 }
 export async function setSubscriptionAccess({env,auth,body,writeAudit}){
   const {tenantId,enabled,expectedStatus,expectedPeriod}=body;

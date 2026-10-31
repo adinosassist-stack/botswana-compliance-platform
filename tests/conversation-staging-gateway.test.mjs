@@ -1,0 +1,17 @@
+import assert from "node:assert/strict";
+import {conversationStagingGateway as gateway} from "../cloudflare/src/conversation-staging-gateway-rehearsal.js";
+const context={session:{authenticated:true,active:true,userId:"u",tenantId:"A"},workspaceMembership:{active:true,userId:"u",tenantId:"A",conversationId:"t",role:"member"},conversation:{id:"t",tenantId:"A",status:"active"},csrfVerified:true};
+let resolvers=0,queries=0;
+const resolver=async()=>{resolvers++;return context};
+const env={DEPLOYMENT_ENV:"staging",CONVERSATION_HISTORY_STAGING_ENABLED:"true",DB:{prepare(){queries++;return {bind(){return {async all(){return {results:[]}}}}}}}};
+const request={method:"GET"};
+assert.equal((await gateway({env:{...env,DEPLOYMENT_ENV:"production"},request,threadId:"t",resolveAuthenticatedContext:resolver})).status,404);
+assert.equal((await gateway({env:{...env,CONVERSATION_HISTORY_STAGING_ENABLED:"false"},request,threadId:"t",resolveAuthenticatedContext:resolver})).status,404);
+assert.equal(resolvers,0);assert.equal(queries,0);
+assert.equal((await gateway({env,request,threadId:"t"})).status,503);
+assert.equal((await gateway({env,request,threadId:"bad/id",resolveAuthenticatedContext:resolver})).status,400);
+assert.equal((await gateway({env,request,threadId:"t",resolveAuthenticatedContext:async()=>({...context,session:{...context.session,tenantId:"B"}})})).status,403);
+assert.equal(queries,0);
+assert.equal((await gateway({env,request,threadId:"t",resolveAuthenticatedContext:resolver})).status,200);
+assert.equal(queries,1);
+console.log("Disabled-by-default staging gateway and trusted resolver isolation PASS");

@@ -44,9 +44,49 @@ jobs:
         shell: bash
         run: npm ci --ignore-scripts --no-audit --no-fund
 
+      - name: Read-only launch provenance regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/check-launch-provenance-readonly.mjs
+          node --test tests/launch-provenance-readonly.test.mjs
+
+      - name: Readiness timing diagnostics regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/readiness-timing-diagnostics.mjs
+          node --test tests/readiness-timing-diagnostics.test.mjs
+
+      - name: Isolated staging D1 readiness probe regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/probe-staging-readiness.mjs
+          node --test tests/probe-staging-readiness.test.mjs
+
+      - name: Staging readiness request timing guard
+        run: |
+          node --check cloudflare/src/release-governance-entry.js
+          node --test tests/readiness-staging-request-timing.test.mjs
+
+      - name: Isolated readiness deployment config boundaries
+        run: |
+          node --check scripts/render-isolated-readiness-config.mjs
+          node --test tests/isolated-readiness-config.test.mjs
+
       - name: Subscription audit rollback and POP isolation
         shell: bash
-        run: node --test tests/owner-payment-dashboard.test.mjs tests/platform-billing-controls.test.mjs tests/subscription-access-audit-d1.test.mjs tests/payment-pop-*.test.mjs tests/pop-intake-metadata-contract.test.mjs tests/pop-whatsapp-*.test.mjs
+        run: node --test tests/owner-payment-dashboard.test.mjs tests/platform-billing-controls.test.mjs tests/subscription-access-audit-d1.test.mjs tests/manual-bank-owner-approval-flow.test.mjs tests/manual-bank-review-audit-d1.test.mjs tests/payment-pop-*.test.mjs tests/pop-intake-metadata-contract.test.mjs tests/pop-whatsapp-*.test.mjs
+
+      - name: Disabled conversation staging contracts and isolated SQLite
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/conversation-*.test.mjs
+          python3 tests/conversation-sqlite-rehearsal.py
+          python3 tests/conversation-sqlite-concurrent-writers.py
+          python3 tests/conversation-staging-sqlite-qualification.py
 
       - name: Password recovery source-contract regression
         shell: bash
@@ -167,11 +207,19 @@ jobs:
 
       - name: Platform billing controls and approval loading
         shell: bash
-        run: node --test tests/platform-billing-controls.test.mjs tests/owner-payment-dashboard.test.mjs tests/platform-billing-analytics.test.mjs tests/owner-dashboard-audit.test.mjs tests/manual-bank-owner-approval-flow.test.mjs
+        run: node --test tests/platform-billing-controls.test.mjs tests/owner-payment-dashboard.test.mjs tests/platform-billing-analytics.test.mjs tests/billing-dashboard-read-failures.test.mjs tests/owner-dashboard-audit.test.mjs tests/manual-bank-owner-approval-flow.test.mjs
 
       - name: Install pinned isolated browser test driver
         shell: bash
-        run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+        run: |
+          set -euo pipefail
+          driver_dir="${RUNNER_TEMP}/thebe-review-playwright"
+          mkdir -p "$driver_dir"
+          npm install --prefix "$driver_dir" --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+          mkdir -p node_modules
+          if [ ! -e node_modules/playwright-core ]; then
+            ln -s "$driver_dir/node_modules/playwright-core" node_modules/playwright-core
+          fi
 
       - name: Owner dashboard desktop and mobile browser audit
         shell: bash
