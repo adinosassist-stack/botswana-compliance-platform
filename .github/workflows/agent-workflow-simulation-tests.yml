@@ -4,6 +4,8 @@ on:
     paths:
       - 'cloudflare/src/agent-workflow-simulation.js'
       - 'tests/agent-workflow-simulation.test.mjs'
+      - 'public/js/agent-simulation-preview.js'
+      - 'tests/agent-simulation-preview.test.mjs'
       - '.github/workflows/agent-workflow-simulation-tests.yml'
   workflow_dispatch:
 jobs:
@@ -17,4 +19,4 @@ jobs:
         with:
           node-version: '24'
       - name: Verify deterministic simulation contract
-        run: node --test tests/agent-workflow-simulation.test.mjs
+        run: node --test tests/agent-workflow-simulation.test.mjs tests/agent-simulation-preview.test.mjs
