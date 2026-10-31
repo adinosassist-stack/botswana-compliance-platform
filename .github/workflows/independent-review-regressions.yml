@@ -70,6 +70,11 @@ jobs:
           node --check cloudflare/src/release-governance-entry.js
           node --test tests/readiness-staging-request-timing.test.mjs
 
+      - name: Isolated readiness deployment config boundaries
+        run: |
+          node --check scripts/render-isolated-readiness-config.mjs
+          node --test tests/isolated-readiness-config.test.mjs
+
       - name: Subscription audit rollback and POP isolation
         shell: bash
         run: node --test tests/owner-payment-dashboard.test.mjs tests/platform-billing-controls.test.mjs tests/subscription-access-audit-d1.test.mjs tests/manual-bank-owner-approval-flow.test.mjs tests/manual-bank-review-audit-d1.test.mjs tests/payment-pop-*.test.mjs tests/pop-intake-metadata-contract.test.mjs tests/pop-whatsapp-*.test.mjs
