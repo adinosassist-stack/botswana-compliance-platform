@@ -5233,6 +5233,12 @@ export default {
       if(match&&SEO_GUIDE_SLUGS.includes(match[1]))return seoGuideResponse(req,env,url,match[1]);
     }
     if(["GET","HEAD"].includes(req.method)&&url.pathname==="/api/live") return json({ok:true});
+    if(["GET","HEAD"].includes(req.method)&&url.pathname==="/api/health"){
+      try{
+        await env.DB.prepare("SELECT 1 x").first();
+        return json({ok:true,db:true,version:APP_RELEASE});
+      }catch(e){return d1DailyQuotaExceeded(e)?workerFailureResponse(e,requestId):json({ok:false,db:false,version:APP_RELEASE},503)}
+    }
     if(["GET","HEAD"].includes(req.method)&&url.pathname==="/api/ready"){
       try{
         await env.DB.prepare("SELECT 1 x").first();
