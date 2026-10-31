@@ -59,6 +59,7 @@ jobs:
           node --test tests/readiness-timing-diagnostics.test.mjs
           node --check cloudflare/src/advisor-stage-timing.js
           node --test tests/advisor-stage-timing.test.mjs
+          node --test tests/ai-dock-advisor-deadline.test.mjs
 
       - name: Isolated staging D1 readiness probe regressions
         shell: bash
