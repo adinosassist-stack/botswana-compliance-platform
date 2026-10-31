@@ -53,3 +53,19 @@ test("different bank transaction remains eligible for owner review",()=>{
   const priorBankAllocations=[{bankTransactionId:"bank-older",invoiceId:"inv-old",tenantId:"tenant-a"}];
   assert.equal(evaluate(input({priorBankAllocations})).decision,D.VERIFIED);
 });
+
+test("whitespace-padded bank transaction IDs cannot bypass allocation uniqueness",()=>{
+  for (const bankTransactionId of [" bank-123","bank-123 ","\\tbank-123","bank-123\\n"]) {
+    const outcome=evaluate(input({bankEvidence:{...bankEvidence,bankTransactionId}}));
+    assert.equal(outcome.decision,D.REVIEW_REQUIRED);
+    assert.equal(outcome.reason,"untrusted_or_incomplete_evidence");
+  }
+});
+test("noncanonical prior bank IDs fail closed instead of allowing a reused credit",()=>{
+  for (const bankTransactionId of [" bank-123","bank-123 ","\\tbank-123"]) {
+    const priorBankAllocations=[{bankTransactionId,invoiceId:"inv-old",tenantId:"tenant-a"}];
+    const outcome=evaluate(input({priorBankAllocations}));
+    assert.equal(outcome.decision,D.REVIEW_REQUIRED);
+    assert.equal(outcome.reason,"invalid_bank_allocation_record");
+  }
+});
