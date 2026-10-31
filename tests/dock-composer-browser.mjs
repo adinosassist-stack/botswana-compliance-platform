@@ -60,7 +60,29 @@ try{
       await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
       if(await dock.isHidden())await page.locator('#thebeAiDockPill').click();
       await dock.waitFor({state:'visible'});
-      assert.equal(await input.inputValue(),unsentDraft,'same-surface resize preserves draft');
+      const draftAfterResize=await input.inputValue();
+      if(draftAfterResize!==unsentDraft){
+        const diagnostic=await page.evaluate(()=>{
+          const target=document.querySelector('#thebeAiDockInput');
+          const surface=document.querySelector('#thebeAiDock');
+          const pill=document.querySelector('#thebeAiDockPill');
+          return {
+            innerWidth,innerHeight,
+            surface:surface?.dataset?.surface,
+            workspaceVisible:surface?.dataset?.workspaceVisible,
+            dockHidden:surface?.hidden,
+            dockDisplay:surface?getComputedStyle(surface).display:null,
+            pillHidden:pill?.hidden,
+            textareaCount:document.querySelectorAll('#thebeAiDockInput').length,
+            textareaConnected:target?.isConnected,
+            textareaVisible:target?!!target.getClientRects().length:false,
+            composerValueLength:target?.value?.length,
+            currentDockState:window.ThebeAiDock?.state?.()
+          };
+        });
+        assert.fail('same-surface resize cleared unsent draft: '+JSON.stringify({workspace,viewport:{width,height},actual:draftAfterResize,diagnostic}));
+      }
+      assert.equal(draftAfterResize,unsentDraft,'same-surface resize preserves draft');
       assert.equal(await page.evaluate(()=>window.ThebeAiDock.state().workspaceVisible),workspace,'resize preserves surface identity');
       for(const control of [dock.locator('.thebe-ai-compose'),input,send]){
         await control.waitFor({state:'visible'});
