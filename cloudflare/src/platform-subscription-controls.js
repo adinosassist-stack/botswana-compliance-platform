@@ -14,7 +14,7 @@ export async function subscriptionDashboard(db,{after="",search="",status="all"}
     WHERE s.provider='manual_bank' AND s.status IN ('active','paused') AND s.tenant_id>?
     AND (?='' OR instr(lower(t.name),lower(?))>0 OR instr(lower(s.tenant_id),lower(?))>0)
     AND (?='all' OR (?='active' AND s.status='active' AND datetime(s.current_period_ends_at)>datetime('now'))
-      OR (?='paused' AND s.status='paused') OR (?='renewal' AND datetime(s.current_period_ends_at)>datetime('now') AND datetime(s.current_period_ends_at)<=datetime('now','+7 days')))
+      OR (?='paused' AND s.status='paused') OR (?='renewal' AND s.status='active' AND datetime(s.current_period_ends_at)>datetime('now') AND datetime(s.current_period_ends_at)<=datetime('now','+7 days')))
     ORDER BY s.tenant_id LIMIT 51`).bind(after,search,search,search,status,status,status,status).all();
   billingDashboardAggregate(counts,['active','paused']);
   const records=billingDashboardRows(rows),items=records.slice(0,50);
