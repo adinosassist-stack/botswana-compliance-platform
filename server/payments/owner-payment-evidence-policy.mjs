@@ -7,6 +7,7 @@ export const PAYMENT_DECISIONS = Object.freeze({
 });
 
 const validId = value => typeof value === "string" && value.trim().length > 0 && value.length <= 128;
+const validBankTransactionId = value => validId(value) && value === value.trim();
 const validMoney = value => Number.isSafeInteger(value) && value > 0;
 const validCurrency = value => typeof value === "string" && /^[A-Z]{3}$/.test(value);
 
@@ -18,7 +19,7 @@ export function evaluateOwnerPaymentEvidence({tenantId, invoice, bankEvidence, r
   if (!bankEvidence) return {decision: PAYMENT_DECISIONS.AWAITING_FUNDS, reason: "bank_receipt_not_verified"};
   if (bankEvidence.tenantId !== tenantId || bankEvidence.invoiceId !== invoice.id ||
       bankEvidence.source !== "trusted_bank_reconciliation" || bankEvidence.status !== "settled" ||
-      !validId(bankEvidence.bankTransactionId) || !validMoney(bankEvidence.amountMinor) ||
+      !validBankTransactionId(bankEvidence.bankTransactionId) || !validMoney(bankEvidence.amountMinor) ||
       !validCurrency(bankEvidence.currency)) {
     return {decision: PAYMENT_DECISIONS.REVIEW_REQUIRED, reason: "untrusted_or_incomplete_evidence"};
   }
@@ -30,7 +31,7 @@ export function evaluateOwnerPaymentEvidence({tenantId, invoice, bankEvidence, r
   if (!Array.isArray(priorBankAllocations)) {
     return {decision: PAYMENT_DECISIONS.REVIEW_REQUIRED, reason: "bank_allocation_lookup_required"};
   }
-  if (priorBankAllocations.some(item => !item || !validId(item.bankTransactionId) ||
+  if (priorBankAllocations.some(item => !item || !validBankTransactionId(item.bankTransactionId) ||
       !validId(item.invoiceId) || !validId(item.tenantId))) {
     return {decision: PAYMENT_DECISIONS.REVIEW_REQUIRED, reason: "invalid_bank_allocation_record"};
   }
