@@ -21,3 +21,13 @@ test('invalid names and missing checks are refused',async()=>{
  await assert.rejects(measureReadinessSteps([]),/readiness_steps_required/);
  await assert.rejects(measureReadinessSteps([{name:'credential=secret',run:()=>true}]),/readiness_invalid_step/);
 });
+
+test('single slow successful D1 probe cannot report readiness success after budget',async()=>{
+ let t=0;const result=await measureReadinessSteps([{name:'d1_ping',run:async()=>{t=21;return true;}}],{clock:()=>t,budgetMs:10});
+ assert.equal(result.ok,false);assert.equal(result.reason,'budget_exceeded');
+ assert.deepEqual(result.steps,[{name:'d1_ping',elapsedMs:21,ok:true}]);
+});
+test('deadline equality fails closed after final probe',async()=>{
+ let t=0;const result=await measureReadinessSteps([{name:'schema',run:()=>{t=10;return true;}}],{clock:()=>t,budgetMs:10});
+ assert.equal(result.ok,false);assert.equal(result.reason,'budget_exceeded');
+});
