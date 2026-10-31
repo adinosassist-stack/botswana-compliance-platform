@@ -2076,3 +2076,18 @@ body.thebe-ai-dock-open .thebe-ai-mode-rail:has([data-thebe-mode="goal_plan"]:no
 #thebeAiDock .thebe-ai-voice-chat-activity .thebe-ai-live-line b{
   display:block;color:#9dcfff;margin-bottom:3px
 }
+
+/* Mobile composer focus: no squared inner blue ring; retain accessible outer focus. */
+@media (max-width: 767px) {
+  #thebeAiDock .thebe-ai-compose textarea:focus,
+  #thebeAiDock .thebe-ai-compose textarea:focus-visible {
+    outline: none !important;
+    outline-offset: 0 !important;
+    box-shadow: none !important;
+  }
+  #thebeAiDock .thebe-ai-compose:focus-within {
+    outline: 1px solid rgba(131,186,255,.62) !important;
+    outline-offset: -2px !important;
+    border-radius: 28px;
+  }
+}
