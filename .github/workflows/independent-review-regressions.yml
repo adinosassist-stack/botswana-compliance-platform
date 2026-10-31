@@ -57,6 +57,8 @@ jobs:
           set -euo pipefail
           node --check scripts/readiness-timing-diagnostics.mjs
           node --test tests/readiness-timing-diagnostics.test.mjs
+          node --check cloudflare/src/advisor-stage-timing.js
+          node --test tests/advisor-stage-timing.test.mjs
 
       - name: Isolated staging D1 readiness probe regressions
         shell: bash
