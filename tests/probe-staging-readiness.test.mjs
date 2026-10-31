@@ -33,7 +33,9 @@ test('isolated staging probes track every production core schema readiness state
  const end=worker.indexOf('function deploymentReadiness(env)',start);
  assert.ok(start>=0&&end>start,'production schema gate must be present');
  const gate=worker.slice(start,end);
- const probes=[...gate.matchAll(/env\.DB\.prepare\("([^"]+)"\)/g)].map(m=>m[1]);
+ const marker='env.DB.prepare("';
+ const probes=gate.split(marker).slice(1).map(part=>part.split('")',1)[0]);
+ assert.ok(probes.every(sql=>sql.startsWith('SELECT ')&&!sql.includes('"')),'production probes must be literal SELECT statements');
  assert.equal(probes.length,16,'production schema probe count changed; review isolated staging parity');
  const queries=[];
  const db={prepare(sql){queries.push(sql);return {first:async()=>({ok:1})}}};
