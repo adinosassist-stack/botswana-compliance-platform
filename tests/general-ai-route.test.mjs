@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {handleGeneralAiRoute} from "../cloudflare/src/general-ai-route.js";
+import {handleGeneralAiRoute,generalAiResultStatus} from "../cloudflare/src/general-ai-route.js";
 const req=(question,headers={})=>new Request("https://thebedesk.com/api/ai/general",{
  method:"POST",headers:{"origin":"https://thebedesk.com","x-csrf-token":"csrf","content-type":"application/json",...headers},body:JSON.stringify({question})
 });
@@ -57,4 +57,12 @@ test("invalid question rejected before quota",async()=>{
  const r=await handleGeneralAiRoute({request:req(" "),path:"/api/ai/general",env,auth});
  assert.equal(r.status,400);
  assert.equal((await r.json()).error,"invalid_question");
+});
+
+test("live research failures are service-unavailable, not invalid user prompts",()=>{
+ assert.equal(generalAiResultStatus({ok:false,error:"research_sources_unavailable"}),503);
+ assert.equal(generalAiResultStatus({ok:false,error:"model_unavailable"}),503);
+ assert.equal(generalAiResultStatus({ok:false,error:"action_request_not_supported"}),403);
+ assert.equal(generalAiResultStatus({ok:false,error:"invalid_question"}),400);
+ assert.equal(generalAiResultStatus({ok:true}),200);
 });
