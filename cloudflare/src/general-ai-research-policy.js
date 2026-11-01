@@ -53,8 +53,8 @@ export function researchResponseMetadata({researchPerformed=false,sources=[]}={}
   return Object.freeze({
     researchPerformed:researchPerformed===true,
     citations,
-    verification:researchPerformed&&citations.length?"source_links_available":"unverified",
+    verification:researchPerformed&&citations.length?"search_snippets_only":"unverified",
     // Never label unverified model text as a live web research result.
-    label:researchPerformed&&citations.length?"Web research":"General AI response — not live verified"
+    label:researchPerformed&&citations.length?"Web search excerpts — verify original sources":"General AI response — not live verified"
   });
 }
