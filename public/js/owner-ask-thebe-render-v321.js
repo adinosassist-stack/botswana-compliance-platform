@@ -40,8 +40,8 @@
     const card=document.createElement("article");
     card.className="owner-agentic-run";
     card.dataset.askRenderRelease=RELEASE;
-    const confidence=String(result.confidence||(result.researchPerformed?"sourced":"general")).toUpperCase();
-    const mode=String(result.generationMode||"governed").replaceAll("_"," ");
+    const confidence=result.verification==="search_snippets_only"?"SEARCH EXCERPTS":String(result.confidence||(result.researchPerformed?"unverified":"general")).toUpperCase();
+    const mode=String(result.generationMode||(result.verification?"general AI":"governed")).replaceAll("_"," ");
     card.append(
       text("span",`${confidence} confidence · ${mode}`,"owner-agentic-kicker"),
       text("h4","Thebe"),
