@@ -4,6 +4,7 @@
  */
 import {createAssetsListsHttp} from './corporate-assets-lists-http.mjs';
 const paths=['/api/assets','/api/assets/maintenance','/api/assets/insurance'];
+const permissions=Object.freeze({'owner':true,'manager':true,'auditor':true});
 export function registerCorporateAssetsExpress({app,enabled=false,sessionAuth,entitlement,rateLimit,getDatabase}={}){
  if(enabled!==true)return false;
  if(!app||typeof app.get!=='function'||[sessionAuth,entitlement,rateLimit,getDatabase].some(x=>typeof x!=='function'))throw new TypeError('assets_express_dependencies_required');
@@ -12,7 +13,7 @@ export function registerCorporateAssetsExpress({app,enabled=false,sessionAuth,en
    const a=request.rawRequest?.auth;
    return a?{companyId:a.tenant_id,userId:a.user_id,role:a.role}:null;
   },
-  authorize:async (principal,permission)=>['owner','manager','auditor'].includes(principal.role)&&permission.endsWith(':read'),
+  authorize:async (principal,permission)=>permissions[principal.role]===true&&['assets:read','assets:maintenance:read','assets:insurance:read'].includes(permission),
   rateLimit:async(principal,path)=>rateLimit(principal,path),
   getDatabase
  });
