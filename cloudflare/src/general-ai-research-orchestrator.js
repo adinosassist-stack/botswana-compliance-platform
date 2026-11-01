@@ -16,8 +16,8 @@ export async function answerGeneralQuestion({question,model,search,researchEnabl
     else{
       try{
         const results=await search({query:question});
-        sourcesRaw=Array.isArray(results)?results:[];
-        sources=validateResearchSources(Array.isArray(results)?results.filter(item=>typeof item?.excerpt==='string'&&item.excerpt.trim().length>=30):[]);
+        sourcesRaw=Array.isArray(results)?results.filter(item=>typeof item?.excerpt==="string"&&item.excerpt.trim().length>=30):[];
+        sources=validateResearchSources(sourcesRaw);
         researchPerformed=sources.length>0;
         if(!researchPerformed)notice="No verifiable research sources were returned.";
       }catch{
@@ -26,7 +26,12 @@ export async function answerGeneralQuestion({question,model,search,researchEnabl
     }
   }
   const provenance=researchResponseMetadata({researchPerformed,sources});
-  const evidence=researchPerformed?provenance.citations.map(source=>({ ...source,excerpt:String((sourcesRaw||[]).find(item=>item.url===source.url)?.excerpt||'').slice(0,1800)})):[];
+  const evidence=researchPerformed?provenance.citations.map(source=>({
+    ...source,
+    excerpt:String(sourcesRaw.find(item=>{
+      try{const u=new URL(item.url);u.hash="";return u.href===source.url}catch{return false}
+    })?.excerpt||"").slice(0,1800)
+  })).filter(item=>item.excerpt.length>=30):[];
   // Retrieved text is intentionally not supplied by the client. The search
   // integration must supply provenance-matched, safely extracted evidence.
   const answer=await model({
