@@ -45,6 +45,25 @@ jobs:
           JS
       - name: Build verified staging bundle without publishing
         run: npx wrangler deploy --dry-run --config cloudflare/wrangler.general-ai-staging.toml --outdir /tmp/general-ai-staging
+      - name: Package verified bundle with source provenance
+        run: |
+          set -euo pipefail
+          test -d /tmp/general-ai-staging
+          test -n "$(find /tmp/general-ai-staging -type f -print -quit)"
+          mkdir -p general-ai-release
+          cp -a /tmp/general-ai-staging/. general-ai-release/
+          printf '%s\n' "${GITHUB_SHA}" > general-ai-release/COMMIT_SHA.txt
+          printf '%s\n' "bw-general-ai-staging" > general-ai-release/WORKER_NAME.txt
+          (cd general-ai-release && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
+          (cd general-ai-release && sha256sum -c SHA256SUMS.txt)
+      - name: Retain reviewed staging bundle for independent release inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: general-ai-private-staging-${{ github.sha }}
+          path: general-ai-release/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
   deploy-private:
     needs: preflight
     if: github.ref == 'refs/heads/main' && inputs.mode == 'deploy-private' && inputs.approval_phrase == 'DEPLOY_PRIVATE_GENERAL_AI_STAGING'
