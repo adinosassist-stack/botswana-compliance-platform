@@ -86,3 +86,13 @@ test("general knowledge still follows existing quota guard when research is unav
  assert.equal(response.status,503);
  assert.equal((await response.json()).error,"rate_limit_unavailable");
 });
+
+test("malformed declared content length is rejected before quota",async()=>{
+  const request=req("Explain photosynthesis");
+  const headers=new Headers(request.headers);
+  headers.set("content-length","not-a-number");
+  const malformed=new Request(request.url,{method:"POST",headers,body:JSON.stringify({question:"Explain photosynthesis"})});
+  const response=await handleGeneralAiRoute({request:malformed,path:"/api/ai/general",env,auth});
+  assert.equal(response.status,400);
+  assert.equal((await response.json()).error,"invalid_content_length");
+});
