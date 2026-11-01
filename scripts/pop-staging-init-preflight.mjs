@@ -3,7 +3,7 @@ import {validateStagingTarget} from './pop-staging-target-guard.mjs';
 const e=process.env;
 if(e.GITHUB_EVENT_NAME!=='workflow_dispatch'||e.GITHUB_REF!=='refs/heads/main'||
  e.GITHUB_REPOSITORY!=='adinosassist-stack/botswana-compliance-platform'||
- !e.CLOUDFLARE_API_TOKEN||!/^[a-f0-9]{32}$/.test(e.CLOUDFLARE_ACCOUNT_ID||''))
+ !e.CLOUDFLARE_API_TOKEN||e.CLOUDFLARE_ACCOUNT_ID!=='ddd23cab31928a4bb3d4998df9b26d1d')
  throw Error('pop_preflight_unauthorized');
 const target='812f9021-890b-41e6-8fa1-6001f90a9b53';
 const url='https://api.cloudflare.com/client/v4/accounts/'+e.CLOUDFLARE_ACCOUNT_ID+
