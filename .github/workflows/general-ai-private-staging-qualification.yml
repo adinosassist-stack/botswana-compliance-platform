@@ -1,0 +1,69 @@
+name: General AI private staging qualification
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "preflight or reviewed private staging deployment"
+        required: true
+        type: choice
+        options:
+          - preflight
+          - deploy-private
+        default: preflight
+      approval_phrase:
+        description: "For deploy-private only, enter DEPLOY_PRIVATE_GENERAL_AI_STAGING"
+        required: false
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: general-ai-private-staging
+  cancel-in-progress: false
+jobs:
+  preflight:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - name: Test staging security boundaries
+        run: node --test tests/general-ai-isolated-entry.test.mjs tests/general-ai-staging-boundary-batch.test.mjs tests/general-ai-isolated-staging-contract.test.mjs tests/general-ai-staging-safety-gate.test.mjs
+      - name: Confirm private-only flags and expected staging bindings
+        run: |
+          node --input-type=module <<'JS'
+          import {readFileSync} from 'node:fs';
+          const c=readFileSync('cloudflare/wrangler.general-ai-staging.toml','utf8');
+          for(const s of ['workers_dev = false','preview_urls = false','THEBE_GENERAL_AI_ENABLED = "false"','THEBE_GENERAL_AI_RESEARCH_ENABLED = "false"','database_id = "ff229eef-7724-49ae-9d68-d3a1db669b63"','namespace_id = "78212078"','main = "src/general-ai-staging-entry.js"'])
+            if(!c.includes(s))throw Error('private_staging_contract_mismatch');
+          if(/^\\s*(route|routes|zone_id)\\s*=/m.test(c))throw Error('public_route_prohibited');
+          JS
+      - name: Build verified staging bundle without publishing
+        run: npx wrangler deploy --dry-run --config cloudflare/wrangler.general-ai-staging.toml --outdir /tmp/general-ai-staging
+  deploy-private:
+    needs: preflight
+    if: github.ref == 'refs/heads/main' && inputs.mode == 'deploy-private' && inputs.approval_phrase == 'DEPLOY_PRIVATE_GENERAL_AI_STAGING'
+    runs-on: ubuntu-latest
+    environment: general-ai-private-staging
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - name: Deploy private, disabled staging Worker (never production)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.GENERAL_AI_STAGING_CLOUDFLARE_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.GENERAL_AI_STAGING_CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" && test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test "$CLOUDFLARE_ACCOUNT_ID" = "ddd23cab31928a4bb3d4998df9b26d1d"
+          npx wrangler deploy --config cloudflare/wrangler.general-ai-staging.toml
