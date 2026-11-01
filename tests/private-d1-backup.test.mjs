@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {prepareBackup,boundedBytes,validateExportUrl} from '../scripts/prepare-private-d1-backup.mjs';
+import {prepareBackup,boundedBytes,validateExportUrl,safeFailure} from '../scripts/prepare-private-d1-backup.mjs';
 const env={GITHUB_REPOSITORY:'adinosassist-stack/botswana-compliance-platform',GITHUB_REF:'refs/heads/main',
   GITHUB_EVENT_NAME:'workflow_dispatch',BACKUP_CONFIRM:'PREPARE_PRIVATE_PRODUCTION_BACKUP',
   EXPECTED_SHA:'a'.repeat(40),GITHUB_SHA:'a'.repeat(40),PRIVATE_BACKUP_ACCOUNT_ID:'ddd23cab31928a4bb3d4998df9b26d1d',
@@ -71,4 +71,17 @@ test('download bounds actual streaming bytes even without Content-Length',async(
   await assert.rejects(boundedBytes(new Response('123456'),5),/size_limit/);
   await assert.rejects(boundedBytes(new Response('1',{headers:{'content-length':'100'}}),5),/size_limit/);
   await assert.rejects(boundedBytes(new Response('')),/empty_download/);
+});
+test('provider refusal reports fixed stage/status without response body, URL or credentials',async()=>{
+  const sensitive='signed-url customer SQL secret-test-only';
+  let error;
+  try{await prepareBackup(env,{fetchImpl:async()=>new Response(sensitive,{status:403})});}catch(e){error=e;}
+  assert.deepEqual(safeFailure(error),{code:'provider_refused',stage:'backup_bucket_managed_domain',httpStatus:403});
+  assert.equal(JSON.stringify(safeFailure(error)).includes(sensitive),false);
+});
+test('untrusted thrown errors cannot impersonate an internal diagnostic',async()=>{
+  const e=new Error('private_backup_provider_refused secret-test-only');e.code='authority';e.diagnostic={stage:signed};
+  assert.deepEqual(safeFailure(e),{code:'unexpected_failure'});
+  let caught;try{await prepareBackup(env,{fetchImpl:async()=>{throw e}})}catch(x){caught=x;}
+  assert.deepEqual(safeFailure(caught),{code:'transport_failed',stage:'backup_bucket_managed_domain'});
 });
