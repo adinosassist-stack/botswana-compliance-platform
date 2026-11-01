@@ -4,6 +4,7 @@ on:
     paths:
       - scripts/pop-schema-extract-review-only.mjs
       - .github/workflows/pop-schema-extract-review-only.yml
+      - scripts/qualify-pop-private-schema-replay.py
   workflow_dispatch:
     inputs:
       expected_main_sha:
@@ -19,7 +20,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - run: node --check scripts/pop-schema-extract-review-only.mjs
+      - run: |
+          node --check scripts/pop-schema-extract-review-only.mjs
+          python3 -m py_compile scripts/qualify-pop-private-schema-replay.py
   extract:
     if: github.event_name == 'workflow_dispatch'
     needs: static
@@ -42,6 +45,12 @@ jobs:
           [[ "$GITHUB_REF" == 'refs/heads/main' ]]
           [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
           node scripts/pop-schema-extract-review-only.mjs
+      - name: Offline replay extracted production DDL in ephemeral in-memory SQLite
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$RUNNER_TEMP/pop-schema-review-private.json"
+          python3 scripts/qualify-pop-private-schema-replay.py "$RUNNER_TEMP/pop-schema-review-private.json"
       - name: Destroy temporary DDL file
         if: always()
         shell: bash
