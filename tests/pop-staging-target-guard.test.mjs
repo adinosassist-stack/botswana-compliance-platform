@@ -6,3 +6,7 @@ test('rejects production UUID',()=>assert.throws(()=>validateStagingTarget({...g
 test('rejects nonempty staging',()=>assert.throws(()=>validateStagingTarget({...good,existingObjects:[{name:'_cf_KV'},{name:'tenants'}]})));
 test('rejects wrong SHA',()=>assert.throws(()=>validateStagingTarget({...good,sourceSha:'a'.repeat(40)})));
 test('rejects absent authorization',()=>assert.throws(()=>validateStagingTarget({...good,confirmation:''})));
+
+test('rejects populated POP schema even when internal KV exists',()=>assert.throws(()=>validateStagingTarget({...good,existingObjects:[{type:'table',name:'_cf_KV'},{type:'table',name:'payment_pop_documents'},{type:'table',name:'payment_pop_upload_requests'}]}),/staging_not_empty/));
+test('rejects extra indexes, views, or triggers without application tables',()=>{for(const type of ['index','view','trigger'])assert.throws(()=>validateStagingTarget({...good,existingObjects:[{type:'table',name:'_cf_KV'},{type,name:'unexpected_schema_object'}]}),/staging_not_empty/)});
+test('rejects missing internal KV table',()=>assert.throws(()=>validateStagingTarget({...good,existingObjects:[]}),/staging_not_empty/));
