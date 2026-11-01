@@ -69,6 +69,8 @@ test("unverified generated links are flagged separately from verified research s
  assert.equal(result.researchPerformed,true);
  assert.equal(result.unsupportedCitations,true);
  assert.match(result.notice,/not verified/);
+ assert.doesNotMatch(result.answer,/fabricated\\.example/);
+ assert.match(result.answer,/unverified link removed/);
  assert.equal(result.citations.length,1);
 });
 test("matching research link does not trigger unsupported citation warning",async()=>{
