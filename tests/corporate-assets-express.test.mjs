@@ -66,3 +66,13 @@ test('permission map rejects prototype property role',async()=>{
 test('read-only adapter cannot be mounted without an entitlement middleware',()=>{
  assert.throws(()=>registerCorporateAssetsExpress({app:{get(){}},enabled:true,sessionAuth:()=>{},rateLimit:()=>true,getDatabase:()=>({})}),/assets_express_dependencies_required/);
 });
+
+test('unexpected response adapter error returns generic non-cacheable 503',async()=>{
+ const s=setup();
+ let first=true;
+ const res={status(code){this.code=code;return this},set(headers){this.headers=headers;return this},json(body){if(first){first=false;throw new Error('internal_private_detail')}this.body=body;return this}};
+ await s.routes[0][3](s.request,res);
+ assert.equal(res.code,503);
+ assert.deepEqual(res.body,{error:'assets_unavailable'});
+ assert.equal(res.headers['cache-control'],'no-store');
+});
