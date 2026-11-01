@@ -51,6 +51,20 @@ jobs:
           set -euo pipefail
           test -f "$RUNNER_TEMP/pop-schema-review-private.json"
           python3 scripts/qualify-pop-private-schema-replay.py "$RUNNER_TEMP/pop-schema-review-private.json"
+      - name: Identify forward table foreign keys from private source without logging DDL
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import {inspectCreateOrder} from './scripts/pop-staging-fk-order-diagnostic.mjs';
+          const schema=JSON.parse(readFileSync(process.env.RUNNER_TEMP+'/pop-schema-review-private.json','utf8'));
+          const result=inspectCreateOrder(schema.definitions);
+          console.log(JSON.stringify({kind:'pop_staging_fk_order_offline',
+            table_count:result.tableCount,forward_reference_count:result.forwardReferenceCount,
+            first_issue:result.firstIssue,remote_writes:false}));
+          if(result.forwardReferenceCount>0)process.exitCode=2;
+          NODE
       - name: Destroy temporary DDL file
         if: always()
         shell: bash
