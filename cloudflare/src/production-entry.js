@@ -348,6 +348,8 @@ function injectOwnerCommandCentreAssets(html){
   const workspaceReferenceShellV237CssHref=WORKSPACE_REFERENCE_SHELL_V237_CSS_ASSET;
   const workspaceHomeCommandV238CssHref=WORKSPACE_HOME_COMMAND_V238_CSS_ASSET;
   const propertyVisibilityJsSrc=PROPERTY_VISIBILITY_JS_ASSET;
+  if(!source.includes("/assets/corporate-assets.css"))source=injectBeforeFinalClosingTag(source,"head",'<link rel="stylesheet" href="/assets/corporate-assets.css?v=20261101a" />\n');
+  if(!source.includes("/js/corporate-assets.js"))source=injectBeforeFinalClosingTag(source,"body",'<script src="/js/corporate-assets.js?v=20261101a" defer></script>\n');
   if(!source.includes("/assets/owner-command-centre.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${cssHref}" />\n`);
   if(!source.includes("/assets/executive-personalization.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${personalizationCssHref}" />\n`);
   if(!source.includes("/assets/business-data-bridge.css"))source=injectBeforeFinalClosingTag(source,"head",`<link rel="stylesheet" href="${bridgeCssHref}" />\n`);
