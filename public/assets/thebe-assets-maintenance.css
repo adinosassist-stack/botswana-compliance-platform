@@ -1,0 +1,9 @@
+.thebe-assets-maintenance{background:#fff;color:#131516;border:1px solid #e3e6e8;border-radius:15px;padding:16px}
+.thebe-assets-maintenance h3{font-size:16px;margin:0 0 12px}
+.thebe-assets-maintenance button{background:#fff;color:#131516;border:1px solid #d7dbde;border-radius:10px;padding:9px 13px;font:inherit;cursor:pointer}
+.thebe-assets-maintenance button:focus-visible{outline:2px solid #0b66d6;outline-offset:2px}
+.thebe-assets-maintenance [role=status]{font-size:12px;color:#6b7176}
+.thebe-assets-maintenance ul{padding:0;margin:0;list-style:none}
+.thebe-assets-maintenance li{display:flex;flex-direction:column;gap:5px;border-top:1px solid #e3e6e8;padding:12px 0}
+.thebe-assets-maintenance li span{font-size:13px;color:#6b7176;overflow-wrap:anywhere}
+@media(max-width:600px){.thebe-assets-maintenance{padding:12px}}
