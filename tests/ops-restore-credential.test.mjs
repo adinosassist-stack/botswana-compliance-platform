@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {selectRehearsalToken,runIsolatedRehearsal,rehearsalProbeBase} from '../scripts/isolated-operations-rehearsal.mjs';
+import {selectRehearsalToken,runIsolatedRehearsal,rehearsalProbeBase,readRestoredCounts} from '../scripts/isolated-operations-rehearsal.mjs';
 const env={OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN:'readonly-test-token',PRIVATE_BACKUP_CLOUDFLARE_TOKEN:'backup-test-token'};
 test('restore selects dedicated write credential while preflight keeps existing credential',()=>{
   assert.equal(selectRehearsalToken('RESTORE_APPROVED_BACKUP',env),'backup-test-token');
@@ -38,4 +38,18 @@ test('restore does not parse an unused empty Worker URL; probe modes still valid
       assert.throws(()=>rehearsalProbeBase(mode,url),/rehearsal_worker_url/);
     assert.equal(rehearsalProbeBase(mode,'https://bw-compliance-os-ops-rehearsal.test.workers.dev').protocol,'https:');
   }
+});
+
+test('all 231 restored table counts use individual D1-compatible statements',async()=>{
+  const names=Array.from({length:231},(_,i)=>`table_${i}`);
+  let calls=0;
+  const rows=await readRestoredCounts(async sql=>{
+    assert.ok(!sql.includes('UNION'));
+    const name=names[calls++];
+    assert.equal(sql,`SELECT '${name}' AS name,COUNT(*) AS n FROM "${name}"`);
+    return [{name,n:calls}];
+  },names);
+  assert.equal(calls,231);assert.equal(rows.length,231);
+  assert.equal(rows[230].n,231);
+  await assert.rejects(readRestoredCounts(async()=>assert.fail('unsafe transport'),['bad"name']),/backup_schema/);
 });
