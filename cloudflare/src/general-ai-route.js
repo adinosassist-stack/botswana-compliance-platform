@@ -1,4 +1,5 @@
 import {answerGeneralQuestion} from "./general-ai-research-orchestrator.js";
+import {planGeneralAiRequest} from "./general-ai-research-policy.js";
 import {createGeneralAiModelProvider} from "./general-ai-model-provider.js";
 import {createGeneralAiSearchProvider} from "./general-ai-search-provider.js";
 
@@ -19,6 +20,7 @@ export async function handleGeneralAiRoute({request,path,env,auth}={}){
   try{allowedOrigin=new URL(expected).origin}catch{}
   if(!origin||!allowedOrigin||origin!==allowedOrigin)return reply({error:"origin_failed"},403);
   if(!auth.csrf_token||request.headers.get("x-csrf-token")!==auth.csrf_token)return reply({error:"csrf_failed"},403);
+  if(!["","identity"].includes(String(request.headers.get("content-encoding")||"").toLowerCase()))return reply({error:"unsupported_content_encoding"},415);
   if(Number(request.headers.get("content-length")||0)>8500)return reply({error:"request_too_large"},413);
   let body;
   try{
@@ -27,6 +29,11 @@ export async function handleGeneralAiRoute({request,path,env,auth}={}){
     body=JSON.parse(raw);
   }catch{return reply({error:"invalid_json"},400)}
   if(typeof body?.question!=="string")return reply({error:"invalid_question"},400);
+  const planned=planGeneralAiRequest(body.question);
+  if(!planned.ok)return reply({error:planned.error},400);
+  // This endpoint is for general knowledge; private workspace requests stay on
+  // their separately authorized, tenant-scoped business endpoints.
+  if(planned.businessAuthorizationRequired)return reply({error:"use_authorized_workspace_ai"},403);
   // An independently configured Cloudflare rate-limit binding is mandatory
   // before the feature can be enabled; absent binding fails closed.
   if(typeof env?.GENERAL_AI_RATE_LIMITER?.limit!=="function")return reply({error:"rate_limit_unavailable"},503);
