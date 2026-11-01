@@ -68,6 +68,15 @@ export function inspectBackup(sql){
   finally{db.close()}
 }
 
+export async function readRestoredCounts(query,names){
+  const rows=[];
+  for(const name of names){
+    if(!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name))fail('backup_schema');
+    rows.push(...await query(`SELECT '${name}' AS name,COUNT(*) AS n FROM "${name}"`));
+  }
+  return rows;
+}
+
 export async function restoreBackup(a,o){
   validateRehearsal({...o,mode:'RESTORE_APPROVED_BACKUP'});
   if(!HASH.test(o.backupHash??'')||!HASH.test(o.objectHash??'')||!approval(o.backupApproval))fail('backup_approval_required');
@@ -83,7 +92,7 @@ export async function restoreBackup(a,o){
   await empty(); // Distinct from import: operators must exclude concurrent writers.
   await a.importSql(sql);
   const names=Object.keys(inventory.counts);
-  const rows=await a.query(names.map(name=>`SELECT '${name}' AS name,COUNT(*) AS n FROM "${name}"`).join(' UNION ALL '));
+  const rows=await readRestoredCounts(a.query,names);
   const counts=Object.fromEntries(rows.map(x=>[x.name,x.n]));
   if(rows.length!==names.length||names.some(n=>counts[n]!==inventory.counts[n]))fail('restore_counts');
   if((await a.query('PRAGMA foreign_key_check')).length)fail('restore_foreign_keys');
