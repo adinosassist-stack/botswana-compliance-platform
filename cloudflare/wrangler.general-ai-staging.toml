@@ -1,0 +1,26 @@
+# Dedicated General AI staging proposal. No production routes or assets.
+# Do NOT deploy without provisioned isolated tenant-auth database, verified namespace,
+# staging-only secrets and reviewed hostname. Never bind production DB or R2.
+name = "bw-general-ai-staging"
+main = "src/release-governance-entry.js"
+compatibility_date = "2026-09-03"
+workers_dev = false
+preview_urls = false
+
+[vars]
+APP_ENV = "staging"
+THEBE_GENERAL_AI_ENABLED = "false"
+THEBE_GENERAL_AI_RESEARCH_ENABLED = "false"
+PUBLIC_ORIGIN = "https://ai-staging.thebedesk.com"
+PUBLIC_APP_URL = "https://ai-staging.thebedesk.com"
+AI_FEATURES_DEFAULT = "off"
+REGISTRATION_MODE = "hold"
+PAYMENT_PROVIDER = "none"
+AGENT_BOUNDED_TASK_EXECUTION_ENABLED = "0"
+THEBE_INTERNAL_AUTONOMY_ENABLED = "false"
+THEBE_LIVE_VOICE_ENABLED = "false"
+THEBE_GPT_LIVE_PREVIEW_ENABLED = "false"
+
+# Intentionally no routes, custom domains, production D1/R2, or secrets.
+# Add a vetted, unique rate limiter namespace only after account review.
+# [ratelimits] and tenant-isolated auth bindings are deliberately omitted.
