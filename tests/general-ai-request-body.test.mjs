@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readGeneralAiJsonBody} from '../cloudflare/src/general-ai-request-body.js';
+const make=(body,headers={})=>new Request('https://ai-staging.thebedesk.com/api/ai/general',{method:'POST',headers,body});
+test('valid numeric declared length accepted',async()=>{const body='{"question":"Hello"}';const r=await readGeneralAiJsonBody(make(body,{'content-length':String(new TextEncoder().encode(body).byteLength)}));assert.equal(r.ok,true);assert.equal(r.value.question,'Hello')});
+test('malformed length is rejected',async()=>{const r=await readGeneralAiJsonBody(make('{}',{'content-length':'foo'}));assert.deepEqual(r,{ok:false,error:'invalid_content_length',status:400})});
+test('excessive declared length rejected',async()=>{const r=await readGeneralAiJsonBody(make('{}',{'content-length':'999999'}));assert.equal(r.status,413)});
+test('oversized streamed body rejected without full buffering',async()=>{const r=await readGeneralAiJsonBody(make('x'.repeat(9000)));assert.equal(r.status,413)});
+test('multi-byte payload size checked by bytes',async()=>{const r=await readGeneralAiJsonBody(make('"'+ '🥰'.repeat(2200)+'"'));assert.equal(r.status,413)});
+test('malformed JSON rejected',async()=>{const r=await readGeneralAiJsonBody(make('{nope'));assert.equal(r.error,'invalid_json')});
+test('compressed content rejected',async()=>{const r=await readGeneralAiJsonBody(make('{}',{'content-encoding':'gzip'}));assert.equal(r.status,415)});
+test('no content rejected',async()=>{const r=await readGeneralAiJsonBody(new Request('https://ai-staging.thebedesk.com',{method:'POST'}));assert.equal(r.status,400)});
