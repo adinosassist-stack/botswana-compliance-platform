@@ -9,6 +9,22 @@ test('restore selects dedicated write credential while preflight keeps existing 
   for(const mode of ['PREFLIGHT_ONLY','PREFLIGHT_WORKER','ROLLBACK_REHEARSAL_WORKER','ALERT_PROBE'])
     assert.equal(selectRehearsalToken(mode,env),'readonly-test-token');
 });
+test('verification-only continuation refuses missing dedicated credential and production database',async()=>{
+  for(const token of [undefined,null,'','   ']){
+    assert.throws(()=>selectRehearsalToken('VERIFY_EXISTING_RESTORE',
+      {...env,PRIVATE_BACKUP_CLOUDFLARE_TOKEN:token}),/rehearsal_restore_credential_required/);
+  }
+  let calls=0;
+  await assert.rejects(runIsolatedRehearsal({
+    mode:'VERIFY_EXISTING_RESTORE',accountId:'ddd23cab31928a4bb3d4998df9b26d1d',
+    databaseId:'8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce',
+    token:selectRehearsalToken('VERIFY_EXISTING_RESTORE',env),
+    sourceSha:'a'.repeat(40),runId:'11111111-1111-4111-8111-111111111111',
+    isolationApproval:'ISOLATED_REHEARSAL_ONLY'
+  },{fetchImpl:async()=>{calls++;throw Error('unexpected provider request')}}),/rehearsal_invalid_authority/);
+  assert.equal(calls,0);
+});
+
 test('restore never falls back to read-only credential',()=>{
   for(const token of [undefined,null,'','   '])assert.throws(()=>selectRehearsalToken('RESTORE_APPROVED_BACKUP',
     {...env,PRIVATE_BACKUP_CLOUDFLARE_TOKEN:token}),/rehearsal_restore_credential_required/);
