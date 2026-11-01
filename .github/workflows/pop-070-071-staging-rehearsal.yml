@@ -1,0 +1,65 @@
+name: POP 070-071 protected isolated staging rehearsal
+on:
+  pull_request:
+    paths:
+      - scripts/rehearse-pop-070-071-on-staging.mjs
+      - .github/workflows/pop-070-071-staging-rehearsal.yml
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        required: true
+        type: string
+      sha256_070:
+        required: true
+        type: string
+      sha256_071:
+        required: true
+        type: string
+      confirmation:
+        required: true
+        type: string
+      execute_confirmation:
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: pop-070-071-staging-rehearsal
+  cancel-in-progress: false
+jobs:
+  static:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - run: |
+          node --check scripts/rehearse-pop-070-071-on-staging.mjs
+          python3 scripts/rehearse-pop-070-071-sqlite.py
+          python3 scripts/rehearse-pop-070-071-adversarial.py
+  staging:
+    if: github.event_name == 'workflow_dispatch'
+    needs: static
+    environment: operations-rehearsal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+      POP_SQL_SHA256_070: ${{ inputs.sha256_070 }}
+      POP_SQL_SHA256_071: ${{ inputs.sha256_071 }}
+      POP_STAGING_CONFIRM: ${{ inputs.confirmation }}
+      POP_STAGING_EXECUTE: ${{ inputs.execute_confirmation }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.OPERATIONS_REHEARSAL_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.expected_main_sha }}
+          persist-credentials: false
+      - name: Confirm exact main release authority
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Rehearse reviewed POP migrations against isolated staging only
+        run: node scripts/rehearse-pop-070-071-on-staging.mjs
