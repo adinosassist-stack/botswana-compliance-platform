@@ -5,6 +5,7 @@ import {selectRehearsalToken,runIsolatedRehearsal,rehearsalProbeBase,readRestore
 const env={OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN:'readonly-test-token',PRIVATE_BACKUP_CLOUDFLARE_TOKEN:'backup-test-token'};
 test('restore selects dedicated write credential while preflight keeps existing credential',()=>{
   assert.equal(selectRehearsalToken('RESTORE_APPROVED_BACKUP',env),'backup-test-token');
+  assert.equal(selectRehearsalToken('VERIFY_EXISTING_RESTORE',env),'backup-test-token');
   for(const mode of ['PREFLIGHT_ONLY','PREFLIGHT_WORKER','ROLLBACK_REHEARSAL_WORKER','ALERT_PROBE'])
     assert.equal(selectRehearsalToken(mode,env),'readonly-test-token');
 });
@@ -23,7 +24,7 @@ test('production database remains rejected even with the dedicated credential',a
 });
 test('write credential is mode-restricted and existing independent gates remain',()=>{
   const workflow=readFileSync('.github/workflows/isolated-operations-rehearsals.yml','utf8');
-  assert.ok(workflow.includes("PRIVATE_BACKUP_CLOUDFLARE_TOKEN: ${{ inputs.mode == 'RESTORE_APPROVED_BACKUP' && secrets.PRIVATE_BACKUP_CLOUDFLARE_TOKEN || '' }}"));
+  assert.ok(workflow.includes("PRIVATE_BACKUP_CLOUDFLARE_TOKEN: ${{ (inputs.mode == 'RESTORE_APPROVED_BACKUP' || inputs.mode == 'VERIFY_EXISTING_RESTORE') && secrets.PRIVATE_BACKUP_CLOUDFLARE_TOKEN || '' }}"));
   assert.match(workflow,/environment: operations-rehearsal/);
   assert.match(workflow,/inputs.confirmation == 'RUN_ISOLATED_REHEARSAL'/);
   assert.match(workflow,/Reviewed revision is no longer current main/);
