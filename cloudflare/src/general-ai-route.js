@@ -49,6 +49,6 @@ export async function handleGeneralAiRoute({request,path,env,auth}={}){
   const search=researchEnabled?createGeneralAiSearchProvider({apiKey:env.BRAVE_SEARCH_API_KEY}):undefined;
   try{
     const result=await answerGeneralQuestion({question:body.question,model,search,researchEnabled,authorized:false});
-    return reply(result,result.ok?200:result.error==="authorization_required"?403:400);
+    return reply(result,result.ok?200:result.error==="authorization_required"||result.error==="action_request_not_supported"?403:result.error==="research_sources_unavailable"||result.error==="model_unavailable"?503:400);
   }catch{return reply({error:"ai_provider_unavailable"},503)}
 }
