@@ -19,7 +19,7 @@ export function corporateAssetsSummary(assets,maintenance=[],insurance=[],asOf="
  }
  const due=(rows,key)=>rows.reduce((count,row)=>{
   if(!ids.has(row?.asset_id))throw new TypeError("unscoped_asset_event");
-  const date=row[key];if(typeof date!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(date))throw new TypeError("invalid_due_date");
+  const date=row[key];if(!isCalendarDate(date))throw new TypeError("invalid_due_date");
   return count+(date<=asOf?1:0);
  },0);
  return Object.freeze({totalAssets:assets.length,bookValueBwp:cents/100,maintenanceDue:due(maintenance,"next_due_date"),insuranceDue:due(insurance,"coverage_end")});
