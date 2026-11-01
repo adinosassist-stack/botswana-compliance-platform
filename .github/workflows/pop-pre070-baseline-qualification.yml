@@ -8,6 +8,7 @@ on:
       - 'cloudflare/migrations/071_payment_pop_runtime_compat.sql'
       - 'scripts/prepare-pop-pre070-baseline.py'
       - 'tests/pop-pre070-baseline.test.py'
+      - 'scripts/rehearse-pop-repository-baseline.py'
       - '.github/workflows/pop-pre070-baseline-qualification.yml'
 permissions:
   contents: read
@@ -30,3 +31,4 @@ jobs:
         run: |
           python3 tests/pop-pre070-baseline.test.py
           python3 scripts/prepare-pop-pre070-baseline.py
+          python3 scripts/rehearse-pop-repository-baseline.py
