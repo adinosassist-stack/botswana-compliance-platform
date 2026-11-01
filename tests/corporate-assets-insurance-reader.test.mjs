@@ -12,3 +12,8 @@ test('unauthorized requests never query',async()=>{
  await assert.rejects(listInsurance({db,context:{companyId,authorized:false},asOfDate:'2026-11-01'}),/unauthorized/);
  assert.equal(calls,0);
 });
+
+test('insurance reader rejects invalid date returned by database',async()=>{
+ const db={query:async()=>({rows:[{asset_name:'Truck',provider:'Insurer',end_date:'invalid'}]})};
+ await assert.rejects(listInsurance({db,context:{companyId,authorized:true},asOfDate:'2026-11-01'}),/invalid_policy_date/);
+});
