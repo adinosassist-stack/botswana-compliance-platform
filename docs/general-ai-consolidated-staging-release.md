@@ -17,3 +17,17 @@ This batch deliberately does not enable General AI in production or expose a pub
 
 ## Rollback and protection
 If any of the above checks fail, do not dispatch deployment. Restore only the **isolated private staging Worker** from the prior reviewed build via protected workflow, keeping AI OFF. Never copy production D1, R2, passwords, sessions or paid-provider API keys to staging. Do not activate subscriptions based on customer references.
+
+## Missing-credential deployment failure
+
+If the protected job reports either `GENERAL_AI_STAGING_CLOUDFLARE_TOKEN` or
+`GENERAL_AI_STAGING_CLOUDFLARE_ACCOUNT_ID` missing, it has not contacted Cloudflare.
+Configure these exact secret names in `general-ai-private-staging`, retaining its
+independent reviewer. The account ID must be `ddd23cab31928a4bb3d4998df9b26d1d`.
+The token must be a separately authorized staging deployment credential; the
+read-only operations-rehearsal token cannot deploy Workers. Never copy production
+credentials or disclose token values in issues, logs, or chat.
+
+Passing this local presence/account check does not prove token validity, provider
+permissions, successful deployment, or launch readiness. Diagnose provider errors
+separately after the protected deployment actually reaches Cloudflare.
