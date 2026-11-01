@@ -39,3 +39,15 @@ test("business-only routing is not a permission grant",()=>{
   assert.equal(plan.actionExecutionAllowed,false);
   assert.equal(plan.approvalRequired,true);
 });
+
+test("high-risk action request cannot invoke a model through general AI",async()=>{
+ let called=0;
+ const guarded={...env,GENERAL_AI_RATE_LIMITER:{limit:async()=>{called++;return {success:true}}}};
+ const response=await handleGeneralAiRoute({
+   request:post({question:"Transfer money immediately"}),
+   path:"/api/ai/general",env:guarded,auth
+ });
+ assert.equal(response.status,403);
+ assert.equal((await response.json()).error,"action_request_not_supported");
+ assert.equal(called,0);
+});
