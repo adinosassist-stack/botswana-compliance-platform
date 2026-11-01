@@ -22,7 +22,9 @@ export async function handleGeneralAiRoute({request,path,env,auth}={}){
   if(!origin||!allowedOrigin||origin!==allowedOrigin)return reply({error:"origin_failed"},403);
   if(!auth.csrf_token||request.headers.get("x-csrf-token")!==auth.csrf_token)return reply({error:"csrf_failed"},403);
   if(!["","identity"].includes(String(request.headers.get("content-encoding")||"").toLowerCase()))return reply({error:"unsupported_content_encoding"},415);
-  if(Number(request.headers.get("content-length")||0)>8500)return reply({error:"request_too_large"},413);
+  const declaredLength=request.headers.get("content-length");
+  if(declaredLength!==null&&(!/^\\d+$/.test(declaredLength)||!Number.isSafeInteger(Number(declaredLength))))return reply({error:"invalid_content_length"},400);
+  if(declaredLength!==null&&Number(declaredLength)>8500)return reply({error:"request_too_large"},413);
   let body;
   try{
     const raw=await request.text();
