@@ -34,6 +34,7 @@ export async function handleGeneralAiRoute({request,path,env,auth}={}){
   // This endpoint is for general knowledge; private workspace requests stay on
   // their separately authorized, tenant-scoped business endpoints.
   if(planned.businessAuthorizationRequired)return reply({error:"use_authorized_workspace_ai"},403);
+  if(planned.approvalRequired)return reply({error:"action_request_not_supported"},403);
   // An independently configured Cloudflare rate-limit binding is mandatory
   // before the feature can be enabled; absent binding fails closed.
   if(typeof env?.GENERAL_AI_RATE_LIMITER?.limit!=="function")return reply({error:"rate_limit_unavailable"},503);
