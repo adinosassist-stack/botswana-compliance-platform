@@ -10,9 +10,14 @@ test("dedicated General AI staging proposal is isolated and disabled",()=>{
   assert.match(content,/workers_dev = false/);
   assert.match(content,/preview_urls = false/);
   assert.doesNotMatch(content,/^\s*\[\[routes\]\]/m);
-  assert.doesNotMatch(content,/^\s*\[\[d1_databases\]\]/m);
+  assert.match(content,/^\s*\[\[d1_databases\]\]/m);
+  assert.match(content,/^database_name = "bw-general-ai-auth-staging"$/m);
+  assert.match(content,/^database_id = "ff229eef-7724-49ae-9d68-d3a1db669b63"$/m);
   assert.doesNotMatch(content,/^\s*\[\[r2_buckets\]\]/m);
-  assert.doesNotMatch(content,/^\s*\[\[ratelimits\]\]/m);
+  assert.match(content,/^\s*\[\[ratelimits\]\]/m);
+  assert.match(content,/^namespace_id = "78212078"$/m);
+  assert.match(content,/^limit = 5$/m);
+  assert.match(content,/^period = 60$/m);
   assert.doesNotMatch(content,/^\s*\[secrets\]/m);
 });
 

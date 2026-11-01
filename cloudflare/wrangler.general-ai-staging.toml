@@ -21,6 +21,19 @@ THEBE_INTERNAL_AUTONOMY_ENABLED = "false"
 THEBE_LIVE_VOICE_ENABLED = "false"
 THEBE_GPT_LIVE_PREVIEW_ENABLED = "false"
 
-# Intentionally no routes, custom domains, production D1/R2, or secrets.
-# Add a vetted, unique rate limiter namespace only after account review.
-# [ratelimits] and tenant-isolated auth bindings are deliberately omitted.
+# Isolated staging-only resources. The secret is stored in Cloudflare, never here.
+# No routes or custom domains; both General AI flags stay off.
+[[d1_databases]]
+binding = "DB"
+database_name = "bw-general-ai-auth-staging"
+database_id = "ff229eef-7724-49ae-9d68-d3a1db669b63"
+
+[[ratelimits]]
+name = "GENERAL_AI_RATE_LIMITER"
+namespace_id = "78212078"
+[ratelimits.simple]
+limit = 5
+period = 60
+
+# SESSION_SECRET is set exclusively as a Worker secret.
+# Do not deploy this configuration until the full authenticated app is qualified.
