@@ -28,7 +28,8 @@ export function validateResearchSources(sources){
   if(!Array.isArray(sources))return [];
   const seen=new Set(),out=[];
   for(const item of sources.slice(0,32)){
-    if(!item||typeof item!=="object"||out.length>=URL_LIMIT)break;
+    if(out.length>=URL_LIMIT)break;
+    if(!item||typeof item!=="object")continue;
     let url;
     try{
       url=new URL(String(item.url||""));
