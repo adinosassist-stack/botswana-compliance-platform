@@ -32,3 +32,11 @@ test("provider failure raises a generic error",async()=>{
   const model=createGeneralAiModelProvider({apiKey:"test",model:"gpt-4.1-mini",fetchImpl:async()=>new Response("failed",{status:503})});
   await assert.rejects(()=>model({question:"Hello"}),/model_provider_unavailable/);
 });
+
+test("rejects model endpoints with URL credentials, alternate ports, or fragments",()=>{
+ for(const endpoint of [
+  "https://user:pass@api.openai.com/v1/chat/completions",
+  "https://api.openai.com:8443/v1/chat/completions",
+  "https://api.openai.com/v1/chat/completions#fragment"
+ ])assert.throws(()=>createGeneralAiModelProvider({apiKey:"test",model:"test-model",endpoint}),/unsupported_model_endpoint/);
+});
