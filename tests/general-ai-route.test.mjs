@@ -66,3 +66,23 @@ test("live research failures are service-unavailable, not invalid user prompts",
  assert.equal(generalAiResultStatus({ok:false,error:"invalid_question"}),400);
  assert.equal(generalAiResultStatus({ok:true}),200);
 });
+
+test("missing research configuration fails before quota or model spending",async()=>{
+ let quotaCalls=0;
+ const staging={...env,GENERAL_AI_RATE_LIMITER:{limit:async()=>{quotaCalls++;return {success:true}}}};
+ const response=await handleGeneralAiRoute({
+   request:req("Research the latest Botswana energy news"),
+   path:"/api/ai/general",env:staging,auth
+ });
+ assert.equal(response.status,503);
+ assert.equal((await response.json()).error,"research_sources_unavailable");
+ assert.equal(quotaCalls,0);
+});
+test("general knowledge still follows existing quota guard when research is unavailable",async()=>{
+ const response=await handleGeneralAiRoute({
+   request:req("Explain photosynthesis"),
+   path:"/api/ai/general",env,auth
+ });
+ assert.equal(response.status,503);
+ assert.equal((await response.json()).error,"rate_limit_unavailable");
+});
