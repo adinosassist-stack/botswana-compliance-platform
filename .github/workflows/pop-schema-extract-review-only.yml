@@ -1,0 +1,57 @@
+name: POP schema-only private review extraction
+on:
+  pull_request:
+    paths:
+      - scripts/pop-schema-extract-review-only.mjs
+      - .github/workflows/pop-schema-extract-review-only.yml
+      - scripts/qualify-pop-private-schema-replay.py
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Reviewed exact main SHA
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  static:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - run: |
+          node --check scripts/pop-schema-extract-review-only.mjs
+          python3 -m py_compile scripts/qualify-pop-private-schema-replay.py
+  extract:
+    if: github.event_name == 'workflow_dispatch'
+    needs: static
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.expected_main_sha }}
+          persist-credentials: false
+      - name: Exact-head review-only schema extraction
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]]
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          node scripts/pop-schema-extract-review-only.mjs
+      - name: Offline replay extracted production DDL in ephemeral in-memory SQLite
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$RUNNER_TEMP/pop-schema-review-private.json"
+          python3 scripts/qualify-pop-private-schema-replay.py "$RUNNER_TEMP/pop-schema-review-private.json"
+      - name: Destroy temporary DDL file
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/pop-schema-review-private.json"
