@@ -53,13 +53,14 @@
           const url=new URL(source.url);
           if(url.protocol!=="https:")return;
           const link=text("a",source.title||url.hostname,"owner-agentic-source");
-          link.href=url.href;link.target="_blank";link.rel="noopener noreferrer";
+          link.href=url.href;link.target="_blank";link.rel="noopener noreferrer";link.referrerPolicy="no-referrer";
           sources.append(link);
         }catch{}
       });
       card.append(sources);
     }
     if(result.notice)card.append(text("div",result.notice,"owner-agentic-policy"));
+    if(result.researchPerformed===true)card.append(text("div","Research sources are search excerpts; verify important claims against the linked original publications.","owner-agentic-policy"));
     if(references.length){
       const refs=document.createElement("div");
       refs.className="owner-agentic-sources";
