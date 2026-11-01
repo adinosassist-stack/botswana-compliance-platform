@@ -4,6 +4,7 @@
   const RELEASE="20261011-owner-ask-render-v321";
   let busy=false;
   let creditInitPromise=null;
+  const generalAiEnabled=()=>document.querySelector('meta[name="thebe-general-ai-enabled"]')?.content==="true";
 
   const text=(tag,value,className="")=>{
     const node=document.createElement(tag);
@@ -34,7 +35,7 @@
     const card=document.createElement("article");
     card.className="owner-agentic-run";
     card.dataset.askRenderRelease=RELEASE;
-    const confidence=String(result.confidence||"low").toUpperCase();
+    const confidence=String(result.confidence||(result.researchPerformed?"sourced":"general")).toUpperCase();
     const mode=String(result.generationMode||"governed").replaceAll("_"," ");
     card.append(
       text("span",`${confidence} confidence · ${mode}`,"owner-agentic-kicker"),
@@ -43,6 +44,22 @@
     );
 
     const references=Array.isArray(result.references)?result.references:[];
+    const citations=Array.isArray(result.citations)?result.citations:[];
+    if(citations.length){
+      const sources=document.createElement("div");
+      sources.className="owner-agentic-sources";
+      citations.slice(0,8).forEach(source=>{
+        try{
+          const url=new URL(source.url);
+          if(url.protocol!=="https:")return;
+          const link=text("a",source.title||url.hostname,"owner-agentic-source");
+          link.href=url.href;link.target="_blank";link.rel="noopener noreferrer";
+          sources.append(link);
+        }catch{}
+      });
+      card.append(sources);
+    }
+    if(result.notice)card.append(text("div",result.notice,"owner-agentic-policy"));
     if(references.length){
       const refs=document.createElement("div");
       refs.className="owner-agentic-sources";
@@ -96,13 +113,12 @@
     if(status)status.textContent="Preparing your AI allowance…";
 
     try{
-      await ensureAiCreditsReady();
+      if(!generalAiEnabled())await ensureAiCreditsReady();
       const answeringStatus=statusNode(form);
       if(answeringStatus)answeringStatus.textContent="Thebe is answering your question…";
-      const result=await window.apiJson("/api/ai/advisor",{
-        method:"POST",
-        body:JSON.stringify({mode:"ask",question:normalized})
-      });
+      const result=generalAiEnabled()
+        ?await window.apiJson("/api/ai/general",{method:"POST",body:JSON.stringify({question:normalized})})
+        :await window.apiJson("/api/ai/advisor",{method:"POST",body:JSON.stringify({mode:"ask",question:normalized})});
       if(!renderAnswer(form,result))throw new Error("Thebe returned no answer.");
       const refreshedStatus=statusNode(form);
       if(refreshedStatus)refreshedStatus.textContent="Answer ready · no action was executed.";
