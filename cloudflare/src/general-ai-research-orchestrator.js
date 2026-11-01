@@ -9,6 +9,8 @@ export async function answerGeneralQuestion({question,model,search,researchEnabl
   const plan=planGeneralAiRequest(question,{researchEnabled});
   if(!plan.ok)return {ok:false,error:plan.error};
   if(plan.businessAuthorizationRequired&&!authorized)return {ok:false,error:"authorization_required"};
+  // The generic answer provider must not be a bypass for action approvals.
+  if(plan.approvalRequired)return {ok:false,error:"action_request_not_supported"};
   if(typeof model!=="function")return {ok:false,error:"model_unavailable"};
   let sources=[],sourcesRaw=[],researchPerformed=false,notice=plan.message;
   if(plan.researchRequested&&plan.researchAvailable){
@@ -25,6 +27,11 @@ export async function answerGeneralQuestion({question,model,search,researchEnabl
       }
     }
   }
+  // Do not answer time-sensitive questions from stale model memory when retrieval failed.
+  if(plan.researchRequested&&!researchPerformed)return {
+    ok:false,error:"research_sources_unavailable",notice:notice||"Current information cannot be verified.",
+    researchPerformed:false,citations:[],verification:"unverified"
+  };
   const provenance=researchResponseMetadata({researchPerformed,sources});
   const evidence=researchPerformed?provenance.citations.map(source=>({
     ...source,

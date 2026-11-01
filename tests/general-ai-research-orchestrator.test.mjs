@@ -27,7 +27,8 @@ test("live research uses vetted citations from injected search",async()=>{
 test("research provider failure is disclosed, not fabricated",async()=>{
   const result=await answerGeneralQuestion({question:"Latest news",researchEnabled:true,
     search:async()=>{throw Error("failed")},model:async p=>p.mode});
-  assert.equal(result.answer,"general");
+  assert.equal(result.ok,false);
+  assert.equal(result.error,"research_sources_unavailable");
   assert.match(result.notice,/failed/);
   assert.equal(result.researchPerformed,false);
 });
@@ -56,7 +57,8 @@ test("missing evidence does not count as verified research",async()=>{
     model:async args=>args.mode
   });
   assert.equal(result.researchPerformed,false);
-  assert.equal(result.answer,"general");
+  assert.equal(result.ok,false);
+  assert.equal(result.error,"research_sources_unavailable");
   assert.equal(result.citations.length,0);
 });
 
@@ -80,4 +82,16 @@ test("matching research link does not trigger unsupported citation warning",asyn
    model:async()=>"See https://example.org/report."
  });
  assert.equal(result.unsupportedCitations,false);
+});
+
+test("shared orchestrator refuses high-risk action even when caller claims authorization",async()=>{
+  let modelCalls=0;
+  const result=await answerGeneralQuestion({
+    question:"Transfer money immediately",
+    authorized:true,
+    model:async()=>{modelCalls++;return "should not run"}
+  });
+  assert.equal(result.ok,false);
+  assert.equal(result.error,"action_request_not_supported");
+  assert.equal(modelCalls,0);
 });

@@ -33,3 +33,16 @@ The production Wrangler profile explicitly sets both THEBE_GENERAL_AI_ENABLED an
 Before staging activation, provision GENERAL_AI_RATE_LIMITER with a Cloudflare Workers ratelimits binding. Assign a positive namespace_id confirmed unique within the account (do not reuse another limiter's namespace); use a conservative per-actor threshold with supported period 10 or 60 seconds. Cloudflare's location-local rate limiting is approximate, so an additional strict global budget mechanism is required before exposing paid providers at scale. Confirm OpenAI and Brave secrets exist only as environment secrets, authorize only the intended staging hostname, exercise model and search with real but non-sensitive prompts, and record actual response evidence.
 
 Do not equate successful mocked-provider CI with staging qualification or independent approval of the final head. Any new commit after human approval must be reviewed against current governance rules.
+
+## Exact next staging acceptance checklist
+
+The connected Cloudflare production Worker inventory showed OPENAI_API_KEY but **not** BRAVE_SEARCH_API_KEY, THEBE_GENERAL_AI_MODEL, or GENERAL_AI_RATE_LIMITER. This was a read-only inspection: do not assume the same inventory in a dedicated staging Worker. Never copy production secrets into development or log them.
+
+1. Confirm the **actual** staging Worker script, dedicated hostname, and authenticated test identity; ensure it is not production and its PUBLIC_ORIGIN exactly matches that hostname.
+2. Provision a dedicated GENERAL_AI_RATE_LIMITER binding in staging and confirm its namespace is unused. Do not silently reuse PUBLIC_RATE_LIMITER.
+3. Add THEBE_GENERAL_AI_MODEL and provider secrets through the approved staging secret manager. Do not commit secret values. Set THEBE_GENERAL_AI_ENABLED=true only in staging after reviewing the planned exposure and spend.
+4. First verify unauthenticated callers receive 401 (or 404 while disabled); then run the opt-in authenticated smoke script with non-sensitive prompts. Confirm HTTPS citations and the disclaimer that snippets are not full-page verification.
+5. Review provider costs, quota/spend budget, timeout handling, tenant isolation, and the default-disabled state before preparing production rollout.
+6. Re-run all current-head required checks, obtain fresh thusico approval, and follow main-production-governance. This checklist does **not** authorize production deployment.
+
+Smoke script: `scripts/general-ai-staging-preflight.mjs`. It is not scheduled or invoked by ordinary CI because it requires live credentials and can incur costs.

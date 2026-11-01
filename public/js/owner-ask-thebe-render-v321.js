@@ -5,6 +5,11 @@
   let busy=false;
   let creditInitPromise=null;
   const generalAiEnabled=()=>document.querySelector('meta[name="thebe-general-ai-enabled"]')?.content==="true";
+  // Keep tenant-sensitive questions on the separately authorized workspace advisor.
+  // Client-side routing never replaces server authorization.
+  const privateWorkspaceQuestion=question=>/\b(my (?:company|business|invoices?|reconciliation|employees?|payments?|subscriptions?|workspace|customers?)|our (?:company|accounts?|payments?|clients?)|thebe (?:workspace|account|billing))\b/i.test(question);
+  const actionQuestion=question=>/\b(transfer money|send payment|approve payment|activate subscription|file tax|delete records|change payroll|sign contract)\b/i.test(question);
+  const useGeneralAi=question=>generalAiEnabled()&&!privateWorkspaceQuestion(question)&&!actionQuestion(question);
 
   const text=(tag,value,className="")=>{
     const node=document.createElement(tag);
@@ -35,8 +40,8 @@
     const card=document.createElement("article");
     card.className="owner-agentic-run";
     card.dataset.askRenderRelease=RELEASE;
-    const confidence=String(result.confidence||(result.researchPerformed?"sourced":"general")).toUpperCase();
-    const mode=String(result.generationMode||"governed").replaceAll("_"," ");
+    const confidence=result.verification==="search_snippets_only"?"SEARCH EXCERPTS":String(result.confidence||(result.researchPerformed?"unverified":"general")).toUpperCase();
+    const mode=String(result.generationMode||(result.verification?"general AI":"governed")).replaceAll("_"," ");
     card.append(
       text("span",`${confidence} confidence · ${mode}`,"owner-agentic-kicker"),
       text("h4","Thebe"),
@@ -51,7 +56,8 @@
       citations.slice(0,8).forEach(source=>{
         try{
           const url=new URL(source.url);
-          if(url.protocol!=="https:")return;
+          // Defense in depth: never turn an AI-supplied URL into an internal or credentialed link.
+          if(url.protocol!=="https:"||url.username||url.password||url.port||/^(?:localhost|.*\\.localhost|.*\\.local)$/i.test(url.hostname)||/^\\d+\\.\\d+\\.\\d+\\.\\d+$/.test(url.hostname)||url.hostname.includes(":"))return;
           const link=text("a",source.title||url.hostname,"owner-agentic-source");
           link.href=url.href;link.target="_blank";link.rel="noopener noreferrer";link.referrerPolicy="no-referrer";
           sources.append(link);
@@ -114,10 +120,11 @@
     if(status)status.textContent="Preparing your AI allowance…";
 
     try{
-      if(!generalAiEnabled())await ensureAiCreditsReady();
+      const general=useGeneralAi(normalized);
+      if(!general)await ensureAiCreditsReady();
       const answeringStatus=statusNode(form);
       if(answeringStatus)answeringStatus.textContent="Thebe is answering your question…";
-      const result=generalAiEnabled()
+      const result=general
         ?await window.apiJson("/api/ai/general",{method:"POST",body:JSON.stringify({question:normalized})})
         :await window.apiJson("/api/ai/advisor",{method:"POST",body:JSON.stringify({mode:"ask",question:normalized})});
       if(!renderAnswer(form,result))throw new Error("Thebe returned no answer.");
