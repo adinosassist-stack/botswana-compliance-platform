@@ -5,7 +5,20 @@ const DB='8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce';
 const BUCKET='bw-compliance-ops-backups';
 const LIMIT=25*1024*1024;
 const hash=b=>createHash('sha256').update(b).digest('hex');
-const stop=code=>{throw new Error('private_backup_'+code)};
+class BackupError extends Error {
+  constructor(code,diagnostic={}){super('private_backup_'+code);this.code=code;this.diagnostic=diagnostic;}
+}
+const stop=(code,diagnostic)=>{throw new BackupError(code,diagnostic)};
+export function safeFailure(error){
+  if(!(error instanceof BackupError))return {code:'unexpected_failure'};
+  return {code:error.code,...error.diagnostic};
+}
+function stageFor(path){
+  if(path.endsWith('/domains/managed'))return 'backup_bucket_managed_domain';
+  if(path.endsWith('/domains/custom'))return 'backup_bucket_custom_domains';
+  if(path.endsWith('/export'))return 'production_d1_export';
+  return 'production_d1_metadata';
+}
 export async function boundedBytes(response,limit=LIMIT){
   if(!response.ok)stop('download_refused');
   const length=response.headers.get('content-length');
@@ -31,12 +44,13 @@ export async function prepareBackup(e,{fetchImpl=fetch,pause=ms=>new Promise(r=>
      !/^[1-9]\d*$/.test(e.GITHUB_RUN_ID||'')||!/^[1-9]\d*$/.test(e.GITHUB_RUN_ATTEMPT||''))stop('authority');
   const root=`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}`;
   const request=async(path,method='GET',body)=>{
-    const r=await fetchImpl(root+path,{method,redirect:'error',signal:AbortSignal.timeout(30000),
+    const stage=stageFor(path);let r;
+    try{r=await fetchImpl(root+path,{method,redirect:'error',signal:AbortSignal.timeout(30000),
       headers:{Authorization:`Bearer ${e.PRIVATE_BACKUP_CLOUDFLARE_TOKEN}`,'Content-Type':'application/json'},
-      ...(body?{body:JSON.stringify(body)}:{})});
-    if(!r.ok)stop('provider_refused');
+      ...(body?{body:JSON.stringify(body)}:{})});}catch{stop('transport_failed',{stage});}
+    if(!r.ok)stop('provider_refused',{stage,httpStatus:r.status});
     let d;try{d=await r.json()}catch{stop('provider_response')}
-    if(d.success!==true)stop('provider_refused');return d.result;
+    if(d.success!==true)stop('provider_refused',{stage,httpStatus:r.status});return d.result;
   };
   const managed=await request(`/r2/buckets/${BUCKET}/domains/managed`);
   const custom=await request(`/r2/buckets/${BUCKET}/domains/custom`);
@@ -83,5 +97,5 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
       if(!r.ok||(await r.json()).object?.sha!==process.env.EXPECTED_SHA)stop('main_drift');
     };
     console.log(JSON.stringify(await prepareBackup(process.env,{assertCurrent})));
-  }catch{console.error('private_backup_failed_inspect_candidate_before_retry');process.exitCode=1;}
+  }catch(error){console.error(JSON.stringify(safeFailure(error)));process.exitCode=1;}
 }
