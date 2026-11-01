@@ -40,3 +40,10 @@ test("depreciation estimate respects salvage floor",()=>{
  assert.equal(depreciationEstimate({costBwp:10000,ratePercent:50,years:8,salvageBwp:2000}),2000);
  assert.throws(()=>depreciationEstimate({costBwp:100,ratePercent:150,years:1}),/invalid_depreciation/);
 });
+
+test("accepts valid BWP cents despite binary floating point rounding",async()=>{
+ const db=fake(),api=corporateAssetService(db);
+ await api.createAsset(identity,{assetName:"Small part",category:"Other",branch:"Gaborone",acquisitionDate:"2026-01-02",acquisitionCostBwp:0.29,bookValueBwp:0.29});
+ assert.equal(db.calls.length,1);
+ assert.equal(db.calls[0].params[7],0.29);
+});
