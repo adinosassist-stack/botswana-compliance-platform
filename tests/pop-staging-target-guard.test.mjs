@@ -6,3 +6,11 @@ test('rejects production UUID',()=>assert.throws(()=>validateStagingTarget({...g
 test('rejects nonempty staging',()=>assert.throws(()=>validateStagingTarget({...good,existingObjects:[{name:'_cf_KV'},{name:'tenants'}]})));
 test('rejects wrong SHA',()=>assert.throws(()=>validateStagingTarget({...good,sourceSha:'a'.repeat(40)})));
 test('rejects absent authorization',()=>assert.throws(()=>validateStagingTarget({...good,confirmation:''})));
+
+test('protected POP preflight uses the dedicated rehearsal account and token secrets',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const workflow=readFileSync('.github/workflows/pop-staging-init-preflight.yml','utf8');
+ assert.match(workflow,/CLOUDFLARE_ACCOUNT_ID:\s*\$\{\{ secrets\.OPERATIONS_REHEARSAL_ACCOUNT_ID \}\}/);
+ assert.match(workflow,/CLOUDFLARE_API_TOKEN:\s*\$\{\{ secrets\.OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN \}\}/);
+ assert.doesNotMatch(workflow,/CLOUDFLARE_ACCOUNT_ID:\s*\$\{\{ secrets\.CLOUDFLARE_ACCOUNT_ID \}\}/);
+});
