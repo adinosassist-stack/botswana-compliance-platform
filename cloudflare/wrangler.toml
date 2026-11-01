@@ -13,6 +13,9 @@ custom_domain = true
 required = ["SESSION_SECRET", "AUDIT_INTEGRITY_SECRET", "OPERATIONS_SECRET", "AUTOMATION_SECRET", "TURNSTILE_SECRET_KEY", "PAYMENT_WEBHOOK_SECRET", "BILLING_WEBHOOK_SECRET", "OPENAI_API_KEY", "RESEND_API_KEY"]
 
 [vars]
+# General AI remains disabled until staging/provider qualification and reviewed rollout.
+THEBE_GENERAL_AI_ENABLED = "false"
+THEBE_GENERAL_AI_RESEARCH_ENABLED = "false"
 APP_ENV = "production"
 DEPLOYMENT_PROFILE = "workers-free-first"
 REGISTRATION_MODE = "open"
