@@ -1,0 +1,21 @@
+name: General AI research CI
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/src/general-ai-*.js'
+      - 'tests/general-ai-*.test.mjs'
+      - '.github/workflows/general-ai-research-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  general-ai-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: General AI security and behavior tests
+        run: node --test tests/general-ai-research-policy.test.mjs tests/general-ai-research-orchestrator.test.mjs tests/general-ai-model-provider.test.mjs tests/general-ai-search-provider.test.mjs tests/general-ai-route.test.mjs tests/general-ai-provider-integration.test.mjs tests/general-ai-security-boundary.test.mjs
