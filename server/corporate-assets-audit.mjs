@@ -1,6 +1,6 @@
 /** Immutable, tenant-scoped asset history adapter; requires authenticated server context. */
 import {validateTransfer,validateStatusChange} from './corporate-assets-domain.mjs';
-const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+// Caller must supply a transaction-scoped client; see corporate-assets-transaction.mjs.\nconst uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function requireContext(context){
  if(!context||!uuid.test(context.companyId||'')||!uuid.test(context.actorId||'')||context.authorized!==true)throw new Error('unauthorized');
 }
