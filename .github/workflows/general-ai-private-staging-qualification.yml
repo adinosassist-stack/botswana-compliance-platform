@@ -33,7 +33,7 @@ jobs:
           node-version: '22'
       - run: npm ci --ignore-scripts
       - name: Test staging security boundaries
-        run: node --test tests/general-ai-isolated-entry.test.mjs tests/general-ai-staging-boundary-batch.test.mjs tests/general-ai-isolated-staging-contract.test.mjs tests/general-ai-staging-safety-gate.test.mjs
+        run: node --test tests/general-ai-isolated-entry.test.mjs tests/general-ai-staging-boundary-batch.test.mjs tests/general-ai-isolated-staging-contract.test.mjs tests/general-ai-staging-safety-gate.test.mjs tests/general-ai-staging-workflow-guards.test.mjs
       - name: Confirm private-only flags and expected staging bindings
         run: |
           node --input-type=module <<'JS'
@@ -41,7 +41,7 @@ jobs:
           const c=readFileSync('cloudflare/wrangler.general-ai-staging.toml','utf8');
           for(const s of ['workers_dev = false','preview_urls = false','THEBE_GENERAL_AI_ENABLED = "false"','THEBE_GENERAL_AI_RESEARCH_ENABLED = "false"','database_id = "ff229eef-7724-49ae-9d68-d3a1db669b63"','namespace_id = "78212078"','main = "src/general-ai-staging-entry.js"'])
             if(!c.includes(s))throw Error('private_staging_contract_mismatch');
-          if(/^\\s*(route|routes|zone_id)\\s*=/m.test(c))throw Error('public_route_prohibited');
+          if(/^\s*(?:(?:route|routes|zone_id)\s*=|\[\[?routes\]\]?)/m.test(c))throw Error('public_route_prohibited');
           JS
       - name: Build verified staging bundle without publishing
         run: npx wrangler deploy --dry-run --config cloudflare/wrangler.general-ai-staging.toml --outdir /tmp/general-ai-staging
@@ -71,6 +71,25 @@ jobs:
     environment: general-ai-private-staging
     timeout-minutes: 12
     steps:
+      - name: Validate dedicated staging credentials
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.GENERAL_AI_STAGING_CLOUDFLARE_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.GENERAL_AI_STAGING_CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
+            echo '::error::GENERAL_AI_STAGING_CLOUDFLARE_TOKEN is missing from general-ai-private-staging. Configure the dedicated staging deployment credential; do not reuse recovery or production credentials.' >&2
+            exit 1
+          fi
+          if [[ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]]; then
+            echo '::error::GENERAL_AI_STAGING_CLOUDFLARE_ACCOUNT_ID is missing from general-ai-private-staging.' >&2
+            exit 1
+          fi
+          if [[ "$CLOUDFLARE_ACCOUNT_ID" != 'ddd23cab31928a4bb3d4998df9b26d1d' ]]; then
+            echo '::error::GENERAL_AI_STAGING_CLOUDFLARE_ACCOUNT_ID does not match the reviewed staging account.' >&2
+            exit 1
+          fi
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
