@@ -12,10 +12,10 @@ test("all asset tables are company-scoped and RLS-deny by default",()=>{
  assert.match(sql,/REVOKE ALL ON corporate_assets,asset_maintenance_logs,asset_insurance_policies FROM PUBLIC/);
 });
 test("money, depreciation and tenancy integrity constraints exist",()=>{
- assert.match(sql,/CHECK\(acquisition_cost_bwp>=0\)/);
- assert.match(sql,/CHECK\(current_book_value_bwp>=0\)/);
- assert.match(sql,/depreciation_rate_percentage BETWEEN 0 AND 100/);
+ assert.match(sql,/CHECK\s*\(\s*acquisition_cost_bwp\s*>=\s*0\s*\)/);
+ assert.match(sql,/CHECK\s*\(\s*current_book_value_bwp\s*>=\s*0\s*\)/);
+ assert.match(sql,/depreciation_rate_percentage\s+BETWEEN\s+0\s+AND\s+100/);
  assert.match(sql,/corporate_assets_serial_tenant_unique/);
- assert.match(sql,/coverage_end>=coverage_start/);
- assert.match(sql,/next_due_date>=service_date/);
+ assert.match(sql,/coverage_end\s*>=\s*coverage_start/);
+ assert.match(sql,/next_due_date\s*>=\s*service_date/);
 });
