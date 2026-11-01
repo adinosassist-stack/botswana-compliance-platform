@@ -30,7 +30,7 @@ jobs:
       - name: Isolated staging authentication contract
         run: python3 tests/general-ai-staging-session-contract.py
       - name: General AI security and behavior tests
-        run: node --test tests/general-ai-research-policy.test.mjs tests/general-ai-research-orchestrator.test.mjs tests/general-ai-model-provider.test.mjs tests/general-ai-search-provider.test.mjs tests/general-ai-route.test.mjs tests/general-ai-provider-integration.test.mjs tests/general-ai-security-boundary.test.mjs tests/general-ai-staging-config.test.mjs tests/general-ai-owner-routing.test.mjs tests/general-ai-isolated-staging-contract.test.mjs tests/general-ai-private-staging-verify.test.mjs tests/general-ai-request-body.test.mjs tests/general-ai-isolated-auth-schema.test.mjs tests/general-ai-staging-auth-verify.test.mjs tests/general-ai-staging-safety-gate.test.mjs tests/general-ai-isolated-entry.test.mjs tests/general-ai-staging-boundary-batch.test.mjs tests/general-ai-staging-workflow-guards.test.mjs
+        run: node --test tests/general-ai-*.test.mjs
 
       - name: Bundle private staging entrypoint without deploying
         run: |
