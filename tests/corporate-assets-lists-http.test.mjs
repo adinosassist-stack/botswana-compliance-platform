@@ -28,3 +28,12 @@ test('unauthenticated and invalid methods fail closed',async()=>{
 test('rate limit fail closed',async()=>{
  const h=handler({rateLimit:async()=>false});assert.equal((await h.run({method:'GET',path:'/api/assets'})).status,429);assert.equal(h.queries,0);
 });
+
+test('unknown path rejects before method or authentication',async()=>{
+ let authCalls=0;
+ const h=handler({authenticate:async()=>{authCalls++;return principal}});
+ const result=await h.run({method:'POST',path:'/api/unknown'});
+ assert.equal(result.status,404);
+ assert.equal(authCalls,0);
+ assert.equal(h.queries,0);
+});
