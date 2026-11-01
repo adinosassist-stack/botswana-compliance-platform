@@ -1,0 +1,68 @@
+name: POP isolated staging schema-only initialization
+on:
+  pull_request:
+    paths:
+      - scripts/pop-staging-schema-executor.mjs
+      - .github/workflows/pop-staging-schema-initialize.yml
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        required: true
+        type: string
+      staging_confirmation:
+        required: true
+        type: string
+      execute_confirmation:
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  static:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - run: |
+          node --check scripts/pop-staging-schema-executor.mjs
+          node --test tests/pop-staging-target-guard.test.mjs
+  initialize:
+    if: github.event_name == 'workflow_dispatch'
+    needs: static
+    environment: operations-rehearsal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+      STAGING_DDL_CONFIRM: ${{ inputs.staging_confirmation }}
+      STAGING_EXECUTE: ${{ inputs.execute_confirmation }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.expected_main_sha }}
+          persist-credentials: false
+      - name: Review exact main and initial staging identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]]
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          node scripts/pop-staging-init-preflight.mjs
+      - name: Extract schema privately and qualify offline replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/pop-schema-extract-review-only.mjs
+          python3 scripts/qualify-pop-private-schema-replay.py "$RUNNER_TEMP/pop-schema-review-private.json"
+      - name: Initialize isolated staging schema only
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/pop-staging-schema-executor.mjs
+      - name: Destroy schema-only transient artifact
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/pop-schema-review-private.json"
