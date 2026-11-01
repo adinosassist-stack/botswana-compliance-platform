@@ -81,3 +81,15 @@ test("matching research link does not trigger unsupported citation warning",asyn
  });
  assert.equal(result.unsupportedCitations,false);
 });
+
+test("shared orchestrator refuses high-risk action even when caller claims authorization",async()=>{
+  let modelCalls=0;
+  const result=await answerGeneralQuestion({
+    question:"Transfer money immediately",
+    authorized:true,
+    model:async()=>{modelCalls++;return "should not run"}
+  });
+  assert.equal(result.ok,false);
+  assert.equal(result.error,"action_request_not_supported");
+  assert.equal(modelCalls,0);
+});
