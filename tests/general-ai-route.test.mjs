@@ -96,3 +96,12 @@ test("malformed declared content length is rejected before quota",async()=>{
   assert.equal(response.status,400);
   assert.equal((await response.json()).error,"invalid_content_length");
 });
+
+test("numeric content length is accepted and continues to provider guard",async()=>{
+ const response=await handleGeneralAiRoute({
+   request:req("Explain photosynthesis",{"content-length":"38"}),
+   path:"/api/ai/general",env,auth
+ });
+ assert.equal(response.status,503);
+ assert.equal((await response.json()).error,"rate_limit_unavailable");
+});
