@@ -1,0 +1,26 @@
+name: Corporate Assets V1 CI
+on:
+  pull_request:
+    paths:
+      - 'db/migrations/20261101_corporate_assets_v1.sql'
+      - 'server/corporate-assets-service.js'
+      - 'tests/corporate-assets-v1-*.test.mjs'
+      - '.github/workflows/corporate-assets-v1-ci.yml'
+  push:
+    paths:
+      - 'db/migrations/20261101_corporate_assets_v1.sql'
+      - 'server/corporate-assets-service.js'
+      - 'tests/corporate-assets-v1-*.test.mjs'
+      - '.github/workflows/corporate-assets-v1-ci.yml'
+jobs:
+  assets-v1-regressions:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check server/corporate-assets-service.js
+      - run: node --test tests/corporate-assets-v1-static.test.mjs tests/corporate-assets-v1-service.test.mjs
