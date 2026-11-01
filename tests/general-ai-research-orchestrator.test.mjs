@@ -22,7 +22,7 @@ test("live research uses vetted citations from injected search",async()=>{
     model:async p=>p.mode});
   assert.equal(result.answer,"grounded_research");
   assert.equal(result.citations.length,1);
-  assert.equal(result.verification,"source_links_available");
+  assert.equal(result.verification,"search_snippets_only");
 });
 test("research provider failure is disclosed, not fabricated",async()=>{
   const result=await answerGeneralQuestion({question:"Latest news",researchEnabled:true,
