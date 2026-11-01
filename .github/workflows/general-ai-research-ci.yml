@@ -18,4 +18,4 @@ jobs:
         with:
           node-version: '22'
       - name: General AI security and behavior tests
-        run: node --test tests/general-ai-research-policy.test.mjs tests/general-ai-research-orchestrator.test.mjs tests/general-ai-model-provider.test.mjs tests/general-ai-search-provider.test.mjs tests/general-ai-route.test.mjs tests/general-ai-provider-integration.test.mjs
+        run: node --test tests/general-ai-research-policy.test.mjs tests/general-ai-research-orchestrator.test.mjs tests/general-ai-model-provider.test.mjs tests/general-ai-search-provider.test.mjs tests/general-ai-route.test.mjs tests/general-ai-provider-integration.test.mjs tests/general-ai-security-boundary.test.mjs
