@@ -35,7 +35,7 @@ jobs:
     env:
       EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
       STAGING_DDL_CONFIRM: ${{ inputs.confirmation }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.OPERATIONS_REHEARSAL_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
