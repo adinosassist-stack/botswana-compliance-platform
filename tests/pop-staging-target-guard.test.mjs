@@ -10,3 +10,18 @@ test('rejects absent authorization',()=>assert.throws(()=>validateStagingTarget(
 test('rejects populated POP schema even when internal KV exists',()=>assert.throws(()=>validateStagingTarget({...good,existingObjects:[{type:'table',name:'_cf_KV'},{type:'table',name:'payment_pop_documents'},{type:'table',name:'payment_pop_upload_requests'}]}),/staging_not_empty/));
 test('rejects extra indexes, views, or triggers without application tables',()=>{for(const type of ['index','view','trigger'])assert.throws(()=>validateStagingTarget({...good,existingObjects:[{type:'table',name:'_cf_KV'},{type,name:'unexpected_schema_object'}]}),/staging_not_empty/)});
 test('rejects missing internal KV table',()=>assert.throws(()=>validateStagingTarget({...good,existingObjects:[]}),/staging_not_empty/));
+
+test('protected POP preflight selects dedicated rehearsal account and token',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const workflow=readFileSync('.github/workflows/pop-staging-init-preflight.yml','utf8');
+ assert.match(workflow,/CLOUDFLARE_ACCOUNT_ID:\s*\$\{\{ secrets\.OPERATIONS_REHEARSAL_ACCOUNT_ID \}\}/);
+ assert.match(workflow,/CLOUDFLARE_API_TOKEN:\s*\$\{\{ secrets\.OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN \}\}/);
+ assert.doesNotMatch(workflow,/CLOUDFLARE_ACCOUNT_ID:\s*\$\{\{ secrets\.CLOUDFLARE_ACCOUNT_ID \}\}/);
+});
+
+test('POP staging preflight rejects wrong Cloudflare account before provider access',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const script=readFileSync('scripts/pop-staging-init-preflight.mjs','utf8');
+ assert.match(script,/e\.CLOUDFLARE_ACCOUNT_ID!=='ddd23cab31928a4bb3d4998df9b26d1d'/);
+ assert.match(script,/throw Error\('pop_preflight_unauthorized'\)/);
+});
