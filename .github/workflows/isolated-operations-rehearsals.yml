@@ -9,6 +9,7 @@ on:
       - cloudflare/src/ops-rehearsal-entry.js
       - scripts/render-ops-rehearsal-config.mjs
       - tests/ops-rehearsal-bootstrap.test.mjs
+      - tests/ops-restore-credential.test.mjs
       - .github/workflows/isolated-operations-rehearsals.yml
       - docs/isolated-operations-rehearsals.md
   workflow_dispatch:
@@ -57,7 +58,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
-      - run: node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs
+      - run: node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs tests/ops-restore-credential.test.mjs
   rehearse:
     needs: qualify
     if: >-
@@ -80,7 +81,7 @@ jobs:
           node-version-file: .nvmrc
           package-manager-cache: false
       - name: Qualify isolated boundaries
-        run: node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs
+        run: node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs tests/ops-restore-credential.test.mjs
       - name: Install lockfile-pinned transport without lifecycle scripts
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Verify exact current main immediately before rehearsal
@@ -98,6 +99,7 @@ jobs:
         env:
           OPERATIONS_REHEARSAL_ACCOUNT_ID: ${{ secrets.OPERATIONS_REHEARSAL_ACCOUNT_ID }}
           OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN: ${{ secrets.OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN }}
+          PRIVATE_BACKUP_CLOUDFLARE_TOKEN: ${{ inputs.mode == 'RESTORE_APPROVED_BACKUP' && secrets.PRIVATE_BACKUP_CLOUDFLARE_TOKEN || '' }}
           REHEARSAL_DATABASE_ID: ${{ (inputs.mode == 'PREFLIGHT_WORKER' || inputs.mode == 'ROLLBACK_REHEARSAL_WORKER' || inputs.mode == 'ALERT_PROBE') && vars.OPS_WORKER_D1_ID || vars.OPS_RESTORE_D1_ID }}
           REHEARSAL_ISOLATION_APPROVAL: ${{ vars.REHEARSAL_ISOLATION_APPROVAL }}
           REHEARSAL_BASE_URL: ${{ vars.REHEARSAL_BASE_URL }}

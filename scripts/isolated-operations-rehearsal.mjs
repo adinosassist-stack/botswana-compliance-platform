@@ -19,6 +19,16 @@ const approval=x=>typeof x==='string'&&/^[A-Za-z0-9_.:/#-]{3,240}$/.test(x);
 const EMPTY="SELECT COUNT(*) AS object_count FROM sqlite_schema WHERE substr(name,1,7) != 'sqlite_' AND name != '_cf_KV'";
 const SCHEMA="SELECT type,name,sql FROM sqlite_schema WHERE substr(name,1,7) != 'sqlite_' AND name != '_cf_KV' ORDER BY type,name";
 
+export function selectRehearsalToken(mode,env){
+  if(mode==='RESTORE_APPROVED_BACKUP'){
+    const token=env.PRIVATE_BACKUP_CLOUDFLARE_TOKEN;
+    if(typeof token!=='string'||!token.trim())fail('restore_credential_required');
+    return token;
+  }
+  if(!['PREFLIGHT_ONLY','PREFLIGHT_WORKER','ROLLBACK_REHEARSAL_WORKER','ALERT_PROBE'].includes(mode))fail('invalid_authority');
+  return env.OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN;
+}
+
 export function validateRehearsal(o){
   if(!['PREFLIGHT_ONLY','PREFLIGHT_WORKER','RESTORE_APPROVED_BACKUP','ROLLBACK_REHEARSAL_WORKER','ALERT_PROBE'].includes(o.mode)||
      !/^[a-f0-9]{32}$/i.test(o.accountId??'')||!UUID.test(o.databaseId??'')||blockedIds.includes(o.databaseId.toLowerCase())||
@@ -219,7 +229,7 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   process.umask(0o077);
   try{
     const e=process.env;
-    const result=await runIsolatedRehearsal({mode:e.REHEARSAL_MODE,accountId:e.OPERATIONS_REHEARSAL_ACCOUNT_ID,token:e.OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN,
+    const result=await runIsolatedRehearsal({mode:e.REHEARSAL_MODE,accountId:e.OPERATIONS_REHEARSAL_ACCOUNT_ID,token:selectRehearsalToken(e.REHEARSAL_MODE,e),
       databaseId:e.REHEARSAL_DATABASE_ID,sourceSha:e.EXPECTED_SHA,isolationApproval:e.REHEARSAL_ISOLATION_APPROVAL,runId:randomUUID(),
       backupHash:e.REHEARSAL_BACKUP_SHA256,objectHash:e.REHEARSAL_OBJECT_SHA256,backupApproval:e.REHEARSAL_BACKUP_APPROVAL,
       versionId:e.REHEARSAL_ROLLBACK_VERSION_ID,currentVersionId:e.REHEARSAL_CURRENT_VERSION_ID,schemaHash:e.REHEARSAL_SCHEMA_SHA256,
