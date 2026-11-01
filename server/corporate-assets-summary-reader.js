@@ -1,4 +1,3 @@
-import {corporateAssetsSummary} from "./corporate-assets-summary.js";
 /** Read-only server adapter. Caller injects a trusted authenticated principal, authorized database query and permission check. */
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export function createCorporateAssetsSummaryReader({query,authorize,clock=()=>new Date()}={}){
@@ -9,7 +8,9 @@ export function createCorporateAssetsSummaryReader({query,authorize,clock=()=>ne
   const company=principal.companyId;
   const today=clock();
   if(!(today instanceof Date)||Number.isNaN(today.getTime()))throw new Error("invalid_clock");
-  const asOf=new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Gaborone",year:"numeric",month:"2-digit",day:"2-digit"}).format(today);
+  const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Africa/Gaborone",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(today);
+  const dateParts=Object.fromEntries(parts.filter(part=>["year","month","day"].includes(part.type)).map(part=>[part.type,part.value]));
+  const asOf=`${dateParts.year}-${dateParts.month}-${dateParts.day}`;
   // All queries use server-resolved company context and bounded, aggregate results.
   const [assetTotals,maintenance,insurance]=await Promise.all([
    query("SELECT COUNT(*)::integer AS total, COALESCE(SUM(current_book_value_bwp),0)::text AS book_value FROM corporate_assets WHERE company_id=$1",[company],principal),
