@@ -41,3 +41,9 @@ test("no research claim or citations when no research was done",()=>{
   assert.equal(result.citations.length,0);
   assert.equal(result.verification,"unverified");
 });
+
+test("malformed search items do not suppress later valid results",()=>{
+ const sources=validateResearchSources([null,42,{url:"https://example.org/report",title:"Example report"}]);
+ assert.equal(sources.length,1);
+ assert.equal(sources[0].url,"https://example.org/report");
+});
