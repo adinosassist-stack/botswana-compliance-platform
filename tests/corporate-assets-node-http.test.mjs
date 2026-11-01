@@ -1,0 +1,8 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createAssetsNodeHttpHandler} from '../server/corporate-assets-node-http.mjs';
+function response(){return {writeHead(status,headers){this.status=status;this.headers=headers},end(body){this.body=JSON.parse(body)}}}
+test('only recognized paths are handled',async()=>{const h=createAssetsNodeHttpHandler({handle:async()=>({status:200,body:{}}),featureEnabled:async()=>true});assert.equal(await h({url:'/other',method:'GET'},response()),false)});
+test('feature flag fails closed without invoking route',async()=>{let calls=0;const h=createAssetsNodeHttpHandler({handle:async()=>{calls++},featureEnabled:async()=>false});const res=response();assert.equal(await h({url:'/api/assets',method:'GET'},res),true);assert.equal(res.status,404);assert.equal(calls,0)});
+test('forwards trusted raw request to injected authentication adapter',async()=>{const req={url:'/api/assets?companyId=untrusted',method:'GET'};const res=response();const h=createAssetsNodeHttpHandler({featureEnabled:async()=>true,handle:async input=>{assert.equal(input.rawRequest,req);assert.equal(input.path,'/api/assets');return {status:200,headers:{'cache-control':'no-store'},body:{assets:[]}}}});await h(req,res);assert.equal(res.status,200);assert.deepEqual(res.body,{assets:[]})});
+test('adapter failures return generic unavailable',async()=>{const h=createAssetsNodeHttpHandler({featureEnabled:async()=>true,handle:async()=>{throw Error('secret')}});const res=response();await h({url:'/api/assets/insurance',method:'GET'},res);assert.deepEqual(res.body,{error:'assets_unavailable'});assert.equal(res.status,503)});
