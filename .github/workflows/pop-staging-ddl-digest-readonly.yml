@@ -1,0 +1,44 @@
+name: POP schema-only DDL digest qualification
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Exact reviewed current main SHA
+        type: string
+        required: true
+  pull_request:
+    paths:
+      - scripts/pop-staging-ddl-digest-readonly.mjs
+      - .github/workflows/pop-staging-ddl-digest-readonly.yml
+permissions:
+  contents: read
+jobs:
+  static:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - run: node --check scripts/pop-staging-ddl-digest-readonly.mjs
+  compare:
+    if: github.event_name == 'workflow_dispatch'
+    needs: static
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.expected_main_sha }}
+          persist-credentials: false
+      - name: Verify protected main and compare full DDL digests without logging SQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]]
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          node scripts/pop-staging-ddl-digest-readonly.mjs
