@@ -1,0 +1,28 @@
+/* Scoped additions: inherits workspace fonts, buttons, cards and charcoal dock. */
+.corporate-assets{--asset-accent:var(--accent,#0b66d6)}
+.corporate-assets .asset-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:18px 0}
+.corporate-assets .asset-metric{display:grid;gap:10px;min-width:0}
+.corporate-assets .asset-metric strong{font-size:clamp(20px,2vw,28px);overflow-wrap:anywhere}
+.corporate-assets .asset-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.corporate-assets .asset-tools input{flex:1;min-width:180px}
+.corporate-assets .asset-columns{display:grid;grid-template-columns:minmax(0,2fr) minmax(250px,1fr);gap:16px;align-items:start}
+.corporate-assets .asset-row{display:grid;grid-template-columns:minmax(130px,1.2fr) minmax(110px,1fr) auto;gap:12px;padding:18px 0;border-bottom:1px solid var(--line,#e3e6e8)}
+.corporate-assets .asset-name,.corporate-assets .asset-description,.corporate-assets .asset-value{display:grid;gap:5px;align-content:start;min-width:0;overflow-wrap:anywhere}
+.corporate-assets .asset-actions{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.corporate-assets .asset-event,.corporate-asset-dialog .asset-event{display:grid;gap:6px;padding:14px 0;border-bottom:1px solid var(--line,#e3e6e8)}
+.corporate-assets .asset-event .badge{justify-self:start}
+.corporate-assets .asset-empty{text-align:center;padding:32px 16px}
+.corporate-asset-dialog{width:min(640px,calc(100vw - 28px));max-height:88dvh;overflow:auto;background:var(--card,#fff);color:var(--text,#131516);border:1px solid var(--line,#e3e6e8);border-radius:16px;padding:24px}
+.corporate-asset-dialog::backdrop{background:rgb(17 21 22 / .5)}
+.corporate-asset-dialog .asset-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.corporate-asset-dialog .asset-field{display:grid;gap:7px;font-size:13px;min-width:0}
+.corporate-asset-dialog input,.corporate-asset-dialog select{width:100%;min-width:0}
+.corporate-asset-dialog .asset-form-actions,.corporate-asset-dialog .asset-form>p,.corporate-asset-dialog .asset-event{grid-column:1/-1}
+.corporate-asset-dialog .asset-form-actions{display:flex;justify-content:flex-end;gap:8px}
+.corporate-assets button:focus-visible,.corporate-asset-dialog button:focus-visible{outline:2px solid var(--asset-accent,#0b66d6);outline-offset:3px}
+@media(max-width:1050px){.corporate-assets .asset-columns{grid-template-columns:1fr}.corporate-assets .asset-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.corporate-assets .asset-row{grid-template-columns:1fr 1fr}.corporate-assets .asset-name{grid-column:1/-1}.corporate-asset-dialog .asset-form{grid-template-columns:1fr}.corporate-asset-dialog{padding:18px}.corporate-assets .asset-tools input{width:100%;flex-basis:100%}}
+.corporate-assets .asset-distribution:not(:empty){margin-bottom:26px;padding-bottom:20px;border-bottom:1px solid var(--line,#e3e6e8)}
+.corporate-assets .asset-mix-row{margin:12px 0}.corporate-assets .asset-bar{height:6px;border-radius:6px;background:#edf0f2;margin-top:7px;overflow:hidden}.corporate-assets .asset-bar span{height:100%;background:var(--asset-accent);display:block;border-radius:6px}
+@media(min-width:761px){.corporate-assets .asset-tools input{width:auto;flex:1 1 220px}.corporate-assets .asset-tools select{width:auto;max-width:220px;flex:0 1 180px}}
+.corporate-assets-nav-icon::before{content:'▦'}
