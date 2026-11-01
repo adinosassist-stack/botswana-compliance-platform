@@ -10,7 +10,7 @@ test("summary queries are tenant-scoped and use Africa/Gaborone date",async()=>{
  assert.equal(result.totalAssets,2);
  assert.equal(result.maintenanceDue,1);
  assert.equal(result.insuranceDue,1);
- assert.equal(result.asOf,"2026-11-01"===new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Gaborone",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date("2026-11-01T20:30:00Z"))?"2026-11-01":"2026-11-02");
+ assert.equal(result.asOf,"2026-11-01");
  assert.equal(calls.length,3);
  assert.ok(calls.every(x=>x.params[0]===principal.companyId&&x.sql.includes("company_id=$1")&&x.actor===principal));
 });
@@ -19,4 +19,13 @@ test("unauthorized requests never query assets",async()=>{
  await assert.rejects(reader(principal),/forbidden/);
  await assert.rejects(reader({...principal,companyId:"bad"}),/unauthorized/);
  assert.equal(touched,0);
+});
+
+test("Botswana calendar boundary does not depend on runtime locale format",async()=>{
+ const calls=[];
+ const reader=createCorporateAssetsSummaryReader({authorize:async()=>true,clock:()=>new Date("2026-11-01T22:30:00Z"),query:async(sql,params)=>{calls.push({sql,params});return {rows:[{total:0,book_value:"0"}]}}});
+ const result=await reader(principal);
+ assert.equal(result.asOf,"2026-11-02");
+ assert.equal(calls[1].params[1],"2026-11-02");
+ assert.equal(calls[2].params[1],"2026-11-02");
 });
