@@ -6,7 +6,7 @@ export function createAssetsNodeHttpHandler({handle,featureEnabled}={}){
   try{path=new URL(req.url,'http://local.invalid').pathname}catch{path='/'}
   if(!['/api/assets','/api/assets/maintenance','/api/assets/insurance'].includes(path))return false;
   const respond=(status,body,headers={})=>{
-   res.writeHead(status,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff',...headers});
+   res.writeHead(status,{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers,'cache-control':'no-store','x-content-type-options':'nosniff'});
    res.end(JSON.stringify(body));
   };
   let enabled=false;
