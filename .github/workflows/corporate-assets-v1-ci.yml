@@ -2,15 +2,19 @@ name: Corporate Assets V1 CI
 on:
   pull_request:
     paths:
-      - 'db/migrations/20261101_corporate_assets_v1.sql'
-      - 'server/corporate-assets-service.js'
-      - 'tests/corporate-assets-v1-*.test.mjs'
+      - 'server/corporate-assets-*'
+      - 'public/js/thebe-assets-*'
+      - 'public/assets/thebe-assets-*'
+      - 'docs/sql/corporate-assets-*'
+      - 'tests/corporate-assets-*.test.mjs'
       - '.github/workflows/corporate-assets-v1-ci.yml'
   push:
     paths:
-      - 'db/migrations/20261101_corporate_assets_v1.sql'
-      - 'server/corporate-assets-service.js'
-      - 'tests/corporate-assets-v1-*.test.mjs'
+      - 'server/corporate-assets-*'
+      - 'public/js/thebe-assets-*'
+      - 'public/assets/thebe-assets-*'
+      - 'docs/sql/corporate-assets-*'
+      - 'tests/corporate-assets-*.test.mjs'
       - '.github/workflows/corporate-assets-v1-ci.yml'
 jobs:
   assets-v1-regressions:
@@ -22,5 +26,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --check server/corporate-assets-service.js
-      - run: node --test tests/corporate-assets-v1-static.test.mjs tests/corporate-assets-v1-service.test.mjs
+      - name: Check asset server syntax
+        run: |
+          set -euo pipefail
+          for file in server/corporate-assets-*.js server/corporate-assets-*.mjs; do
+            [ -f "$file" ] || continue
+            node --check "$file"
+          done
+      - name: Run all Corporate Assets regression tests
+        run: |
+          set -euo pipefail
+          node --test tests/corporate-assets-*.test.mjs
