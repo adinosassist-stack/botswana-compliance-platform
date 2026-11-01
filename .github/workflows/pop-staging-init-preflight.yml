@@ -1,0 +1,51 @@
+name: POP isolated staging initialization preflight
+on:
+  pull_request:
+    paths:
+      - scripts/pop-staging-init-preflight.mjs
+      - .github/workflows/pop-staging-init-preflight.yml
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Exact reviewed main commit
+        required: true
+        type: string
+      confirmation:
+        description: Type INITIALIZE_EMPTY_POP_STAGING_ONLY
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  static:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - run: |
+          node --check scripts/pop-staging-init-preflight.mjs
+          node --test tests/pop-staging-target-guard.test.mjs
+  preflight:
+    if: github.event_name == 'workflow_dispatch'
+    needs: static
+    environment: operations-rehearsal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+      STAGING_DDL_CONFIRM: ${{ inputs.confirmation }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.expected_main_sha }}
+          persist-credentials: false
+      - name: Check exact approved main and read-only target status
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]]
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          node scripts/pop-staging-init-preflight.mjs
