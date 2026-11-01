@@ -8,7 +8,8 @@
   // Keep tenant-sensitive questions on the separately authorized workspace advisor.
   // Client-side routing never replaces server authorization.
   const privateWorkspaceQuestion=question=>/\b(my (?:company|business|invoices?|reconciliation|employees?|payments?|subscriptions?|workspace|customers?)|our (?:company|accounts?|payments?|clients?)|thebe (?:workspace|account|billing))\b/i.test(question);
-  const useGeneralAi=question=>generalAiEnabled()&&!privateWorkspaceQuestion(question);
+  const actionQuestion=question=>/\b(transfer money|send payment|approve payment|activate subscription|file tax|delete records|change payroll|sign contract)\b/i.test(question);
+  const useGeneralAi=question=>generalAiEnabled()&&!privateWorkspaceQuestion(question)&&!actionQuestion(question);
 
   const text=(tag,value,className="")=>{
     const node=document.createElement(tag);
