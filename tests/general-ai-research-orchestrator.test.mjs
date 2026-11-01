@@ -31,3 +31,31 @@ test("research provider failure is disclosed, not fabricated",async()=>{
   assert.match(result.notice,/failed/);
   assert.equal(result.researchPerformed,false);
 });
+
+test("evidence remains attached to normalized source URLs",async()=>{
+  let evidence;
+  const result=await answerGeneralQuestion({
+    question:"Research recent construction market news",
+    researchEnabled:true,
+    search:async()=>[{
+      url:"https://example.com/report#highlights",
+      title:"Market report",
+      excerpt:"A detailed retrieved account of construction sector developments with enough evidence to ground an answer."
+    }],
+    model:async args=>{evidence=args.sources;return "Summary";}
+  });
+  assert.equal(result.researchPerformed,true);
+  assert.equal(evidence.length,1);
+  assert.equal(evidence[0].url,"https://example.com/report");
+  assert.match(evidence[0].excerpt,/construction sector/);
+});
+test("missing evidence does not count as verified research",async()=>{
+  const result=await answerGeneralQuestion({
+    question:"Latest economic news",researchEnabled:true,
+    search:async()=>[{url:"https://example.com/report",title:"Report"}],
+    model:async args=>args.mode
+  });
+  assert.equal(result.researchPerformed,false);
+  assert.equal(result.answer,"general");
+  assert.equal(result.citations.length,0);
+});
