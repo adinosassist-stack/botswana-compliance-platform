@@ -6,7 +6,7 @@ const MODEL_RE=/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,90}$/;
 export function createGeneralAiModelProvider({apiKey,model,endpoint="https://api.openai.com/v1/chat/completions",fetchImpl=globalThis.fetch}={}){
   if(!apiKey||!MODEL_RE.test(String(model||"")))throw Error("model_provider_not_configured");
   const url=new URL(endpoint);
-  if(url.protocol!=="https:"||url.hostname!=="api.openai.com"||url.pathname!=="/v1/chat/completions"||url.search)throw Error("unsupported_model_endpoint");
+  if(url.protocol!=="https:"||url.hostname!=="api.openai.com"||url.pathname!=="/v1/chat/completions"||url.search||url.hash||url.username||url.password||url.port)throw Error("unsupported_model_endpoint");
   return async function runModel({question,mode,sources=[],instructions}){
     const evidence=(Array.isArray(sources)?sources:[]).slice(0,8).map((source,index)=>({
       index:index+1,url:String(source.url||"").slice(0,500),
