@@ -24,3 +24,12 @@ test("staging hostname allowlist matches only approved staging subdomains",()=>{
   assert.equal(re.test("ai-staging.thebedesk.com.evil.example"),false);
   assert.equal(re.test("production.thebedesk.com"),false);
 });
+
+test("staging preflight syntax and hostname guard remain stable",()=>{
+  // The allowlist is deliberately narrow: no production, localhost, or suffix tricks.
+  assert.match(smoke,/url\.protocol!=="https:"/);
+  assert.match(smoke,/url\.pathname!=="\/"/);
+  assert.match(smoke,/redirect:"error"/);
+  assert.match(smoke,/unauthenticated_boundary_failed/);
+  assert.match(smoke,/invalid_research_citation/);
+});
