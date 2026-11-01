@@ -114,10 +114,11 @@
     if(status)status.textContent="Preparing your AI allowance…";
 
     try{
-      if(!generalAiEnabled())await ensureAiCreditsReady();
+      const general=useGeneralAi(normalized);
+      if(!general)await ensureAiCreditsReady();
       const answeringStatus=statusNode(form);
       if(answeringStatus)answeringStatus.textContent="Thebe is answering your question…";
-      const result=generalAiEnabled()
+      const result=general
         ?await window.apiJson("/api/ai/general",{method:"POST",body:JSON.stringify({question:normalized})})
         :await window.apiJson("/api/ai/advisor",{method:"POST",body:JSON.stringify({mode:"ask",question:normalized})});
       if(!renderAnswer(form,result))throw new Error("Thebe returned no answer.");
