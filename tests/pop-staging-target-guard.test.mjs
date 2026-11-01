@@ -14,3 +14,10 @@ test('protected POP preflight uses the dedicated rehearsal account and token sec
  assert.match(workflow,/CLOUDFLARE_API_TOKEN:\s*\$\{\{ secrets\.OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN \}\}/);
  assert.doesNotMatch(workflow,/CLOUDFLARE_ACCOUNT_ID:\s*\$\{\{ secrets\.CLOUDFLARE_ACCOUNT_ID \}\}/);
 });
+
+test('POP staging preflight pins the expected Cloudflare account before provider access',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const script=readFileSync('scripts/pop-staging-init-preflight.mjs','utf8');
+ assert.match(script,/e\.CLOUDFLARE_ACCOUNT_ID!=='ddd23cab31928a4bb3d4998df9b26d1d'/);
+ assert.match(script,/throw Error\('pop_preflight_unauthorized'\)/);
+});
