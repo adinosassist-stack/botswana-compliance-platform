@@ -18,7 +18,7 @@ test("refuses unauthorized tenant-sensitive prompts before invoking model",async
 });
 test("live research uses vetted citations from injected search",async()=>{
   const result=await answerGeneralQuestion({question:"Latest Botswana news",researchEnabled:true,
-    search:async()=>[{url:"https://example.com/article",title:"Article",publishedAt:"2026-10-31"},{url:"http://invalid.local"}],
+    search:async()=>[{url:"https://example.com/article",title:"Article",publishedAt:"2026-10-31",excerpt:"This is an independently retrieved article excerpt containing supporting evidence."},{url:"http://invalid.local"}],
     model:async p=>p.mode});
   assert.equal(result.answer,"grounded_research");
   assert.equal(result.citations.length,1);
