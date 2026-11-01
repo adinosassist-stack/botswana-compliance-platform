@@ -22,9 +22,21 @@ test("requires authentication and CSRF",async()=>{
 test("does not return model data when provider unconfigured",async()=>{
  const r=await handleGeneralAiRoute({request:req("Hello"),path:"/api/ai/general",env,auth});
  assert.equal(r.status,503);
- assert.equal((await r.json()).error,"model_unavailable");
+ assert.equal((await r.json()).error,"rate_limit_unavailable");
 });
 test("rejects requests from other origins",async()=>{
  const r=await handleGeneralAiRoute({request:req("Hi",{origin:"https://malicious.example"}),path:"/api/ai/general",env,auth});
  assert.equal(r.status,403);
+});
+
+test("rate limit rejects provider calls before model configuration",async()=>{
+ const limited={...env,GENERAL_AI_RATE_LIMITER:{limit:async()=>({success:false})}};
+ const r=await handleGeneralAiRoute({request:req("Hello"),path:"/api/ai/general",env:limited,auth});
+ assert.equal(r.status,429);
+});
+test("successful quota check proceeds to provider configuration",async()=>{
+ const limited={...env,GENERAL_AI_RATE_LIMITER:{limit:async()=>({success:true})}};
+ const r=await handleGeneralAiRoute({request:req("Hello"),path:"/api/ai/general",env:limited,auth});
+ assert.equal(r.status,503);
+ assert.equal((await r.json()).error,"model_unavailable");
 });
