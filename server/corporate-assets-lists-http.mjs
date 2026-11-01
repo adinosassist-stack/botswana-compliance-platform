@@ -11,9 +11,9 @@ const reply=(status,body)=>({status,headers:{'content-type':'application/json; c
 export function createAssetsListsHttp({authenticate,authorize,rateLimit,getDatabase,clock=()=>new Date()}={}){
  if([authenticate,authorize,rateLimit,getDatabase,clock].some(fn=>typeof fn!=='function'))throw new TypeError('assets_http_dependencies_required');
  return async function assetsListsHttp(request){
-  if(request?.method!=='GET')return reply(405,{error:'method_not_allowed'});
   const path=request?.path;
   if(!Object.hasOwn(routes,path))return reply(404,{error:'not_found'});
+  if(request?.method!=='GET')return reply(405,{error:'method_not_allowed'});
   let principal;
   try{principal=await authenticate(request)}catch{return reply(401,{error:'unauthorized'})}
   if(!uuid.test(principal?.companyId||'')||!uuid.test(principal?.userId||''))return reply(401,{error:'unauthorized'});
