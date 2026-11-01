@@ -15,7 +15,9 @@ export async function handleGeneralAiRoute({request,path,env,auth}={}){
   if(!auth?.user_id||!auth?.tenant_id)return reply({error:"unauthenticated"},401);
   const origin=request.headers.get("origin");
   const expected=String(env?.PUBLIC_ORIGIN||env?.PUBLIC_APP_URL||"");
-  if(!origin||!expected||origin!==new URL(expected).origin)return reply({error:"origin_failed"},403);
+  let allowedOrigin="";
+  try{allowedOrigin=new URL(expected).origin}catch{}
+  if(!origin||!allowedOrigin||origin!==allowedOrigin)return reply({error:"origin_failed"},403);
   if(!auth.csrf_token||request.headers.get("x-csrf-token")!==auth.csrf_token)return reply({error:"csrf_failed"},403);
   if(Number(request.headers.get("content-length")||0)>8500)return reply({error:"request_too_large"},413);
   let body;
@@ -25,6 +27,13 @@ export async function handleGeneralAiRoute({request,path,env,auth}={}){
     body=JSON.parse(raw);
   }catch{return reply({error:"invalid_json"},400)}
   if(typeof body?.question!=="string")return reply({error:"invalid_question"},400);
+  // An independently configured Cloudflare rate-limit binding is mandatory
+  // before the feature can be enabled; absent binding fails closed.
+  if(typeof env?.GENERAL_AI_RATE_LIMITER?.limit!=="function")return reply({error:"rate_limit_unavailable"},503);
+  try{
+    const limit=await env.GENERAL_AI_RATE_LIMITER.limit({key:String(auth.tenant_id)+":"+String(auth.user_id)});
+    if(limit?.success!==true)return reply({error:"rate_limit_exceeded"},429);
+  }catch{return reply({error:"rate_limit_unavailable"},503)}
   let model;
   try{model=createGeneralAiModelProvider({apiKey:env.OPENAI_API_KEY,model:env.THEBE_GENERAL_AI_MODEL})}
   catch{return reply({error:"model_unavailable"},503)}
