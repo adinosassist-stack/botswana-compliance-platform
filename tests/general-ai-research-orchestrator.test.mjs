@@ -59,3 +59,23 @@ test("missing evidence does not count as verified research",async()=>{
   assert.equal(result.answer,"general");
   assert.equal(result.citations.length,0);
 });
+
+test("unverified generated links are flagged separately from verified research sources",async()=>{
+ const result=await answerGeneralQuestion({
+   question:"Latest Botswana news",researchEnabled:true,
+   search:async()=>[{url:"https://example.org/report",title:"Report",excerpt:"A sufficiently detailed source excerpt describing recent market conditions in Botswana."}],
+   model:async()=>"Read https://fabricated.example/story for details."
+ });
+ assert.equal(result.researchPerformed,true);
+ assert.equal(result.unsupportedCitations,true);
+ assert.match(result.notice,/not verified/);
+ assert.equal(result.citations.length,1);
+});
+test("matching research link does not trigger unsupported citation warning",async()=>{
+ const result=await answerGeneralQuestion({
+   question:"Latest Botswana news",researchEnabled:true,
+   search:async()=>[{url:"https://example.org/report",title:"Report",excerpt:"A sufficiently detailed source excerpt describing recent market conditions in Botswana."}],
+   model:async()=>"See https://example.org/report."
+ });
+ assert.equal(result.unsupportedCitations,false);
+});
