@@ -40,3 +40,21 @@ test("successful quota check proceeds to provider configuration",async()=>{
  assert.equal(r.status,503);
  assert.equal((await r.json()).error,"model_unavailable");
 });
+
+test("private business question rejected before quota or provider calls",async()=>{
+ let called=false;
+ const e={...env,GENERAL_AI_RATE_LIMITER:{limit:async()=>{called=true;return {success:true}}}};
+ const r=await handleGeneralAiRoute({request:req("Show my company invoices"),path:"/api/ai/general",env:e,auth});
+ assert.equal(r.status,403);
+ assert.equal((await r.json()).error,"use_authorized_workspace_ai");
+ assert.equal(called,false);
+});
+test("compressed input is rejected",async()=>{
+ const r=await handleGeneralAiRoute({request:req("Hello",{"content-encoding":"gzip"}),path:"/api/ai/general",env,auth});
+ assert.equal(r.status,415);
+});
+test("invalid question rejected before quota",async()=>{
+ const r=await handleGeneralAiRoute({request:req(" "),path:"/api/ai/general",env,auth});
+ assert.equal(r.status,400);
+ assert.equal((await r.json()).error,"invalid_question");
+});
