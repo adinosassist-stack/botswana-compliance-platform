@@ -18,3 +18,8 @@ test("citation links enforce HTTPS and exclude credentialed or internal hosts",(
  assert.match(ui,/url\.protocol!=="https:"/);
  assert.match(ui,/link\.rel="noopener noreferrer"/);
 });
+
+test("search excerpts are not rendered as verified confidence",()=>{
+ assert.match(ui,/result\.verification==="search_snippets_only"\?"SEARCH EXCERPTS"/);
+ assert.match(ui,/result\.verification\?"general AI":"governed"/);
+});
