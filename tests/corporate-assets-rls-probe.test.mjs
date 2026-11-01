@@ -8,7 +8,7 @@ function fixture({leak=false,force=true,bypass=false,empty=false}={}){
   if(sql.includes('set_config')){tenant=params[0];return {rows:[]}}
   if(sql.includes('pg_roles'))return {rows:[{rolsuper:false,rolbypassrls:bypass}]};
   if(sql.includes('current_user'))return {rows:[{role:'staging_runtime',row_security:'on'}]};
-  if(sql.includes('pg_tables'))return {rows:['corporate_assets','asset_maintenance_logs','asset_insurance_policies'].map(tablename=>({tablename,rowsecurity:true,forcerowsecurity:force}))};
+  if(sql.includes('pg_class'))return {rows:['corporate_assets','asset_maintenance_logs','asset_insurance_policies'].map(tablename=>({tablename,rowsecurity:true,forcerowsecurity:force}))};
   if(sql.includes('GROUP BY'))return {rows:empty?[]:[{company_id:leak?tenant===a?b:a:tenant,count:1}]};
   return {rows:[]};
  },release(){}}}};
