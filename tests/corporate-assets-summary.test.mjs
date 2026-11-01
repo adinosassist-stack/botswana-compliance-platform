@@ -14,3 +14,8 @@ test("rejects duplicate assets and negative values",()=>{
 test("rejects out-of-scope reminder rows instead of leaking another tenant's events",()=>{
  assert.throws(()=>corporateAssetsSummary(assets,[{asset_id:"other",next_due_date:"2026-10-01"}]),/unscoped_asset_event/);
 });
+
+test("rejects impossible dates for dashboard and renewal calculations",()=>{
+ assert.throws(()=>corporateAssetsSummary(assets,[],[],"2026-02-30"),/invalid_asset_summary/);
+ assert.throws(()=>corporateAssetsSummary(assets,[{asset_id:"a",next_due_date:"2026-02-30"}],[],"2026-11-01"),/invalid_due_date/);
+});
