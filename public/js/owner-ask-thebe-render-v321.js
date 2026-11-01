@@ -56,7 +56,8 @@
       citations.slice(0,8).forEach(source=>{
         try{
           const url=new URL(source.url);
-          if(url.protocol!=="https:")return;
+          // Defense in depth: never turn an AI-supplied URL into an internal or credentialed link.
+          if(url.protocol!=="https:"||url.username||url.password||url.port||/^(?:localhost|.*\\.localhost|.*\\.local)$/i.test(url.hostname)||/^\\d+\\.\\d+\\.\\d+\\.\\d+$/.test(url.hostname)||url.hostname.includes(":"))return;
           const link=text("a",source.title||url.hostname,"owner-agentic-source");
           link.href=url.href;link.target="_blank";link.rel="noopener noreferrer";link.referrerPolicy="no-referrer";
           sources.append(link);
