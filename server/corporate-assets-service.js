@@ -10,7 +10,7 @@ const date=/^\d{4}-\d{2}-\d{2}$/;
 function err(code){const e=new Error(code);e.code=code;return e}
 function str(v,max){if(typeof v!=="string"||!v.trim()||v.trim().length>max)throw err("invalid_input");return v.trim()}
 function optional(v,max){return v==null||v===""?null:str(v,max)}
-function money(v,max=999999999999.99){if(typeof v!=="number"||!Number.isFinite(v)||v<0||v>max||Math.round(v*100)!==v*100)throw err("invalid_amount");return v}
+function money(v,max=999999999999.99){if(typeof v!=="number"||!Number.isFinite(v)||v<0||v>max||Math.abs(Math.round(v*100)-v*100)>1e-7)throw err("invalid_amount");return v}
 function day(v){if(typeof v!=="string"||!date.test(v)||Number.isNaN(Date.parse(v+"T00:00:00Z"))||new Date(v+"T00:00:00Z").toISOString().slice(0,10)!==v)throw err("invalid_date");return v}
 function identity(context){if(!context||!uuid.test(context.companyId||"")||!uuid.test(context.userId||""))throw err("unauthorized");return context.companyId}
 function id(v){if(typeof v!=="string"||!uuid.test(v))throw err("invalid_id");return v}
