@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {selectRehearsalToken,runIsolatedRehearsal} from '../scripts/isolated-operations-rehearsal.mjs';
+import {selectRehearsalToken,runIsolatedRehearsal,rehearsalProbeBase} from '../scripts/isolated-operations-rehearsal.mjs';
 const env={OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN:'readonly-test-token',PRIVATE_BACKUP_CLOUDFLARE_TOKEN:'backup-test-token'};
 test('restore selects dedicated write credential while preflight keeps existing credential',()=>{
   assert.equal(selectRehearsalToken('RESTORE_APPROVED_BACKUP',env),'backup-test-token');
@@ -28,4 +28,14 @@ test('write credential is mode-restricted and existing independent gates remain'
   assert.match(workflow,/inputs.confirmation == 'RUN_ISOLATED_REHEARSAL'/);
   assert.match(workflow,/Reviewed revision is no longer current main/);
   assert.match(workflow,/REHEARSAL_BACKUP_APPROVAL: \$\{\{ vars.REHEARSAL_BACKUP_APPROVAL \}\}/);
+});
+
+test('restore does not parse an unused empty Worker URL; probe modes still validate it',()=>{
+  assert.equal(rehearsalProbeBase('RESTORE_APPROVED_BACKUP',''),undefined);
+  assert.equal(rehearsalProbeBase('RESTORE_APPROVED_BACKUP','malformed'),undefined);
+  for(const mode of ['ROLLBACK_REHEARSAL_WORKER','ALERT_PROBE']){
+    for(const url of ['', 'malformed','http://bw-compliance-os-ops-rehearsal.test.workers.dev','https://other.test.workers.dev'])
+      assert.throws(()=>rehearsalProbeBase(mode,url),/rehearsal_worker_url/);
+    assert.equal(rehearsalProbeBase(mode,'https://bw-compliance-os-ops-rehearsal.test.workers.dev').protocol,'https:');
+  }
 });
