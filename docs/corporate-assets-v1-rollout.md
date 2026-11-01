@@ -1,6 +1,6 @@
 # Corporate Assets V1 — guarded schema batch
 
-Status: **code-only, not deployed**. The additive PostgreSQL migration is `db/migrations/20261101_corporate_assets_v1.sql`.
+Status: **code-only, not deployed**. The review-only PostgreSQL schema proposal is `docs/sql/corporate-assets-v1-postgres-proposal.sql`.
 
 ## Coverage
 Company-scoped asset register (fleet, IT hardware, machinery, office furniture, other), branch and custodian details, monetary acquisition/book values in BWP, maintenance events, insurance policies and expiry indexes. Child records reference the composite `(company_id,id)` parent key to prevent cross-company linking. Serial numbers are unique per company when present.
