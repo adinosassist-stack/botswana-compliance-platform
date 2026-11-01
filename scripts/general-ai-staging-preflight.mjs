@@ -17,7 +17,7 @@ const csrf=process.env.THEBE_AI_STAGING_CSRF||"";
 if(process.env.THEBE_AI_STAGING_LIVE_TEST!=="I_ACKNOWLEDGE_PROVIDER_COSTS")throw Error("live_test_opt_in_required");
 let url;
 try{url=new URL(origin)}catch{throw Error("invalid_staging_origin")}
-if(url.protocol!=="https:"||url.pathname!=="/"||url.search||url.hash||url.hostname==="thebedesk.com"||url.hostname.endsWith(".thebedesk.com")&&!url.hostname.includes("staging"))throw Error("dedicated_staging_origin_required");
+if(url.protocol!=="https:"||url.pathname!=="/"||url.search||url.hash||!/^([a-z0-9-]*staging[a-z0-9-]*)\\.thebedesk\\.com$/i.test(url.hostname))throw Error("dedicated_staging_origin_required");
 if(!cookie||!csrf)throw Error("staging_auth_required");
 const scenarios=[
   {name:"general",question:"Explain photosynthesis in two sentences.",requiresCitation:false},
