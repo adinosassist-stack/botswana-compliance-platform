@@ -56,3 +56,13 @@ test('all routes return no-store JSON responses',async()=>{
   assert.equal(res.headers['cache-control'],'no-store');
  }
 });
+
+test('permission map rejects prototype property role',async()=>{
+ const s=setup({role:'constructor'});
+ await s.routes[0][3](s.request,s.response);
+ assert.equal(s.response.code,403);
+ assert.equal(s.queries.length,0);
+});
+test('read-only adapter cannot be mounted without an entitlement middleware',()=>{
+ assert.throws(()=>registerCorporateAssetsExpress({app:{get(){}},enabled:true,sessionAuth:()=>{},rateLimit:()=>true,getDatabase:()=>({})}),/assets_express_dependencies_required/);
+});
