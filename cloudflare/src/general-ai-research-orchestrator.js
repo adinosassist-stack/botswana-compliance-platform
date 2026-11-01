@@ -27,6 +27,11 @@ export async function answerGeneralQuestion({question,model,search,researchEnabl
       }
     }
   }
+  // Do not answer time-sensitive questions from stale model memory when retrieval failed.
+  if(plan.researchRequested&&!researchPerformed)return {
+    ok:false,error:"research_sources_unavailable",notice:notice||"Current information cannot be verified.",
+    researchPerformed:false,citations:[],verification:"unverified"
+  };
   const provenance=researchResponseMetadata({researchPerformed,sources});
   const evidence=researchPerformed?provenance.citations.map(source=>({
     ...source,
