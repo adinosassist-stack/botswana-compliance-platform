@@ -54,8 +54,11 @@ export async function answerGeneralQuestion({question,model,search,researchEnabl
   const citationWarning=unsupported.length
     ?"Some links in the generated answer were not verified against retrieved research sources."
     :null;
+  // Remove ungrounded web URLs from displayed text rather than merely warning.
+  // Source chips remain restricted to validated retrieved sources.
+  const displayAnswer=unsupported.reduce((value,url)=>value.split(url).join("[unverified link removed]"),rawAnswer);
   return {
-    ok:true,answer:rawAnswer,
+    ok:true,answer:displayAnswer,
     notice:[notice,citationWarning].filter(Boolean).join(" ")||null,
     unsupportedCitations:unsupported.length>0,
     ...provenance
