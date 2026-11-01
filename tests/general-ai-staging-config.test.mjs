@@ -13,3 +13,14 @@ test("staging smoke test requires opt-in and excludes production origin",()=>{
   assert.match(smoke,/staging_auth_required/);
   assert.match(smoke,/researchPerformed/);
 });
+
+test("staging hostname allowlist matches only approved staging subdomains",()=>{
+  const source=smoke.match(/!\/\^(.*?)\$\/i\.test\(url\.hostname\)/);
+  assert.ok(source,"hostname guard must be explicit");
+  const re=new RegExp("^"+source[1]+"$","i");
+  assert.equal(re.test("ai-staging.thebedesk.com"),true);
+  assert.equal(re.test("billing-staging.thebedesk.com"),true);
+  assert.equal(re.test("thebedesk.com"),false);
+  assert.equal(re.test("ai-staging.thebedesk.com.evil.example"),false);
+  assert.equal(re.test("production.thebedesk.com"),false);
+});
