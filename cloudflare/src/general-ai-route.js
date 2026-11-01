@@ -1,3 +1,4 @@
+import {readGeneralAiJsonBody} from "./general-ai-request-body.js";
 import {answerGeneralQuestion} from "./general-ai-research-orchestrator.js";
 import {planGeneralAiRequest} from "./general-ai-research-policy.js";
 import {createGeneralAiModelProvider} from "./general-ai-model-provider.js";
@@ -21,16 +22,9 @@ export async function handleGeneralAiRoute({request,path,env,auth}={}){
   try{allowedOrigin=new URL(expected).origin}catch{}
   if(!origin||!allowedOrigin||origin!==allowedOrigin)return reply({error:"origin_failed"},403);
   if(!auth.csrf_token||request.headers.get("x-csrf-token")!==auth.csrf_token)return reply({error:"csrf_failed"},403);
-  if(!["","identity"].includes(String(request.headers.get("content-encoding")||"").toLowerCase()))return reply({error:"unsupported_content_encoding"},415);
-  const declaredLength=request.headers.get("content-length");
-  if(declaredLength!==null&&(!/^\\d+$/.test(declaredLength)||!Number.isSafeInteger(Number(declaredLength))))return reply({error:"invalid_content_length"},400);
-  if(declaredLength!==null&&Number(declaredLength)>8500)return reply({error:"request_too_large"},413);
-  let body;
-  try{
-    const raw=await request.text();
-    if(new TextEncoder().encode(raw).byteLength>8500)return reply({error:"request_too_large"},413);
-    body=JSON.parse(raw);
-  }catch{return reply({error:"invalid_json"},400)}
+  const parsed=await readGeneralAiJsonBody(request);
+  if(!parsed.ok)return reply({error:parsed.error},parsed.status);
+  const body=parsed.value;
   if(typeof body?.question!=="string")return reply({error:"invalid_question"},400);
   const planned=planGeneralAiRequest(body.question);
   if(!planned.ok)return reply({error:planned.error},400);
