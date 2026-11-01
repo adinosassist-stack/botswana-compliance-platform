@@ -1,8 +1,13 @@
 /** Asset summary from authenticated, tenant-scoped database rows only.
  * Caller must authorize and filter by company_id on the server.
  */
+function isCalendarDate(s){
+ if(typeof s!=="string"||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(s))return false;
+ const parsed=new Date(s+"T00:00:00Z");
+ return !Number.isNaN(parsed.getTime())&&parsed.toISOString().slice(0,10)===s;
+}
 export function corporateAssetsSummary(assets,maintenance=[],insurance=[],asOf="2026-11-01"){
- if(!Array.isArray(assets)||!Array.isArray(maintenance)||!Array.isArray(insurance)||!/^\d{4}-\d{2}-\d{2}$/.test(asOf)||!Number.isFinite(Date.parse(asOf+"T00:00:00Z")))throw new TypeError("invalid_asset_summary");
+ if(!Array.isArray(assets)||!Array.isArray(maintenance)||!Array.isArray(insurance)||!/^\d{4}-\d{2}-\d{2}$/.test(asOf)||!isCalendarDate(asOf))throw new TypeError("invalid_asset_summary");
  const ids=new Set();let cents=0;
  for(const a of assets){
   if(typeof a?.id!=="string"||ids.has(a.id))throw new TypeError("invalid_asset_rows");
