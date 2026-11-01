@@ -19,6 +19,14 @@ const approval=x=>typeof x==='string'&&/^[A-Za-z0-9_.:/#-]{3,240}$/.test(x);
 const EMPTY="SELECT COUNT(*) AS object_count FROM sqlite_schema WHERE substr(name,1,7) != 'sqlite_' AND name != '_cf_KV'";
 const SCHEMA="SELECT type,name,sql FROM sqlite_schema WHERE substr(name,1,7) != 'sqlite_' AND name != '_cf_KV' ORDER BY type,name";
 
+export function rehearsalProbeBase(mode,baseUrl){
+  if(!['ROLLBACK_REHEARSAL_WORKER','ALERT_PROBE'].includes(mode))return undefined;
+  let base;
+  try{base=new URL(baseUrl)}catch{fail('worker_url')}
+  if(base.protocol!=='https:'||!/^bw-compliance-os-ops-rehearsal\.[a-z0-9-]+\.workers\.dev$/.test(base.hostname)||base.port||base.username||base.password||base.search||base.hash||base.pathname!=='/')fail('worker_url');
+  return base;
+}
+
 export function selectRehearsalToken(mode,env){
   if(mode==='RESTORE_APPROVED_BACKUP'){
     const token=env.PRIVATE_BACKUP_CLOUDFLARE_TOKEN;
@@ -191,9 +199,7 @@ export async function runIsolatedRehearsal(o,{fetchImpl=globalThis.fetch}={}){
       if(statSync(file).size>(key.endsWith('.sql')?25:10)*1024*1024)fail('backup_size');
       return readFileSync(file);
     }
-    const base=new URL(o.baseUrl??'https://invalid.example');
-    if(['ROLLBACK_REHEARSAL_WORKER','ALERT_PROBE'].includes(o.mode)&&
-       (base.protocol!=='https:'||!/^bw-compliance-os-ops-rehearsal\.[a-z0-9-]+\.workers\.dev$/.test(base.hostname)||base.port||base.username||base.password||base.search||base.hash||base.pathname!=='/'))fail('worker_url');
+    const base=rehearsalProbeBase(o.mode,o.baseUrl);
     if(['ROLLBACK_REHEARSAL_WORKER','ALERT_PROBE'].includes(o.mode)){
       const subdomain=(await cf('/workers/subdomain'))?.subdomain;
       if(typeof subdomain!=='string'||!/^[a-z0-9-]+$/.test(subdomain)||base.hostname!==`${worker}.${subdomain}.workers.dev`)fail('worker_url_account_mismatch');
