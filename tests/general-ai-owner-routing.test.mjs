@@ -11,3 +11,10 @@ test("owner dock preserves private advisor for tenant questions",()=>{
  assert.match(ui,/\?await window\.apiJson\("\/api\/ai\/general"/);
  assert.match(ui,/:await window\.apiJson\("\/api\/ai\/advisor"/);
 });
+
+test("citation links enforce HTTPS and exclude credentialed or internal hosts",()=>{
+ assert.match(ui,/url\.username\|\|url\.password\|\|url\.port/);
+ assert.match(ui,/url\.hostname\.includes\(":"\)/);
+ assert.match(ui,/url\.protocol!=="https:"/);
+ assert.match(ui,/link\.rel="noopener noreferrer"/);
+});
