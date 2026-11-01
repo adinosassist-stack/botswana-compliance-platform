@@ -13,9 +13,14 @@ async function run(sql){
  const res=await fetch(base,{method:'POST',redirect:'error',signal:AbortSignal.timeout(30000),
  headers:{authorization:'Bearer '+e.CLOUDFLARE_API_TOKEN,'content-type':'application/json'},
  body:JSON.stringify({sql,params:[]})});
- if(!res.ok)throw Error('staging_provider_failed');
- const out=await res.json();
- if(out.success!==true||out.result?.some(x=>x.success!==true))throw Error('staging_sql_failed');
+ const out=await res.json().catch(()=>null);
+ if(!res.ok || out?.success!==true || !Array.isArray(out?.result) || out.result.some(x=>x.success!==true)){
+  const codes=(out?.errors||[]).map(x=>Number(x.code)).filter(Number.isFinite);
+  console.error(JSON.stringify({kind:'staging_d1_provider_failure',http_status:res.status,
+   provider_codes:codes,operation_class:sql.trimStart().split(/\s+/)[0].toUpperCase(),
+   production_writes:0,sql_or_credentials_logged:false}));
+  throw Error('staging_provider_failed');
+ }
  return out.result.flatMap(x=>x.results||[]);
 }
 const objects=await run("SELECT type,name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'");
