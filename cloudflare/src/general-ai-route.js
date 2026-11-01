@@ -3,6 +3,7 @@ import {planGeneralAiRequest} from "./general-ai-research-policy.js";
 import {createGeneralAiModelProvider} from "./general-ai-model-provider.js";
 import {createGeneralAiSearchProvider} from "./general-ai-search-provider.js";
 
+export const generalAiResultStatus=result=>result?.ok?200:result?.error==="authorization_required"||result?.error==="action_request_not_supported"?403:result?.error==="research_sources_unavailable"||result?.error==="model_unavailable"?503:400;
 const reply=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"}});
 /**
  * Disabled by default. Authentication and CSRF validation are supplied by the
@@ -49,6 +50,6 @@ export async function handleGeneralAiRoute({request,path,env,auth}={}){
   const search=researchEnabled?createGeneralAiSearchProvider({apiKey:env.BRAVE_SEARCH_API_KEY}):undefined;
   try{
     const result=await answerGeneralQuestion({question:body.question,model,search,researchEnabled,authorized:false});
-    return reply(result,result.ok?200:result.error==="authorization_required"||result.error==="action_request_not_supported"?403:result.error==="research_sources_unavailable"||result.error==="model_unavailable"?503:400);
+    return reply(result,generalAiResultStatus(result));
   }catch{return reply({error:"ai_provider_unavailable"},503)}
 }
