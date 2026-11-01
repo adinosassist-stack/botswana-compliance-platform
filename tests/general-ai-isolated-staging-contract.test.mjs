@@ -15,3 +15,11 @@ test("dedicated General AI staging proposal is isolated and disabled",()=>{
   assert.doesNotMatch(content,/^\s*\[\[ratelimits\]\]/m);
   assert.doesNotMatch(content,/^\s*\[secrets\]/m);
 });
+
+test("staging cannot inherit production service bindings or routes",()=>{
+ assert.doesNotMatch(content,/^\s*(?:routes|route|zone_id|account_id)\s*=/m);
+ assert.doesNotMatch(content,/^\s*\[\[?(?:services|kv_namespaces|durable_objects|queues|vectorize|hyperdrive|unsafe)\b/m);
+ assert.match(content,/^PUBLIC_ORIGIN = "https:\/\/ai-staging\.thebedesk\.com"$/m);
+ assert.match(content,/^PAYMENT_PROVIDER = "none"$/m);
+ assert.match(content,/^REGISTRATION_MODE = "hold"$/m);
+});
