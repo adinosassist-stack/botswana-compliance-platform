@@ -18,8 +18,12 @@ export function registerCorporateAssetsExpress({app,enabled=false,sessionAuth,en
   getDatabase
  });
  for(const path of paths)app.get(path,sessionAuth,entitlement,async(req,res)=>{
-  const result=await handle({method:req.method,path,rawRequest:req});
-  res.status(result.status).set(result.headers).json(result.body);
+  try {
+   const result=await handle({method:req.method,path,rawRequest:req});
+   res.status(result.status).set(result.headers).json(result.body);
+  } catch {
+   res.status(503).set({'cache-control':'no-store','x-content-type-options':'nosniff'}).json({error:'assets_unavailable'});
+  }
  });
  return true;
 }
