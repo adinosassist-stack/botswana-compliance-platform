@@ -5,6 +5,10 @@
   let busy=false;
   let creditInitPromise=null;
   const generalAiEnabled=()=>document.querySelector('meta[name="thebe-general-ai-enabled"]')?.content==="true";
+  // Keep tenant-sensitive questions on the separately authorized workspace advisor.
+  // Client-side routing never replaces server authorization.
+  const privateWorkspaceQuestion=question=>/\b(my (?:company|business|invoices?|reconciliation|employees?|payments?|subscriptions?|workspace|customers?)|our (?:company|accounts?|payments?|clients?)|thebe (?:workspace|account|billing))\b/i.test(question);
+  const useGeneralAi=question=>generalAiEnabled()&&!privateWorkspaceQuestion(question);
 
   const text=(tag,value,className="")=>{
     const node=document.createElement(tag);
