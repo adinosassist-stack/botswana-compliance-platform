@@ -19,8 +19,26 @@ const approval=x=>typeof x==='string'&&/^[A-Za-z0-9_.:/#-]{3,240}$/.test(x);
 const EMPTY="SELECT COUNT(*) AS object_count FROM sqlite_schema WHERE substr(name,1,7) != 'sqlite_' AND name != '_cf_KV'";
 const SCHEMA="SELECT type,name,sql FROM sqlite_schema WHERE substr(name,1,7) != 'sqlite_' AND name != '_cf_KV' ORDER BY type,name";
 
+export function rehearsalProbeBase(mode,baseUrl){
+  if(!['ROLLBACK_REHEARSAL_WORKER','ALERT_PROBE'].includes(mode))return undefined;
+  let base;
+  try{base=new URL(baseUrl)}catch{fail('worker_url')}
+  if(base.protocol!=='https:'||!/^bw-compliance-os-ops-rehearsal\.[a-z0-9-]+\.workers\.dev$/.test(base.hostname)||base.port||base.username||base.password||base.search||base.hash||base.pathname!=='/')fail('worker_url');
+  return base;
+}
+
+export function selectRehearsalToken(mode,env){
+  if(['RESTORE_APPROVED_BACKUP','VERIFY_EXISTING_RESTORE'].includes(mode)){
+    const token=env.PRIVATE_BACKUP_CLOUDFLARE_TOKEN;
+    if(typeof token!=='string'||!token.trim())fail('restore_credential_required');
+    return token;
+  }
+  if(!['PREFLIGHT_ONLY','PREFLIGHT_WORKER','ROLLBACK_REHEARSAL_WORKER','ALERT_PROBE'].includes(mode))fail('invalid_authority');
+  return env.OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN;
+}
+
 export function validateRehearsal(o){
-  if(!['PREFLIGHT_ONLY','PREFLIGHT_WORKER','RESTORE_APPROVED_BACKUP','ROLLBACK_REHEARSAL_WORKER','ALERT_PROBE'].includes(o.mode)||
+  if(!['PREFLIGHT_ONLY','PREFLIGHT_WORKER','RESTORE_APPROVED_BACKUP','VERIFY_EXISTING_RESTORE','ROLLBACK_REHEARSAL_WORKER','ALERT_PROBE'].includes(o.mode)||
      !/^[a-f0-9]{32}$/i.test(o.accountId??'')||!UUID.test(o.databaseId??'')||blockedIds.includes(o.databaseId.toLowerCase())||
      typeof o.token!=='string'||!o.token.trim()||!/^[a-f0-9]{40}$/.test(o.sourceSha??'')||!UUID.test(o.runId??'')||
      o.isolationApproval!=='ISOLATED_REHEARSAL_ONLY')fail('invalid_authority');
@@ -50,11 +68,21 @@ export function inspectBackup(sql){
   finally{db.close()}
 }
 
+export async function readRestoredCounts(query,names){
+  const rows=[];
+  for(const name of names){
+    if(!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name))fail('backup_schema');
+    rows.push(...await query(`SELECT '${name}' AS name,COUNT(*) AS n FROM "${name}"`));
+  }
+  return rows;
+}
+
 export async function restoreBackup(a,o){
   validateRehearsal({...o,mode:'RESTORE_APPROVED_BACKUP'});
   if(!HASH.test(o.backupHash??'')||!HASH.test(o.objectHash??'')||!approval(o.backupApproval))fail('backup_approval_required');
   const empty=async()=>{const rows=await a.query(EMPTY);if(rows.length!==1||rows[0].object_count!==0)fail('restore_requires_empty')};
-  await empty();
+  const existing=o.mode==='VERIFY_EXISTING_RESTORE';
+  if(!existing)await empty();
   const sql=await a.download('approved-d1-backup.sql');
   const sample=await a.download('approved-r2-sample.bin');
   if(sql.length>25*1024*1024||sample.length>10*1024*1024||sample.length<1)fail('backup_size');
@@ -62,17 +90,22 @@ export async function restoreBackup(a,o){
   let decoded;
   try{decoded=new TextDecoder('utf-8',{fatal:true}).decode(sql)}catch{fail('backup_encoding')}
   const inventory=inspectBackup(decoded);
-  await empty(); // Distinct from import: operators must exclude concurrent writers.
-  await a.importSql(sql);
+  if(!existing){
+    await empty(); // Distinct from import: operators must exclude concurrent writers.
+    await a.importSql(sql);
+  }else{
+    const actual=(await a.query("SELECT name FROM sqlite_schema WHERE type='table' AND substr(name,1,7) != 'sqlite_' AND name != '_cf_KV' ORDER BY name")).map(r=>r.name);
+    if(JSON.stringify(actual)!==JSON.stringify(Object.keys(inventory.counts)))fail('restore_schema');
+  }
   const names=Object.keys(inventory.counts);
-  const rows=await a.query(names.map(name=>`SELECT '${name}' AS name,COUNT(*) AS n FROM "${name}"`).join(' UNION ALL '));
+  const rows=await readRestoredCounts(a.query,names);
   const counts=Object.fromEntries(rows.map(x=>[x.name,x.n]));
   if(rows.length!==names.length||names.some(n=>counts[n]!==inventory.counts[n]))fail('restore_counts');
   if((await a.query('PRAGMA foreign_key_check')).length)fail('restore_foreign_keys');
   const key=`rehearsals/${o.runId}/sample.bin`;
   await a.putObject(key,sample);
   if(sha(await a.getObject(key))!==o.objectHash)fail('restored_object_checksum');
-  return {scope:'isolated_backup_restore',rowCountsMatched:true,foreignKeyViolations:0,tableCount:names.length,
+  return {scope:'isolated_backup_restore',existingRestoreVerified:existing,sqlImportPerformed:!existing,rowCountsMatched:true,foreignKeyViolations:0,tableCount:names.length,
     objectBytesMatched:true,backupSha256:o.backupHash,objectSha256:o.objectHash,backupProvenance:'operator_attested',
     tenantIsolationAcceptanceVerified:false,productionRecoveryAccepted:false};
 }
@@ -160,7 +193,7 @@ export async function runIsolatedRehearsal(o,{fetchImpl=globalThis.fetch}={}){
     }
     // The restored-data database must not be bound to the rehearsal Worker.
     const settings=await cf(`/workers/scripts/${worker}/settings`);
-    if(o.mode==='RESTORE_APPROVED_BACKUP'||o.mode==='PREFLIGHT_ONLY'){
+    if(['RESTORE_APPROVED_BACKUP','VERIFY_EXISTING_RESTORE','PREFLIGHT_ONLY'].includes(o.mode)){
       if(!Array.isArray(settings?.bindings)||settings.bindings.some(b=>b.type==='d1'&&(b.database_id??b.id)===o.databaseId))fail('restore_database_is_exposed');
     }else checkBindings(settings?.bindings,o.databaseId);
     const schedules=await cf(`/workers/scripts/${worker}/schedules`);
@@ -181,16 +214,14 @@ export async function runIsolatedRehearsal(o,{fetchImpl=globalThis.fetch}={}){
       if(statSync(file).size>(key.endsWith('.sql')?25:10)*1024*1024)fail('backup_size');
       return readFileSync(file);
     }
-    const base=new URL(o.baseUrl??'https://invalid.example');
-    if(['ROLLBACK_REHEARSAL_WORKER','ALERT_PROBE'].includes(o.mode)&&
-       (base.protocol!=='https:'||!/^bw-compliance-os-ops-rehearsal\.[a-z0-9-]+\.workers\.dev$/.test(base.hostname)||base.port||base.username||base.password||base.search||base.hash||base.pathname!=='/'))fail('worker_url');
+    const base=rehearsalProbeBase(o.mode,o.baseUrl);
     if(['ROLLBACK_REHEARSAL_WORKER','ALERT_PROBE'].includes(o.mode)){
       const subdomain=(await cf('/workers/subdomain'))?.subdomain;
       if(typeof subdomain!=='string'||!/^[a-z0-9-]+$/.test(subdomain)||base.hostname!==`${worker}.${subdomain}.workers.dev`)fail('worker_url_account_mismatch');
     }
     const probe=async(path,headers={})=>{const r=await fetchImpl(new URL(path,base),{redirect:'error',signal:AbortSignal.timeout(20000),headers});await r.body?.cancel();return r.status};
     let result;
-    if(o.mode==='RESTORE_APPROVED_BACKUP')result=await restoreBackup({query,
+    if(['RESTORE_APPROVED_BACKUP','VERIFY_EXISTING_RESTORE'].includes(o.mode))result=await restoreBackup({query,
       download:key=>getObject(backups,key,join(scratch,key)),
       importSql:async data=>{const file=join(scratch,'restore.sql');writeFileSync(file,data,{mode:0o600});await wrangler(['d1','execute','REHEARSAL_DB','--remote','--file',file,'--yes'])},
       putObject:async(key,data)=>{const file=join(scratch,'sample.bin');writeFileSync(file,data,{mode:0o600});await wrangler(['r2','object','put',`${objects}/${key}`,'--remote','--file',file])},
@@ -219,7 +250,7 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   process.umask(0o077);
   try{
     const e=process.env;
-    const result=await runIsolatedRehearsal({mode:e.REHEARSAL_MODE,accountId:e.OPERATIONS_REHEARSAL_ACCOUNT_ID,token:e.OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN,
+    const result=await runIsolatedRehearsal({mode:e.REHEARSAL_MODE,accountId:e.OPERATIONS_REHEARSAL_ACCOUNT_ID,token:selectRehearsalToken(e.REHEARSAL_MODE,e),
       databaseId:e.REHEARSAL_DATABASE_ID,sourceSha:e.EXPECTED_SHA,isolationApproval:e.REHEARSAL_ISOLATION_APPROVAL,runId:randomUUID(),
       backupHash:e.REHEARSAL_BACKUP_SHA256,objectHash:e.REHEARSAL_OBJECT_SHA256,backupApproval:e.REHEARSAL_BACKUP_APPROVAL,
       versionId:e.REHEARSAL_ROLLBACK_VERSION_ID,currentVersionId:e.REHEARSAL_CURRENT_VERSION_ID,schemaHash:e.REHEARSAL_SCHEMA_SHA256,

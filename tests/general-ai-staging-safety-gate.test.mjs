@@ -1,0 +1,11 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {qualifyStagingAuth} from "../cloudflare/src/general-ai-staging-safety-gate.js";
+const bindings=[{name:"DB",type:"d1",database_id:"ff229eef-7724-49ae-9d68-d3a1db669b63"},{name:"GENERAL_AI_RATE_LIMITER",type:"ratelimit",namespace_id:"78212078",simple:{limit:5,period:60}}];
+const base={bindings,publicEnabled:false,previewsEnabled:false,rows:{users:0,memberships:0,sessions:0}};
+test("private empty staging passes",()=>assert.equal(qualifyStagingAuth(base).ok,true));
+test("public endpoint fails",()=>assert.equal(qualifyStagingAuth({...base,publicEnabled:true}).reason,"public_access"));
+test("production database fails",()=>assert.equal(qualifyStagingAuth({...base,bindings:[{...bindings[0],database_id:"production"},bindings[1]]}).reason,"database_isolation"));
+test("shared namespace fails",()=>assert.equal(qualifyStagingAuth({...base,bindings:[bindings[0],{...bindings[1],namespace_id:"78212150"}]}).reason,"rate_limit_isolation"));
+test("excess rate fails",()=>assert.equal(qualifyStagingAuth({...base,bindings:[bindings[0],{...bindings[1],simple:{limit:100,period:60}}]}).reason,"rate_limit_policy"));
+test("unreviewed identity fails",()=>assert.equal(qualifyStagingAuth({...base,rows:{users:1,memberships:0,sessions:0}}).reason,"unexpected_test_identity"));

@@ -17,7 +17,17 @@ async function run(sql){
  if(!res.ok || out?.success!==true || !Array.isArray(out?.result) || out.result.some(x=>x.success!==true)){
   const codes=(out?.errors||[]).map(x=>Number(x.code)).filter(Number.isFinite);
   console.error(JSON.stringify({kind:'staging_d1_provider_failure',http_status:res.status,
-   provider_codes:codes,operation_class:sql.trimStart().split(/\s+/)[0].toUpperCase(),
+   provider_codes:codes,
+   provider_reason_class:(out?.errors||[]).map(x=>String(x.message||'')).map(message=>{
+    if(/syntax error|near .*syntax/i.test(message))return 'sql_syntax';
+    if(/no such table|no such column/i.test(message))return 'missing_schema_dependency';
+    if(/foreign key/i.test(message))return 'foreign_key_constraint';
+    if(/not authorized|permission|forbidden/i.test(message))return 'authorization';
+    if(/limit|quota|too many/i.test(message))return 'resource_limit';
+    if(/unsupported|not supported/i.test(message))return 'unsupported_sql';
+    return 'unclassified';
+   }),
+   operation_class:sql.trimStart().split(/\s+/)[0].toUpperCase(),
    production_writes:0,sql_or_credentials_logged:false}));
   throw Error('staging_provider_failed');
  }
