@@ -23,3 +23,11 @@ test("search excerpts are not rendered as verified confidence",()=>{
  assert.match(ui,/result\.verification==="search_snippets_only"\?"SEARCH EXCERPTS"/);
  assert.match(ui,/result\.verification\?"general AI":"governed"/);
 });
+
+test("advisor answer card discloses unavailable and compacted workspace evidence",()=>{
+ assert.match(ui,/availability\?\.financeAndBusiness==="unavailable"/);
+ assert.match(ui,/availability\?\.financeAndBusinessComplete===false/);
+ assert.match(ui,/Workspace data is incomplete or unavailable/);
+ assert.match(ui,/result\.contextCompaction\?\.applied===true/);
+ assert.match(ui,/Some lower-priority workspace records were omitted/);
+});
