@@ -89,6 +89,12 @@ export function buildBusinessAnalytics(context={}){
     `${Number(sales.dormantQuotationCount||0)} owner-recorded quotation(s) have passed the configured dormancy threshold.`,
     ["app_state.active_company.salesIntelligence"]
   ));
+  // Operating-income proxy is not accounting profit or a professional valuation.
+  if(propertyAvailable&&property?.netOperatingIncomeProxyMinor!=null&&Number.isFinite(Number(property.netOperatingIncomeProxyMinor))&&Number(property.netOperatingIncomeProxyMinor)<0)signals.push(signal(
+    "property_negative_operating_income_proxy","high","Property portfolio operating costs exceed recorded rent",
+    "The canonical property register reports a negative annual net operating income proxy. Review rent, operating-cost inputs and record freshness; this is not an accounting profit calculation.",
+    ["property_assets","property_operating_snapshots"]
+  ));
   if(propertyAvailable&&Number(property?.unvaluedAssetCount||0)>0)signals.push(signal(
     "property_valuation_coverage","medium","Property portfolio has valuation coverage gaps",
     `${Number(property.unvaluedAssetCount||0)} active property asset(s) do not yet have a recorded professional valuation report.`,

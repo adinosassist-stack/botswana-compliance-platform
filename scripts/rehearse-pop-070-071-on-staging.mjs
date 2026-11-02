@@ -46,7 +46,7 @@ if(env.POP_STAGING_EXECUTE!=='APPROVED_STAGING_REHEARSAL_ONLY'){
 }
 // Each SQL statement is from immutable reviewed migration files only.
 for(let i=0;i<sql.length;i++){
- const statements=sql[i].split(';').map(s=>s.trim()).filter(s=>s&&s.split('\n').some(l=>!l.trimStart().startsWith('--')&&l.trim()));
+ const statements=sql[i].split('\n').filter(line=>!line.trimStart().startsWith('--')).join('\n').split(';').map(s=>s.trim()).filter(Boolean);
  for(const statement of statements)await query(statement);
  console.log(JSON.stringify({kind:'staging_pop_phase_complete',phase:i===0?'070':'071',production_writes:0}));
 }

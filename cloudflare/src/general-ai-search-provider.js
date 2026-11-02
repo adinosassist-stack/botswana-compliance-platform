@@ -1,3 +1,4 @@
+import {readBoundedProviderJson} from "./general-ai-bounded-json.js";
 /**
  * Read-only Brave Web Search adapter. Server-side API key required.
  * Uses a fixed HTTPS search endpoint; never fetches arbitrary result URLs.
@@ -19,7 +20,7 @@ export function createGeneralAiSearchProvider({apiKey,fetchImpl=globalThis.fetch
         headers:{"accept":"application/json","x-subscription-token":apiKey}
       });
       if(!response.ok)throw Error("research_provider_unavailable");
-      const data=await response.json();
+      const data=await readBoundedProviderJson(response);
       const hits=Array.isArray(data?.web?.results)?data.web.results:[];
       return hits.slice(0,8).map(row=>({
         url:row.url,title:row.title,

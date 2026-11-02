@@ -198,3 +198,26 @@ test('workflow has credential-free PR tests and manually authorized isolated ope
   assert.match(s,/OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN/);assert.match(s,/RUN_ISOLATED_REHEARSAL/);
   for(const line of s.split('\n').filter(x=>x.includes('uses:')))assert.match(line,/@[a-f0-9]{40}\b/);
 });
+
+test('existing restore continuation never imports and requires exact inventory before object writes',async()=>{
+  for(const mismatch of ['none','extra','count']){
+    const db=new DatabaseSync(':memory:');
+    try{
+      const sql=backup(),sample=Buffer.from('private sample');db.exec(sql.toString());
+      if(mismatch==='extra')db.exec('CREATE TABLE unexpected(id INTEGER)');
+      let writes=0;const saved=[];
+      const a={query:async s=>{
+        const rows=db.prepare(s).all();
+        if(mismatch==='count'&&s.startsWith("SELECT '"))rows[0].n++;
+        return rows;
+      },download:async key=>key.endsWith('.sql')?sql:sample,
+      importSql:async()=>assert.fail('continuation must never import'),
+      putObject:async(key,data)=>{writes++;saved.push(data)},getObject:async()=>saved[0]};
+      const o={...base,mode:'VERIFY_EXISTING_RESTORE',backupHash:sha(sql),objectHash:sha(sample),backupApproval:'review-1'};
+      if(mismatch==='none'){
+        const r=await restoreBackup(a,o);assert.equal(r.sqlImportPerformed,false);
+        assert.equal(r.existingRestoreVerified,true);assert.equal(writes,1);
+      }else{await assert.rejects(restoreBackup(a,o),mismatch==='extra'?/restore_schema/:/restore_counts/);assert.equal(writes,0)}
+    }finally{db.close()}
+  }
+});
