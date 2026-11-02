@@ -55,3 +55,10 @@ const checks=[
  ["runtime current",/version:"v(?:65|6[6-9]|[7-9][0-9])",runtime:"cloudflare-worker"/.test(w)]
 ];
 const bad=checks.filter(x=>!x[1]);for(const [n,o] of checks)console.log(`${o?"PASS":"FAIL"} ${n}`);if(bad.length)process.exit(1);
+
+const settlementUpsert=w.match(/INSERT INTO subscriptions\(([^)]+)\) VALUES\(\?,\?,'active',[\s\S]*?ON CONFLICT\(tenant_id\) DO UPDATE SET ([^\x60]+)/);
+const canonicalSubscription=s.match(/CREATE TABLE IF NOT EXISTS subscriptions\s*\(([\s\S]*?)\n\);/i);
+if(!settlementUpsert||!canonicalSubscription)throw new Error("subscription settlement SQL or canonical schema missing");
+const subscriptionColumns=new Set([...canonicalSubscription[1].matchAll(/^\s*([a-z_]+)\s+(?:TEXT|INTEGER|REAL|BLOB)\b/gim)].map(m=>m[1]));
+const settlementColumns=[...settlementUpsert[1].split(",").map(x=>x.trim()),...[...settlementUpsert[2].matchAll(/(?:^|,)\s*([a-z_]+)\s*=/g)].map(m=>m[1])];
+for(const column of settlementColumns)if(!subscriptionColumns.has(column))throw new Error("settlement references unknown subscriptions column: "+column);
