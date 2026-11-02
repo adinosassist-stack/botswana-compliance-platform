@@ -40,7 +40,7 @@ export async function setSubscriptionAccess({env,auth,body,writeAudit}){
   if(!proof)return {status:409,body:{error:'verified_subscription_payment_required'}};
   // Record intent before changing access: an unavailable audit ledger prevents mutation.
   await writeAudit(env,tenantId,auth.user_id,'SUBSCRIPTION_ACCESS_CHANGE_REQUESTED',{from:row.status,to:next,reason,paymentOrderId:proof.id,periodEndsAt:row.current_period_ends_at});
-  const mutation=env.DB.prepare(`UPDATE subscriptions SET status=?,updated_at=CURRENT_TIMESTAMP
+  const mutation=env.DB.prepare(`UPDATE subscriptions SET status=?
     WHERE tenant_id=? AND status=? AND provider='manual_bank' AND current_period_ends_at=? AND plan=?
     AND (?='paused' OR datetime(current_period_ends_at)>datetime('now'))
     AND EXISTS(SELECT 1 FROM payment_orders o JOIN payment_fulfillments f ON f.payment_order_id=o.id AND f.tenant_id=o.tenant_id
