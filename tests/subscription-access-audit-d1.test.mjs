@@ -11,7 +11,7 @@ test('local D1 atomically commits subscription access and sealed completion evid
   const DB=await mf.getD1Database('DB');
   for(const sql of [
    'CREATE TABLE tenants(id TEXT PRIMARY KEY)',
-   'CREATE TABLE subscriptions(tenant_id TEXT PRIMARY KEY,plan TEXT,status TEXT,provider TEXT,current_period_ends_at TEXT,updated_at TEXT)',
+   'CREATE TABLE subscriptions(tenant_id TEXT PRIMARY KEY,plan TEXT,status TEXT,provider TEXT,current_period_ends_at TEXT)',
    'CREATE TABLE payment_orders(id TEXT PRIMARY KEY,tenant_id TEXT,order_type TEXT,provider TEXT,status TEXT,metadata_json TEXT)',
    'CREATE TABLE payment_fulfillments(payment_order_id TEXT,tenant_id TEXT,fulfillment_status TEXT)',
    fs.readFileSync('cloudflare/schema.sql','utf8').match(/CREATE TABLE IF NOT EXISTS audit_events\([\s\S]*?\);/)[0]
@@ -19,7 +19,7 @@ test('local D1 atomically commits subscription access and sealed completion evid
   await DB.exec(fs.readFileSync('cloudflare/migrations/004_v56_audit_lineage.sql','utf8').split('CREATE TABLE IF NOT EXISTS audit_integrity_checks')[0].replaceAll('\n',' '));
   await DB.batch([
    DB.prepare("INSERT INTO tenants VALUES('client')"),
-   DB.prepare("INSERT INTO subscriptions VALUES('client','business','active','manual_bank','2099-01-01',NULL)"),
+   DB.prepare("INSERT INTO subscriptions VALUES('client','business','active','manual_bank','2099-01-01')"),
    DB.prepare(`INSERT INTO payment_orders VALUES('paid-order','client','subscription','manual_bank','paid','{"plan":"business"}')`),
    DB.prepare("INSERT INTO payment_fulfillments VALUES('paid-order','client','applied')")
   ]);
