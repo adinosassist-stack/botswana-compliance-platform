@@ -66,6 +66,14 @@
       card.append(sources);
     }
     if(result.notice)card.append(text("div",result.notice,"owner-agentic-policy"));
+    // The advisor can return a partial tenant snapshot; never present it as complete.
+    const availability=result.contextAvailability;
+    if(availability?.financeAndBusiness==="unavailable"||availability?.financeAndBusinessComplete===false){
+      card.append(text("div","Workspace data is incomplete or unavailable. Verify financial and business claims against current records.","owner-agentic-policy"));
+    }
+    if(result.contextCompaction?.applied===true){
+      card.append(text("div","Some lower-priority workspace records were omitted to fit the AI context limit. This answer may not cover every record.","owner-agentic-policy"));
+    }
     if(result.researchPerformed===true)card.append(text("div","Research sources are search excerpts; verify important claims against the linked original publications.","owner-agentic-policy"));
     if(references.length){
       const refs=document.createElement("div");
