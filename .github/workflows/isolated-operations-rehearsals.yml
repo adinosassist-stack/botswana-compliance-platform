@@ -10,6 +10,7 @@ on:
       - scripts/render-ops-rehearsal-config.mjs
       - tests/ops-rehearsal-bootstrap.test.mjs
       - tests/ops-restore-credential.test.mjs
+      - tests/launch-recovery-credential-routing.test.mjs
       - .github/workflows/isolated-operations-rehearsals.yml
       - docs/isolated-operations-rehearsals.md
   workflow_dispatch:
@@ -59,7 +60,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
-      - run: node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs tests/ops-restore-credential.test.mjs
+      - run: node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs tests/ops-restore-credential.test.mjs tests/launch-recovery-credential-routing.test.mjs
   rehearse:
     needs: qualify
     if: >-
@@ -82,7 +83,7 @@ jobs:
           node-version-file: .nvmrc
           package-manager-cache: false
       - name: Qualify isolated boundaries
-        run: node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs tests/ops-restore-credential.test.mjs
+        run: node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs tests/ops-restore-credential.test.mjs tests/launch-recovery-credential-routing.test.mjs
       - name: Install lockfile-pinned transport without lifecycle scripts
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Verify exact current main immediately before rehearsal
