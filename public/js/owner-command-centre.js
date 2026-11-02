@@ -1148,7 +1148,13 @@
   function advisorContextNotice(result){
     const availability=String(result?.contextAvailability?.financeAndBusiness||"");
     if(availability==="unavailable")return "Live workspace context is incomplete. Finance, Sales, Business Memory or Analytics could not be retrieved, so verify before relying on a full business overview.";
-    if(result?.contextCompaction?.applied===true)return "This answer used a bounded workspace snapshot. Lower-priority context was compacted to stay within the AI context limit; cited sources remain available for verification.";
+    if(result?.contextCompaction?.applied===true){
+      const counts=result.contextCompaction.omittedCounts||{};
+      const sales=Object.entries(counts).filter(([key])=>/^businessMemory\.sales\.[a-zA-Z0-9_]+$/.test(key)).reduce((sum,[,value])=>sum+(Number.isSafeInteger(value)&&value>0?value:0),0);
+      const analytics=Object.entries(counts).filter(([key])=>/^businessMemory\.analytics\.[a-zA-Z0-9_]+$/.test(key)).reduce((sum,[,value])=>sum+(Number.isSafeInteger(value)&&value>0?value:0),0);
+      const omitted=[sales?`${sales} sales entries`:"",analytics?`${analytics} analytics entries`:""].filter(Boolean).join(" and ");
+      return `This answer used a bounded workspace snapshot. ${omitted?`${omitted} omitted during compaction. `:""}Lower-priority context was compacted to stay within the AI context limit; cited sources remain available for verification.`;
+    }
     return "";
   }
 
