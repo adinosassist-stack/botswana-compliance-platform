@@ -26,6 +26,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install locked test dependencies
+        run: npm ci --no-audit --no-fund
       - name: Check asset server syntax
         run: |
           set -euo pipefail
