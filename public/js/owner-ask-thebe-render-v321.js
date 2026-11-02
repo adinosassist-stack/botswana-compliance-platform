@@ -9,7 +9,8 @@
   // Client-side routing never replaces server authorization.
   const privateWorkspaceQuestion=question=>/\b(my (?:company|business|invoices?|reconciliation|employees?|payments?|subscriptions?|workspace|customers?)|our (?:company|accounts?|payments?|clients?)|thebe (?:workspace|account|billing))\b/i.test(question);
   const actionQuestion=question=>/\b(transfer money|send payment|approve payment|activate subscription|file tax|delete records|change payroll|sign contract)\b/i.test(question);
-  const useGeneralAi=question=>generalAiEnabled()&&!privateWorkspaceQuestion(question)&&!actionQuestion(question);
+  const additionalWorkspaceQuestion=question=>/\b(?:my|our)\s+(?:sales|revenue|expenses|profit|assets|properties|property|inventory|stock|staff|team|projects|documents|reports|cashflow|cash flow|budget|payroll|branches|locations|financial data|business data)\b/i.test(question);
+  const useGeneralAi=question=>generalAiEnabled()&&!privateWorkspaceQuestion(question)&&!additionalWorkspaceQuestion(question)&&!actionQuestion(question);
 
   const text=(tag,value,className="")=>{
     const node=document.createElement(tag);
