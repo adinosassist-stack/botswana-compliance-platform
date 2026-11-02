@@ -1,0 +1,9 @@
+.thebe-assets-insurance{background:#fff;color:#131516;border:1px solid #e3e6e8;border-radius:15px;padding:16px}
+.thebe-assets-insurance h3{font-size:16px;margin:0 0 12px}
+.thebe-assets-insurance button{background:#fff;color:#131516;border:1px solid #d7dbde;border-radius:10px;padding:9px 13px;font:inherit;cursor:pointer}
+.thebe-assets-insurance button:focus-visible{outline:2px solid #0b66d6;outline-offset:2px}
+.thebe-assets-insurance [role=status]{font-size:12px;color:#6b7176}
+.thebe-assets-insurance ul{padding:0;margin:0;list-style:none}
+.thebe-assets-insurance li{display:flex;flex-direction:column;gap:5px;border-top:1px solid #e3e6e8;padding:12px 0}
+.thebe-assets-insurance li span{font-size:13px;color:#6b7176;overflow-wrap:anywhere}
+@media(max-width:600px){.thebe-assets-insurance{padding:12px}}
