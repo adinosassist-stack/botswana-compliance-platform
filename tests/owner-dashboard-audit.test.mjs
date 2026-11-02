@@ -82,3 +82,7 @@ test('duplicate approval clicks send a single in-flight mutation',async()=>{
  release({ok:true,status:'approved',activated:true});
  await Promise.all([first,second]);
 });
+
+test('bank verification notice is visible in manual payment review',()=>{
+ assert.match(source,/Independently match receipt in the Thebe Desk company bank account before approval/);
+});
