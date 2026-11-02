@@ -1,3 +1,4 @@
+import {readBoundedProviderJson} from "./general-ai-bounded-json.js";
 /**
  * OpenAI-compatible, server-only completion adapter. No browser keys, no
  * implicit network tools and no business-system execution. Feature-gated by caller.
@@ -28,7 +29,7 @@ export function createGeneralAiModelProvider({apiKey,model,endpoint="https://api
         })
       });
       if(!response.ok)throw Error("model_provider_unavailable");
-      const data=await response.json();
+      const data=await readBoundedProviderJson(response);
       const answer=data?.choices?.[0]?.message?.content;
       if(typeof answer!=="string"||!answer.trim())throw Error("model_provider_empty_response");
       return answer;
