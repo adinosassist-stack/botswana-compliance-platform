@@ -1,0 +1,10 @@
+.thebe-assets-register{background:#fff;border:1px solid #e3e6e8;border-radius:15px;padding:16px;overflow-x:auto;color:#131516}
+.thebe-assets-register h3{font-size:16px;margin:0 0 12px}
+.thebe-assets-register button{background:#fff;color:#131516;border:1px solid #d7dbde;border-radius:10px;padding:9px 13px;font:inherit;cursor:pointer}
+.thebe-assets-register button:focus-visible,.thebe-assets-register tr:focus-visible{outline:2px solid #0b66d6;outline-offset:2px}
+.thebe-assets-register [role=status]{font-size:12px;color:#6b7176}
+.thebe-assets-register table{border-collapse:collapse;width:100%;min-width:540px;text-align:left;font-size:13px}
+.thebe-assets-register th,.thebe-assets-register td{border-bottom:1px solid #e3e6e8;padding:11px 8px}
+.thebe-assets-register th{font-weight:600}
+.thebe-assets-register tr[tabindex]{cursor:pointer}
+@media(max-width:600px){.thebe-assets-register{padding:12px}}

@@ -7,6 +7,8 @@ on:
   pull_request:
     paths:
       - .github/workflows/consolidated-launch-offline.yml
+      - cloudflare/src/worker.js
+      - tests/worker-health-endpoint.test.mjs
   workflow_dispatch:
 permissions:
   contents: read
@@ -34,7 +36,7 @@ jobs:
           case "$SUITE" in
             staging) node --test tests/isolated-readiness-config.test.mjs tests/probe-staging-readiness.test.mjs ;;
             advisor) node --test tests/isolated-ai-diagnostic-gate.test.mjs tests/advisor-stage-timing.test.mjs ;;
-            recovery) node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs ;;
+            recovery) node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs tests/worker-health-endpoint.test.mjs ;;
             *) exit 1 ;;
           esac
   summary:

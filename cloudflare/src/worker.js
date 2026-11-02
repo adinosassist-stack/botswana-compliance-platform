@@ -1248,8 +1248,8 @@ async function applyVerifiedPaymentOrder(env,orderId,verification){
     if(row.order_type==="subscription"){
       const meta=safeJson(row.metadata_json,{}),plan=String(meta.plan||"starter");
       const periodMonths=Math.max(1,Math.min(12,Number(meta.periodMonths||1))),periodModifier=`+${periodMonths} months`;
-      stmts.push(env.DB.prepare(`INSERT INTO subscriptions(tenant_id,plan,status,provider,current_period_ends_at,updated_at) VALUES(?,?,'active',?,datetime('now',?),CURRENT_TIMESTAMP)
-        ON CONFLICT(tenant_id) DO UPDATE SET plan=excluded.plan,status='active',provider=excluded.provider,current_period_ends_at=excluded.current_period_ends_at,updated_at=CURRENT_TIMESTAMP`).bind(row.tenant_id,plan,provider,periodModifier));
+      stmts.push(env.DB.prepare(`INSERT INTO subscriptions(tenant_id,plan,status,provider,current_period_ends_at) VALUES(?,?,'active',?,datetime('now',?))
+        ON CONFLICT(tenant_id) DO UPDATE SET plan=excluded.plan,status='active',provider=excluded.provider,current_period_ends_at=excluded.current_period_ends_at`).bind(row.tenant_id,plan,provider,periodModifier));
     }else if(row.order_type==="ai_credits"){
       const meta=safeJson(row.metadata_json,{}),credits=Number(meta.credits||0);if(credits<=0)throw new Error("invalid_credit_order");
       await aiWallet(env,row.tenant_id);
@@ -5233,6 +5233,12 @@ export default {
       if(match&&SEO_GUIDE_SLUGS.includes(match[1]))return seoGuideResponse(req,env,url,match[1]);
     }
     if(["GET","HEAD"].includes(req.method)&&url.pathname==="/api/live") return json({ok:true});
+    if(["GET","HEAD"].includes(req.method)&&url.pathname==="/api/health"){
+      try{
+        await env.DB.prepare("SELECT 1 x").first();
+        return json({ok:true,db:true,version:APP_RELEASE});
+      }catch(e){return d1DailyQuotaExceeded(e)?workerFailureResponse(e,requestId):json({ok:false,db:false,version:APP_RELEASE},503)}
+    }
     if(["GET","HEAD"].includes(req.method)&&url.pathname==="/api/ready"){
       try{
         await env.DB.prepare("SELECT 1 x").first();

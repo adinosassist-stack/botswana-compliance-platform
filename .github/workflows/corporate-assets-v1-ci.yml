@@ -1,0 +1,39 @@
+name: Corporate Assets V1 CI
+on:
+  pull_request:
+    paths:
+      - 'server/corporate-assets-*'
+      - 'public/js/thebe-assets-*'
+      - 'public/assets/thebe-assets-*'
+      - 'docs/sql/corporate-assets-*'
+      - 'tests/corporate-assets-*.test.mjs'
+      - '.github/workflows/corporate-assets-v1-ci.yml'
+  push:
+    paths:
+      - 'server/corporate-assets-*'
+      - 'public/js/thebe-assets-*'
+      - 'public/assets/thebe-assets-*'
+      - 'docs/sql/corporate-assets-*'
+      - 'tests/corporate-assets-*.test.mjs'
+      - '.github/workflows/corporate-assets-v1-ci.yml'
+jobs:
+  assets-v1-regressions:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check asset server syntax
+        run: |
+          set -euo pipefail
+          for file in server/corporate-assets-*.js server/corporate-assets-*.mjs; do
+            [ -f "$file" ] || continue
+            node --check "$file"
+          done
+      - name: Run all Corporate Assets regression tests
+        run: |
+          set -euo pipefail
+          node --test tests/corporate-assets-*.test.mjs
