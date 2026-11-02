@@ -45,6 +45,13 @@ const checks=[
  ["refund read role gate",w.includes("/api/payments/refunds")&&w.includes('roleAllowed(a,"owner","manager","reviewer")')],
  ["verification UI",h.includes('id="paymentVerificationList"')&&h.includes("Only verified-paid can fulfill an order.")],
  ["refund UI",h.includes('id="paymentRefundList"')&&h.includes("Refund control")],
+ ["manual bank owner authorization",w.includes('manualAdminMatch&&req.method==="POST"')&&w.includes('platform_billing_forbidden')],
+ ["bank credit attestation required",w.includes('action==="approve"&&body.bankFundsConfirmed!==true')&&w.includes('bank_funds_confirmation_required')],
+ ["bank amount match required",w.includes('action==="approve"&&body.bankAmountMatched!==true')&&w.includes('bank_amount_match_required')],
+ ["bank transaction match required",w.includes('action==="approve"&&body.bankTransactionMatched!==true')&&w.includes('bank_transaction_match_required')],
+ ["manual bank submission state guard",w.includes('manual_payment_already_reviewed')&&w.includes('manual_payment_review_in_progress')],
+ ["manual bank no double settlement",w.includes('recoveredExistingFulfillment:true')&&w.includes('paid_order_reconciliation_required')],
+ ["manual bank durable activation verification",w.includes('manual_payment_activation_failed')&&w.includes('f.fulfillment_status=\'applied\'')&&w.includes('s.status=\'active\'')],
  ["runtime current",/version:"v(?:65|6[6-9]|[7-9][0-9])",runtime:"cloudflare-worker"/.test(w)]
 ];
 const bad=checks.filter(x=>!x[1]);for(const [n,o] of checks)console.log(`${o?"PASS":"FAIL"} ${n}`);if(bad.length)process.exit(1);
