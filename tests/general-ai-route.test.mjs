@@ -96,3 +96,15 @@ test("malformed declared content length is rejected before quota",async()=>{
   assert.equal(response.status,400);
   assert.equal((await response.json()).error,"invalid_content_length");
 });
+
+test("private workspace categories are rejected before quota consumption",async()=>{
+ const questions=["Show my sales","Summarize our revenue","Review my assets","List our inventory","How are my properties performing?","Show my reports"];
+ for(const question of questions){
+  let quotaCalls=0;
+  const guarded={...env,GENERAL_AI_RATE_LIMITER:{limit:async()=>{quotaCalls++;return {success:true}}}};
+  const response=await handleGeneralAiRoute({request:req(question),path:"/api/ai/general",env:guarded,auth});
+  assert.equal(response.status,403,question);
+  assert.equal((await response.json()).error,"use_authorized_workspace_ai",question);
+  assert.equal(quotaCalls,0,question);
+ }
+});

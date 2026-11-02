@@ -91,6 +91,9 @@ assert.match(worker,/some live business context could not be retrieved; this is 
 assert.match(owner,/function advisorContextNotice\(result\)/);
 assert.match(owner,/Live workspace context is incomplete/);
 assert.match(owner,/Lower-priority context was compacted/);
+assert.match(owner,/sales entries/,"owner must disclose omitted sales entries");
+assert.match(owner,/analytics entries/,"owner must disclose omitted analytics entries");
+assert.match(owner,/Number\.isSafeInteger\(value\)/,"untrusted omission metadata must be numeric");
 assert.match(owner,/workspace context is partial/);
 
 console.log("v329 AI advisor context compaction and disclosure: PASS");
