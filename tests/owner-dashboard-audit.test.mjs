@@ -84,5 +84,5 @@ test('duplicate approval clicks send a single in-flight mutation',async()=>{
 });
 
 test('bank verification notice is visible in manual payment review',()=>{
- assert.match(source,/Independently match receipt in the Thebe Desk company bank account before approval/);
+ assert.match(source,/POP\/ref is not proof\. Match funds in Thebe Desk bank account before approval/);
 });
