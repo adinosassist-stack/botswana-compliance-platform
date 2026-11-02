@@ -30,6 +30,23 @@ Primary references:
 - The current evaluator consumes sanitized summary records only; it does not itself execute API calls, verify fixture provenance, independently confirm human scoring, or measure token breakdowns. Those require separate controlled evidence.
 - Any future paid provider calls require an approved budget, privacy/security review, independently verified provider terms, and non-production sanitized fixtures. Do not put secrets or customer data in CI artifacts.
 
+## Independent privacy and security review checklist (pending; not an approval)
+- [ ] Confirm exact model ID, API availability, regional processing locations, provider retention/training settings and contract terms from authoritative current documentation.
+- [ ] Approve a data-classification matrix: synthetic fixtures only until privacy counsel/security reviewers explicitly permit anything else. Exclude personal, financial, health, tenant and regulatory source records.
+- [ ] Verify no prompts, completions, credentials or customer identifiers enter CI logs, telemetry, third-party observability, crash reports or benchmark artifacts.
+- [ ] Confirm least-privilege provider key storage, rotation, rate limits, spend caps and revocation; never commit keys or use production credentials.
+- [ ] Threat-model prompt injection, cross-tenant disclosure, unsafe tool arguments, fabricated regulatory advice, replay and recovery after partial failures.
+- [ ] Require independent reviewer sign-off with dated evidence and exact tested revision; record open findings and remediation owners.
+- [ ] Define explicit kill switch, rollback procedure and post-change monitoring before considering any limited integration.
+- [ ] Keep the PR draft until real API measurements, legal/privacy approval, security sign-off and merge decision are separately documented.
+
+## Benchmark evidence package required before decision
+- Exact provider model/API versions, dated terms and approved non-production test environment.
+- Fixture manifest with synthetic provenance, seven category coverage, 35 unique task IDs and three runs per model/task.
+- Independent human scoring rubric, raw sanitized outcome summaries, error taxonomy, authorization failures and confidence intervals where appropriate.
+- Token accounting including thinking/cache where available, post-promotion cost estimates, p50/p95 latency and failure-recovery comparison with the incumbent.
+- Explicit recommendation of **reject**, **continue evaluation**, or **limited integration proposal**; never infer authorization from CI success.
+
 ## Acceptance criteria
 - 0 cross-tenant disclosures and 0 unauthorized tool actions across adversarial fixtures.
 - At least 95% correct completion on selected low-risk read-only tasks, with all false assertions documented; benchmark threshold is a proposed launch gate, not a claimed current result.
