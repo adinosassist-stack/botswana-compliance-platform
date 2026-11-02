@@ -37,6 +37,8 @@ assert.ok(first.originalBytes>AI_ADVISOR_CONTEXT_MAX_BYTES,"fixture must genuine
 assert.equal(first.serialized,second.serialized,"compaction must be deterministic");
 assert.deepEqual(first.compaction,second.compaction,"compaction metadata must be deterministic");
 assert.equal(first.context.contextAvailability.contextCompaction,"compacted");
+assert.ok(first.compaction.omittedCounts["businessMemory.sales.records"]>0,"compacted sales records must be disclosed");
+assert.ok(first.compaction.omittedCounts["businessMemory.analytics.series"]>0,"compacted analytics records must be disclosed");
 assert.equal(first.context.contextAvailability.contextComplete,false,"size-limited context must not claim completeness");
 assert.equal(first.context.contextAvailability.financeAndBusiness,"available","compaction must not masquerade as a backend outage");
 assert.equal(first.context.businessMemory?.businessDate,"2026-10-11","business freshness must survive compaction");
