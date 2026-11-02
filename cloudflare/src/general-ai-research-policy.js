@@ -10,7 +10,7 @@ const URL_LIMIT=8;
 export function planGeneralAiRequest(input,{researchEnabled=false}={}){
   if(typeof input!=="string"||!input.trim()||input.length>8000)return {ok:false,error:"invalid_question"};
   const question=input.trim();
-  const businessContext=BUSINESS.test(question);
+  const businessContext=BUSINESS.test(question)||/\b(?:my|our)\s+(?:sales|revenue|expenses|profit|assets|properties|property|inventory|stock|staff|team|projects|documents|reports|cashflow|cash flow|budget|payroll|branches|locations|financial data|business data)\b/i.test(question);
   const asksForCurrentInfo=CURRENT.test(question);
   const needsApproval=HIGH_RISK.test(question);
   return Object.freeze({

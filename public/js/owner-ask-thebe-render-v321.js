@@ -9,7 +9,8 @@
   // Client-side routing never replaces server authorization.
   const privateWorkspaceQuestion=question=>/\b(my (?:company|business|invoices?|reconciliation|employees?|payments?|subscriptions?|workspace|customers?)|our (?:company|accounts?|payments?|clients?)|thebe (?:workspace|account|billing))\b/i.test(question);
   const actionQuestion=question=>/\b(transfer money|send payment|approve payment|activate subscription|file tax|delete records|change payroll|sign contract)\b/i.test(question);
-  const useGeneralAi=question=>generalAiEnabled()&&!privateWorkspaceQuestion(question)&&!actionQuestion(question);
+  const additionalWorkspaceQuestion=question=>/\b(?:my|our)\s+(?:sales|revenue|expenses|profit|assets|properties|property|inventory|stock|staff|team|projects|documents|reports|cashflow|cash flow|budget|payroll|branches|locations|financial data|business data)\b/i.test(question);
+  const useGeneralAi=question=>generalAiEnabled()&&!privateWorkspaceQuestion(question)&&!additionalWorkspaceQuestion(question)&&!actionQuestion(question);
 
   const text=(tag,value,className="")=>{
     const node=document.createElement(tag);
@@ -66,6 +67,14 @@
       card.append(sources);
     }
     if(result.notice)card.append(text("div",result.notice,"owner-agentic-policy"));
+    // The advisor can return a partial tenant snapshot; never present it as complete.
+    const availability=result.contextAvailability;
+    if(availability?.financeAndBusiness==="unavailable"||availability?.financeAndBusinessComplete===false){
+      card.append(text("div","Workspace data is incomplete or unavailable. Verify financial and business claims against current records.","owner-agentic-policy"));
+    }
+    if(result.contextCompaction?.applied===true){
+      card.append(text("div","Some lower-priority workspace records were omitted to fit the AI context limit. This answer may not cover every record.","owner-agentic-policy"));
+    }
     if(result.researchPerformed===true)card.append(text("div","Research sources are search excerpts; verify important claims against the linked original publications.","owner-agentic-policy"));
     if(references.length){
       const refs=document.createElement("div");

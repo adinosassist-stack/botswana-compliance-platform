@@ -1,0 +1,74 @@
+name: Private production backup candidate
+run-name: Private backup candidate ${{ inputs.expected_sha }}
+on:
+  pull_request:
+    paths:
+      - scripts/prepare-private-d1-backup.mjs
+      - tests/private-d1-backup.test.mjs
+      - .github/workflows/private-production-backup-candidate.yml
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact independently reviewed current main SHA
+        required: true
+        type: string
+      confirmation:
+        description: Authorize private backup preparation only
+        required: true
+        type: choice
+        options: [DO_NOT_RUN, PREPARE_PRIVATE_PRODUCTION_BACKUP]
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('private-backup-tests-{0}', github.event.pull_request.number) || 'thebe-isolated-operations-rehearsals' }}
+  cancel-in-progress: false
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: node --test tests/private-d1-backup.test.mjs
+  prepare:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirmation == 'PREPARE_PRIVATE_PRODUCTION_BACKUP'
+    needs: qualify
+    environment: operations-rehearsal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$EXPECTED_SHA" == "$GITHUB_SHA" ]]
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]]
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]]
+      - name: Prepare private candidate and verify byte roundtrip
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          BACKUP_CONFIRM: ${{ inputs.confirmation }}
+          PRIVATE_BACKUP_ACCOUNT_ID: ${{ secrets.OPERATIONS_REHEARSAL_ACCOUNT_ID }}
+          PRIVATE_BACKUP_CLOUDFLARE_TOKEN: ${{ secrets.PRIVATE_BACKUP_CLOUDFLARE_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          receipt="$RUNNER_TEMP/private-backup-receipt.json"
+          trap 'rm -f "$receipt"' EXIT
+          node scripts/prepare-private-d1-backup.mjs > "$receipt"
+          cat "$receipt" >> "$GITHUB_STEP_SUMMARY"
