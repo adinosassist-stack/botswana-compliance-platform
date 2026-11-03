@@ -6,7 +6,7 @@ const env={GITHUB_REPOSITORY:'adinosassist-stack/botswana-compliance-platform',G
   EXPECTED_SHA:'a'.repeat(40),GITHUB_SHA:'a'.repeat(40),PRIVATE_BACKUP_ACCOUNT_ID:'ddd23cab31928a4bb3d4998df9b26d1d',
   PRIVATE_BACKUP_CLOUDFLARE_TOKEN:'secret-test-only',GITHUB_RUN_ID:'123',GITHUB_RUN_ATTEMPT:'1'};
 const signed='https://'+'b'.repeat(32)+'.r2.cloudflarestorage.com/export.sql?signature=private';
-function fixture({publicBucket=false,downloadStatus=200,badRoundtrip=false,exists=false}={}){
+function fixture({publicBucket=false,downloadStatus=200,badRoundtrip=false,exists=false,finalBookmark='bookmark'}={}){
   const calls=[];let exportCalls=0,written;
   const json=result=>Response.json({success:true,result});
   const fetchImpl=async(url,o={})=>{
@@ -15,7 +15,7 @@ function fixture({publicBucket=false,downloadStatus=200,badRoundtrip=false,exist
     if(url.endsWith('/domains/managed'))return json({enabled:publicBucket});
     if(url.endsWith('/domains/custom'))return json({domains:[]});
     if(url.endsWith('/d1/database/8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce'))return json({uuid:'8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce',name:'bw-compliance-os'});
-    if(url.endsWith('/export'))return json(++exportCalls===1?{status:'active',at_bookmark:'bookmark'}:{status:'complete',at_bookmark:'bookmark',result:{signed_url:signed}});
+    if(url.endsWith('/export'))return json(++exportCalls===1?{status:'active',at_bookmark:'bookmark'}:{status:'complete',...(finalBookmark===null?{}:{at_bookmark:finalBookmark}),result:{signed_url:signed}});
     if(url.includes('/objects/candidates/123/1/production-d1.sql')){
       if(o.method==='PUT'){written=Buffer.from(o.body);return Response.json({success:true,result:{}});}
       if(!written)return new Response(null,{status:exists?200:404});
@@ -45,6 +45,14 @@ test('authority mismatch prevents all provider calls',async()=>{
 test('public bucket stops before export',async()=>{
   const f=fixture({publicBucket:true});await assert.rejects(prepareBackup(env,f),/bucket_public/);
   assert.equal(f.calls.some(x=>x.o.method==='POST'),false);
+});
+test('missing or blank completed export bookmark stops before any candidate download or write',async()=>{
+ for(const finalBookmark of [null,'','  ']){
+  const f=fixture({finalBookmark});
+  await assert.rejects(prepareBackup(env,f),/export_bookmark/);
+  assert.equal(f.calls.some(x=>x.url===signed),false);
+  assert.equal(f.calls.some(x=>x.o.method==='PUT'),false);
+ }
 });
 test('signed download refusal stops before private storage writes',async()=>{
   const f=fixture({downloadStatus:403});await assert.rejects(prepareBackup(env,f),/download_refused/);
