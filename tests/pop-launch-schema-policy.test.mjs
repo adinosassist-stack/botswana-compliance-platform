@@ -8,11 +8,11 @@ const ci=readFileSync(new URL('../.github/workflows/audit-remediation-ci.yml',im
 const deployment=readFileSync(new URL('../.github/workflows/deploy-production.yml',import.meta.url),'utf8');
 const observation=readFileSync(new URL('../cloudflare/src/pop-schema-readiness.js',import.meta.url),'utf8');
 
-test('missing packaged POP 070/071 is an explicit production promotion HOLD, even if runtime remains healthy',()=>{
-  assert.match(status,/existing production databases must reach the current packaged Cloudflare migration tip/i);
-  assert.match(status,/missing production POP 070\/071 as a \*\*HOLD for release promotion\*\*/);
-  assert.match(pop,/absence of production POP 070\/071 is a \*\*release-promotion HOLD\*\*/);
-  assert.match(pop,/running\* core functionality unavailable/);
+test('core-only release requires a proved default-deny POP and advanced export freeze',()=>{
+  assert.match(status,/Core-only exception pending independent approval/);
+  assert.match(status,/If any freeze boundary is missing, release promotion is \*\*HOLD\*\*/);
+  assert.match(pop,/POP 070\/071 may be deferred \*\*only for this core-only rollout\*\*/);
+  assert.match(pop,/\*\*release-promotion HOLD\*\*/);
 });
 
 test('release policy never converts optional POP readiness into migration provenance or payment authority',()=>{
