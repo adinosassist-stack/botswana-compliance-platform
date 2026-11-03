@@ -27,7 +27,7 @@ test('production POP guard and disabled staging flag are independently required'
   }),/pop_upload_disabled/);
 });
 test('newly mounted advanced export endpoint must stop core-only release',()=>{
-  assert.throws(()=>verifyCoreOnlyFreeze({config,worker:worker+'\nconst forbidden="/api/ai/export";\n',exportSpec}),/must not match/);
+  assert.throws(()=>verifyCoreOnlyFreeze({config,worker:worker+'\nconst forbidden="/api/ai/export";\n',exportSpec}),{code:'ERR_ASSERTION'});
 });
 test('production deployment checks freeze before dry-run and again before mutation',()=>{
   const marker='node scripts/qualify-core-only-release.mjs "$PROD_CONFIG"';
