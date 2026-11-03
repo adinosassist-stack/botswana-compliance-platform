@@ -10,10 +10,10 @@ const fragment=source.slice(start,end);
 test("AI Dock copies the rendered answer snapshot, not a later answer",()=>{
  assert.match(fragment,/Copy answer/);
  assert.match(fragment,/const answerForCopy=lastAnswer/);
- assert.match(fragment,/navigator\.clipboard\.writeText\(answerForCopy\\)/);
- assert.doesNotMatch(fragment,/navigator\.clipboard\.writeText\(lastAnswer\\)/);
+ assert.match(fragment,/navigator\.clipboard\.writeText\(answerForCopy\)/);
+ assert.doesNotMatch(fragment,/navigator\.clipboard\.writeText\(lastAnswer\)/);
  assert.match(fragment,/Copy unavailable/);
- assert.match(fragment,/if\(answerForCopy\\)/);
+ assert.match(fragment,/if\(answerForCopy\)/);
 });
 test("copy action is explicitly clicked and does not create share links",()=>{
  assert.match(fragment,/addEventListener\("click"/);
