@@ -322,6 +322,7 @@ jobs:
           sh cloudflare/render-production-config.sh cloudflare/wrangler.toml > "$PROD_CONFIG"
           chmod 600 "$PROD_CONFIG"
           sh cloudflare/preflight-production.sh "$PROD_CONFIG"
+          node scripts/qualify-core-only-release.mjs "$PROD_CONFIG"
           if grep -Eq '^[[:space:]]*\[build\]|^[[:space:]]*command[[:space:]]*=' "$PROD_CONFIG"; then
             echo 'Production Wrangler config must not contain candidate-controlled build commands.' >&2
             exit 1
@@ -455,6 +456,8 @@ jobs:
           }
           fs.writeFileSync(process.env.RUNNER_TEMP + '/thebe-worker-secrets.json', JSON.stringify(out), {mode: 0o600});
           NODE
+          # Revalidate the exact rendered candidate before the production mutation.
+          node scripts/qualify-core-only-release.mjs "$PROD_CONFIG"
           test -s "$SECRETS_FILE"
 
           live_main_sha="$(
