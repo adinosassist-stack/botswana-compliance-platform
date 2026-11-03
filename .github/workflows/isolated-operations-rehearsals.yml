@@ -12,6 +12,8 @@ on:
       - tests/ops-restore-credential.test.mjs
       - tests/launch-recovery-credential-routing.test.mjs
       - .github/workflows/isolated-operations-rehearsals.yml
+      - scripts/verify-protected-recovery-dispatch.mjs
+      - tests/protected-recovery-dispatch-preapproval.test.mjs
       - docs/isolated-operations-rehearsals.md
   workflow_dispatch:
     inputs:
@@ -60,7 +62,21 @@ jobs:
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
-      - run: node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs tests/ops-restore-credential.test.mjs tests/launch-recovery-credential-routing.test.mjs
+      - name: Reject stale isolated rehearsal requests before environment review
+        if: github.event_name == 'workflow_dispatch' && inputs.confirmation == 'RUN_ISOLATED_REHEARSAL'
+        env:
+          RECOVERY_DISPATCH_KIND: isolated
+          RECOVERY_CONFIRM: ${{ inputs.confirmation }}
+          RECOVERY_MODE: ${{ inputs.mode }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/verify-protected-recovery-dispatch.mjs
+          live_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          [[ "$live_sha" == "$EXPECTED_SHA" ]] || { echo 'Protected recovery dispatch is stale relative to current main.' >&2; exit 1; }
+      - run: node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs tests/ops-restore-credential.test.mjs tests/launch-recovery-credential-routing.test.mjs tests/protected-recovery-dispatch-preapproval.test.mjs
   rehearse:
     needs: qualify
     if: >-
@@ -83,7 +99,7 @@ jobs:
           node-version-file: .nvmrc
           package-manager-cache: false
       - name: Qualify isolated boundaries
-        run: node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs tests/ops-restore-credential.test.mjs tests/launch-recovery-credential-routing.test.mjs
+        run: node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs tests/ops-restore-credential.test.mjs tests/launch-recovery-credential-routing.test.mjs tests/protected-recovery-dispatch-preapproval.test.mjs
       - name: Install lockfile-pinned transport without lifecycle scripts
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Verify exact current main immediately before rehearsal
