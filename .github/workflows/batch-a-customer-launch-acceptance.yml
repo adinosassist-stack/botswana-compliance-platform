@@ -1,13 +1,7 @@
 name: Batch A Customer Launch Acceptance
+# Required PR checks must not be skipped for documentation-only changes.
 on:
   pull_request:
-    paths:
-      - "cloudflare/src/**"
-      - "public/**"
-      - "server/**"
-      - "scripts/**"
-      - "tests/**"
-      - ".github/workflows/batch-a-customer-launch-acceptance.yml"
   workflow_dispatch:
 
 permissions:

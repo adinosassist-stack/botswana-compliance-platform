@@ -2,12 +2,15 @@ import base from "./agentic-entry.js";
 import {applyAssetReleaseIdentity} from "./asset-release-identity.js";
 import releaseMetadata from "../../release/production.json" with {type:"json"};
 import {durableRegistrationChallengeGate,validateAndClaimRegistrationProof} from "./registration-boundary.js";
+import {handleConversionEvent,recordRegistrationSuccess,recordWorkspaceReached} from "./conversion-funnel-governance.js";
+import {REGISTRATION_CREATION_OUTCOME} from "./registration-creation-outcome.js";
 
 const VALID_REGISTRATION_MODES=new Set(["hold","cohort","open"]);
 const WORKSPACE_SURFACE_ROLES=new Set(["owner","manager","reviewer","auditor"]);
 const OAUTH_VISIBILITY_SCRIPT="/js/oauth-availability.js?v=20260916b";
 const WORKSPACE_BOUNDARY_SCRIPT="/js/surface-boundaries.js?v=20260918-no-layout-read";
 const WORKSPACE_IDENTITY_BOOTSTRAP_SCRIPT="/js/workspace-identity-bootstrap-v303.js?v=20261006-v303";
+const CONVERSION_FUNNEL_SCRIPT="/js/conversion-funnel-v14.js?v=20261029a";
 const PUBLIC_HOME_ASSET="/home";
 const AUTH_PORTAL_ASSET="/auth";
 const VOICE_SURFACE_PERMISSIONS_POLICY="camera=(), microphone=(self), geolocation=(), payment=()";
@@ -325,17 +328,20 @@ async function decorateResponse(request,env,response){
       try{
         const html=await next.clone().text();
         const appSurface=path==="/app"||path==="/app/";
+        const authSurface=path==="/auth"||path==="/auth/";
         const legacySyntheticRoot=path==="/"&&syntheticLegacyRootRequested(request);
         let injected=html;
         if(appSurface)injected=normalizeWorkspaceAssetUrls(injected);
         if(appSurface||legacySyntheticRoot)injected=injectOauthAvailabilityScript(injected);
         if(appSurface)injected=injectWorkspaceBoundaryScript(injected);
+        if(authSurface)injected=injectScriptOnce(injected,CONVERSION_FUNNEL_SCRIPT);
         if(injected!==html){
           const headers=new Headers(next.headers);
           headers.delete("content-length");
           headers.delete("etag");
           if(appSurface||legacySyntheticRoot)headers.set("x-thebe-oauth-ui","availability-gated-v2");
           if(appSurface)headers.set("x-thebe-surface-boundary","workspace-v1");
+          if(authSurface)headers.set("x-thebe-conversion-funnel","v14");
           next=new Response(injected,{status:next.status,statusText:next.statusText,headers});
         }
       }catch{}
@@ -359,6 +365,8 @@ async function decorateResponse(request,env,response){
 export default {
   async fetch(request,env,ctx){
     const path=logicalRequestPath(request),method=request.method;
+    const conversionResponse=await handleConversionEvent({request,path,env,ctx});
+    if(conversionResponse)return conversionResponse;
 
     if(["GET","HEAD"].includes(method)&&path==="/"&&!syntheticLegacyRootRequested(request)){
       const response=await base.fetch(rewriteSurfaceRequest(request,PUBLIC_HOME_ASSET,{clearSearch:true}),env,ctx);
@@ -371,7 +379,8 @@ export default {
     }
     if(["GET","HEAD"].includes(method)&&path==="/app")return trailingSlashRedirect(request,"/app/");
     if(["GET","HEAD"].includes(method)&&path==="/app/"){
-      const response=await workspaceSurfaceResponse(request,env,ctx);
+      let response=await workspaceSurfaceResponse(request,env,ctx);
+      response=await recordWorkspaceReached({request,path,env,response,ctx});
       return decorateResponse(request,env,response);
     }
 
@@ -380,6 +389,7 @@ export default {
     if(method==="GET"&&path==="/api/auth/registration-policy")return json({ok:true,mode:registrationMode(env)});
 
     let downstreamEnv=env;
+    const registrationOutcome={created:false};
     if(method==="POST"&&path===REGISTRATION_PROOF_CHALLENGE_PATH){
       const blocked=await durableRegistrationChallengeGate(request,env);
       if(blocked)return decorateResponse(request,env,blocked);
@@ -398,13 +408,25 @@ export default {
         return decorateResponse(request,env,registrationProtectionFailure(status));
       }
       downstreamEnv=Object.assign({},env,{
+        [REGISTRATION_CREATION_OUTCOME]:registrationOutcome,
         __THEBE_REGISTRATION_PROOF_VERIFIED:true,
         APP_ENV:"registration-proof-verified",
         TURNSTILE_SECRET_KEY:""
       });
     }
 
+    // Isolated staging opt-in only: sanitized readiness duration. No SQL, identities or secrets.
+    if(method==="GET"&&path==="/api/ready"&&String(env?.APP_ENV||"")==="staging"&&String(env?.THEBE_READINESS_TIMING_DIAGNOSTIC||"")==="1"){
+      const began=performance.now();
+      const response=await base.fetch(request,downstreamEnv,ctx);
+      const duration=Math.max(0,Math.round(performance.now()-began));
+      const decorated=await decorateResponse(request,env,response);
+      const headers=new Headers(decorated.headers);
+      headers.set("server-timing",`ready_base;dur=${Math.min(duration,60000)}`);
+      return new Response(decorated.body,{status:decorated.status,statusText:decorated.statusText,headers});
+    }
     const response=await base.fetch(request,downstreamEnv,ctx);
+    await recordRegistrationSuccess({request,path,env,response,ctx,registrationCreated:registrationOutcome.created});
     return decorateResponse(request,env,response);
   },
   async scheduled(event,env,ctx){

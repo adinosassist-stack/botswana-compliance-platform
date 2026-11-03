@@ -1,0 +1,35 @@
+name: AI Export Private Safety Consolidation
+on:
+  pull_request:
+    paths:
+      - 'server/ai-document-export-http.js'
+      - 'server/ai-export-*.js'
+      - 'tests/ai-document-export-http.test.mjs'
+      - 'tests/ai-export-*.test.mjs'
+      - 'docs/ai-export-*.sql'
+      - '.github/workflows/ai-export-private-safety-batch.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  private-export-safety:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check for unmounted exports
+        run: |
+          set -euo pipefail
+          node --check server/ai-document-export-http.js
+          for script in server/ai-export-*.js tests/ai-export-*.test.mjs; do
+            node --check "$script"
+          done
+      - name: Cross-module private export security regressions
+        run: |
+          set -euo pipefail
+          node --test tests/ai-document-export-http.test.mjs tests/ai-export-r2-binding.test.mjs tests/ai-export-r2-full-stack.test.mjs tests/ai-export-d1-metadata.test.mjs tests/ai-export-d1-sqlite-real.test.mjs tests/ai-export-persistence-composition.test.mjs tests/ai-export-atomic-quota.test.mjs tests/ai-export-staging-retention.test.mjs

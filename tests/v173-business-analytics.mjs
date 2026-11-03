@@ -112,3 +112,12 @@ assert.match(analyticsSource,/registeredValuerSignOffRequiredForProfessionalValu
 assert.doesNotMatch(analyticsSource,/executionAllowed:true/);
 
 console.log("v173 Business Analytics foundation: deterministic cross-domain analytics and authority boundaries passed");
+
+const negativePropertyIncome=buildBusinessAnalytics({...context,property:{available:true,assetCount:1,annualRentMinor:10000,annualOperatingCostMinor:30000,netOperatingIncomeProxyMinor:-20000}});
+const negativePropertySignal=negativePropertyIncome.signals.find(item=>item.key==="property_negative_operating_income_proxy");
+assert.equal(negativePropertySignal?.severity,"high");
+assert.equal(negativePropertySignal?.readOnly,true);
+assert.equal(negativePropertySignal?.executionAllowed,false);
+assert.equal(negativePropertyIncome.authority.accountingProfitClaim,false);
+const unknownPropertyIncome=buildBusinessAnalytics({...context,property:{available:true,assetCount:1,netOperatingIncomeProxyMinor:null}});
+assert.equal(unknownPropertyIncome.signals.some(item=>item.key==="property_negative_operating_income_proxy"),false,"missing NOI must not be treated as a known loss");

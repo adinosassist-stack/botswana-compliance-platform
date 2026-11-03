@@ -1,0 +1,17 @@
+import assert from "node:assert/strict";
+import {handleGatedConversationRehearsal} from "../cloudflare/src/conversation-gated-handler-rehearsal.js";
+const request=new Request("https://staging.invalid/api/staging/conversation-rehearsal/messages");
+const deployment={environment:"staging",production:false};
+const context={session:{authenticated:false}};
+const base={request,deployment,context,privacyApproved:true,migrationQualified:true};
+let probes=0;
+const config={CONVERSATION_REHEARSAL_ENABLED:"true",CONVERSATION_REHEARSAL_WRITE_ENABLED:"true",CONVERSATION_CURSOR_SECRET:"s".repeat(32)};
+const env={...config,DB:{prepare(sql){probes++;assert(sql.includes("sqlite_master"));return{bind(){return{async all(){return{success:true,results:[{name:"thebe_conversations_rehearsal"}]}}}}}}}};
+const missing=await handleGatedConversationRehearsal({...base,env});
+assert.equal(missing.status,503);assert.equal((await missing.json()).error,"schema_unavailable");
+assert.equal(probes,1);
+const disabled=await handleGatedConversationRehearsal({...base,env,deployment:{environment:"production",production:true}});
+assert.equal(disabled.status,404);assert.equal(probes,1);
+const all={...config,DB:{prepare(){return{bind(){return{async all(){return{success:true,results:["thebe_conversations_rehearsal","thebe_conversation_members_rehearsal","thebe_conversation_messages_rehearsal"].map(name=>({name}))}}}}}}}};
+assert.equal((await handleGatedConversationRehearsal({...base,env:all})).status,403);
+console.log("Staging schema probe denies missing tables and production PASS");

@@ -1,0 +1,38 @@
+name: General AI research CI
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/src/general-ai-*.js'
+      - 'tests/general-ai-*.test.mjs'
+      - 'tests/general-ai-staging-session-contract.py'
+      - '.github/workflows/general-ai-research-ci.yml'
+      - '.github/workflows/general-ai-private-staging-qualification.yml'
+      - 'cloudflare/wrangler.toml'
+      - 'cloudflare/wrangler.general-ai-staging.toml'
+      - 'cloudflare/schema/general-ai-staging-auth.sql'
+      - 'docs/general-ai-staging-handoff.md'
+      - 'scripts/general-ai-staging-preflight.mjs'
+      - 'scripts/general-ai-private-staging-verify.mjs'
+      - 'scripts/general-ai-staging-auth-verify.mjs'
+      - 'public/js/owner-ask-thebe-render-v321.js'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  general-ai-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Isolated staging authentication contract
+        run: python3 tests/general-ai-staging-session-contract.py
+      - name: General AI security and behavior tests
+        run: node --test tests/general-ai-*.test.mjs
+
+      - name: Bundle private staging entrypoint without deploying
+        run: |
+          npm ci --ignore-scripts
+          npx wrangler deploy --dry-run --config cloudflare/wrangler.general-ai-staging.toml --outdir /tmp/thebe-general-ai-staging-build

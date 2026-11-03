@@ -273,3 +273,26 @@ html body #thebeAiDock[data-surface="public"] :is(.thebe-ai-public-signin,.thebe
     margin:0 12px 12px!important;
   }
 }
+
+/* Mobile full-viewport Thebe: eliminate exposed page corners without affecting desktop/floating rails. */
+@media (max-width:767px){
+  html body #thebeAiDock[data-surface="public"]:not([hidden]){
+    border-radius:0!important;
+    border-left:0!important;
+    border-right:0!important;
+    box-shadow:none!important;
+  }
+  html body #thebeAiDock[data-surface="public"] .thebe-ai-compose{
+    min-width:0!important;
+    box-sizing:border-box!important;
+    padding-bottom:8px!important;
+  }
+  html body #thebeAiDock[data-surface="public"] .thebe-ai-compose textarea{
+    min-width:0!important;
+    flex:1 1 0%!important;
+    width:100%!important;
+    box-sizing:border-box!important;
+    overflow-y:auto!important;
+    line-height:1.45!important;
+  }
+}

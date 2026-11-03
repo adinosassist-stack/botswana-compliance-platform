@@ -43,6 +43,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          node --test tests/api-client-deadline-classification.test.mjs tests/ai-dock-network-diagnostics-1934.test.mjs
           node --check cloudflare/src/client-runtime-identity.js
           node --check cloudflare/src/agentic-entry.js
           node --check cloudflare/src/agentic-live-voice-v270.js
@@ -79,6 +80,7 @@ jobs:
         run: |
           set -euo pipefail
           npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
+          node tests/corporate-assets-browser.mjs
           node tests/workspace-stale-hydration-browser.mjs
           node tests/internal-autonomy-browser.mjs
           node tests/v315-mobile-header-touch-targets-browser.mjs

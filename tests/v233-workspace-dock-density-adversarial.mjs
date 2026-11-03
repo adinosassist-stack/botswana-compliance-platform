@@ -27,8 +27,8 @@ assert.match(recovery,/20261015-workspace-dock-resize-v0518/,
   "workspace dock resize implementation must expose an auditable release marker");
 assert.match(recovery,/thebe:workspace-dock:width:v1/,
   "workspace dock width must persist independently of the public dock width");
-assert.match(recovery,/if\(width>=1200\)return \{min:320,defaultWidth:376,expandedDefault:500,max:560\}/,
-  "wide desktop must use the reviewed 376px default and bounded 320-560px resize range");
+assert.match(recovery,/if\(width>=1200\)\{const market=Math\.min\(720,width\*\.38\);return \{min:430,defaultWidth:Math\.round\(market\),expandedDefault:Math\.round\(Math\.min\(780,Math\.max\(520,width\*\.44\)\)\),max:Math\.round\(Math\.min\(780,width-64\)\)\};\}/,
+  "wide desktop must follow the Market dock width and support bounded resizing");
 assert.match(recovery,/return \{min:288,defaultWidth:320,expandedDefault:440,max:440\}/,
   "medium desktop must clamp the assistant rail so workspace content retains room");
 assert.match(recovery,/thebe-workspace-dock-resize-handle/,

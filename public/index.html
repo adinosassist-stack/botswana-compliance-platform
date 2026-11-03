@@ -5509,7 +5509,6 @@ function renderAll(){
  document.getElementById("complianceBar").style.width=s.comp+"%";document.getElementById("protectionBar").style.width=s.prot+"%";
  animateNumber(document.getElementById("openActions"),s.open);document.getElementById("navAlerts").textContent=s.open;let ac=document.getElementById("attentionCount");if(ac)ac.textContent=sourceConflicts.length?`${sourceConflicts.length} source conflict${sourceConflicts.length===1?"":"s"}`:(s.open?`${s.open} to review`:"No local gaps");
  {const evMetric=document.getElementById("evidenceCoverage"),evCaption=document.getElementById("evidenceMetricCaption");if(STANDALONE_PREVIEW){const reviewed=(state.evidence||[]).filter(e=>e.verified).length;evMetric.textContent=Math.min(100,Math.round(reviewed/(a.length||1)*100))+"%";if(evCaption)evCaption.textContent="Preview estimate · local reviewed metadata only"}else{evMetric.textContent="—";if(evCaption)evCaption.textContent="Waiting for server assurance"}}
- // Dashboard-only lists are expensive to rebuild and need not mutate hidden DOM on every navigation.
  if(document.getElementById("dashboard")?.classList.contains("active")||(window.__THEBE_WORKSPACE_READY__!==true&&roleLandingView(currentUser?.role)==="dashboard")){
  let priority=a.filter(r=>/Action required|gaps|due|verify/i.test(r.status())).slice(0,5);
  document.getElementById("priorityList").safeHTML=priority.length?priority.map(r=>`<div class="item"><div class="between row"><b>${escapeHtml(r.title)}</b><span class="badge ${riskClass(r.risk)}">${escapeHtml(r.risk)}</span></div><div class="muted small">${escapeHtml(r.status())}</div></div>`).join(""):`<div class="notice good">No urgent actions detected in this demo rule pack.</div>`;
@@ -5519,7 +5518,6 @@ function renderAll(){
  }
 
  applyRoleUi();
- // Resolve role permissions once per render; individual views still fail closed.
  const allowedRenderViews=allowedViewsForRole(currentWorkspaceRole());
  const shouldRender=view=>{if(!allowedRenderViews.has(view))return false;const target=document.getElementById(view),active=!!target?.classList.contains("active"),coldLanding=window.__THEBE_WORKSPACE_READY__!==true&&view===roleLandingView(currentUser?.role);return active||coldLanding};const run=(view,fn)=>{if(!shouldRender(view)||typeof fn!=="function")return;try{const result=fn();if(result&&typeof result.catch==="function")result.catch(error=>reportClientError(error,`render:${view}`))}catch(error){reportClientError(error,`render:${view}`)}};
  if(shouldRender("dashboard")){renderGlobalConflict();setupProgress();renderDeadlines();renderOnboardingBanner();if(document.getElementById("dashboard")?.classList.contains("active")){renderDailyOperatingBrief();if(["owner","manager"].includes(currentWorkspaceRole()))renderExecutiveExceptions()}}
@@ -6688,7 +6686,6 @@ function animateNumber(el,to,suffix=""){
   if(!el)return;
   const target=String(to)+suffix;
   const previous=workspaceNumberAnimations.get(el);
-  // Repeated navigation must not restart an animation that already has this target.
   if(previous?.target===target&&(previous.frame!==null||el.textContent===target))return;
   if(previous?.frame!=null&&typeof cancelAnimationFrame==="function")cancelAnimationFrame(previous.frame);
   if(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches){
@@ -7676,10 +7673,10 @@ async function renderManualPaymentApprovals(){
     const admin=await apiJson("/api/platform/billing/manual-payments");
     if(load!==manualPaymentAdminLoad||currentUser!==user)return;
     if(pendingCount)pendingCount.textContent=String(admin.total??(admin.items||[]).length);
-    box.safeHTML=(admin.items||[]).map(x=>`<div class="item"><b>${escapeHtml(x.tenant_name||x.tenant_id)} · P${x.amount_bwp}</b><div class="muted small">${escapeHtml(platformBillingPlan(x.metadata?.plan))} · bank ref ${escapeHtml(x.bank_reference)} · submitted ${platformBillingTime(x.submitted_at)}</div><div class="row" style="margin-top:8px"><button type="button" class="billing-switch" role="switch" aria-checked="false" aria-label="Activate ${escapeHtml(x.tenant_name||x.tenant_id)}" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','approve')"><span class="billing-switch-track" aria-hidden="true"></span><span>Verify & activate</span></button><button type="button" class="btn soft" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','reject')">Reject</button></div><div class="muted small" role="status" aria-live="polite" id="manualPaymentStatus_${escapeHtml(x.id)}"></div></div>`).join("")||'<div class="muted small">No manual payments awaiting approval.</div>';
+    box.safeHTML=(admin.items||[]).map(x=>`<div class="item"><div class="muted small">POP/ref is not proof. Match funds in Thebe Desk bank account before approval.</div><b>${escapeHtml(x.tenant_name||x.tenant_id)} · P${x.amount_bwp}</b><div class="muted small">${escapeHtml(platformBillingPlan(x.metadata?.plan))} · bank ref ${escapeHtml(x.bank_reference)} · submitted ${platformBillingTime(x.submitted_at)}</div><div class="row" style="margin-top:8px"><button type="button" class="billing-switch" role="switch" aria-checked="false" aria-label="Activate ${escapeHtml(x.tenant_name||x.tenant_id)}" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','approve')"><span class="billing-switch-track" aria-hidden="true"></span><span>Verify & activate</span></button><button type="button" class="btn soft" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','reject')">Reject</button></div><div class="muted small" role="status" aria-live="polite" id="manualPaymentStatus_${escapeHtml(x.id)}"></div></div>`).join("")||'<div class="muted small">No manual payments awaiting approval.</div>';
   }catch(e){
     if(load!==manualPaymentAdminLoad||currentUser!==user)return;
-    box.textContent=e.status===403?"Platform billing access was denied. Sign out and sign in with an authorized Thebe Desk admin account.":"Pending payments could not be loaded. Select Refresh approvals to try again.";
+    box.textContent=e.status===403?"Platform billing access was denied. Sign out and sign in with an authorized Thebe Desk admin account.":"Could not load payments. Select Refresh approvals to retry.";
   }
 }
 async function renderPayments(){
@@ -7769,10 +7766,10 @@ async function reviewManualPayment(id,action){
    reason=await BW.dialog.prompt({title:"Reject payment",message:"Explain the rejection.",required:true,minLength:5,maxLength:500,confirmLabel:"Reject payment"});
    if(reason===null||!platformBillingSessionCurrent(user,true))return;
   }else if(action==="approve"){
-   bankFundsConfirmed=await BW.dialog.confirm({title:"Verify payment and activate plan",message:"Approve only after matching funds appear in Thebe Desk's company bank account. A customer's reference is not receipt evidence.",confirmLabel:"Funds received — activate"});
+   bankFundsConfirmed=await BW.dialog.confirm({title:"Verify payment and activate plan",message:"Confirm in the company bank account: funds received, amount matches the order, and the bank transaction matches this customer payment. Customer-submitted references alone are not proof.",confirmLabel:"Funds received — activate"});
    if(!bankFundsConfirmed||!platformBillingSessionCurrent(user,true))return;
   }else return;
-  const r=await apiJson(`/api/platform/billing/manual-payments/${encodeURIComponent(id)}/${action}`,{method:"POST",body:JSON.stringify({reason,bankFundsConfirmed}),idempotencyKey:true});
+  const r=await apiJson(`/api/platform/billing/manual-payments/${encodeURIComponent(id)}/${action}`,{method:"POST",body:JSON.stringify({reason,bankFundsConfirmed,bankAmountMatched:bankFundsConfirmed,bankTransactionMatched:bankFundsConfirmed}),idempotencyKey:true});
   if(!platformBillingSessionCurrent(user))return;
   if(r?.ok!==true||(action==="approve"?(r.status!=="approved"||r.activated!==true):r.status!=="rejected"))throw Error("Server did not confirm the decision. Refresh approvals.");
   show(action==="approve"?"Payment verified and plan activated.":"Payment submission rejected.");
@@ -7781,6 +7778,9 @@ async function reviewManualPayment(id,action){
   if(platformBillingSessionCurrent(user)){
    const errors={paid_order_reconciliation_required:"Paid order needs reconciliation; no second settlement was applied.",manual_payment_settlement_not_confirmed:"Activation unconfirmed; reconcile this order.",platform_billing_forbidden:"Only the platform owner may approve payments."};
    show(errors[e?.code]||String(e?.message||"Payment decision failed; refresh approvals."));
+   try{await refreshPlatformBillingDashboard()}catch(refreshError){
+    show("Payment status could not be refreshed. Reload before retrying.");
+   }
   }
  }finally{manualPaymentReviewsInFlight.delete(id)}
 }
@@ -8390,7 +8390,6 @@ async function workspaceViewFragments(id){
   workspaceViewShardPromises.set(cacheKey,promise);
   return promise;
 }
-// Share one validated, same-origin shard request between idle prefetch and navigation.
 function prefetchThebeWorkspaceShard(shard){
   if(window.__THEBE_WORKSPACE_READY__!==true)return Promise.resolve(false);
   if(!Number.isInteger(shard)||shard<0||shard>=WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT)return Promise.resolve(false);
@@ -8456,8 +8455,6 @@ async function hydrateLazyWorkspaceView(id,target,options={}){
     const views=await workspaceViewFragments(id);
     const markup=Object.prototype.hasOwnProperty.call(views,id)?views[id]:null;
     if(typeof markup!=="string")throw new Error("Workspace view is unavailable.");
-    // Avoid expensive DOM insertion for a view abandoned while its shard was loading.
-    // Leave the placeholder lazy so a later visit can hydrate it normally.
     if(Number(target.dataset.lazyNavigationEpoch||0)!==workspaceViewNavigationEpoch){
       delete target.dataset.lazyLoading;
       target.setAttribute("aria-busy","false");
@@ -8542,8 +8539,6 @@ function scheduleResidentPropertyVisibility(target){
   setTimeout(()=>enforceResidentPropertyVisibility(target),700);
 }
 
-// Let the destination paint before running expensive multi-panel renderers.
-// A superseding navigation invalidates its predecessor without skipping security checks.
 let workspacePendingRenderToken=0;
 function scheduleWorkspaceNavigationRender(id,target,epoch){
   const token=++workspacePendingRenderToken;
@@ -8736,6 +8731,7 @@ async function requestPlan(plan){
      <div class="small" style="margin-top:8px">Use the payment reference above on the bank transfer. After paying, enter your bank transaction reference below. Submission does not activate the plan.</div>
      <label style="display:block;margin-top:10px">Bank transaction reference<input id="manualBankReference" maxlength="100" autocomplete="off" placeholder="e.g. transfer confirmation/reference"></label>
      <button type="button" class="btn" style="margin-top:10px" data-bw-onclick="submitManualBankPayment('${escapeHtml(data.paymentOrder.id)}')">I have paid</button>
+     ${b.popWhatsappNumber?`<a class="btn soft" target="_blank" rel="noopener noreferrer" href="https://wa.me/${b.popWhatsappNumber}?text=${encodeURIComponent("Thebe Desk POP for order "+data.paymentOrder.id+". I will attach my receipt. Please verify cleared funds in the company bank account.")}">Send POP on WhatsApp</a>`:""}
      <div id="manualBankSubmitResult" style="margin-top:10px" role="status" aria-live="polite"></div></div>`;
  }catch(e){if(upgradeResult)upgradeResult.safeHTML=`<div class="autherror show">${escapeHtml(e.message)}</div>`}
 }

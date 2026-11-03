@@ -1,0 +1,34 @@
+name: POP pre-070 baseline qualification
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'cloudflare/schema.sql'
+      - 'cloudflare/migrations/070_payment_pop_documents.sql'
+      - 'cloudflare/migrations/071_payment_pop_runtime_compat.sql'
+      - 'scripts/prepare-pop-pre070-baseline.py'
+      - 'tests/pop-pre070-baseline.test.py'
+      - 'scripts/rehearse-pop-repository-baseline.py'
+      - '.github/workflows/pop-pre070-baseline-qualification.yml'
+permissions:
+  contents: read
+jobs:
+  baseline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Prove main-only manual qualification authority
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo 'manual baseline qualification requires main'; exit 1; }
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]] || { echo 'checkout SHA mismatch'; exit 1; }
+      - name: Qualify pinned candidate and ordered migrations offline
+        run: |
+          python3 tests/pop-pre070-baseline.test.py
+          python3 scripts/prepare-pop-pre070-baseline.py
+          python3 scripts/rehearse-pop-repository-baseline.py

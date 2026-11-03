@@ -1,0 +1,58 @@
+name: Diagnose isolated recovery Cloudflare authentication (read-only)
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact reviewed current main SHA
+        required: true
+        type: string
+      confirmation:
+        description: Type DIAGNOSE_RECOVERY_AUTH_READ_ONLY
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    if: github.ref == 'refs/heads/main'
+    environment: operations-rehearsal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check exact main and confirmation
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ && "$EXPECTED_SHA" == "$GITHUB_SHA" ]]
+          [[ "$CONFIRMATION" == DIAGNOSE_RECOVERY_AUTH_READ_ONLY ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" == "$EXPECTED_SHA" ]]
+      - name: Diagnose token authentication and account scope without disclosing responses
+        env:
+          ACCOUNT: ${{ secrets.OPERATIONS_REHEARSAL_ACCOUNT_ID }}
+          TOKEN: ${{ secrets.OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN }}
+          RESTORE_ID: ${{ vars.OPS_RESTORE_D1_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const account=process.env.ACCOUNT??'',token=process.env.TOKEN??'',db=process.env.RESTORE_ID??'';
+          const target='07c1aaeb-215a-4f01-80b6-a5e0ebedfcd8';
+          const valid=/^[a-f0-9]{32}$/i.test(account)&&token.length>0&&db===target;
+          const result={kind:'recovery_auth_diagnostics',configurationValid:valid,readOnly:true};
+          if(!valid){console.log(JSON.stringify(result));process.exit(1)}
+          async function probe(label,url){
+            try{
+              const response=await fetch(url,{method:'GET',headers:{authorization:`Bearer ${token}`,accept:'application/json'},redirect:'error',signal:AbortSignal.timeout(12000)});
+              // Do not read or emit response bodies, credential values, account IDs or user data.
+              result[label]={httpStatus:response.status,ok:response.ok};
+            }catch{result[label]={transportError:true}}
+          }
+          await probe('tokenVerify','https://api.cloudflare.com/client/v4/user/tokens/verify');
+          await probe('accountAccess',`https://api.cloudflare.com/client/v4/accounts/${account}`);
+          await probe('restoreD1Read',`https://api.cloudflare.com/client/v4/accounts/${account}/d1/database/${target}`);
+          console.log(JSON.stringify(result));
+          if(!result.restoreD1Read?.ok)process.exitCode=1;
+          NODE

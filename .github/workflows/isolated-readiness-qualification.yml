@@ -1,0 +1,102 @@
+name: Isolated Readiness Deployment Qualification
+run-name: Readiness preflight ${{ inputs.expected_sha || github.event.pull_request.head.sha }}
+
+on:
+  pull_request:
+    paths:
+      - scripts/render-isolated-readiness-config.mjs
+      - tests/isolated-readiness-config.test.mjs
+      - tests/probe-staging-readiness.test.mjs
+      - scripts/probe-staging-readiness.mjs
+      - .github/workflows/isolated-readiness-qualification.yml
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact current protected main commit SHA
+        required: true
+        type: string
+      confirmation:
+        description: Read-only isolated readiness qualification only
+        required: true
+        type: choice
+        default: DO_NOT_RUN
+        options:
+          - DO_NOT_RUN
+          - PREFLIGHT_ONLY
+
+permissions:
+  contents: read
+
+concurrency:
+  group: readiness-qualification-${{ github.event.pull_request.number || 'protected' }}
+  cancel-in-progress: false
+
+jobs:
+  offline:
+    name: Qualify fixed staging isolation and diagnostic tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Validate read-only boundaries
+        run: |
+          set -euo pipefail
+          node --check scripts/render-isolated-readiness-config.mjs
+          node --check scripts/probe-staging-readiness.mjs
+          node --test tests/isolated-readiness-config.test.mjs tests/probe-staging-readiness.test.mjs tests/readiness-timing-diagnostics.test.mjs tests/readiness-staging-request-timing.test.mjs
+
+  protected:
+    name: Verify exact-main protected preflight without cloud writes
+    needs: offline
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.confirmation == 'PREFLIGHT_ONLY'
+    environment: operations-rehearsal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Verify protected current main
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]] || exit 1
+          [[ "$EXPECTED_SHA" == "$GITHUB_SHA" ]] || exit 1
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]] || exit 1
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" == "$EXPECTED_SHA" ]] || exit 1
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]] || exit 1
+      - name: Verify fixed non-production configuration only
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {renderIsolatedReadinessConfig} from './scripts/render-isolated-readiness-config.mjs';
+          const cfg=renderIsolatedReadinessConfig({accountId:'a'.repeat(32),sourceSha:process.env.EXPECTED_SHA});
+          assert.equal(cfg.name,'bw-compliance-os-readiness-staging');
+          assert.equal(cfg.vars.APP_ENV,'staging');
+          assert.equal(cfg.vars.THEBE_READINESS_TIMING_DIAGNOSTIC,'1');
+          assert.equal(cfg.d1_databases[0].database_id,'c5c232a8-8fe7-440c-81ba-021a44fd3fdd');
+          assert.equal(cfg.r2_buckets[0].bucket_name,'bw-compliance-ops-evidence');
+          assert.deepEqual(cfg.routes,[]);
+          assert.deepEqual(cfg.triggers.crons,[]);
+          assert.equal(cfg.workers_dev,false);
+          assert.equal(cfg.preview_urls,false);
+          console.log('Protected offline isolated-readiness configuration qualified; NO deployment, database or storage access performed.');
+          NODE

@@ -163,7 +163,7 @@ body.thebe-voice-active{overflow:hidden!important}
     bottom:16px!important;
     width:var(--thebe-spatial-width)!important;
     min-width:430px!important;
-    max-width:min(46vw,780px)!important;
+    max-width:780px!important;
     height:auto!important;
     min-height:0!important;
     max-height:none!important;
@@ -396,4 +396,180 @@ body.thebe-voice-active{overflow:hidden!important}
   }
   body.thebe-ai-dock-open #appShell,
   body.thebe-ai-dock-open.thebe-ai-expanded #appShell{padding-right:calc(var(--thebe-spatial-width) + 32px)!important}
+}
+
+
+/* AI Dock finish batch #1898: non-destructive accessibility and overflow safeguards. */
+#thebeAiDock .thebe-ai-dock-scroll,
+#thebeAiDock .thebe-ai-response{min-width:0;overflow-wrap:anywhere;word-break:normal}
+#thebeAiDock .thebe-ai-compose textarea{min-width:0;max-width:100%;box-sizing:border-box}
+#thebeAiDock :is(button,textarea,input,select,a):focus-visible{
+  outline:2px solid #82c7ff!important;outline-offset:2px!important;
+}
+#thebeAiDock button{touch-action:manipulation}
+@media(max-width:767px){
+  #thebeAiDock{max-width:calc(100vw - 16px)!important;box-sizing:border-box}
+  #thebeAiDock .thebe-ai-compose{min-width:0;max-width:calc(100% - 24px);box-sizing:border-box}
+}
+@media(prefers-reduced-motion:reduce){
+  #thebeAiDock,#thebeAiDock *{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+
+/* Workspace Thebe: share Marketplace's quiet conversation-first visual language.
+   Presentation only: no voice/session/permission, endpoint or dock position changes. */
+html body #thebeAiDock[data-surface="workspace"]{
+  background:#191919!important;color:#f4f4f4!important;
+  border:1px solid rgba(255,255,255,.12)!important;
+  box-shadow:0 18px 48px rgba(0,0,0,.18)!important;
+}
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-dock-head{
+  min-height:64px!important;padding:12px 16px!important;
+  background:#191919!important;border-bottom:1px solid rgba(255,255,255,.10)!important;
+}
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-mark{
+  width:32px!important;height:32px!important;border-radius:10px!important;
+}
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-title-copy b{
+  font-size:16px!important;font-weight:600!important;letter-spacing:-.02em!important;
+}
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-head-actions{gap:4px!important}
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-icon-btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:36px!important;min-width:36px!important;height:36px!important;min-height:36px!important;
+  padding:0!important;border:0!important;border-radius:50%!important;
+  background:transparent!important;color:#e7e7e7!important;box-shadow:none!important;
+}
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-icon-btn:hover{background:rgba(255,255,255,.08)!important}
+html body #thebeAiDock[data-surface="workspace"] :is(
+  .thebe-ai-presence,.thebe-ai-context-bar,.thebe-ai-mode-rail,
+  .thebe-ai-eyebrow,.thebe-ai-attention,.thebe-ai-foot,
+  .thebe-ai-quick
+){display:none!important}
+/* Keep the existing compact voice action accessible; hiding its parent breaks voice and browser contracts. */
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-voice-card{
+ display:flex!important;align-items:center!important;justify-content:center!important;
+ flex:none!important;min-height:76px!important;padding:4px 0!important;
+ border:0!important;background:transparent!important;
+}
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-voice-card :is(.thebe-ai-voice-label,.thebe-ai-voice-sub,.thebe-ai-voice-mount){display:none!important}
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-orb-button{margin:0!important}
+
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-dock-scroll{
+  flex:1 1 auto!important;min-height:0!important;overflow:auto!important;
+  padding:22px 22px 16px!important;gap:14px!important;background:#191919!important;
+}
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-response{
+  width:100%!important;margin:0!important;padding:0!important;border:0!important;
+  border-radius:0!important;background:transparent!important;color:#ededed!important;
+  box-shadow:none!important;font-size:14px!important;line-height:1.6!important;
+}
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-response-title{display:none!important}
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-response-answer{
+  max-width:100%!important;overflow-wrap:anywhere!important;
+}
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-compose{
+  flex:0 0 auto!important;align-items:flex-end!important;gap:8px!important;
+  margin:0 18px 18px!important;padding:7px 7px 7px 16px!important;
+  min-height:56px!important;border:1px solid rgba(255,255,255,.16)!important;
+  border-radius:28px!important;background:#242424!important;box-shadow:none!important;
+}
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-compose textarea{
+  min-height:42px!important;max-height:160px!important;padding:10px 4px!important;
+  border:0!important;border-radius:0!important;background:transparent!important;
+  color:#f3f3f3!important;box-shadow:none!important;resize:none!important;
+  font-size:15px!important;line-height:1.45!important;
+}
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-compose textarea::placeholder{
+  color:#a9a9a9!important;
+}
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-send{
+  width:42px!important;min-width:42px!important;height:42px!important;
+  min-height:42px!important;padding:0!important;border:0!important;
+  border-radius:50%!important;box-shadow:none!important;
+}
+@media(max-width:1023px){
+  html body #thebeAiDock[data-surface="workspace"] .thebe-ai-dock-scroll{
+    padding:16px 16px 12px!important;
+  }
+  html body #thebeAiDock[data-surface="workspace"] .thebe-ai-compose{
+    margin:0 12px 12px!important;
+  }
+  html body #thebeAiDock[data-surface="workspace"] .thebe-ai-icon-btn{
+    width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important;
+  }
+}
+
+/* Workspace visual parity: match Market chrome without overriding the
+   workspace's collision-tested rail width and expansion dimensions.
+   Workspace geometry remains protected by v246 spatial dock browser tests. */
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-expand{
+ display:inline-flex!important;align-items:center!important;justify-content:center!important;
+}
+@media(max-width:1023px){
+ html body #thebeAiDock[data-surface="workspace"]{border-radius:22px!important;}
+ html body #thebeAiDock[data-surface="workspace"] .thebe-ai-expand{display:none!important;}
+}
+/* Voice remains visible in workspace only: Market deliberately hides public voice card. */
+
+/* Mobile full-viewport Thebe: eliminate exposed page corners without affecting desktop/floating rails. */
+@media (max-width:767px){
+  html body #thebeAiDock[data-surface="workspace"]:not([hidden]){
+    border-radius:0!important;
+    border-left:0!important;
+    border-right:0!important;
+    box-shadow:none!important;
+  }
+  html body #thebeAiDock[data-surface="workspace"] .thebe-ai-compose{
+    min-width:0!important;
+    box-sizing:border-box!important;
+    padding-bottom:8px!important;
+  }
+  html body #thebeAiDock[data-surface="workspace"] .thebe-ai-compose textarea{
+    min-width:0!important;
+    flex:1 1 0%!important;
+    width:100%!important;
+    box-sizing:border-box!important;
+    overflow-y:auto!important;
+    line-height:1.45!important;
+  }
+}
+
+
+/* Workspace / Market dock size parity (2026-10-30).
+   Preserve the shared charcoal presentation and mobile full-screen behavior.
+   Match Market's desktop panel footprint; reserve the same Workspace lane.
+   Desktop explicit resize remains available at smaller breakpoints. */
+@media (min-width:1200px) and (hover:hover) and (pointer:fine){
+  html body:has(#thebeAiDock[data-surface="workspace"]){
+    --thebe-spatial-width:clamp(430px,38vw,720px);
+  }
+  html body.thebe-ai-expanded:has(#thebeAiDock[data-surface="workspace"]){
+    --thebe-spatial-width:clamp(520px,44vw,780px);
+  }
+  html body #thebeAiDock[data-surface="workspace"]{
+    left:auto!important;
+    right:16px!important;
+    top:16px!important;
+    bottom:16px!important;
+    width:var(--thebe-spatial-width)!important;
+    min-width:430px!important;
+    max-width:min(46vw,780px)!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    border-radius:24px!important;
+  }
+  html body.thebe-ai-dock-open:has(#thebeAiDock[data-surface="workspace"]) #appShell,
+  html body.thebe-ai-dock-open.thebe-ai-expanded:has(#thebeAiDock[data-surface="workspace"]) #appShell{
+    padding-right:calc(var(--thebe-spatial-width) + 48px)!important;
+  }
+  html body #thebeAiDock[data-surface="workspace"][data-workspace-resizable="true"]{
+    top:16px!important;
+    bottom:16px!important;
+    min-width:430px!important;
+    max-width:780px!important;
+    height:auto!important;
+    max-height:none!important;
+    border-radius:24px!important;
+  }
 }

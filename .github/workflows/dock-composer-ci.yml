@@ -11,6 +11,9 @@ on:
       - 'public/js/market-thebe-gemini-narrow-v274.js'
       - 'public/assets/thebe-ai-dock.css'
       - 'public/assets/market-thebe-gemini-v273.css'
+      - 'public/assets/thebe-spatial-dock-v246.css'
+      - 'public/assets/workspace-audit-refinements-20261013.css'
+      - 'tests/workspace-dock-cascade-browser.mjs'
       - 'tests/dock-composer-browser.mjs'
       - 'tests/advisor-attachments-integration.mjs'
       - 'tests/v292-dock-visual-contract-browser.mjs'
@@ -40,6 +43,7 @@ jobs:
           node tests/v82-idempotent-transport-fallback-runtime.mjs
       - name: Verify public and workspace composer interactions
         run: |
+          node tests/workspace-dock-cascade-browser.mjs
           node tests/dock-composer-browser.mjs
           node tests/v292-dock-visual-contract-browser.mjs
           node tests/public-dock-width-contract.mjs

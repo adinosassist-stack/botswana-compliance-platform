@@ -77,15 +77,15 @@ assert.doesNotMatch(publicInjector,/components\.js/,
   "public voice motion must not depend on the workspace components runtime");
 
 assert.match(client,/voiceScreen=el\("dialog","thebe-voice-screen"\)/,
-  "voice mode must remain a modal dialog rather than an in-workspace overlay");
+  "voice mode retains accessible dialog semantics for its floating controller");
 assert.match(client,/voiceScreenOrb=el\("div","thebe-voice-sphere"\)/,
-  "fullscreen voice dialog must own the animated sphere");
+  "floating voice controller must own the animated sphere");
 assert.match(client,/voiceScreenOrb\.dataset\.phase=voicePhase/,
-  "voice state changes must continue driving data-phase on the fullscreen sphere");
-assert.match(client,/voiceScreen\.showModal\(\);document\.body\.classList\.add\("thebe-voice-active"\)/,
-  "opening voice mode must activate the fullscreen voice lifecycle");
+  "voice phase drives animated floating sphere");
+assert.match(client,/voiceScreen\.show\(\)/,
+  "voice opens nonmodally to preserve chat editing");
 assert.match(client,/if\(voiceScreen\?\.open\)voiceScreen\.close\(\)/,
-  "closing voice mode must close the modal dialog");
+  "closing voice mode must dismiss the floating controller");
 assert.match(client,/document\.body\.classList\.remove\("thebe-voice-active"\)/,
   "closing voice mode must clear the fullscreen body state");
 assert.match(client,/if\(next==="idle"\)closeVoiceScreen\(\)/,

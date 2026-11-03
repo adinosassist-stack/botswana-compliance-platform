@@ -1,0 +1,39 @@
+# Dedicated General AI staging proposal. No production routes or assets.
+# Do NOT deploy without provisioned isolated tenant-auth database, verified namespace,
+# staging-only secrets and reviewed hostname. Never bind production DB or R2.
+name = "bw-general-ai-staging"
+main = "src/general-ai-staging-entry.js"
+compatibility_date = "2026-09-03"
+workers_dev = false
+preview_urls = false
+
+[vars]
+APP_ENV = "staging"
+THEBE_GENERAL_AI_ENABLED = "false"
+THEBE_GENERAL_AI_RESEARCH_ENABLED = "false"
+PUBLIC_ORIGIN = "https://ai-staging.thebedesk.com"
+PUBLIC_APP_URL = "https://ai-staging.thebedesk.com"
+AI_FEATURES_DEFAULT = "off"
+REGISTRATION_MODE = "hold"
+PAYMENT_PROVIDER = "none"
+AGENT_BOUNDED_TASK_EXECUTION_ENABLED = "0"
+THEBE_INTERNAL_AUTONOMY_ENABLED = "false"
+THEBE_LIVE_VOICE_ENABLED = "false"
+THEBE_GPT_LIVE_PREVIEW_ENABLED = "false"
+
+# Isolated staging-only resources. The secret is stored in Cloudflare, never here.
+# No routes or custom domains; both General AI flags stay off.
+[[d1_databases]]
+binding = "DB"
+database_name = "bw-general-ai-auth-staging"
+database_id = "ff229eef-7724-49ae-9d68-d3a1db669b63"
+
+[[ratelimits]]
+name = "GENERAL_AI_RATE_LIMITER"
+namespace_id = "78212078"
+[ratelimits.simple]
+limit = 5
+period = 60
+
+# SESSION_SECRET is set exclusively as a Worker secret.
+# Authenticated-only private staging app; keep flags disabled pending qualification.

@@ -1,0 +1,66 @@
+name: Create isolated POP staging D1 (protected)
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact current main SHA
+        required: true
+        type: string
+      confirmation:
+        description: Type CREATE_ISOLATED_POP_STAGING
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  create:
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    concurrency:
+      group: thebe-desk-production
+      cancel-in-progress: false
+    steps:
+      - name: Guard target and create only dedicated empty staging
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PROD_D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_SHA" == "$EXPECTED_SHA" && "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$CONFIRMATION" == CREATE_ISOLATED_POP_STAGING ]]
+          [[ "$PROD_D1_DATABASE_ID" == 8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce ]]
+          [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[a-f0-9]{32}$ && -n "$CLOUDFLARE_API_TOKEN" ]]
+          node --input-type=module <<'NODE'
+          const account=process.env.CLOUDFLARE_ACCOUNT_ID;
+          const base=`https://api.cloudflare.com/client/v4/accounts/${account}/d1/database`;
+          const headers={authorization:`Bearer ${process.env.CLOUDFLARE_API_TOKEN}`,accept:'application/json'};
+          let page=1,records=[];
+          for(;page<=20;page++){
+            const url=new URL(base);
+            url.searchParams.set('page',String(page));
+            url.searchParams.set('per_page','100');
+            const r=await fetch(url,{method:'GET',headers,redirect:'error',signal:AbortSignal.timeout(15000)});
+            if(!r.ok)throw Error('D1 preflight list HTTP '+r.status);
+            const b=await r.json();
+            if(b.success!==true||!Array.isArray(b.result))throw Error('Invalid list response');
+            records.push(...b.result);
+            const pages=b.result_info?.total_pages;
+            if(Number.isInteger(pages)?page>=pages:b.result.length<100)break;
+          }
+          if(page>20)throw Error('Incomplete D1 inventory');
+          const prod=records.filter(d=>d.uuid?.toLowerCase()===process.env.PROD_D1_DATABASE_ID.toLowerCase());
+          if(prod.length!==1||prod[0].name!=='bw-compliance-os')throw Error('Production identity mismatch');
+          if(records.some(d=>d.name==='bw-compliance-os-pop-staging'))throw Error('POP staging already exists: refuse duplicate creation');
+          const r=await fetch(base,{method:'POST',headers:{...headers,'content-type':'application/json'},body:JSON.stringify({name:'bw-compliance-os-pop-staging'}),redirect:'error',signal:AbortSignal.timeout(15000)});
+          if(!r.ok)throw Error('Staging creation failed HTTP '+r.status);
+          const b=await r.json();
+          const d=b.result;
+          if(b.success!==true||d?.name!=='bw-compliance-os-pop-staging'||!/^[0-9a-f-]{36}$/i.test(d?.uuid||'')||d.uuid.toLowerCase()===process.env.PROD_D1_DATABASE_ID.toLowerCase())throw Error('Creation response failed identity validation');
+          console.log(JSON.stringify({kind:'pop_isolated_staging_d1_created',name:d.name,uuid:d.uuid,production_unchanged:true,existing_staging_unchanged:true,schema_initialized:false,restore_tested:false}));
+          NODE

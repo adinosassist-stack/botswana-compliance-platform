@@ -37,6 +37,8 @@ assert.ok(first.originalBytes>AI_ADVISOR_CONTEXT_MAX_BYTES,"fixture must genuine
 assert.equal(first.serialized,second.serialized,"compaction must be deterministic");
 assert.deepEqual(first.compaction,second.compaction,"compaction metadata must be deterministic");
 assert.equal(first.context.contextAvailability.contextCompaction,"compacted");
+assert.ok(first.compaction.omittedCounts["businessMemory.sales.records"]>0,"compacted sales records must be disclosed");
+assert.ok(first.compaction.omittedCounts["businessMemory.analytics.series"]>0,"compacted analytics records must be disclosed");
 assert.equal(first.context.contextAvailability.contextComplete,false,"size-limited context must not claim completeness");
 assert.equal(first.context.contextAvailability.financeAndBusiness,"available","compaction must not masquerade as a backend outage");
 assert.equal(first.context.businessMemory?.businessDate,"2026-10-11","business freshness must survive compaction");
@@ -91,6 +93,9 @@ assert.match(worker,/some live business context could not be retrieved; this is 
 assert.match(owner,/function advisorContextNotice\(result\)/);
 assert.match(owner,/Live workspace context is incomplete/);
 assert.match(owner,/Lower-priority context was compacted/);
+assert.match(owner,/sales entries/,"owner must disclose omitted sales entries");
+assert.match(owner,/analytics entries/,"owner must disclose omitted analytics entries");
+assert.match(owner,/Number\.isSafeInteger\(value\)/,"untrusted omission metadata must be numeric");
 assert.match(owner,/workspace context is partial/);
 
 console.log("v329 AI advisor context compaction and disclosure: PASS");

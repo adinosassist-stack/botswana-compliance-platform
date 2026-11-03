@@ -1,0 +1,76 @@
+name: Private backup integrity qualification
+run-name: Private backup integrity ${{ inputs.expected_sha }}
+on:
+  pull_request:
+    paths:
+      - scripts/qualify-private-backup-candidates.mjs
+      - scripts/prepare-private-d1-backup.mjs
+      - scripts/isolated-operations-rehearsal.mjs
+      - tests/private-backup-integrity.test.mjs
+      - .github/workflows/private-backup-integrity.yml
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact independently reviewed current main SHA
+        type: string
+        required: true
+      confirmation:
+        description: Read private candidates and run in-memory SQLite only
+        type: choice
+        required: true
+        options: [DO_NOT_RUN, QUALIFY_PRIVATE_BACKUP_CANDIDATES]
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('backup-integrity-tests-{0}', github.event.pull_request.number) || 'thebe-isolated-operations-rehearsals' }}
+  cancel-in-progress: false
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: node --test tests/private-d1-backup.test.mjs tests/private-backup-integrity.test.mjs
+  inspect:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirmation == 'QUALIFY_PRIVATE_BACKUP_CANDIDATES'
+    needs: qualify
+    environment: operations-rehearsal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Verify checkout authority
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$EXPECTED_SHA" == "$GITHUB_SHA" ]]
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]]
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]]
+      - name: Qualify fixed private candidates without remote writes
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          QUALIFY_CONFIRM: ${{ inputs.confirmation }}
+          PRIVATE_BACKUP_ACCOUNT_ID: ${{ secrets.OPERATIONS_REHEARSAL_ACCOUNT_ID }}
+          PRIVATE_BACKUP_CLOUDFLARE_TOKEN: ${{ secrets.PRIVATE_BACKUP_CLOUDFLARE_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          report="$RUNNER_TEMP/private-backup-integrity.json"
+          trap 'rm -f "$report"' EXIT
+          node --no-warnings scripts/qualify-private-backup-candidates.mjs > "$report"
+          cat "$report" >> "$GITHUB_STEP_SUMMARY"

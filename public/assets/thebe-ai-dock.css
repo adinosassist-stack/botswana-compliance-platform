@@ -2026,3 +2026,68 @@ body.thebe-ai-dock-open .thebe-ai-mode-rail:has([data-thebe-mode="goal_plan"]:no
 
 /* Workspace dock: keep the composer primary; remove preset question tiles only. */
 #thebeAiDock[data-surface="workspace"] .thebe-ai-quick{display:none!important}
+
+/* V234 canonical charcoal palette shared by Workspace and Market.
+   Reuse existing selectors to stay within V191 selector-consolidation budget. */
+:root{
+  --thebe-dock-bg:#111315;
+  --thebe-dock-panel:#1b2027;
+  --thebe-dock-elevated:#292e35;
+  --thebe-dock-ink:#f4f5f6;
+  --thebe-dock-muted:#aab0b8;
+  --thebe-dock-line:#32363c;
+  --thebe-dock-line-strong:#50555e;
+  --thebe-dock-accent-soft:#172c47;
+}
+.thebe-ai-dock{background:#111315;color:#f4f5f6;border-color:#32363c;color-scheme:dark}
+.thebe-ai-dock-head{background:#1b2027;border-bottom-color:#32363c}
+.thebe-ai-compose,.thebe-ai-compose textarea{background:#1b2027;color:#f4f5f6;border-color:#454c56}
+.thebe-ai-compose textarea::placeholder{color:#aab0b8}
+.thebe-ai-icon-btn{background:#292e35;color:#f4f5f6;border-color:#454c56}
+.thebe-ai-presence{color:#aab0b8}
+
+/* Separate full-duplex voice conversation entry next to the composer microphone. */
+#thebeAiDock .thebe-ai-conversation-voice{
+  background:#f4f5f6;
+  color:#17191c;
+  border:1px solid #f4f5f6;
+  flex-shrink:0;
+}
+#thebeAiDock .thebe-ai-conversation-voice svg{width:22px;height:22px}
+#thebeAiDock .thebe-ai-conversation-voice:hover{background:#dce4ea}
+@media(max-width:520px){
+  #thebeAiDock .thebe-ai-compose{gap:4px}
+  #thebeAiDock .thebe-ai-conversation-voice{width:36px;min-width:36px;flex-basis:36px;height:40px;min-height:40px}
+}
+
+/* Full-screen-capable chat keeps showing voice turns while the blue orb floats. */
+#thebeAiDock .thebe-ai-voice-chat-activity{
+  display:flex;flex-direction:column;gap:8px;padding:12px;
+  background:#182331;color:#eaf4ff;border:1px solid #36516b;
+  border-radius:14px;min-width:0;overflow-wrap:anywhere;
+}
+#thebeAiDock .thebe-ai-voice-chat-activity[hidden]{display:none!important}
+#thebeAiDock .thebe-ai-voice-activity-heading{
+  color:#9dcfff;font-size:11px;font-weight:700;letter-spacing:.02em
+}
+#thebeAiDock .thebe-ai-voice-chat-activity .thebe-ai-live-line{
+  font-size:12px;line-height:1.5;white-space:pre-wrap;min-width:0
+}
+#thebeAiDock .thebe-ai-voice-chat-activity .thebe-ai-live-line b{
+  display:block;color:#9dcfff;margin-bottom:3px
+}
+
+/* Mobile composer focus: no squared inner blue ring; retain accessible outer focus. */
+@media (max-width: 767px) {
+  #thebeAiDock .thebe-ai-compose textarea:focus,
+  #thebeAiDock .thebe-ai-compose textarea:focus-visible {
+    outline: none !important;
+    outline-offset: 0 !important;
+    box-shadow: none !important;
+  }
+  #thebeAiDock .thebe-ai-compose:focus-within {
+    outline: 1px solid rgba(131,186,255,.62) !important;
+    outline-offset: -2px !important;
+    border-radius: 28px;
+  }
+}

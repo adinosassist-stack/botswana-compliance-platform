@@ -1,0 +1,22 @@
+name: AI export D1 metadata contract
+on:
+  pull_request:
+    paths:
+      - 'server/ai-export-d1-metadata.js'
+      - 'docs/ai-export-d1-schema-candidate.sql'
+      - 'tests/ai-export-d1-metadata.test.mjs'
+      - '.github/workflows/ai-export-d1-metadata.yml'
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - name: Validate adapter syntax
+        run: node --check server/ai-export-d1-metadata.js
+      - name: Tenant and atomic state regression
+        run: node --test tests/ai-export-d1-metadata.test.mjs

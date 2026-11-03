@@ -140,6 +140,31 @@ test('provider refusals expose numeric diagnostics without echoed credentials or
   });
 });
 
+test('R2 refusals identify only fixed bucket and operation labels and stop without writes',async()=>{
+  for(const bucket of ['bw-compliance-ops-backups','bw-compliance-ops-restore','bw-compliance-ops-evidence']){
+    for(const [suffix,operation] of [['','bucket_metadata'],['/domains/managed','managed_domain'],['/domains/custom','custom_domains']]){
+      const calls=[];
+      const fetchImpl=async(url,options)=>{
+        calls.push({url,method:options.method});
+        if(url.endsWith(`/r2/buckets/${bucket}${suffix}`))return new Response(JSON.stringify({success:false,errors:[{code:10000,message:`${base.token} ${accountId} private-provider-body`}]}),{status:403});
+        let result;
+        if(url.endsWith(`/d1/database/${databaseId}`))result={uuid:databaseId,name:'bw-compliance-os-ops-restore'};
+        else if(url.endsWith('/domains/managed'))result={enabled:false};
+        else if(url.endsWith('/domains/custom'))result={domains:[]};
+        else result={name:url.split('/').at(-1)};
+        return new Response(JSON.stringify({success:true,result}));
+      };
+      await assert.rejects(runIsolatedRehearsal({...base,mode:'PREFLIGHT_ONLY'},{fetchImpl}),e=>{
+        assert.deepEqual(e.diagnostic,{stage:'r2',method:'GET',bucket,operation,httpStatus:403,providerCodes:[10000]});
+        for(const secret of [base.token,accountId,databaseId,'private-provider-body'])assert.equal(JSON.stringify(e).includes(secret),false);
+        return true;
+      });
+      assert.ok(calls.every(c=>c.method==='GET'));
+      assert.ok(calls.at(-1).url.endsWith(`/r2/buckets/${bucket}${suffix}`));
+    }
+  }
+});
+
 test('a different account hostname cannot receive the alert probe or cause a logging write',async()=>{
   const calls=[];
   const fetchImpl=async(url,options)=>{
@@ -172,4 +197,27 @@ test('workflow has credential-free PR tests and manually authorized isolated ope
   assert.match(s,/default: DO_NOT_RUN/);assert.match(s,/github.ref == 'refs\/heads\/main'/);assert.match(s,/live_sha/);
   assert.match(s,/OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN/);assert.match(s,/RUN_ISOLATED_REHEARSAL/);
   for(const line of s.split('\n').filter(x=>x.includes('uses:')))assert.match(line,/@[a-f0-9]{40}\b/);
+});
+
+test('existing restore continuation never imports and requires exact inventory before object writes',async()=>{
+  for(const mismatch of ['none','extra','count']){
+    const db=new DatabaseSync(':memory:');
+    try{
+      const sql=backup(),sample=Buffer.from('private sample');db.exec(sql.toString());
+      if(mismatch==='extra')db.exec('CREATE TABLE unexpected(id INTEGER)');
+      let writes=0;const saved=[];
+      const a={query:async s=>{
+        const rows=db.prepare(s).all();
+        if(mismatch==='count'&&s.startsWith("SELECT '"))rows[0].n++;
+        return rows;
+      },download:async key=>key.endsWith('.sql')?sql:sample,
+      importSql:async()=>assert.fail('continuation must never import'),
+      putObject:async(key,data)=>{writes++;saved.push(data)},getObject:async()=>saved[0]};
+      const o={...base,mode:'VERIFY_EXISTING_RESTORE',backupHash:sha(sql),objectHash:sha(sample),backupApproval:'review-1'};
+      if(mismatch==='none'){
+        const r=await restoreBackup(a,o);assert.equal(r.sqlImportPerformed,false);
+        assert.equal(r.existingRestoreVerified,true);assert.equal(writes,1);
+      }else{await assert.rejects(restoreBackup(a,o),mismatch==='extra'?/restore_schema/:/restore_counts/);assert.equal(writes,0)}
+    }finally{db.close()}
+  }
 });

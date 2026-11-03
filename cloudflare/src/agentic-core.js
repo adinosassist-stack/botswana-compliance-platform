@@ -3,6 +3,7 @@ import {buildSingleAgentOrchestration,verifyOrchestratedProposals} from "./agent
 import {buildContinuationCheckpoint,buildResumeContext,verifyContinuationCheckpoint} from "./agent-continuation.js";
 import {buildAgentReadToolContext,executeAgentReadTool,evaluateReadRuntime} from "./agent-read-tools.js";
 import {buildBusinessContext} from "./business-context.js";
+import {handleGeneralAiRoute} from "./general-ai-route.js";
 import {extractSpendWhatIfMinor,simulateWeeklySpendDecision} from "./money-intelligence.js";
 
 const MAX_BODY_BYTES=8192;
@@ -572,6 +573,10 @@ async function recordOutcome({request,env,auth,proposalId}){
 
 export async function handleAgenticRequest({request,logicalPath,env,ctx,coreFetch}){
   const path=String(logicalPath||new URL(request.url).pathname);
+  if(path==="/api/ai/general"){
+    const auth=env?.THEBE_GENERAL_AI_ENABLED==="true"?await authenticate(request,env):null;
+    return handleGeneralAiRoute({request,path,env,auth});
+  }
   if(!path.startsWith("/api/agentic"))return null;
   const auth=await authenticate(request,env);
   if(!auth)return json({error:"unauthenticated"},401);

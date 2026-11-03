@@ -29,8 +29,11 @@ export async function appendSealedAuditEvent(env,{
   entityType="system",
   entityId=null,
   eventData={},
-  writeSource="server"
+  writeSource="server",
+  mutation=null,
+  completionReceipt=null
 }={}){
+  if(completionReceipt&&!mutation)throw new Error("audit_receipt_requires_mutation");
   if(!env?.DB)throw new Error("audit_database_unavailable");
   if(!tenantId||!eventType)throw new Error("audit_identity_required");
   if(!env?.AUDIT_INTEGRITY_SECRET)throw new Error("audit_integrity_secret_not_configured");
@@ -57,7 +60,7 @@ export async function appendSealedAuditEvent(env,{
       });
       const eventHash=await hmacHex(env.AUDIT_INTEGRITY_SECRET,hashInput);
       const insert=env.DB.prepare(`INSERT INTO audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id,event_data,occurred_at,tenant_seq,prev_hash,event_hash,integrity_version,write_source)
-        VALUES(?,?,?,?,?,?,?,?,?,?,1,?)`).bind(
+        ${mutation?'SELECT ?,?,?,?,?,?,?,?,?,?,1,? WHERE changes()=1':'VALUES(?,?,?,?,?,?,?,?,?,?,1,?)'}`).bind(
           tenantId,
           actorUserId,
           eventType,
@@ -71,10 +74,18 @@ export async function appendSealedAuditEvent(env,{
           writeSource
         );
       const update=env.DB.prepare(`INSERT INTO audit_chain_state(tenant_id,last_event_id,last_hash,event_count,updated_at)
-        VALUES(?,NULL,?,?,CURRENT_TIMESTAMP)
+        ${mutation?'SELECT ?,NULL,?,?,CURRENT_TIMESTAMP WHERE changes()=1':'VALUES(?,NULL,?,?,CURRENT_TIMESTAMP)'}
         ON CONFLICT(tenant_id) DO UPDATE SET last_event_id=NULL,last_hash=excluded.last_hash,event_count=excluded.event_count,updated_at=CURRENT_TIMESTAMP`)
         .bind(tenantId,eventHash,seq);
-      await env.DB.batch([insert,update]);
+      // D1 batches are transactional. A zero-row compare-and-set writes neither
+      // the completion event nor its chain head. Any audit failure rolls back
+      // the mutation as well, including during a bounded retry.
+      // A trusted completion receipt must use INSERT ... SELECT ... WHERE changes()=1.
+      // Place it after the guarded chain update, in the same rollback boundary.
+      const statements=mutation?[mutation,insert,update]:[insert,update];
+      if(completionReceipt)statements.push(completionReceipt);
+      const results=await env.DB.batch(statements);
+      if(mutation&&Number(results[0]?.meta?.changes||0)!==1)return Object.freeze({ok:false,applied:false});
       return Object.freeze({ok:true,seq,eventHash,prevHash});
     }catch(error){
       if(attempt===4){

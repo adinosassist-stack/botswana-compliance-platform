@@ -1,3 +1,4 @@
+import {billingDashboardRows,billingDashboardAggregate} from './billing-dashboard-reads.js';
 // Read-only analytics for the platform's manual-bank subscription operation.
 export async function platformBillingAnalytics(db,{months=6,now=new Date()}={}){
   if(![3,6,12].includes(months))throw new Error('invalid_analytics_period');
@@ -8,7 +9,7 @@ export async function platformBillingAnalytics(db,{months=6,now=new Date()}={}){
     AND datetime(o.paid_at)>=datetime(?) AND datetime(o.paid_at)<=datetime(?)
     AND EXISTS(SELECT 1 FROM payment_fulfillments f WHERE f.payment_order_id=o.id AND f.tenant_id=o.tenant_id AND f.fulfillment_status='applied')
     GROUP BY month ORDER BY month`).bind(start,asOf).all();
-  const byMonth=new Map((paid.results||[]).map(row=>[row.month,row]));
+  const byMonth=new Map(billingDashboardRows(paid).map(row=>[row.month,row]));
   const receipts=Array.from({length:months},(_,i)=>{
     const month=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()-months+1+i,1)).toISOString().slice(0,7),row=byMonth.get(month);
     return {month,amountBwp:Number(row?.amount_minor||0)/100,payments:Number(row?.payments||0)};
@@ -19,7 +20,7 @@ export async function platformBillingAnalytics(db,{months=6,now=new Date()}={}){
     WHEN s.status IN ('active','expired','past_due') AND datetime(s.current_period_ends_at)<=datetime(?) THEN 'expired'
     ELSE 'inactive' END state,COUNT(*) count
     FROM subscriptions s WHERE s.provider='manual_bank' GROUP BY state`).bind(asOf,asOf).all();
-  const status={active:0,paused:0,expired:0,inactive:0};for(const row of states.results||[])status[row.state]=Number(row.count);
+  const status={active:0,paused:0,expired:0,inactive:0};for(const row of billingDashboardRows(states))status[row.state]=Number(row.count);
   const plans=await db.prepare(`SELECT lower(s.plan) plan,COUNT(*) clients FROM subscriptions s WHERE s.provider='manual_bank'
     AND s.status='active' AND datetime(s.current_period_ends_at)>datetime(?) GROUP BY lower(s.plan) ORDER BY clients DESC,plan`).bind(asOf).all();
   const pending=await db.prepare(`SELECT COUNT(*) count,COALESCE(SUM(CAST(ROUND(o.amount_bwp*100) AS INTEGER)),0) amount_minor,
@@ -37,9 +38,11 @@ export async function platformBillingAnalytics(db,{months=6,now=new Date()}={}){
   const accessEvents=await db.prepare(`SELECT t.name tenant_name,CASE WHEN json_extract(e.event_data,'$.to')='paused' THEN 'paused' ELSE 'resumed' END action,e.occurred_at
     FROM audit_events e JOIN tenants t ON t.id=e.tenant_id WHERE e.event_type='SUBSCRIPTION_ACCESS_CHANGED' AND json_valid(e.event_data)
     AND json_extract(e.event_data,'$.to') IN ('paused','active') AND datetime(e.occurred_at)<=datetime(?) ORDER BY datetime(e.occurred_at) DESC,e.id DESC LIMIT 8`).bind(asOf).all();
+  billingDashboardAggregate(pending,['count','amount_minor','overdue']);
+  billingDashboardAggregate(renewalCount,['count']);
   const dateMs=value=>{const text=String(value||'').replace(' ','T');return Date.parse(/(?:Z|[+-]\d{2}:\d{2})$/.test(text)?text:text+'Z')};
-  const activity=[...(paymentEvents.results||[]),...(accessEvents.results||[])].sort((a,b)=>dateMs(b.occurred_at)-dateMs(a.occurred_at)).slice(0,8);
+  const activity=[...billingDashboardRows(paymentEvents),...billingDashboardRows(accessEvents)].sort((a,b)=>dateMs(b.occurred_at)-dateMs(a.occurred_at)).slice(0,8);
   return {asOf,months,currency:'BWP',scope:'manual_bank_subscriptions',receipts,totalReceiptsBwp:receipts.reduce((sum,row)=>sum+Math.round(row.amountBwp*100),0)/100,
-    status,plans:plans.results||[],pending:{count:Number(pending?.count||0),amountBwp:Number(pending?.amount_minor||0)/100,overdue:Number(pending?.overdue||0)},
-    renewals:{count:Number(renewalCount?.count||0),items:renewals.results||[]},activity};
+    status,plans:billingDashboardRows(plans),pending:{count:Number(pending?.count||0),amountBwp:Number(pending?.amount_minor||0)/100,overdue:Number(pending?.overdue||0)},
+    renewals:{count:Number(renewalCount?.count||0),items:billingDashboardRows(renewals)},activity};
 }

@@ -65,6 +65,17 @@ jobs:
           node --no-warnings tests/v217-jit-execution-permit.mjs
           node tests/v249-voice-motion-visual-contract.mjs
 
+      - name: Conversion funnel transport and admission regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check cloudflare/src/conversion-funnel-governance.js
+          node --check public/js/conversion-funnel-v14.js
+          node tests/conversion-funnel-v14-static.mjs
+          node --test tests/conversion-funnel-v14-client.test.mjs tests/conversion-funnel-v14-governance.test.mjs tests/conversion-funnel-v14-schema.test.mjs
+          node tests/v84-registration-entry-chain-runtime.mjs
+          node --test tests/signup-conversion-staging.test.mjs
+
       - name: Signed HOLD browser lifecycle governance
         shell: bash
         run: |

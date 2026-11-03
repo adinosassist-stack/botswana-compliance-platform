@@ -4,6 +4,13 @@
   const RELEASE="20261011-owner-ask-render-v321";
   let busy=false;
   let creditInitPromise=null;
+  const generalAiEnabled=()=>document.querySelector('meta[name="thebe-general-ai-enabled"]')?.content==="true";
+  // Keep tenant-sensitive questions on the separately authorized workspace advisor.
+  // Client-side routing never replaces server authorization.
+  const privateWorkspaceQuestion=question=>/\b(my (?:company|business|invoices?|reconciliation|employees?|payments?|subscriptions?|workspace|customers?)|our (?:company|accounts?|payments?|clients?)|thebe (?:workspace|account|billing))\b/i.test(question);
+  const actionQuestion=question=>/\b(transfer money|send payment|approve payment|activate subscription|file tax|delete records|change payroll|sign contract)\b/i.test(question);
+  const additionalWorkspaceQuestion=question=>/\b(?:my|our)\s+(?:sales|revenue|expenses|profit|assets|properties|property|inventory|stock|staff|team|projects|documents|reports|cashflow|cash flow|budget|payroll|branches|locations|financial data|business data)\b/i.test(question);
+  const useGeneralAi=question=>generalAiEnabled()&&!privateWorkspaceQuestion(question)&&!additionalWorkspaceQuestion(question)&&!actionQuestion(question);
 
   const text=(tag,value,className="")=>{
     const node=document.createElement(tag);
@@ -34,8 +41,8 @@
     const card=document.createElement("article");
     card.className="owner-agentic-run";
     card.dataset.askRenderRelease=RELEASE;
-    const confidence=String(result.confidence||"low").toUpperCase();
-    const mode=String(result.generationMode||"governed").replaceAll("_"," ");
+    const confidence=result.verification==="search_snippets_only"?"SEARCH EXCERPTS":String(result.confidence||(result.researchPerformed?"unverified":"general")).toUpperCase();
+    const mode=String(result.generationMode||(result.verification?"general AI":"governed")).replaceAll("_"," ");
     card.append(
       text("span",`${confidence} confidence · ${mode}`,"owner-agentic-kicker"),
       text("h4","Thebe"),
@@ -43,6 +50,32 @@
     );
 
     const references=Array.isArray(result.references)?result.references:[];
+    const citations=Array.isArray(result.citations)?result.citations:[];
+    if(citations.length){
+      const sources=document.createElement("div");
+      sources.className="owner-agentic-sources";
+      citations.slice(0,8).forEach(source=>{
+        try{
+          const url=new URL(source.url);
+          // Defense in depth: never turn an AI-supplied URL into an internal or credentialed link.
+          if(url.protocol!=="https:"||url.username||url.password||url.port||/^(?:localhost|.*\\.localhost|.*\\.local)$/i.test(url.hostname)||/^\\d+\\.\\d+\\.\\d+\\.\\d+$/.test(url.hostname)||url.hostname.includes(":"))return;
+          const link=text("a",source.title||url.hostname,"owner-agentic-source");
+          link.href=url.href;link.target="_blank";link.rel="noopener noreferrer";link.referrerPolicy="no-referrer";
+          sources.append(link);
+        }catch{}
+      });
+      card.append(sources);
+    }
+    if(result.notice)card.append(text("div",result.notice,"owner-agentic-policy"));
+    // The advisor can return a partial tenant snapshot; never present it as complete.
+    const availability=result.contextAvailability;
+    if(availability?.financeAndBusiness==="unavailable"||availability?.financeAndBusinessComplete===false){
+      card.append(text("div","Workspace data is incomplete or unavailable. Verify financial and business claims against current records.","owner-agentic-policy"));
+    }
+    if(result.contextCompaction?.applied===true){
+      card.append(text("div","Some lower-priority workspace records were omitted to fit the AI context limit. This answer may not cover every record.","owner-agentic-policy"));
+    }
+    if(result.researchPerformed===true)card.append(text("div","Research sources are search excerpts; verify important claims against the linked original publications.","owner-agentic-policy"));
     if(references.length){
       const refs=document.createElement("div");
       refs.className="owner-agentic-sources";
@@ -96,13 +129,13 @@
     if(status)status.textContent="Preparing your AI allowance…";
 
     try{
-      await ensureAiCreditsReady();
+      const general=useGeneralAi(normalized);
+      if(!general)await ensureAiCreditsReady();
       const answeringStatus=statusNode(form);
       if(answeringStatus)answeringStatus.textContent="Thebe is answering your question…";
-      const result=await window.apiJson("/api/ai/advisor",{
-        method:"POST",
-        body:JSON.stringify({mode:"ask",question:normalized})
-      });
+      const result=general
+        ?await window.apiJson("/api/ai/general",{method:"POST",body:JSON.stringify({question:normalized})})
+        :await window.apiJson("/api/ai/advisor",{method:"POST",body:JSON.stringify({mode:"ask",question:normalized})});
       if(!renderAnswer(form,result))throw new Error("Thebe returned no answer.");
       const refreshedStatus=statusNode(form);
       if(refreshedStatus)refreshedStatus.textContent="Answer ready · no action was executed.";

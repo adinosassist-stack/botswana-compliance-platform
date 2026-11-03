@@ -1,0 +1,11 @@
+import assert from "node:assert/strict";
+import {checkConversationStagingD1} from "../scripts/check-conversation-staging-d1.mjs";
+const id="95c48030-0395-44cb-aa95-622beaf4efdf";
+const env={CONVERSATION_STAGING_D1_ID:id,CONVERSATION_STAGING_SOURCE_SHA:"a".repeat(40),CLOUDFLARE_API_TOKEN:"synthetic",CLOUDFLARE_ACCOUNT_ID:"b".repeat(32)};
+let calls=0;
+const fetcher=async(url,options)=>{calls++;assert(url.endsWith("/d1/database/"+id));assert.equal(options.method,undefined);return{ok:true,json:async()=>({success:true,result:{uuid:id,name:"bw-conversation-staging"}})}};
+assert.equal((await checkConversationStagingD1(env,fetcher)).isolated,true);assert.equal(calls,1);
+await assert.rejects(checkConversationStagingD1({...env,CONVERSATION_STAGING_D1_ID:"8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce"},fetcher));
+assert.equal(calls,1);
+await assert.rejects(checkConversationStagingD1(env,async()=>({ok:true,json:async()=>({success:true,result:{uuid:id,name:"bw-compliance-os"}})})));
+console.log("Cloudflare staging D1 read-only preflight PASS");

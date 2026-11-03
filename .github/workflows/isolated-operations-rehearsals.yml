@@ -6,6 +6,11 @@ on:
     paths:
       - scripts/isolated-operations-rehearsal.mjs
       - tests/isolated-operations-rehearsal.test.mjs
+      - cloudflare/src/ops-rehearsal-entry.js
+      - scripts/render-ops-rehearsal-config.mjs
+      - tests/ops-rehearsal-bootstrap.test.mjs
+      - tests/ops-restore-credential.test.mjs
+      - tests/launch-recovery-credential-routing.test.mjs
       - .github/workflows/isolated-operations-rehearsals.yml
       - docs/isolated-operations-rehearsals.md
   workflow_dispatch:
@@ -22,6 +27,7 @@ on:
           - PREFLIGHT_ONLY
           - PREFLIGHT_WORKER
           - RESTORE_APPROVED_BACKUP
+          - VERIFY_EXISTING_RESTORE
           - ROLLBACK_REHEARSAL_WORKER
           - ALERT_PROBE
       confirmation:
@@ -36,7 +42,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: thebe-isolated-operations-rehearsals
+  # Read-only PR qualification must not wait behind an approval-gated rehearsal.
+  # All manual rehearsal modes retain the same global serialization group.
+  group: ${{ github.event_name == 'pull_request' && format('thebe-isolated-operations-qualification-{0}', github.event.pull_request.number) || 'thebe-isolated-operations-rehearsals' }}
   cancel-in-progress: false
 
 jobs:
@@ -52,7 +60,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
-      - run: node --test tests/isolated-operations-rehearsal.test.mjs
+      - run: node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs tests/ops-restore-credential.test.mjs tests/launch-recovery-credential-routing.test.mjs
   rehearse:
     needs: qualify
     if: >-
@@ -75,7 +83,7 @@ jobs:
           node-version-file: .nvmrc
           package-manager-cache: false
       - name: Qualify isolated boundaries
-        run: node --test tests/isolated-operations-rehearsal.test.mjs
+        run: node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs tests/ops-restore-credential.test.mjs tests/launch-recovery-credential-routing.test.mjs
       - name: Install lockfile-pinned transport without lifecycle scripts
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Verify exact current main immediately before rehearsal
@@ -93,6 +101,7 @@ jobs:
         env:
           OPERATIONS_REHEARSAL_ACCOUNT_ID: ${{ secrets.OPERATIONS_REHEARSAL_ACCOUNT_ID }}
           OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN: ${{ secrets.OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN }}
+          PRIVATE_BACKUP_CLOUDFLARE_TOKEN: ${{ (inputs.mode == 'RESTORE_APPROVED_BACKUP' || inputs.mode == 'VERIFY_EXISTING_RESTORE') && secrets.PRIVATE_BACKUP_CLOUDFLARE_TOKEN || '' }}
           REHEARSAL_DATABASE_ID: ${{ (inputs.mode == 'PREFLIGHT_WORKER' || inputs.mode == 'ROLLBACK_REHEARSAL_WORKER' || inputs.mode == 'ALERT_PROBE') && vars.OPS_WORKER_D1_ID || vars.OPS_RESTORE_D1_ID }}
           REHEARSAL_ISOLATION_APPROVAL: ${{ vars.REHEARSAL_ISOLATION_APPROVAL }}
           REHEARSAL_BASE_URL: ${{ vars.REHEARSAL_BASE_URL }}
