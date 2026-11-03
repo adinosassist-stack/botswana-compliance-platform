@@ -20,6 +20,7 @@ import {preparePlatformOwnerLogin,withPlatformOwnerAdminEnv} from "./platform-ow
 import {applyClientRuntimeIdentity} from "./client-runtime-identity.js";
 import {DAILY_BRIEF_PATH,ownerAttentionDailyBrief} from "./owner-attention-entry.js";
 import {withRegulatoryRuleInsertFix} from "./regulatory-rule-insert-sql-fix.js";
+import {observePopSchema} from "./pop-schema-readiness.js";
 
 const V81_SCHEMA_DELTA="071_payment_pop_runtime_compat.sql";
 const COLD_START_REDUNDANT_RENDER="if(!options?.skipDataRefresh)queueMicrotask(()=>renderAll())";
@@ -183,6 +184,7 @@ async function enhanceReadiness(request,env,response){
   let body;
   try{body=await response.clone().json()}catch{return response}
   const authoritySchemaReady=await delegatedAuthoritySchemaReady(env);
+  const pop=await observePopSchema(env);
   const coreSchemaReady=body?.schemaReady===true;
   const schemaReady=coreSchemaReady&&authoritySchemaReady;
   const next={
@@ -190,7 +192,10 @@ async function enhanceReadiness(request,env,response){
     schemaReady,
     coreSchemaReady,
     agenticAuthoritySchemaReady:authoritySchemaReady,
-    latestSchemaDelta:V81_SCHEMA_DELTA
+    latestSchemaDelta:V81_SCHEMA_DELTA,
+    latestSchemaDeltaMeaning:"declared_release_tip",
+    popSchemaReady:pop.popSchemaReady,
+    popSchemaStatus:pop.popSchemaStatus
   };
   if(!schemaReady&&!next.error)next.error="schema_outdated";
   const headers=new Headers(response.headers);
