@@ -767,6 +767,11 @@
     const context=activeContext();
     contextLabel.textContent=surfaceMode()==="workspace"?context.title:"Public preview";
     contextBar.dataset.contextId=context.id;
+    // Keep the floating voice context aligned with navigation, without restarting voice.
+    const voiceContext=voiceScreen?.querySelector(".thebe-voice-context");
+    if(voiceContext)voiceContext.textContent=surfaceMode()==="workspace"
+      ?"Same Thebe AI · "+context.title
+      :"Thebe Desk · public voice sample · no workspace data";
   }
   function setAssistantMode(mode,options={}){
     assistantMode=Object.prototype.hasOwnProperty.call(modeCopy,mode)?mode:"ask";
