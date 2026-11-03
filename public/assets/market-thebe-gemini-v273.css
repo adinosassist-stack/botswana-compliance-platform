@@ -296,3 +296,25 @@ html body #thebeAiDock[data-surface="public"] :is(.thebe-ai-public-signin,.thebe
     line-height:1.45!important;
   }
 }
+
+/* Issue #2157: keyboard and motion accessibility for the public AI dock.
+   Scope remains public-only; do not alter tenant, voice or chat runtime. */
+html body #thebeAiDock[data-surface="public"] :is(button,textarea,input,a):focus-visible,
+html body #thebeAiDockPill[data-surface="public"]:focus-visible{
+  outline:2px solid #f1b7be!important;
+  outline-offset:3px!important;
+}
+html body #thebeAiDock[data-surface="public"] .thebe-ai-compose:focus-within{
+  border-color:#f1b7be!important;
+}
+@media (prefers-reduced-motion:reduce){
+  html body #thebeAiDock[data-surface="public"] *,
+  html body #thebeAiDock[data-surface="public"] *::before,
+  html body #thebeAiDock[data-surface="public"] *::after,
+  html body #thebeAiDockPill[data-surface="public"]{
+    animation-duration:0.01ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:0.01ms!important;
+    scroll-behavior:auto!important;
+  }
+}
