@@ -17,7 +17,7 @@ Do not copy a production SHA, sequence number, main SHA or deployment timestamp 
 
 ## Current technical status
 
-Schema requirement: current v1.21.101 schema. Existing production databases must reach the current packaged Cloudflare migration tip using only pending release migrations; code/schema drift fails closed.
+Schema requirement: current v1.21.101 schema. Existing production databases must reach the current packaged Cloudflare migration tip using only pending release migrations; code/schema drift fails closed. **Runtime availability is distinct from release authorization:** a missing optional POP 070/071 schema must not falsely mark already-running core services offline, but an upcoming production release may not claim its packaged migration-tip gate satisfied while those migrations are absent. Until a separately reviewed release-contract change explicitly narrows that gate and proves POP ingestion stays disabled, treat missing production POP 070/071 as a **HOLD for release promotion**, not permission to silently skip migration. Any migration requires independently authorized production D1 writes and backup/recovery approval; neither `latestSchemaDelta` nor `popSchemaReady` alone certifies migration provenance.
 
 Public go-live: CONDITIONAL. Code readiness and successful production qualification do not fabricate readiness for optional external integrations that remain deliberately deferred.
 
