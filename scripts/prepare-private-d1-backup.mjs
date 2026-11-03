@@ -65,6 +65,7 @@ export async function prepareBackup(e,{fetchImpl=fetch,pause=ms=>new Promise(r=>
     result=await request(`/d1/database/${DB}/export`,'POST',{output_format:'polling',current_bookmark:result.at_bookmark});
   }
   if(result?.status!=='complete')stop('export_incomplete');
+  if(typeof result.at_bookmark!=='string'||!result.at_bookmark.trim())stop('export_bookmark');
   // The signed URL is never logged, persisted, or given the API bearer credential.
   const url=validateExportUrl(result.result?.signed_url);
   const bytes=await boundedBytes(await fetchImpl(url,{redirect:'error',signal:AbortSignal.timeout(60000)}));
