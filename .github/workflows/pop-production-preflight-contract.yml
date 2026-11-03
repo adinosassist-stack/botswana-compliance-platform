@@ -1,0 +1,32 @@
+name: POP production preflight no-write contract
+on:
+  pull_request:
+    paths:
+      - 'scripts/inspect-pop-070-071-production-readonly.mjs'
+      - 'tests/pop-production-readonly-preflight.test.mjs'
+      - '.github/workflows/pop-production-preflight-contract.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    name: POP production no-write preflight contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout pinned source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+      - name: Static no-write POP preflight regression
+        run: |
+          node --check scripts/inspect-pop-070-071-production-readonly.mjs
+          node --test tests/pop-production-readonly-preflight.test.mjs
+      - name: Explain execution boundary
+        run: echo "Offline contract qualification only. No Cloudflare credentials, production writes, migrations, environment approvals, or feature activation." >> "$GITHUB_STEP_SUMMARY"
