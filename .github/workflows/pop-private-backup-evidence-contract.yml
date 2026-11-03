@@ -1,0 +1,32 @@
+name: POP private backup evidence receipt contract
+on:
+  pull_request:
+    paths:
+      - scripts/qualify-private-pop-backup-evidence-offline.mjs
+      - tests/pop-private-backup-evidence-offline.test.mjs
+      - docs/proposals/POP_VERSIONED_BACKUP_RECEIPT_REVIEW_20261103.md
+      - .github/workflows/pop-private-backup-evidence-contract.yml
+permissions:
+  contents: read
+jobs:
+  offline:
+    name: POP immutable backup receipt offline qualification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout pinned PR SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Verify receipt contract and negative paths
+        run: |
+          node --check scripts/qualify-private-pop-backup-evidence-offline.mjs
+          node --test tests/pop-private-backup-evidence-offline.test.mjs
+      - name: Record no-side-effect boundary
+        run: echo 'Offline tests only. No backup bytes or Cloudflare credentials, no R2/D1 writes, no restore and no authority promotion.' >> "$GITHUB_STEP_SUMMARY"
