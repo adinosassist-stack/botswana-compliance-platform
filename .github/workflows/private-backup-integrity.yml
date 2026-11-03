@@ -8,6 +8,8 @@ on:
       - scripts/isolated-operations-rehearsal.mjs
       - tests/private-backup-integrity.test.mjs
       - .github/workflows/private-backup-integrity.yml
+      - scripts/verify-protected-recovery-dispatch.mjs
+      - tests/protected-recovery-dispatch-preapproval.test.mjs
   workflow_dispatch:
     inputs:
       expected_sha:
@@ -35,7 +37,14 @@ jobs:
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
-      - run: node --test tests/private-d1-backup.test.mjs tests/private-backup-integrity.test.mjs
+      - name: Reject stale integrity requests before environment review
+        if: github.event_name == 'workflow_dispatch' && inputs.confirmation == 'QUALIFY_PRIVATE_BACKUP_CANDIDATES'
+        env:
+          RECOVERY_DISPATCH_KIND: backup_integrity
+          RECOVERY_CONFIRM: ${{ inputs.confirmation }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: node scripts/verify-protected-recovery-dispatch.mjs
+      - run: node --test tests/private-d1-backup.test.mjs tests/private-backup-integrity.test.mjs tests/protected-recovery-dispatch-preapproval.test.mjs
   inspect:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirmation == 'QUALIFY_PRIVATE_BACKUP_CANDIDATES'
     needs: qualify
