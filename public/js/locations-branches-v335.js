@@ -184,7 +184,12 @@
     setup.open=true;
     target.scrollIntoView?.({behavior:"smooth",block:"start"});
     const input=people.querySelector("#opsLocationName");
-    if(input)setTimeout(()=>input.focus({preventScroll:true}),220);
+    const focusEpoch=locationsOpenEpoch;
+    if(input)setTimeout(()=>{
+      // A queued focus must not steal focus after a route change or another open request.
+      if(focusEpoch!==locationsOpenEpoch||!peopleIsActive()||!setup.open||!input.isConnected)return;
+      input.focus({preventScroll:true});
+    },220);
     return true;
   }
 
