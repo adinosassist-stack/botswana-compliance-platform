@@ -65,3 +65,26 @@ test('rejects alternate candidate names despite using the approved database UUID
  o.target.inventory.databaseName=o.target.databaseName;
  assert.throws(()=>buildVersionedRecoveryReviewPlan(o),/unapproved_restore_target/);
 });
+
+test('reviewer identities are bound to recovery fingerprint, not merely their references',()=>{
+ const o=clone();o.review.owner='different-owner';
+ assert.notEqual(buildVersionedRecoveryReviewPlan(o).evidenceDigest,buildVersionedRecoveryReviewPlan(input).evidenceDigest);
+ const n=clone();n.review.independentReviewer='different-reviewer';
+ assert.notEqual(buildVersionedRecoveryReviewPlan(n).evidenceDigest,buildVersionedRecoveryReviewPlan(input).evidenceDigest);
+});
+test('declared listed Worker inventory is included in evidence fingerprint',()=>{
+ const a=buildVersionedRecoveryReviewPlan(input);
+ const o=clone();o.target.workerBindings.push({worker:'additional-audited-worker',databaseIds:['ff229eef-7724-49ae-9d68-d3a1db669b63']});
+ assert.notEqual(buildVersionedRecoveryReviewPlan(o).evidenceDigest,a.evidenceDigest);
+});
+test('reordered equivalent Worker bindings produce deterministic fingerprint',()=>{
+ const o=clone();o.target.workerBindings=[
+ {worker:'worker-b',databaseIds:['ff229eef-7724-49ae-9d68-d3a1db669b63','c5c232a8-8fe7-440c-81ba-021a44fd3fdd']},
+ {worker:'worker-a',databaseIds:['9d1b8852-4424-46e9-ba24-cdad5ced215f']}
+ ];
+ const n=clone();n.target.workerBindings=[
+ {worker:'worker-a',databaseIds:['9d1b8852-4424-46e9-ba24-cdad5ced215f']},
+ {worker:'worker-b',databaseIds:['c5c232a8-8fe7-440c-81ba-021a44fd3fdd','ff229eef-7724-49ae-9d68-d3a1db669b63']}
+ ];
+ assert.equal(buildVersionedRecoveryReviewPlan(o).evidenceDigest,buildVersionedRecoveryReviewPlan(n).evidenceDigest);
+});
