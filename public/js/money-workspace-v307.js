@@ -278,7 +278,11 @@
     const receivables=summary.receivables||{};
     const payables=summary.payables||{};
     const payablesAvailable=payables.available!==false;
-    const reconCount=number(recon.unresolvedCount),reconExposure=number(recon.unresolvedExposureMinor);
+    // An absent reconciliation field is unknown, never a confirmed zero.
+    const reconAvailable=Number.isSafeInteger(recon.unresolvedCount)&&recon.unresolvedCount>=0&&
+      Number.isSafeInteger(recon.unresolvedExposureMinor)&&recon.unresolvedExposureMinor>=0;
+    const reconCount=reconAvailable?recon.unresolvedCount:null;
+    const reconExposure=reconAvailable?recon.unresolvedExposureMinor:null;
     const overdueReceivables=number(receivables.overdueInvoiceCount),overdueReceivableMinor=number(receivables.overdueMinor);
     const overduePayables=payablesAvailable?number(payables.overduePayableCount):null;
     const lastImport=summary.imports?.lastImportAt||null,lastReconciliation=recon.lastRun?.created_at||null;
@@ -297,19 +301,19 @@
       statNode('Cash position',moneyMinor(summary.cashPositionMinor),`${count(accounts.length)} active finance account${accounts.length===1?'':'s'}`),
       statNode('Customers owe',moneyMinor(receivables.outstandingMinor),`${count(overdueReceivables)} overdue · ${moneyMinor(overdueReceivableMinor)}`,overdueReceivables>0?'risk':''),
       statNode('Bills to pay',payablesStat,payablesAvailable?`${count(payables.outstandingPayableCount)} open · ${count(payables.overduePayableCount)} overdue`:'Payable ledger could not be confirmed',payableTone),
-      statNode('Reconciliation',count(reconCount),reconCount?`${moneyMinor(reconExposure)} unresolved exposure`:recon.stale?'Last reconciliation is stale':'No unresolved exception returned',reconCount>0?'risk':recon.stale?'warn':'')
+      statNode('Reconciliation',reconAvailable?count(reconCount):'Unavailable',!reconAvailable?'Reconciliation evidence not available':reconCount>0?`${moneyMinor(reconExposure)} unresolved exposure`:recon.stale?'Last reconciliation is stale':'No unresolved exception returned',!reconAvailable?'warn':reconCount>0?'risk':recon.stale?'warn':'')
     ]);
 
     const cashDetails=detailsNode('Finance source details',listNode(accountRows(accounts)));
     const cashLane=laneNode(
       'Cash control',
       'Reconcile cash',
-      reconCount>0?`${count(reconCount)} exception${reconCount===1?'':'s'}`:recon.stale?'Review freshness':'Current',
-      reconCount>0?'risk':recon.stale?'warn':'',
+      !reconAvailable?'Evidence unavailable':reconCount>0?`${count(reconCount)} exception${reconCount===1?'':'s'}`:recon.stale?'Review freshness':'Current',
+      !reconAvailable?'warn':reconCount>0?'risk':recon.stale?'warn':'',
       'Start from the canonical ledger and unresolved reconciliation runs before asking AI to interpret the position.',
       [
         metricNode('Cash position',moneyMinor(summary.cashPositionMinor)),
-        metricNode('Exception exposure',moneyMinor(reconExposure)),
+        metricNode('Exception exposure',reconAvailable?moneyMinor(reconExposure):'Unavailable'),
         metricNode('Completed imports',count(summary.imports?.count)),
         metricNode('Imported transactions',count(summary.imports?.transactions))
       ],
