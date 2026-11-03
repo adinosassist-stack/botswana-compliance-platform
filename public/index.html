@@ -6368,7 +6368,6 @@ function applyRoleUi(){
 function renderCompanies(){
  const sel=document.getElementById("companySelect");if(!sel)return;
  const companies=store.companies||[];
- // Avoid rebuilding an unchanged selector on every unrelated view render.
  if(sel.options.length===companies.length&&companies.every((c,i)=>{
    const option=sel.options[i];
    return option.value===safeId(c.id)&&option.textContent===String(c.profile?.name||"Unnamed Business")&&option.selected===(c.id===state.id);
