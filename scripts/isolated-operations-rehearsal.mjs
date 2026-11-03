@@ -83,7 +83,7 @@ export function selectApprovedBackupObject(o){
   const key=o.backupKey??'';
   if(key==='')return {sqlKey:'approved-d1-backup.sql',source:'fixed_approved'};
   const match=/^candidates\/([1-9][0-9]*)\/([1-9][0-9]*)\/production-d1\.sql$/.exec(key);
-  if(!match||o.backupCandidateRunId!==match[1]||
+  if(!match||o.backupCandidateRunId!==match[1]||!String(o.backupApproval||'').includes(match[1])||
      !/^[a-f0-9]{40}$/.test(o.backupSourceSha??'')||!approval(o.backupApproval))fail('backup_candidate_authority');
   return {sqlKey:key,source:'versioned_candidate'};
 }
@@ -234,7 +234,7 @@ export async function runIsolatedRehearsal(o,{fetchImpl=globalThis.fetch}={}){
     const probe=async(path,headers={})=>{const r=await fetchImpl(new URL(path,base),{redirect:'error',signal:AbortSignal.timeout(20000),headers});await r.body?.cancel();return r.status};
     let result;
     if(['RESTORE_APPROVED_BACKUP','VERIFY_EXISTING_RESTORE'].includes(o.mode))result=await restoreBackup({query,
-      download:key=>getObject(backups,key,join(scratch,key)),
+      download:key=>getObject(backups,key,join(scratch,'private-backup-download.bin')),
       importSql:async data=>{const file=join(scratch,'restore.sql');writeFileSync(file,data,{mode:0o600});await wrangler(['d1','execute','REHEARSAL_DB','--remote','--file',file,'--yes'])},
       putObject:async(key,data)=>{const file=join(scratch,'sample.bin');writeFileSync(file,data,{mode:0o600});await wrangler(['r2','object','put',`${objects}/${key}`,'--remote','--file',file])},
       getObject:key=>getObject(objects,key,join(scratch,'roundtrip.bin'))
