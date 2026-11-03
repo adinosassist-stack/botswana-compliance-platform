@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {prepareBackup,boundedBytes,validateExportUrl,safeFailure} from '../scripts/prepare-private-d1-backup.mjs';
+import {validateCandidateReceipt} from '../scripts/qualify-private-pop-backup-evidence-offline.mjs';
 const env={GITHUB_REPOSITORY:'adinosassist-stack/botswana-compliance-platform',GITHUB_REF:'refs/heads/main',
   GITHUB_EVENT_NAME:'workflow_dispatch',BACKUP_CONFIRM:'PREPARE_PRIVATE_PRODUCTION_BACKUP',
   EXPECTED_SHA:'a'.repeat(40),GITHUB_SHA:'a'.repeat(40),PRIVATE_BACKUP_ACCOUNT_ID:'ddd23cab31928a4bb3d4998df9b26d1d',
@@ -27,9 +28,21 @@ function fixture({publicBucket=false,downloadStatus=200,badRoundtrip=false,exist
 }
 test('private candidate roundtrip uses fixed source and never sends bearer to signed URL',async()=>{
   const f=fixture();let checks=0;const r=await prepareBackup(env,{...f,assertCurrent:async()=>{checks++}});
-  assert.equal(r.privateRoundtripVerified,true);assert.equal(r.backupIndependentlyApproved,false);
-  assert.equal(r.restorePerformed,false);assert.equal(checks,2);
+  assert.equal(r.privateRoundtripVerified,true);
+  assert.equal(Object.hasOwn(r,'backupIndependentlyApproved'),false);
+  assert.equal(Object.hasOwn(r,'restorePerformed'),false);
+  assert.equal(checks,2);
   assert.equal(r.candidateKey,'candidates/123/1/production-d1.sql');
+  assert.equal(r.accountId,env.PRIVATE_BACKUP_ACCOUNT_ID);
+  assert.equal(r.databaseId,'8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce');
+  assert.equal(r.bucket,'bw-compliance-ops-backups');
+  assert.equal(r.runId,env.GITHUB_RUN_ID);
+  assert.equal(r.attempt,env.GITHUB_RUN_ATTEMPT);
+  const independentlyUnapproved=validateCandidateReceipt(r,{expectedMainSha:env.EXPECTED_SHA});
+  assert.equal(independentlyUnapproved.candidateKey,r.candidateKey);
+  assert.equal(independentlyUnapproved.remotelyVerifiedSha256,false);
+  assert.equal(independentlyUnapproved.restoreApproved,false);
+  assert.equal(independentlyUnapproved.productionWriteAuthorized,false);
   const download=f.calls.find(x=>x.url===signed);assert.equal(download.o.headers,undefined);assert.equal(download.o.redirect,'error');
   assert.equal(f.calls.filter(x=>x.o.method==='PUT').length,1);
   assert.ok(f.calls.filter(x=>x.o.method==='POST').every(x=>x.url.endsWith('/export')));

@@ -85,10 +85,12 @@ export async function prepareBackup(e,{fetchImpl=fetch,pause=ms=>new Promise(r=>
   if(uploaded.success!==true)stop('upload_unconfirmed');
   const roundtrip=await boundedBytes(await fetchImpl(target,{headers,redirect:'error',signal:AbortSignal.timeout(60000)}));
   if(hash(roundtrip)!==sha256)stop('roundtrip_mismatch');
-  return {kind:'private_production_backup_candidate',sourceSha:e.EXPECTED_SHA,sourceDatabase:DB,
+  // Exact receipt schema consumed by the offline evidence verifier. Never add
+  // untrusted approval flags or private bytes to the signed operator handoff.
+  return {kind:'private_production_backup_candidate',accountId:ACCOUNT,databaseId:DB,bucket:BUCKET,
+    sourceSha:e.EXPECTED_SHA,runId:e.GITHUB_RUN_ID,attempt:e.GITHUB_RUN_ATTEMPT,
     candidateKey:key,bytes:bytes.length,sha256,exportBookmark:result.at_bookmark,
-    privateRoundtripVerified:true,backupIndependentlyApproved:false,restorePerformed:false,
-    productionDataOrSchemaWritten:false};
+    privateRoundtripVerified:true};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   try{
