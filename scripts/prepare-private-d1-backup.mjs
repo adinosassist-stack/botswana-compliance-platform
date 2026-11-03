@@ -1,5 +1,6 @@
 import {createHash} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
+import {isValidBookmark} from './qualify-private-pop-backup-evidence-offline.mjs';
 const ACCOUNT='ddd23cab31928a4bb3d4998df9b26d1d';
 const DB='8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce';
 const BUCKET='bw-compliance-ops-backups';
@@ -60,12 +61,12 @@ export async function prepareBackup(e,{fetchImpl=fetch,pause=ms=>new Promise(r=>
   await assertCurrent();
   let result=await request(`/d1/database/${DB}/export`,'POST',{output_format:'polling'});
   for(let i=0;result?.status==='active'&&i<60;i++){
-    if(typeof result.at_bookmark!=='string'||!result.at_bookmark)stop('export_bookmark');
+    if(!isValidBookmark(result.at_bookmark)||!result.at_bookmark)stop('export_bookmark');
     await pause(1000);
     result=await request(`/d1/database/${DB}/export`,'POST',{output_format:'polling',current_bookmark:result.at_bookmark});
   }
   if(result?.status!=='complete')stop('export_incomplete');
-  if(typeof result.at_bookmark!=='string'||!result.at_bookmark.trim())stop('export_bookmark');
+  if(!isValidBookmark(result.at_bookmark))stop('export_bookmark');
   // The signed URL is never logged, persisted, or given the API bearer credential.
   const url=validateExportUrl(result.result?.signed_url);
   const bytes=await boundedBytes(await fetchImpl(url,{redirect:'error',signal:AbortSignal.timeout(60000)}));
