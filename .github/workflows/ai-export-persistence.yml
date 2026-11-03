@@ -1,0 +1,21 @@
+name: AI export private persistence qualification
+on:
+  pull_request:
+    paths:
+      - 'server/ai-export-persistence-composition.js'
+      - 'tests/ai-export-persistence-composition.test.mjs'
+      - '.github/workflows/ai-export-persistence.yml'
+permissions:
+  contents: read
+jobs:
+  private-persistence:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - name: Validate composition
+        run: node --check server/ai-export-persistence-composition.js
+      - name: D1/R2 service integration tests
+        run: node --test tests/ai-export-persistence-composition.test.mjs
