@@ -43,7 +43,13 @@ jobs:
           RECOVERY_DISPATCH_KIND: backup_integrity
           RECOVERY_CONFIRM: ${{ inputs.confirmation }}
           EXPECTED_SHA: ${{ inputs.expected_sha }}
-        run: node scripts/verify-protected-recovery-dispatch.mjs
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/verify-protected-recovery-dispatch.mjs
+          live_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          [[ "$live_sha" == "$EXPECTED_SHA" ]] || { echo 'Protected recovery dispatch is stale relative to current main.' >&2; exit 1; }
       - run: node --test tests/private-d1-backup.test.mjs tests/private-backup-integrity.test.mjs tests/protected-recovery-dispatch-preapproval.test.mjs
   inspect:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirmation == 'QUALIFY_PRIVATE_BACKUP_CANDIDATES'
