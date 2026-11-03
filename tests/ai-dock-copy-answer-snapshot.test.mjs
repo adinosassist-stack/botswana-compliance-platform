@@ -1,0 +1,38 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+const source=readFileSync(new URL('../public/js/thebe-live-voice.js',import.meta.url),'utf8');
+test('Copy answer uses the response snapshot, not mutable lastAnswer',async()=>{
+ const begin=source.indexOf('    const answerForCopy=lastAnswer;');
+ const end=source.indexOf('    const actions=Array.isArray(result?.actions)',begin);
+ assert.ok(begin>=0&&end>begin,'copy-answer block not found');
+ const block=source.slice(begin,end);
+ assert.match(block,/clipboard\.writeText\(answerForCopy\)/);
+ assert.doesNotMatch(block,/clipboard\.writeText\(lastAnswer\)/);
+ const buttons=[],copied=[];
+ const responseBox={append(button){buttons.push(button)}};
+ const el=()=>({type:'',textContent:'',attrs:{},setAttribute(key,value){this.attrs[key]=value},addEventListener(name,handler){this[name]=handler}});
+ const global={navigator:{clipboard:{async writeText(value){copied.push(value)}}}};
+ const context={lastAnswer:'First grounded answer',responseBox,el,global};
+ const create=vm.runInNewContext('(function(){'+block+'})',context);
+ create();
+ context.lastAnswer='Second grounded answer';create();
+ assert.equal(buttons.length,2);
+ await buttons[0].click();await buttons[1].click();
+ assert.deepEqual(copied,['First grounded answer','Second grounded answer']);
+ assert.equal(buttons[0].textContent,'Copied');
+});
+test('copy button still handles permission failures without exporting or sharing',async()=>{
+ const begin=source.indexOf('    const answerForCopy=lastAnswer;');
+ const end=source.indexOf('    const actions=Array.isArray(result?.actions)',begin);
+ const block=source.slice(begin,end);
+ const buttons=[];
+ const responseBox={append(button){buttons.push(button)}};
+ const el=()=>({type:'',textContent:'',setAttribute(){},addEventListener(name,handler){this[name]=handler}});
+ const context={lastAnswer:'Confidential response',responseBox,el,global:{navigator:{clipboard:{async writeText(){throw Error('denied')}}}}};
+ vm.runInNewContext('(function(){'+block+'})',context)();
+ await buttons[0].click();
+ assert.equal(buttons[0].textContent,'Copy unavailable');
+ assert.doesNotMatch(block,/(?:share\(|createObjectURL|location\.href)/);
+});
