@@ -38,7 +38,7 @@ test('both workflows enforce no-secret check in qualify before protected environ
   const staleFail=wf.indexOf('Protected recovery dispatch is stale relative to current main.');
   assert.ok(guard<mainLookup&&mainLookup<staleFail&&staleFail<protectedJob,
     'live remote main must be checked and stale source rejected before environment approval');
-  assert.match(wf,/GH_TOKEN: \\${\\{ github\\.token \\}\\}/);
+  assert.ok(wf.includes('GH_TOKEN: ${{ github.token }}'));
   assert.match(wf,/needs: qualify/);
   assert.match(wf,/node --test[^\n]*protected-recovery-dispatch-preapproval\.test\.mjs/);
   assert.doesNotMatch(wf,/cancel-in-progress: true/);
