@@ -1,0 +1,100 @@
+name: Protected versioned R2 candidate read-only qualification
+run-name: Versioned R2 bytes ${{ inputs.candidate_run_id }} ${{ inputs.expected_sha }}
+on:
+  pull_request:
+    paths:
+      - scripts/verify-versioned-r2-candidates-protected.mjs
+      - tests/versioned-r2-candidates-protected.test.mjs
+      - .github/workflows/versioned-r2-candidates-readonly.yml
+      - docs/proposals/VERSIONED_R2_READONLY_QUALIFICATION_20261103.md
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact independently reviewed current main SHA
+        type: string
+        required: true
+      candidate_run_id:
+        description: One exact private R2 candidate preparation run
+        type: choice
+        required: true
+        options:
+          - '41709222476'
+          - '41710740133'
+      confirmation:
+        description: Only protected private object reads and in-memory SQL inspection
+        type: choice
+        required: true
+        options:
+          - DO_NOT_RUN
+          - QUALIFY_PRIVATE_BACKUP_CANDIDATES
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('versioned-candidate-pr-{0}',github.event.pull_request.number) || 'thebe-isolated-operations-rehearsals' }}
+  cancel-in-progress: false
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Reject stale protected requests before environment review
+        if: github.event_name == 'workflow_dispatch' && inputs.confirmation == 'QUALIFY_PRIVATE_BACKUP_CANDIDATES'
+        env:
+          RECOVERY_DISPATCH_KIND: backup_integrity
+          RECOVERY_CONFIRM: ${{ inputs.confirmation }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/verify-protected-recovery-dispatch.mjs
+          live_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          [[ "$live_sha" == "$EXPECTED_SHA" ]] || { echo 'Protected request is stale.' >&2; exit 1; }
+      - name: Run no-network adversarial tests
+        run: node --test tests/versioned-r2-candidates-protected.test.mjs tests/private-backup-integrity.test.mjs tests/protected-recovery-dispatch-preapproval.test.mjs
+  inspect:
+    needs: qualify
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirmation == 'QUALIFY_PRIVATE_BACKUP_CANDIDATES'
+    environment: operations-rehearsal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Verify exact protected current main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$EXPECTED_SHA" == "$GITHUB_SHA" ]]
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]]
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" == "$EXPECTED_SHA" ]]
+      - name: Read fixed private SQL and emit hash-only HOLD report
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          VERSIONED_RUN_ID: ${{ inputs.candidate_run_id }}
+          VERSIONED_CONFIRM: ${{ inputs.confirmation }}
+          PRIVATE_BACKUP_ACCOUNT_ID: ${{ secrets.OPERATIONS_REHEARSAL_ACCOUNT_ID }}
+          PRIVATE_BACKUP_CLOUDFLARE_TOKEN: ${{ secrets.PRIVATE_BACKUP_CLOUDFLARE_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          node --no-warnings scripts/verify-versioned-r2-candidates-protected.mjs >> "$GITHUB_STEP_SUMMARY"
