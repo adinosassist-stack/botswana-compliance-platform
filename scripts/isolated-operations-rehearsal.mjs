@@ -77,13 +77,25 @@ export async function readRestoredCounts(query,names){
   return rows;
 }
 
+export function selectApprovedBackupObject(o){
+  // A candidate is not an approved backup merely because an object exists.
+  // Require independently reviewed candidate run and source metadata in addition to the digest.
+  const key=o.backupKey??'';
+  if(key==='')return {sqlKey:'approved-d1-backup.sql',source:'fixed_approved'};
+  const match=/^candidates\/([1-9][0-9]*)\/([1-9][0-9]*)\/production-d1\.sql$/.exec(key);
+  if(!match||o.backupCandidateRunId!==match[1]||
+     !/^[a-f0-9]{40}$/.test(o.backupSourceSha??'')||!approval(o.backupApproval))fail('backup_candidate_authority');
+  return {sqlKey:key,source:'versioned_candidate'};
+}
+
 export async function restoreBackup(a,o){
   validateRehearsal({...o,mode:'RESTORE_APPROVED_BACKUP'});
   if(!HASH.test(o.backupHash??'')||!HASH.test(o.objectHash??'')||!approval(o.backupApproval))fail('backup_approval_required');
+  const selected=selectApprovedBackupObject(o);
   const empty=async()=>{const rows=await a.query(EMPTY);if(rows.length!==1||rows[0].object_count!==0)fail('restore_requires_empty')};
   const existing=o.mode==='VERIFY_EXISTING_RESTORE';
   if(!existing)await empty();
-  const sql=await a.download('approved-d1-backup.sql');
+  const sql=await a.download(selected.sqlKey);
   const sample=await a.download('approved-r2-sample.bin');
   if(sql.length>25*1024*1024||sample.length>10*1024*1024||sample.length<1)fail('backup_size');
   if(sha(sql)!==o.backupHash||sha(sample)!==o.objectHash)fail('backup_checksum');
@@ -106,7 +118,7 @@ export async function restoreBackup(a,o){
   await a.putObject(key,sample);
   if(sha(await a.getObject(key))!==o.objectHash)fail('restored_object_checksum');
   return {scope:'isolated_backup_restore',existingRestoreVerified:existing,sqlImportPerformed:!existing,rowCountsMatched:true,foreignKeyViolations:0,tableCount:names.length,
-    objectBytesMatched:true,backupSha256:o.backupHash,objectSha256:o.objectHash,backupProvenance:'operator_attested',
+    objectBytesMatched:true,backupSha256:o.backupHash,objectSha256:o.objectHash,backupSelection:selected.source,backupProvenance:'operator_attested',
     tenantIsolationAcceptanceVerified:false,productionRecoveryAccepted:false};
 }
 
@@ -253,6 +265,7 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
     const result=await runIsolatedRehearsal({mode:e.REHEARSAL_MODE,accountId:e.OPERATIONS_REHEARSAL_ACCOUNT_ID,token:selectRehearsalToken(e.REHEARSAL_MODE,e),
       databaseId:e.REHEARSAL_DATABASE_ID,sourceSha:e.EXPECTED_SHA,isolationApproval:e.REHEARSAL_ISOLATION_APPROVAL,runId:randomUUID(),
       backupHash:e.REHEARSAL_BACKUP_SHA256,objectHash:e.REHEARSAL_OBJECT_SHA256,backupApproval:e.REHEARSAL_BACKUP_APPROVAL,
+      backupKey:e.REHEARSAL_BACKUP_OBJECT_KEY,backupCandidateRunId:e.REHEARSAL_BACKUP_CANDIDATE_RUN_ID,backupSourceSha:e.REHEARSAL_BACKUP_SOURCE_SHA,
       versionId:e.REHEARSAL_ROLLBACK_VERSION_ID,currentVersionId:e.REHEARSAL_CURRENT_VERSION_ID,schemaHash:e.REHEARSAL_SCHEMA_SHA256,
       compatibilityApproval:e.REHEARSAL_COMPATIBILITY_APPROVAL,alertApproval:e.REHEARSAL_ALERT_APPROVAL,baseUrl:e.REHEARSAL_BASE_URL});
     console.log(JSON.stringify(result,null,2));
