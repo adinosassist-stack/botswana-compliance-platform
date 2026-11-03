@@ -16,7 +16,7 @@ test('core-only release requires a proved default-deny POP and advanced export f
 });
 
 test('release policy never converts optional POP readiness into migration provenance or payment authority',()=>{
-  assert.match(status,/does \\*\\*not\\*\\* claim the packaged POP migration tip was applied/);
+  assert.ok(status.includes('does **not** claim the packaged POP migration tip was applied'));
   assert.match(pop,/not proof of applying migrations/);
   assert.match(pop,/Customer-submitted references and uploads never verify payment receipt/);
   assert.match(observation,/SELECT name,type FROM sqlite_master/);
