@@ -7420,6 +7420,8 @@ export default {
       }
       // Staging-only POP quarantine. No live uploads, receipt viewing, or billing effects.
       if(url.pathname==="/api/payments/manual-bank/pop/stage"&&req.method==="POST"){
+        // Core-first release: production must never enter staging-only ingestion.
+        if(env?.APP_ENV==="production")return json({error:"pop_upload_disabled"},503);
         if(String(env?.POP_UPLOAD_STAGING_ENABLED||"false")!=="true")return json({error:"pop_upload_disabled"},503);
         if(!roleAllowed(a,"owner"))return json({error:"forbidden"},403);
         const orderId=String(req.headers.get("x-pop-order-id")||"");

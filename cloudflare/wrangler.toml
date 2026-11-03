@@ -18,6 +18,9 @@ THEBE_CORPORATE_ASSETS_ENABLED = "false"
 # General AI remains disabled until staging/provider qualification and reviewed rollout.
 THEBE_GENERAL_AI_ENABLED = "false"
 THEBE_GENERAL_AI_RESEARCH_ENABLED = "false"
+# Core-first freeze: no advanced AI exports or POP ingestion on production.
+THEBE_AI_EXPORTS_ENABLED = "false"
+POP_UPLOAD_STAGING_ENABLED = "false"
 APP_ENV = "production"
 DEPLOYMENT_PROFILE = "workers-free-first"
 REGISTRATION_MODE = "open"

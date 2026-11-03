@@ -52,7 +52,7 @@ jobs:
 
       - name: Verify POP runtime/readiness versus production promotion gate
         shell: bash
-        run: node --test tests/pop-launch-schema-policy.test.mjs
+        run: node --test tests/pop-launch-schema-policy.test.mjs tests/core-only-launch-freeze.test.mjs
 
       - name: Remediation syntax and focused governance
         shell: bash
