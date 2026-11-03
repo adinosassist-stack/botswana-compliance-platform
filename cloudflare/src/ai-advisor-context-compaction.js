@@ -150,6 +150,17 @@ function omittedCounts(original,final){
   for(const key of keys)out[key]=Math.max(0,(original?.[key]?.length||0)-(final?.[key]?.length||0));
   out.receivables=Math.max(0,(original?.finance?.topReceivables?.length||0)-(final?.finance?.topReceivables?.length||0));
   out.properties=Math.max(0,(original?.propertyContext?.items?.length||0)-(final?.propertyContext?.items?.length||0));
+  // Distinguish omitted business records from a genuine zero-record workspace.
+  // Nested sales/analytics arrays can shrink during bounded compaction.
+  for(const key of ["sales","analytics"]){
+    const source=original?.businessMemory?.[key];
+    const retained=final?.businessMemory?.[key];
+    if(!source||typeof source!=="object")continue;
+    for(const field of Object.keys(source).sort()){
+      if(!Array.isArray(source[field]))continue;
+      out[`businessMemory.${key}.${field}`]=Math.max(0,source[field].length-(Array.isArray(retained?.[field])?retained[field].length:0));
+    }
+  }
   return out;
 }
 
