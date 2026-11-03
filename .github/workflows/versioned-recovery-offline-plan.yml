@@ -1,0 +1,30 @@
+name: Versioned recovery no-write plan qualification
+on:
+  pull_request:
+    paths:
+      - scripts/plan-versioned-recovery-offline.mjs
+      - tests/plan-versioned-recovery-offline.test.mjs
+      - .github/workflows/versioned-recovery-offline-plan.yml
+      - docs/proposals/VERSIONED_RECOVERY_PLAN_BATCH_20261103.md
+permissions:
+  contents: read
+jobs:
+  qualify:
+    name: Versioned recovery evidence and target no-write checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Run full consolidated recovery contract tests
+        run: |
+          node --check scripts/plan-versioned-recovery-offline.mjs
+          node --test tests/plan-versioned-recovery-offline.test.mjs tests/pop-private-backup-evidence-offline.test.mjs tests/pop-isolated-restore-target-offline.test.mjs
+      - name: Preserve authorization boundary
+        run: echo 'No Cloudflare credentials, D1/R2 read or write, database creation, backup promotion or restore approval.' >> "$GITHUB_STEP_SUMMARY"
