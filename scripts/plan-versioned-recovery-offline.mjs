@@ -34,10 +34,15 @@ export function buildVersionedRecoveryReviewPlan(input){
  if(c.candidateKey!==input.candidate.candidateKey||t.databaseId!==input.target.databaseId)fail('identity');
  const evidence={
   candidate:{key:c.candidateKey,runId:c.runId,attempt:c.attempt,exportSourceSha:c.sourceSha,sha256:c.sha256,exportBookmark:c.exportBookmark,bytes:c.bytes},
-  target:{databaseId:t.databaseId,databaseName:t.databaseName,reviewedMainSha:t.sourceSha},
+  target:{databaseId:t.databaseId,databaseName:t.databaseName,reviewedMainSha:t.sourceSha,
+   inventory:{databaseId:input.target.inventory.databaseId,databaseName:input.target.inventory.databaseName,
+    objectCount:input.target.inventory.objectCount,rowsWritten:input.target.inventory.rowsWritten,success:input.target.inventory.success},
+   listedWorkerBindings:input.target.workerBindings.map(b=>({worker:b.worker,databaseIds:[...b.databaseIds].sort()}))
+    .sort((a,b)=>a.worker.localeCompare(b.worker)||JSON.stringify(a.databaseIds).localeCompare(JSON.stringify(b.databaseIds)))},
   policy:{maximumRpoMinutes:input.policy.maximumRpoMinutes,retentionDays:input.policy.retentionDays},
   refs:{retention:input.policy.retentionPolicyReview,access:input.policy.storageAccessReview,isolation:input.policy.restoreIsolationReview,
    sample:input.policy.sampleEvidenceReview,owner:input.review.ownerReference,independent:input.review.independentReference},
+  reviewers:{owner:input.review.owner,independentReviewer:input.review.independentReviewer},
  };
  const evidenceDigest=sha(JSON.stringify(evidence));
  return {
