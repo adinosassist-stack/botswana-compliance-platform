@@ -86,3 +86,24 @@ test('duplicate approval clicks send a single in-flight mutation',async()=>{
 test('bank verification notice is visible in manual payment review',()=>{
  assert.match(source,/POP\/ref is not proof\. Match funds in Thebe Desk bank account before approval/);
 });
+
+test('pending owner payment response is discarded if billing permission is revoked mid-request',async()=>{
+ const f=dashboard();let release;
+ f.context.apiJson=async()=>await new Promise(resolve=>{release=resolve});
+ const load=f.run('renderManualPaymentApprovals()');
+ f.context.roleCanView=()=>false;
+ release({items:[{id:'private-payment',tenant_name:'Sensitive tenant',amount_bwp:2500,bank_reference:'private-reference'}]});
+ await load;
+ assert.doesNotMatch(f.elements.get('manualPaymentAdminList').safeHTML,/Sensitive tenant|private-reference/);
+ assert.equal(f.elements.get('platformPendingCount').textContent,'—');
+});
+
+test('late payment load failure does not overwrite UI after billing permission is revoked',async()=>{
+ const f=dashboard();let fail;
+ f.context.apiJson=async()=>await new Promise((resolve,reject)=>{fail=reject});
+ const load=f.run('renderManualPaymentApprovals()');
+ f.context.roleCanView=()=>false;
+ fail(new Error('provider failed'));
+ await load;
+ assert.doesNotMatch(f.elements.get('manualPaymentAdminList').textContent,/Could not load payments|access was denied/);
+});

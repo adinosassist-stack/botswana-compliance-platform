@@ -1428,7 +1428,6 @@ function applyRoleUi(){
 function renderCompanies(){
  const sel=document.getElementById("companySelect");if(!sel)return;
  const companies=store.companies||[];
- // Avoid rebuilding an unchanged selector on every unrelated view render.
  if(sel.options.length===companies.length&&companies.every((c,i)=>{
    const option=sel.options[i];
    return option.value===safeId(c.id)&&option.textContent===String(c.profile?.name||"Unnamed Business")&&option.selected===(c.id===state.id);
@@ -2731,11 +2730,11 @@ async function renderManualPaymentApprovals(){
   const pendingCount=document.getElementById("platformPendingCount");if(pendingCount)pendingCount.textContent="—";
   try{
     const admin=await apiJson("/api/platform/billing/manual-payments");
-    if(load!==manualPaymentAdminLoad||currentUser!==user)return;
+    if(load!==manualPaymentAdminLoad||!platformBillingSessionCurrent(user))return;
     if(pendingCount)pendingCount.textContent=String(admin.total??(admin.items||[]).length);
     box.safeHTML=(admin.items||[]).map(x=>`<div class="item"><div class="muted small">POP/ref is not proof. Match funds in Thebe Desk bank account before approval.</div><b>${escapeHtml(x.tenant_name||x.tenant_id)} · P${x.amount_bwp}</b><div class="muted small">${escapeHtml(platformBillingPlan(x.metadata?.plan))} · bank ref ${escapeHtml(x.bank_reference)} · submitted ${platformBillingTime(x.submitted_at)}</div><div class="row" style="margin-top:8px"><button type="button" class="billing-switch" role="switch" aria-checked="false" aria-label="Activate ${escapeHtml(x.tenant_name||x.tenant_id)}" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','approve')"><span class="billing-switch-track" aria-hidden="true"></span><span>Verify & activate</span></button><button type="button" class="btn soft" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','reject')">Reject</button></div><div class="muted small" role="status" aria-live="polite" id="manualPaymentStatus_${escapeHtml(x.id)}"></div></div>`).join("")||'<div class="muted small">No manual payments awaiting approval.</div>';
   }catch(e){
-    if(load!==manualPaymentAdminLoad||currentUser!==user)return;
+    if(load!==manualPaymentAdminLoad||!platformBillingSessionCurrent(user))return;
     box.textContent=e.status===403?"Platform billing access was denied. Sign out and sign in with an authorized Thebe Desk admin account.":"Could not load payments. Select Refresh approvals to retry.";
   }
 }
