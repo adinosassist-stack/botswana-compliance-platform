@@ -1,4 +1,5 @@
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./regulatory-pack-registry.js";
+import {handleCorporateAssets} from "./corporate-assets.js";
 import {createAdvisorStageTimer} from './advisor-stage-timing.js';
 import {billingDashboardRows,billingDashboardAggregate} from './billing-dashboard-reads.js';
 import {noteRegistrationCreated} from "./registration-creation-outcome.js";
@@ -5692,6 +5693,8 @@ export default {
       }
       const propertyValuationServicesResponse=await handlePropertyValuationServicesRequest({request:req,url,env,auth:a,json,readJson,id,writeAudit,roleAllowed,privilegedSecretGate});
       if(propertyValuationServicesResponse)return propertyValuationServicesResponse;
+      const corporateAssetsResponse=await handleCorporateAssets({request:req,url,env,auth:a,readJson});
+      if(corporateAssetsResponse)return corporateAssetsResponse;
       const propertyPortfolioResponse=await handlePropertyPortfolioRequest({request:req,url,env,auth:a,json,readJson,id,writeAudit,roleAllowed});
       if(propertyPortfolioResponse)return propertyPortfolioResponse;
       const financeResponse=await handleFinanceRequest({request:req,url,env,auth:a,json,readJson,id,writeAudit,roleAllowed,sha256Hex,enqueueTenantAlert,whatsappTemplateAvailable:key=>!!parseWhatsAppTemplateMap(env)[key]});
