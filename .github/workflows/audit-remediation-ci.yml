@@ -46,6 +46,10 @@ jobs:
         shell: bash
         run: npm ci --ignore-scripts --no-audit --no-fund
 
+      - name: Verify protected-release policy declaration (not live ruleset enforcement)
+        shell: bash
+        run: node --test tests/release-governance-policy.test.mjs
+
       - name: Remediation syntax and focused governance
         shell: bash
         run: |
