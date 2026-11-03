@@ -7,6 +7,10 @@ import {qualifyIsolatedRestoreTarget} from './qualify-pop-isolated-restore-targe
 const fail=code=>{throw Error('versioned_recovery_plan_hold_'+code)};
 const sha=v=>createHash('sha256').update(v).digest('hex');
 const R=/^[A-Za-z0-9_.:/#-]{8,240}$/;
+// Explicit real restore target provisioned and catalog-verified in recovery issue #1950.
+// Synthetic/test targets must not become operator-review targets by label substitution.
+const RECOVERY_TARGET_ID='be15acba-ba16-4704-9498-e296a164b3a2';
+const RECOVERY_TARGET_NAME='bw-compliance-os-ops-restore-candidate-20261103';
 const keys=(o,expected,code)=>{
  if(!o||typeof o!=='object'||Array.isArray(o)||Object.keys(o).length!==expected.length||
  expected.some(k=>!Object.hasOwn(o,k)))fail(code);
@@ -15,6 +19,7 @@ export function buildVersionedRecoveryReviewPlan(input){
  keys(input,['candidate','target','policy','review'], 'input_shape');
  const c=validateCandidateReceipt(input.candidate);
  const t=qualifyIsolatedRestoreTarget(input.target);
+ if(t.databaseId!==RECOVERY_TARGET_ID||t.databaseName!==RECOVERY_TARGET_NAME)fail('unapproved_restore_target');
  keys(input.policy,['maximumRpoMinutes','retentionDays','retentionPolicyReview','storageAccessReview','restoreIsolationReview','sampleEvidenceReview'], 'policy_shape');
  keys(input.review,['owner','independentReviewer','ownerReference','independentReference','reviewedMainSha'], 'review_shape');
  if(!Number.isInteger(input.policy.maximumRpoMinutes)||input.policy.maximumRpoMinutes<1||input.policy.maximumRpoMinutes>10080)fail('rpo_unreviewable');
