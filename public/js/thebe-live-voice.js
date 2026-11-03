@@ -1389,15 +1389,16 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     appendAdvisorRunSummary(result);
     lastAnswer=cleanMultiline(result?.answer||"No grounded answer was returned.",3200);
     responseBox.append(responseAnswer(lastAnswer));
-    // Copy only the visible assistant answer; never create public conversation links.
-    if(lastAnswer){
+    // Capture the rendered answer; later responses must not change this button's content.
+    const answerForCopy=lastAnswer;
+    if(answerForCopy){
       const copyAnswer=el("button","thebe-ai-open-full","Copy answer");
       copyAnswer.type="button";
       copyAnswer.setAttribute("aria-label","Copy Thebe answer");
       copyAnswer.addEventListener("click",async()=>{
         try{
           if(!global.navigator?.clipboard?.writeText)throw new Error("clipboard_unavailable");
-          await global.navigator.clipboard.writeText(lastAnswer);
+          await global.navigator.clipboard.writeText(answerForCopy);
           copyAnswer.textContent="Copied";
           copyAnswer.setAttribute("aria-label","Thebe answer copied");
         }catch{

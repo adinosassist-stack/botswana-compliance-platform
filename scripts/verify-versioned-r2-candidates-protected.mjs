@@ -29,6 +29,10 @@ export async function verifyVersionedR2Candidate(env,{fetchImpl=fetch}={}){
  let m,c;try{m=await managed.json();c=await custom.json()}catch{fail('bucket_privacy_unverified')}
  if(m.success!==true||m.result?.enabled!==false||c.success!==true||
  !Array.isArray(c.result?.domains)||c.result.domains.length)fail('bucket_privacy_unverified');
+ // Read policy only; rule presence does not independently prove retained bytes.
+ let retention;try{const response=await get('/lock');if(!response.ok)fail('bucket_lock_unverified');retention=await response.json()}catch{fail('bucket_lock_unverified')}
+ if(retention.success!==true||!Array.isArray(retention.result?.rules))fail('bucket_lock_unverified');
+ const observedLockRules=retention.result.rules.length;
  let bytes;try{bytes=await boundedBytes(await get('/objects/'+key))}catch{fail('private_object_unreadable')}
  if(bytes.length!==CANDIDATE_SIZES[env.VERSIONED_RUN_ID])fail('observed_size_mismatch');
  const digest=sha(bytes);
@@ -39,6 +43,7 @@ export async function verifyVersionedR2Candidate(env,{fetchImpl=fetch}={}){
   rowCountsSha256:sha(JSON.stringify(inventory.counts)),
   sqliteIntegrityPassed:true,foreignKeyViolations:0,
   originalProtectedReceiptAuthenticated:false,exportBookmarkIndependentlyVerified:false,
+  observedLockRules,retentionRulesPresent:observedLockRules>0,
   rpoApproved:false,retentionEnforced:false,representativeR2ObjectVerified:false,
   independentRestoreApproval:false,restoreExecuted:false,productionWriteAuthorized:false,
   disposition:'HOLD_PROVENANCE_RETENTION_AND_INDEPENDENT_RESTORE_APPROVAL_REQUIRED'};
