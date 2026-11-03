@@ -20,4 +20,4 @@ jobs:
           node-version-file: .nvmrc
           package-manager-cache: false
       - name: Reject historical evidence forgery without network access
-        run: node --test tests/reconcile-historical-private-candidate-offline.test.mjs tests/plan-versioned-recovery-offline.test.mjs tests/private-pop-backup-evidence-offline.test.mjs
+        run: node --test tests/reconcile-historical-private-candidate-offline.test.mjs tests/plan-versioned-recovery-offline.test.mjs tests/pop-private-backup-evidence-offline.test.mjs
