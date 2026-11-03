@@ -15,7 +15,7 @@ function fixture({publicBucket=false,downloadStatus=200,badRoundtrip=false,exist
     if(url.endsWith('/domains/managed'))return json({enabled:publicBucket});
     if(url.endsWith('/domains/custom'))return json({domains:[]});
     if(url.endsWith('/d1/database/8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce'))return json({uuid:'8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce',name:'bw-compliance-os'});
-    if(url.endsWith('/export'))return json(++exportCalls===1?{status:'active',at_bookmark:'bookmark'}:{status:'complete',...(finalBookmark===undefined?{}:{at_bookmark:finalBookmark}),result:{signed_url:signed}});
+    if(url.endsWith('/export'))return json(++exportCalls===1?{status:'active',at_bookmark:'bookmark'}:{status:'complete',...(finalBookmark===null?{}:{at_bookmark:finalBookmark}),result:{signed_url:signed}});
     if(url.includes('/objects/candidates/123/1/production-d1.sql')){
       if(o.method==='PUT'){written=Buffer.from(o.body);return Response.json({success:true,result:{}});}
       if(!written)return new Response(null,{status:exists?200:404});
@@ -47,7 +47,7 @@ test('public bucket stops before export',async()=>{
   assert.equal(f.calls.some(x=>x.o.method==='POST'),false);
 });
 test('missing or blank completed export bookmark stops before any candidate download or write',async()=>{
- for(const finalBookmark of [undefined,'','  ']){
+ for(const finalBookmark of [null,'','  ']){
   const f=fixture({finalBookmark});
   await assert.rejects(prepareBackup(env,f),/export_bookmark/);
   assert.equal(f.calls.some(x=>x.url===signed),false);
