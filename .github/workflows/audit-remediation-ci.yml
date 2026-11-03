@@ -50,6 +50,10 @@ jobs:
         shell: bash
         run: node --test tests/release-governance-policy.test.mjs
 
+      - name: Verify POP runtime/readiness versus production promotion gate
+        shell: bash
+        run: node --test tests/pop-launch-schema-policy.test.mjs
+
       - name: Remediation syntax and focused governance
         shell: bash
         run: |
