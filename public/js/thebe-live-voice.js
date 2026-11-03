@@ -1116,7 +1116,10 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       voiceScreen.addEventListener("cancel",event=>{event.preventDefault();closeVoiceScreen(true)});
       voiceScreen.addEventListener("keydown",event=>{
         if(event.key!=="Tab")return;
-        const buttons=[...voiceScreen.querySelectorAll('button:not([disabled])')];
+        const buttons=[...voiceScreen.querySelectorAll('button:not([disabled])')].filter(button=>
+          !button.closest('[hidden]')&&button.getClientRects().length>0
+        );
+        if(!buttons.length)return;
         const first=buttons[0],last=buttons[buttons.length-1];
         if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}
         else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}
@@ -1126,6 +1129,10 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     if(!voiceScreen.open){
       voiceReturnFocus=document.activeElement;
       voiceScreen.querySelector('.thebe-voice-context').textContent=shellVisible()?"Same Thebe AI · current workspace context":"Thebe Desk · public voice sample · no workspace data";
+      const miniControls=voiceScreen.querySelector("#thebeVoiceMiniControls");
+      const optionsToggle=voiceScreen.querySelector(".thebe-voice-float-toggle");
+      if(miniControls)miniControls.hidden=true;
+      if(optionsToggle)optionsToggle.setAttribute("aria-expanded","false");
       const mute=voiceScreen.querySelector('[aria-pressed]');mute.setAttribute("aria-pressed","false");mute.textContent="Mute microphone";
       voiceScreen.show();
       // Keep the composer editable while the voice session remains live.
@@ -1382,15 +1389,16 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     appendAdvisorRunSummary(result);
     lastAnswer=cleanMultiline(result?.answer||"No grounded answer was returned.",3200);
     responseBox.append(responseAnswer(lastAnswer));
-    // Copy only the visible assistant answer; never create public conversation links.
-    if(lastAnswer){
+    // Capture the rendered answer; later responses must not change this button's content.
+    const answerForCopy=lastAnswer;
+    if(answerForCopy){
       const copyAnswer=el("button","thebe-ai-open-full","Copy answer");
       copyAnswer.type="button";
       copyAnswer.setAttribute("aria-label","Copy Thebe answer");
       copyAnswer.addEventListener("click",async()=>{
         try{
           if(!global.navigator?.clipboard?.writeText)throw new Error("clipboard_unavailable");
-          await global.navigator.clipboard.writeText(lastAnswer);
+          await global.navigator.clipboard.writeText(answerForCopy);
           copyAnswer.textContent="Copied";
           copyAnswer.setAttribute("aria-label","Thebe answer copied");
         }catch{

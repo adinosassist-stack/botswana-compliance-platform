@@ -60,7 +60,7 @@ test('public bucket stops before export',async()=>{
   assert.equal(f.calls.some(x=>x.o.method==='POST'),false);
 });
 test('missing or blank completed export bookmark stops before any candidate download or write',async()=>{
- for(const finalBookmark of [null,'','  ']){
+ for(const finalBookmark of [null,'','  ','short','bad bookmark','x'.repeat(301)]){
   const f=fixture({finalBookmark});
   await assert.rejects(prepareBackup(env,f),/export_bookmark/);
   assert.equal(f.calls.some(x=>x.url===signed),false);
