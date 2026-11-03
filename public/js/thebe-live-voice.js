@@ -1951,6 +1951,9 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     document.querySelectorAll(".view").forEach(view=>new MutationObserver(scheduleWorkspaceViewSync).observe(view,{attributes:true,attributeFilter:["class"]}));
     global.addEventListener("thebe:workspace-view-change",()=>{scheduleWorkspaceViewSync();global.requestAnimationFrame?.(()=>global.requestAnimationFrame?.(()=>{recoverVisibility();recoverDockPresentation()}))});
     const syncKeyboard=()=>{
+      // Recompute the composer cap after desktop/mobile and virtual keyboard transitions.
+      // This changes presentation only; never reset the draft or conversation.
+      syncComposerHeight();
       const viewport=global.visualViewport;
       if(!viewport)return;
       const inset=Math.max(0,global.innerHeight-viewport.height-viewport.offsetTop);
