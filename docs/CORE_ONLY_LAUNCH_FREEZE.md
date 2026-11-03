@@ -14,6 +14,10 @@ Preserve already-qualified sign-in and tenant isolation, owner dashboard, core f
 ## POP schema for this *specific* core-only release
 The old packaged migration-tip policy requires all packaged migrations. This proposed scoped exception allows **deferring physical POP 070/071** only for the core-only release, **after** both static and rendered production configuration and Worker-route freeze checks pass in `scripts/qualify-core-only-release.mjs`. This changes a release-policy boundary, and must first be reviewed and merged by an independent reviewer. It does not claim POP tables exist, bypass a core schema check, or authorize POP upload activation. `/api/ready` must report physical POP status truthfully while core `schemaReady` retains its real meaning. No production SQL is changed by this proposal.
 
+## Protected private backup dispatch (source freshness)
+
+Use the exact **current** `main` SHA in `.github/workflows/private-production-backup-candidate.yml` under `expected_sha` with `PREPARE_PRIVATE_PRODUCTION_BACKUP` only when the private backup operation has been authorized. The `qualify` job now rejects a stale or malformed source before the `operations-rehearsal` reviewer is asked to approve anything; the protected `prepare` job independently repeats the source and checkout verification, and the backup code checks `main` again before export and R2 candidate write. If another PR merges between dispatch and execution, create a *new* run against the new `main` after the stale one is cancelled or rejected, rather than bypassing the SHA guard. These gates protect the source identity but do not substitute for independent recovery-point, retention, restore, or release approvals.
+
 ## Release acceptance still required
 1. One independent approving review and green protected checks on the **exact** consolidated PR head. Protected branch ruleset remains active.
 2. Approved backup retention/deletion and rotation policy; an up-to-date qualified recovery point meeting an explicitly approved RPO, plus tenant-isolation and rollback acceptance.
