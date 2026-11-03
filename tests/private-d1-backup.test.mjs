@@ -28,8 +28,10 @@ function fixture({publicBucket=false,downloadStatus=200,badRoundtrip=false,exist
 }
 test('private candidate roundtrip uses fixed source and never sends bearer to signed URL',async()=>{
   const f=fixture();let checks=0;const r=await prepareBackup(env,{...f,assertCurrent:async()=>{checks++}});
-  assert.equal(r.privateRoundtripVerified,true);assert.equal(r.backupIndependentlyApproved,false);
-  assert.equal(r.restorePerformed,false);assert.equal(checks,2);
+  assert.equal(r.privateRoundtripVerified,true);
+  assert.equal(Object.hasOwn(r,'backupIndependentlyApproved'),false);
+  assert.equal(Object.hasOwn(r,'restorePerformed'),false);
+  assert.equal(checks,2);
   assert.equal(r.candidateKey,'candidates/123/1/production-d1.sql');
   assert.equal(r.accountId,env.PRIVATE_BACKUP_ACCOUNT_ID);
   assert.equal(r.databaseId,'8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce');
