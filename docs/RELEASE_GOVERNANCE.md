@@ -1,16 +1,17 @@
 # Thebe Desk Release Governance
 
-## Owner-authorized evidence-based release control
+## Independent-review and evidence-based release control
 
-Thebe Desk is currently operated as a single-owner repository. For this operating model, an independent GitHub pull-request approval is **recommended but is not a mandatory release authority**.
+Protected production-bound releases require **at least one current independent GitHub pull-request APPROVED review**, in addition to all exact-head evidence gates below. The designated independent reviewer is `thusico` or another explicitly authorized independent reviewer; the PR author cannot self-approve. No owner-only or automated exception substitutes for a required independent review. A dismissed, stale, or superseded review is not current approval.
 
-The repository owner may authorize a release without a separate human reviewer only when all of the mandatory evidence gates below are satisfied. This is an explicit governance policy, not a silent bypass of review.
+**Enforcement transition:** this document states the intended policy, but documentation and CI cannot configure GitHub branch protection. Before this change is approved for merge or treated as enforced, an authorized repository administrator and independent reviewer must configure the active `main-production-governance` ruleset (ID `23568843`) to require at least one valid current approval, retain stale-review dismissal and conversation resolution, and test both an unapproved green PR blocked from merge and an independently approved current-head PR eligible for merge. If the live ruleset still permits zero approvals, **the governance gate is not satisfied, even if this document or its tests pass**. See issue #2116.
 
 ## Mandatory pre-merge gates
 
 A release candidate may merge only when all of the following are true:
 
 1. The pull request is open, non-draft, mergeable, and bound to an immutable full 40-character head SHA.
+1a. The final PR head has a current independent APPROVED review and GitHub's protected ruleset enforces at least one approval; unresolved issue #2116 means HOLD.
 2. A documented three-pass adversarial review has been completed against that exact candidate. The passes must cover:
    - source/scope authority and unintended change drift;
    - runtime/security bypasses and fail-open behavior;
@@ -40,7 +41,12 @@ Merging an application pull request does **not** authorize production deployment
 
 ## Human review
 
-Independent human review remains desirable for material architecture, security, financial, legal/compliance, and delegated-authority changes. Its absence must never be represented as an independent approval. When no independent reviewer is available, the owner-authorized evidence-based control above is the release authority.
+Independent human review is required for protected production-bound changes, including architecture, security, financial, legal/compliance, and delegated-authority changes. When an independent reviewer is unavailable or the live ruleset does not require approval, leave the release on **HOLD**. Do not represent self-review, dismissed review, AI review, CI success, or an owner-only decision as independent approval. Preserve separate production deployment, recovery, POP-migration and bank-cleared customer-activation authorities.
+
+
+## Live enforcement check
+
+For each protected release, record the exact ruleset revision, minimum approving-review count, final head SHA, independent reviewer identity and current approval state, the four unchanged required checks, exact BF-07 sealed artifact, and the separate deployment authorization. Static repository tests check only the declared policy and CI wiring; they **cannot** prove live GitHub ruleset enforcement. A failing live enforcement check blocks merge and public launch.
 
 ## Policy-change rule
 
