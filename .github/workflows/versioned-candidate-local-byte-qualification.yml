@@ -1,0 +1,29 @@
+name: Versioned candidate local-byte verifier qualification
+on:
+  pull_request:
+    paths:
+      - scripts/verify-versioned-private-candidate-local.mjs
+      - tests/verify-versioned-private-candidate-local.test.mjs
+      - .github/workflows/versioned-candidate-local-byte-qualification.yml
+      - docs/proposals/VERSIONED_CANDIDATE_LOCAL_BYTE_HANDOFF_20261103.md
+permissions:
+  contents: read
+jobs:
+  qualify:
+    name: Versioned local private candidate contract tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: node --check scripts/verify-versioned-private-candidate-local.mjs
+      - name: No-network synthetic fixture qualification
+        run: node --test tests/verify-versioned-private-candidate-local.test.mjs tests/private-backup-integrity.test.mjs tests/plan-versioned-recovery-offline.test.mjs
+      - name: Enforce no-secret/no-write scope
+        run: echo 'This job uses synthetic bytes only, has no Cloudflare credentials and does not grant recovery approval.' >> "$GITHUB_STEP_SUMMARY"
