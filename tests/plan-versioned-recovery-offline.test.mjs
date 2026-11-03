@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {buildVersionedRecoveryReviewPlan} from '../scripts/plan-versioned-recovery-offline.mjs';
-const main='c'.repeat(40),id='11111111-2222-4333-8444-555555555555';
+const main='c'.repeat(40),id='be15acba-ba16-4704-9498-e296a164b3a2';
 const input={
  candidate:{kind:'private_production_backup_candidate',accountId:'ddd23cab31928a4bb3d4998df9b26d1d',databaseId:'8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce',bucket:'bw-compliance-ops-backups',sourceSha:'a474d04678f6dfdec75507a8ee58058b2db3d1f2',runId:'41709222476',attempt:'1',candidateKey:'candidates/41709222476/1/production-d1.sql',bytes:3224706,sha256:'a'.repeat(64),exportBookmark:'backup-v1-token',privateRoundtripVerified:true},
- target:{accountId:'ddd23cab31928a4bb3d4998df9b26d1d',databaseId:id,expectedDatabaseId:id,databaseName:'bw-compliance-os-ops-restore-candidate-review1',approvedSourceSha:main,reviewedSourceSha:main,inventory:{databaseId:id,databaseName:'bw-compliance-os-ops-restore-candidate-review1',success:true,rowsWritten:0,objectCount:0},workerBindings:[{worker:'ops-rehearsal',databaseIds:['c5c232a8-8fe7-440c-81ba-021a44fd3fdd']}]},
+ target:{accountId:'ddd23cab31928a4bb3d4998df9b26d1d',databaseId:id,expectedDatabaseId:id,databaseName:'bw-compliance-os-ops-restore-candidate-20261103',approvedSourceSha:main,reviewedSourceSha:main,inventory:{databaseId:id,databaseName:'bw-compliance-os-ops-restore-candidate-20261103',success:true,rowsWritten:0,objectCount:0},workerBindings:[{worker:'ops-rehearsal',databaseIds:['c5c232a8-8fe7-440c-81ba-021a44fd3fdd']}]},
  policy:{maximumRpoMinutes:120,retentionDays:30,retentionPolicyReview:'review/retention-001',storageAccessReview:'review/access-001',restoreIsolationReview:'review/isolation-001',sampleEvidenceReview:'review/sample-001'},
  review:{owner:'owner',independentReviewer:'thusico',ownerReference:'owner/ticket-001',independentReference:'review/ticket-001',reviewedMainSha:main}
 };
@@ -49,4 +49,19 @@ test('requires distinct owner and independent reviewer and exact current-source 
 test('material evidence changes the deterministic digest',()=>{
  const o=clone();o.policy.retentionDays=60;
  assert.notEqual(buildVersionedRecoveryReviewPlan(o).evidenceDigest,buildVersionedRecoveryReviewPlan(input).evidenceDigest);
+});
+
+test('rejects an unreviewed substitute empty D1 even with matching assertions',()=>{
+ const o=clone();
+ const substitute='11111111-2222-4333-8444-555555555555';
+ o.target.databaseId=substitute;
+ o.target.expectedDatabaseId=substitute;
+ o.target.inventory.databaseId=substitute;
+ assert.throws(()=>buildVersionedRecoveryReviewPlan(o),/unapproved_restore_target/);
+});
+test('rejects alternate candidate names despite using the approved database UUID',()=>{
+ const o=clone();
+ o.target.databaseName='bw-compliance-os-ops-restore-candidate-test1';
+ o.target.inventory.databaseName=o.target.databaseName;
+ assert.throws(()=>buildVersionedRecoveryReviewPlan(o),/unapproved_restore_target/);
 });
