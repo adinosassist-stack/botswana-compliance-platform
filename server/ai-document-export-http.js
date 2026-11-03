@@ -5,13 +5,15 @@ import {exportDownloadHeaders} from "./ai-document-export-mime.js";
  * Inject real identity, message authorization, persistent storage and private blob IO.
  */
 export function createAiExportHandlers(deps){
- const {identityFor,resolveMessage,createJob,findJob,readPrivateObject,now=()=>Date.now()}=deps||{};
+ const {identityFor,resolveMessage,createJob,findJob,readPrivateObject,now=()=>Date.now(),enabled=false}=deps||{};
  if([identityFor,resolveMessage,createJob,findJob,readPrivateObject,now].some(fn=>typeof fn!=="function"))
    throw new TypeError("export_dependencies_required");
  const failure=(reason,status=404)=>({status,body:{error:reason}});
  const getIdentity=async req=>identityFor(req);
+ const disabled=()=>failure("export_disabled",503);
  return Object.freeze({
   async create(req){
+   if(enabled!==true)return disabled();
    const identity=await getIdentity(req);
    const input=await createExportJobInputAsync(req?.body,identity,resolveMessage);
    if(!input.ok)return failure(input.reason,input.reason==="unauthorized"?401:400);
@@ -22,6 +24,7 @@ export function createAiExportHandlers(deps){
    return {status:202,body:checked.value};
   },
   async status(req){
+   if(enabled!==true)return disabled();
    const identity=await getIdentity(req);
    if(typeof req?.params?.id!=="string"||!/^[a-zA-Z0-9_.:-]{1,200}$/.test(req.params.id))return failure("not_found");
    let job;
@@ -30,6 +33,7 @@ export function createAiExportHandlers(deps){
    return checked.ok?{status:200,body:checked.value}:failure(checked.reason);
   },
   async download(req){
+   if(enabled!==true)return disabled();
    const identity=await getIdentity(req);
    if(typeof req?.params?.id!=="string"||!/^[a-zA-Z0-9_.:-]{1,200}$/.test(req.params.id))return failure("not_found");
    let job;
