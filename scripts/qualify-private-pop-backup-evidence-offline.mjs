@@ -6,6 +6,7 @@ import {pathToFileURL} from 'node:url';
 const SHA=/^[a-f0-9]{64}$/;
 const GIT_SHA=/^[a-f0-9]{40}$/;
 const BOOKMARK=/^[A-Za-z0-9._:-]{8,300}$/;
+export const isValidBookmark = value => typeof value === 'string' && BOOKMARK.test(value);
 const ACCOUNT='ddd23cab31928a4bb3d4998df9b26d1d';
 const DATABASE='8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce';
 const BUCKET='bw-compliance-ops-backups';
