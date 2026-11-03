@@ -33,7 +33,16 @@ jobs:
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
-      - run: node --test tests/private-d1-backup.test.mjs
+      - name: Reject stale private backup requests before protected environment review
+        if: github.event_name == 'workflow_dispatch' && inputs.confirmation == 'PREPARE_PRIVATE_PRODUCTION_BACKUP'
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          BACKUP_CONFIRM: ${{ inputs.confirmation }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/verify-private-backup-dispatch.mjs
+      - run: node --test tests/private-d1-backup.test.mjs tests/private-backup-dispatch-preapproval.test.mjs
   prepare:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirmation == 'PREPARE_PRIVATE_PRODUCTION_BACKUP'
     needs: qualify
