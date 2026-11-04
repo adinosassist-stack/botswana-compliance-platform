@@ -128,18 +128,20 @@ test('missing or inaccessible GitHub approval fails without leaking provider res
  assert.equal(String(error).includes('secret-token-in-error'),false);
 });
 
-test('scheduled backup must fail before ANY Cloudflare call when proof fails',async()=>{
+test('scheduled backup must fail before ANY Cloudflare call when GitHub proofs fail',async()=>{
  let providerCalls=0;
  await assert.rejects(prepareBackup(env,{
-  authorizeSchedule:async()=>{throw Error('blocked-by-independent-review')},
+  approvalFetchImpl:async()=>new Response('not approved',{status:403}),
   fetchImpl:async()=>{providerCalls++;throw Error('unexpected provider call')}
- }),/blocked-by-independent-review/);
+ }),/recurring_backup_hold_github_refused/);
  assert.equal(providerCalls,0);
  await assert.rejects(prepareBackup(env,{
-  authorizeSchedule:async()=>({kind:'short_lived_private_backup_schedule_authorized',
-   sourceSha:source,restoreAuthorized:true,productionDeploymentAuthorized:false}),
+  approvalFetchImpl:async url=>{
+   if(url.endsWith('/git/ref/heads/main'))return Response.json({object:{sha:source}});
+   return Response.json(record(31001,'adinosassist-stack'));
+  },
   fetchImpl:async()=>{providerCalls++;throw Error('unexpected provider call')}
- }),/private_backup_schedule_authority/);
+ }),/recurring_backup_hold_record/);
  assert.equal(providerCalls,0);
 });
 
