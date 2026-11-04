@@ -145,7 +145,7 @@ test('scheduled authority requires real GitHub records; manual path never reques
  };
  const rec=(id,login)=>({id,user:{login},created_at,
    issue_url:'https://api.github.com/repos/adinosassist-stack/botswana-compliance-platform/issues/1950',
-   body:'THEBE_RECURRING_BACKUP_APPROVAL\\n'+JSON.stringify(payload)});
+   body:'THEBE_RECURRING_BACKUP_APPROVAL\n'+JSON.stringify(payload)});
  let approvalCalls=0;
  const approvalFetchImpl=async url=>{
    approvalCalls++;
