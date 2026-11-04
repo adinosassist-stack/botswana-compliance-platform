@@ -3,6 +3,7 @@ import {pathToFileURL} from 'node:url';
 import {isValidBookmark} from './qualify-private-pop-backup-evidence-offline.mjs';
 import {inspectCandidateRetentionPolicy} from './check-private-backup-retention-readonly.mjs';
 import {verifyRecurringBackupAuthorization} from './authorize-recurring-private-backup.mjs';
+import {uploadPrivateCandidateAtomically} from './upload-private-r2-candidate-atomic.mjs';
 const ACCOUNT='ddd23cab31928a4bb3d4998df9b26d1d';
 const DB='8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce';
 const BUCKET='bw-compliance-ops-backups';
@@ -41,7 +42,8 @@ export function validateExportUrl(value){
   return u.href;
 }
 export async function prepareBackup(e,{fetchImpl=fetch,pause=ms=>new Promise(r=>setTimeout(r,ms)),
-  assertCurrent=async()=>{},approvalFetchImpl=fetch}={}){
+  assertCurrent=async()=>{},approvalFetchImpl=fetch,
+  atomicUploader=uploadPrivateCandidateAtomically}={}){
   const manual=e.GITHUB_EVENT_NAME==='workflow_dispatch'&&e.BACKUP_CONFIRM==='PREPARE_PRIVATE_PRODUCTION_BACKUP';
   const scheduled=e.GITHUB_EVENT_NAME==='schedule'&&e.PRIVATE_BACKUP_SCHEDULE_ENABLED==='true';
   if(e.GITHUB_REPOSITORY!=='adinosassist-stack/botswana-compliance-platform'||e.GITHUB_REF!=='refs/heads/main'||
@@ -88,27 +90,37 @@ export async function prepareBackup(e,{fetchImpl=fetch,pause=ms=>new Promise(r=>
   const sha256=hash(bytes),key=`candidates/${e.GITHUB_RUN_ID}/${e.GITHUB_RUN_ATTEMPT}/production-d1.sql`;
   const target=root+`/r2/buckets/${BUCKET}/objects/`+key;
   const headers={Authorization:`Bearer ${e.PRIVATE_BACKUP_CLOUDFLARE_TOKEN}`};
-  const existing=await fetchImpl(target,{headers,redirect:'error',signal:AbortSignal.timeout(30000)});
-  await existing.body?.cancel();
-  if(existing.status!==404)stop('candidate_exists_or_unverifiable');
+  // Check scope/approvals/main again before the only candidate-write boundary.
   await assertCurrent();
-  // Check exact retention again at the write boundary; the readback alone does
-  // not prove existing objects are unalterable or qualify a sustained RPO.
   inspectCandidateRetentionPolicy({success:true,result:await request(retentionPath)});
-  // This key is a candidate, never the restore runner's approved input key.
-  const upload=await fetchImpl(target,{method:'PUT',headers:{...headers,'Content-Type':'application/sql'},
-    body:bytes,redirect:'error',signal:AbortSignal.timeout(60000)});
-  if(!upload.ok)stop('upload_refused');
-  let uploaded;try{uploaded=await upload.json()}catch{stop('upload_unconfirmed')}
-  if(uploaded.success!==true)stop('upload_unconfirmed');
-  const roundtrip=await boundedBytes(await fetchImpl(target,{headers,redirect:'error',signal:AbortSignal.timeout(60000)}));
-  if(hash(roundtrip)!==sha256)stop('roundtrip_mismatch');
+  let atomicConditionalCreateVerified=false;
+  if(scheduled){
+    // Never use REST GET-before-PUT for unattended exports; it is not atomic.
+    // S3 PutObject If-None-Match:* is an atomic create-once operation in R2.
+    const result=await atomicUploader(e,{key,bytes,expectedSha256:sha256});
+    if(result?.atomicConditionalCreateVerified!==true||
+       result.privateRoundtripVerified!==true||result.sha256!==sha256||
+       result.bytes!==bytes.length)stop('atomic_unconfirmed');
+    atomicConditionalCreateVerified=true;
+  }else{
+    // Preserve the existing separately approved *manual* exporter unchanged.
+    const existing=await fetchImpl(target,{headers,redirect:'error',signal:AbortSignal.timeout(30000)});
+    await existing.body?.cancel();
+    if(existing.status!==404)stop('candidate_exists_or_unverifiable');
+    const upload=await fetchImpl(target,{method:'PUT',headers:{...headers,'Content-Type':'application/sql'},
+      body:bytes,redirect:'error',signal:AbortSignal.timeout(60000)});
+    if(!upload.ok)stop('upload_refused');
+    let uploaded;try{uploaded=await upload.json()}catch{stop('upload_unconfirmed')}
+    if(uploaded.success!==true)stop('upload_unconfirmed');
+    const roundtrip=await boundedBytes(await fetchImpl(target,{headers,redirect:'error',signal:AbortSignal.timeout(60000)}));
+    if(hash(roundtrip)!==sha256)stop('roundtrip_mismatch');
+  }
   // Exact receipt schema consumed by the offline evidence verifier. Never add
   // untrusted approval flags or private bytes to the signed operator handoff.
   return {kind:'private_production_backup_candidate',accountId:ACCOUNT,databaseId:DB,bucket:BUCKET,
     sourceSha:e.EXPECTED_SHA,runId:e.GITHUB_RUN_ID,attempt:e.GITHUB_RUN_ATTEMPT,
     candidateKey:key,bytes:bytes.length,sha256,exportBookmark:result.at_bookmark,
-    privateRoundtripVerified:true};
+    privateRoundtripVerified:true,atomicConditionalCreateVerified};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   try{
