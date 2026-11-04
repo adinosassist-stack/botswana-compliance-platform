@@ -1,0 +1,106 @@
+name: Opt-in approved recurring private D1 backup
+run-name: Opt-in private candidate ${{ github.sha }}
+
+on:
+  # Hourly cadence is a proposal, not RPO acceptance. Scheduled runs may be delayed.
+  schedule:
+    - cron: '17 * * * *'
+  pull_request:
+    paths:
+      - scripts/authorize-recurring-private-backup.mjs
+      - scripts/prepare-private-d1-backup.mjs
+      - scripts/upload-private-r2-candidate-atomic.mjs
+      - tests/upload-private-r2-candidate-atomic.test.mjs
+      - tests/recurring-private-backup-authority.test.mjs
+      - tests/private-d1-backup.test.mjs
+      - .github/workflows/recurring-private-backup-candidate.yml
+      - docs/proposals/RECURRING_PRIVATE_BACKUP_APPROVAL.md
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  # Serialize with manually approved private backup and isolated restore jobs.
+  group: ${{ github.event_name == 'pull_request' && format('private-recurring-backup-tests-{0}', github.event.pull_request.number) || 'thebe-isolated-operations-rehearsals' }}
+  cancel-in-progress: false
+
+jobs:
+  offline:
+    if: github.event_name == 'pull_request' || vars.PRIVATE_BACKUP_SCHEDULE_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Qualify default-off authority and unchanged manual export safeguards
+        run: |
+          set -euo pipefail
+          node --check scripts/authorize-recurring-private-backup.mjs
+          node --check scripts/prepare-private-d1-backup.mjs
+          node --check scripts/upload-private-r2-candidate-atomic.mjs
+          node --test tests/recurring-private-backup-authority.test.mjs tests/upload-private-r2-candidate-atomic.test.mjs tests/private-d1-backup.test.mjs tests/private-backup-dispatch-preapproval.test.mjs
+
+  export:
+    if: >-
+      github.event_name == 'schedule' &&
+      github.ref == 'refs/heads/main' &&
+      vars.PRIVATE_BACKUP_SCHEDULE_ENABLED == 'true'
+    needs: offline
+    environment: operations-recurring-backup
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Install pinned S3 conditional-write client without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Fail closed if scheduled checkout is no longer current reviewed main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == "refs/heads/main" ]]
+          [[ "$GITHUB_SHA" == "$EXPECTED_SHA" ]]
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]]
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" == "$EXPECTED_SHA" ]]
+      - name: Recheck both authenticated expiring approvals and create only private candidate
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PRIVATE_BACKUP_SCHEDULE_ENABLED: ${{ vars.PRIVATE_BACKUP_SCHEDULE_ENABLED }}
+          PRIVATE_BACKUP_SCHEDULE_OWNER_APPROVAL_ID: ${{ vars.PRIVATE_BACKUP_SCHEDULE_OWNER_APPROVAL_ID }}
+          PRIVATE_BACKUP_SCHEDULE_REVIEW_APPROVAL_ID: ${{ vars.PRIVATE_BACKUP_SCHEDULE_REVIEW_APPROVAL_ID }}
+          PRIVATE_BACKUP_ACCOUNT_ID: ddd23cab31928a4bb3d4998df9b26d1d
+          # Use a dedicated, independently approved scope. Never reuse the broad deploy token.
+          PRIVATE_BACKUP_CLOUDFLARE_TOKEN: ${{ secrets.PRIVATE_BACKUP_SCHEDULE_CLOUDFLARE_TOKEN }}
+          PRIVATE_BACKUP_SCHEDULE_R2_ACCESS_KEY_ID: ${{ secrets.PRIVATE_BACKUP_SCHEDULE_R2_ACCESS_KEY_ID }}
+          PRIVATE_BACKUP_SCHEDULE_R2_SECRET_ACCESS_KEY: ${{ secrets.PRIVATE_BACKUP_SCHEDULE_R2_SECRET_ACCESS_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          receipt="$RUNNER_TEMP/private-hourly-candidate-receipt.json"
+          trap 'rm -f "$receipt"' EXIT
+          node --no-warnings scripts/prepare-private-d1-backup.mjs > "$receipt"
+          {
+            echo '## Private backup candidate (NOT a recovery certification)'
+            echo 'An hourly job alone does not prove a 120-minute RPO, retention enforcement or restore acceptance.'
+            echo '```json'
+            cat "$receipt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
