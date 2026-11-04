@@ -9,6 +9,8 @@ on:
     paths:
       - scripts/authorize-recurring-private-backup.mjs
       - scripts/prepare-private-d1-backup.mjs
+      - scripts/upload-private-r2-candidate-atomic.mjs
+      - tests/upload-private-r2-candidate-atomic.test.mjs
       - tests/recurring-private-backup-authority.test.mjs
       - tests/private-d1-backup.test.mjs
       - .github/workflows/recurring-private-backup-candidate.yml
@@ -41,7 +43,8 @@ jobs:
           set -euo pipefail
           node --check scripts/authorize-recurring-private-backup.mjs
           node --check scripts/prepare-private-d1-backup.mjs
-          node --test tests/recurring-private-backup-authority.test.mjs tests/private-d1-backup.test.mjs tests/private-backup-dispatch-preapproval.test.mjs
+          node --check scripts/upload-private-r2-candidate-atomic.mjs
+          node --test tests/recurring-private-backup-authority.test.mjs tests/upload-private-r2-candidate-atomic.test.mjs tests/private-d1-backup.test.mjs tests/private-backup-dispatch-preapproval.test.mjs
 
   export:
     if: >-
@@ -61,6 +64,8 @@ jobs:
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
+      - name: Install pinned S3 conditional-write client without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Fail closed if scheduled checkout is no longer current reviewed main
         env:
           GH_TOKEN: ${{ github.token }}
@@ -83,6 +88,8 @@ jobs:
           PRIVATE_BACKUP_ACCOUNT_ID: ddd23cab31928a4bb3d4998df9b26d1d
           # Use a dedicated, independently approved scope. Never reuse the broad deploy token.
           PRIVATE_BACKUP_CLOUDFLARE_TOKEN: ${{ secrets.PRIVATE_BACKUP_SCHEDULE_CLOUDFLARE_TOKEN }}
+          PRIVATE_BACKUP_SCHEDULE_R2_ACCESS_KEY_ID: ${{ secrets.PRIVATE_BACKUP_SCHEDULE_R2_ACCESS_KEY_ID }}
+          PRIVATE_BACKUP_SCHEDULE_R2_SECRET_ACCESS_KEY: ${{ secrets.PRIVATE_BACKUP_SCHEDULE_R2_SECRET_ACCESS_KEY }}
         shell: bash
         run: |
           set -euo pipefail
