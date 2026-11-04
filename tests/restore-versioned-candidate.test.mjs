@@ -17,7 +17,7 @@ test('fresh candidate is exactly pinned to independently inspected source withou
   candidateSha256:'e7736aebb9ddfabd378a0f198563dc9d9e127ff5cb9eaedff02237f58a4747e5',
   candidateBytes:3277137,retentionAndAccessAccepted:true
  });
- const stale={...ownerRecord,body:'THEBE_VERSIONED_RESTORE_APPROVAL\\n'+JSON.stringify({
+ const stale={...ownerRecord,body:'THEBE_VERSIONED_RESTORE_APPROVAL\n'+JSON.stringify({
   ...approvalContract(sourceSha),candidateSha256:'2363d0cfc85a76e3cfef7c33a9f2f70a38899174042e23683aa663dfcbaf3f33',candidateBytes:3224706})};
  assert.throws(()=>verifyApprovalRecord(stale,'adinosassist-stack',sourceSha),/versioned_restore_approval_scope/);
 });
