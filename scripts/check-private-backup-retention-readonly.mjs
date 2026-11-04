@@ -1,6 +1,8 @@
 // Read-only R2 candidate-retention policy assessor.
 // Rule configuration is not proof of object-level retention enforcement.
-const RULE_ID='thebe-backup-candidates-30-day-immutable-20261103';
+// Exact identifier confirmed by the live Cloudflare readback on 2026-11-04.
+// Identifier reconciliation requires independent review; no weaker matching is permitted.
+const RULE_ID='candidates-30-day-retention';
 const PREFIX='candidates/';
 const AGE_SECONDS=2592000;
 const fail=code=>{throw Error('r2_retention_readback_hold_'+code)};
