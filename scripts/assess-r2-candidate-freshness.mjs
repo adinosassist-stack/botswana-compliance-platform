@@ -50,6 +50,9 @@ export function assessCandidateFreshness({lock,listing,observedAt}){
   latestAgeMinutes:Number(latestAgeMinutes.toFixed(2)),maxObservedCandidateGapMinutes:Number(maxObservedGapMinutes.toFixed(2)),
   maxObservedGapLast24hMinutes:Number(maxObservedGapLast24hMinutes.toFixed(2)),
   observedCandidateCountLast24h:recent.length,observationWindowHours:24,
+  // Use raw millisecond precision for policy decisions; two-decimal fields are display only.
+  exceedsTwoHourObservedGapLast24h:maxObservedGapLast24hMinutes>120,
+  atOrAboveNinetyMinuteWarningThreshold:latestAgeMinutes>=90,
   exceedsTwoHourRecencyThreshold:stale,
   actualExportFinishedAtVerified:false,receiptAndBytesMatched:false,
   schedulerCadenceVerified:false,sustainedRpoQualified:false,restoreAuthorized:false,
