@@ -1,0 +1,90 @@
+name: Protected versioned isolated metadata-only preflight
+run-name: Versioned preflight ${{ inputs.expected_sha || 'offline tests' }}
+on:
+  pull_request:
+    paths:
+      - scripts/protected-versioned-metadata-preflight.mjs
+      - tests/protected-versioned-metadata-preflight.test.mjs
+      - .github/workflows/protected-versioned-metadata-preflight.yml
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact independently reviewed current main commit
+        required: true
+        type: string
+      confirmation:
+        description: Only GET exact R2 policy, object metadata and empty isolated D1
+        required: true
+        type: choice
+        options: [DO_NOT_RUN, READ_ONLY_VERSIONED_PREFLIGHT]
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('versioned-metadata-pr-{0}',github.event.pull_request.number) || 'thebe-isolated-operations-rehearsals' }}
+  cancel-in-progress: false
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Run no-network adversarial checks
+        run: node --test tests/protected-versioned-metadata-preflight.test.mjs tests/qualify-isolated-versioned-preflight.test.mjs
+      - name: Refuse stale request before protected review
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          PREFLIGHT_CONFIRM: ${{ inputs.confirmation }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module -e "import {checkProtectedMetadataDispatch} from './scripts/protected-versioned-metadata-preflight.mjs';checkProtectedMetadataDispatch(process.env)"
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" == "$EXPECTED_SHA" ]] || exit 1
+  observe:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirmation == 'READ_ONLY_VERSIONED_PREFLIGHT'
+    needs: qualify
+    environment: operations-rehearsal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Verify remote candidate metadata under independent review and HOLD
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          PREFLIGHT_CONFIRM: ${{ inputs.confirmation }}
+          GH_TOKEN: ${{ github.token }}
+          OPERATIONS_REHEARSAL_ACCOUNT_ID: ${{ secrets.OPERATIONS_REHEARSAL_ACCOUNT_ID }}
+          OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN: ${{ secrets.OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]] || exit 1
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]] || exit 1
+          node --input-type=module <<'NODE'
+          import {execFileSync} from 'node:child_process';
+          import {runProtectedMetadataRead} from './scripts/protected-versioned-metadata-preflight.mjs';
+          const readMainSha=async()=>execFileSync('gh',['api',`repos/${process.env.GITHUB_REPOSITORY}/git/ref/heads/main`,'--jq','.object.sha'],{encoding:'utf8'}).trim();
+          try {
+            const result=await runProtectedMetadataRead({env:process.env,readMainSha});
+            const {kind,sourceSha,exactLockReadback,exactCandidateListing,emptyTargetMetadata,revisionRechecked,disposition}=result;
+            process.stdout.write(JSON.stringify({kind,sourceSha,exactLockReadback,exactCandidateListing,emptyTargetMetadata,revisionRechecked,disposition})+'\n');
+            process.stdout.write('Restore: HOLD; no Cloudflare mutation, import, or production release.\n');
+          } catch {
+            console.error('protected_versioned_metadata_hold');
+            process.exitCode=1;
+          }
+          NODE
