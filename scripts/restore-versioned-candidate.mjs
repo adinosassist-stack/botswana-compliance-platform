@@ -11,8 +11,8 @@ import {inspectCandidateRetentionPolicy} from './check-private-backup-retention-
 
 export const VERSIONED_RESTORE=Object.freeze({account:'ddd23cab31928a4bb3d4998df9b26d1d',
  target:'be15acba-ba16-4704-9498-e296a164b3a2',name:'bw-compliance-os-ops-restore-candidate-20261103',
- bucket:'bw-compliance-ops-backups',key:'candidates/41709222476/1/production-d1.sql',bytes:3224706,
- sha256:'2363d0cfc85a76e3cfef7c33a9f2f70a38899174042e23683aa663dfcbaf3f33'});
+ bucket:'bw-compliance-ops-backups',key:'candidates/41892086437/1/production-d1.sql',bytes:3277137,
+ sha256:'e7736aebb9ddfabd378a0f198563dc9d9e127ff5cb9eaedff02237f58a4747e5'});
 const C=VERSIONED_RESTORE,REPO='adinosassist-stack/botswana-compliance-platform';
 const fail=code=>{throw Error('versioned_restore_'+code)};
 const hash=b=>createHash('sha256').update(b).digest('hex');
