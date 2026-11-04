@@ -34,6 +34,21 @@ test('lock drift, partial/untrusted listing, future dates and incorrect keys fai
  ];
  for(const change of cases)assert.throws(()=>assessCandidateFreshness({...v,...change}),/backup_cadence_hold_/);
 });
+test('ambiguous metadata keys cannot qualify backup recency',()=>{
+ const v=valid();
+ const candidate=v.listing.result[0];
+ for(const injected of [
+   {...candidate},
+   {...candidate,key:'other/production-d1.sql'},
+   {...candidate,key:null},
+   {...candidate,key:1234},
+   {...candidate,key:''}
+ ]){
+   const payload={...v,listing:{...v.listing,result:[...v.listing.result,injected]}};
+   assert.throws(()=>assessCandidateFreshness(payload),/backup_cadence_hold_listing_keys_unverified/);
+ }
+});
+
 test('provider read path uses GET only and never reads private object bytes',async()=>{
  const v=valid(),bodies=[v.lock,v.listing];let n=0;
  const o=await readCandidateFreshness({accountId:'ddd23cab31928a4bb3d4998df9b26d1d',token:'fake',observedAt:now,fetchImpl:async(url,opts)=>{
