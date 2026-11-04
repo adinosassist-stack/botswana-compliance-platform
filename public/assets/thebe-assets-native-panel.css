@@ -12,3 +12,9 @@
 .thebe-assets-native-state{color:#6b7176;font-size:12px}
 @media(max-width:760px){.thebe-assets-native-figures{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:380px){.thebe-assets-native{padding:12px}.thebe-assets-native-card{padding:10px}}
+
+/* Read-only attention cue; no gradients, overlays or global shell changes. */
+.thebe-assets-native-attention{margin:0 0 12px;padding:9px 11px;border-radius:10px;border:1px solid #e3e6e8;background:#f7f9fa;color:#344054;font-size:13px;line-height:1.45}
+.thebe-assets-native-attention:empty{display:none}
+.thebe-assets-native-attention[data-priority="attention"]{border-color:#e9cd97;background:#fffaf0;color:#684710}
+.thebe-assets-native-attention[data-priority="clear"]{border-color:#cee7d9;background:#f6fbf8;color:#235641}
