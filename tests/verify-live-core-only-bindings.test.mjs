@@ -43,10 +43,14 @@ test('read-only API request and fail closed on missing flag',async()=>{
 });
 test('protected deployment verifies live bindings after write and before readiness acceptance',()=>{
   const workflow=readFileSync(new URL('../.github/workflows/deploy-production.yml',import.meta.url),'utf8');
-  const name='- name: Verify deployed Worker core-only flags from Cloudflare';
+  const name='node scripts/verify-live-core-only-bindings.mjs';
   assert.equal(workflow.split(name).length-1,1);
   const at=workflow.indexOf(name);
-  assert.ok(at>workflow.indexOf('- name: Deploy exact candidate to Cloudflare'));
-  assert.ok(at<workflow.indexOf('- name: Verify live production readiness'));
-  assert.match(workflow,/node scripts\/verify-live-core-only-bindings\.mjs/);
+  const mutation=workflow.indexOf('- name: Deploy exact candidate to Cloudflare');
+  const readiness=workflow.indexOf('- name: Verify live production readiness');
+  assert.ok(at>mutation);
+  assert.ok(at<readiness);
+  const protectedStep=workflow.slice(mutation,readiness);
+  assert.match(protectedStep,/CLOUDFLARE_API_TOKEN:.*secrets\.CLOUDFLARE_API_TOKEN/);
+  assert.ok(protectedStep.indexOf('node "$WRANGLER_JS" deploy')<protectedStep.indexOf(name));
 });
