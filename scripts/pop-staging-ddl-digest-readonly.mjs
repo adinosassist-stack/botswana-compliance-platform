@@ -1,3 +1,4 @@
+import {assessPopStagingDdl} from './pop-staging-schema-policy.mjs';
 // Read-only full-schema digest comparison. No DDL or customer rows returned or logged.
 import {createHash} from 'node:crypto';
 const e=process.env;
@@ -30,16 +31,13 @@ async function read(id){
  return objects;
 }
 const [prod,stage]=await Promise.all([read(PROD),read(STAGING)]);
-const missing=[...prod.keys()].filter(k=>!stage.has(k));
-const extra=[...stage.keys()].filter(k=>!prod.has(k));
-const changed=[...prod.keys()].filter(k=>stage.has(k)&&(prod.get(k).owner!==stage.get(k).owner||prod.get(k).digest!==stage.get(k).digest));
-const absentDDL=[...prod].filter(([key,v])=>v.digest===null && !key.startsWith('index:')).length;
-const report={kind:'pop_full_schema_readonly_digest',main_sha:e.GITHUB_SHA,
- production_uuid:PROD,staging_uuid:STAGING,production_objects:prod.size,staging_objects:stage.size,
- missing_count:missing.length,extra_count:extra.length,changed_ddl_count:changed.length,
- production_missing_nonindex_ddl:absentDDL,
- catalog_and_ddl_parity:missing.length===0&&extra.length===0&&changed.length===0&&absentDDL===0,
+const asRows=items=>[...items.entries()].map(([key,value])=>({
+ type:key.slice(0,key.indexOf(':')),name:key.slice(key.indexOf(':')+1),
+ tbl_name:value.owner,digest:value.digest
+}));
+const report={...assessPopStagingDdl(asRows(prod),asRows(stage)),main_sha:e.GITHUB_SHA,
+ production_uuid:PROD,staging_uuid:STAGING,
  ddl_text_logged:false,customer_rows_read:false,database_mutations_performed:false,
  restore_proven:false,production_migration_authorized:false};
 console.log(JSON.stringify(report));
-if(!report.catalog_and_ddl_parity)process.exitCode=2;
+if(!report.schema_definitions_match_reviewed_pop_additions)process.exitCode=2;

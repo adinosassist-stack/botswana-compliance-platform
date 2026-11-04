@@ -1,3 +1,4 @@
+import {assessPopStagingCatalog} from './pop-staging-schema-policy.mjs';
 // Read-only D1 POP schema inventory. Never prints credentials, rows or customer SQL.
 // Intended for an independently reviewed manual workflow on current main only.
 const env = process.env;
@@ -30,28 +31,8 @@ async function inventory(id) {
   return payload.result.flatMap(x => x.results);
 }
 const [prod, stage] = await Promise.all([inventory(production), inventory(staging)]);
-const key = x => x.type + ':' + x.name;
-const left = new Map(prod.map(x => [key(x), x.tbl_name]));
-const right = new Map(stage.map(x => [key(x), x.tbl_name]));
-if (left.size !== prod.length || right.size !== stage.length)
-  throw Error('pop_inventory_duplicate_object');
-const required = ['tenants', 'payment_orders', 'manual_payment_submissions'];
-const missingPrerequisites = required.filter(x => !left.has('table:' + x));
-const alreadyApplied = ['payment_pop_documents', 'payment_pop_upload_requests']
-  .filter(x => left.has('table:' + x));
-const missingStage = [...left.keys()].filter(x => !right.has(x));
-const extraStage = [...right.keys()].filter(x => !left.has(x));
-const ownerMismatch = [...left.keys()].filter(x => right.has(x) && left.get(x) !== right.get(x));
-const report = {
-  kind: 'pop_pre070_readonly_cloudflare_inventory', main_sha: env.GITHUB_SHA,
-  production_uuid: production, staging_uuid: staging,
-  production_objects: prod.length, staging_objects: stage.length,
-  prerequisite_missing: missingPrerequisites, production_pop_objects_present: alreadyApplied,
-  missing_staging_count: missingStage.length, extra_staging_count: extraStage.length,
-  owner_mismatch_count: ownerMismatch.length,
-  catalog_parity: missingStage.length === 0 && extraStage.length === 0 && ownerMismatch.length === 0,
-  full_schema_compatibility_verified: false, restore_verified: false,
-  production_write_authorized: false, mutation_performed: false,
-};
+const report={...assessPopStagingCatalog(prod,stage),
+ main_sha:env.GITHUB_SHA,production_uuid:production,staging_uuid:staging,
+ customer_rows_read:false,mutation_performed:false};
 console.log(JSON.stringify(report));
-if (missingPrerequisites.length || alreadyApplied.length || !report.catalog_parity) process.exitCode = 2;
+if(!report.catalog_matches_reviewed_pop_additions)process.exitCode=2;
