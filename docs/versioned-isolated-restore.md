@@ -10,7 +10,9 @@ The new `RESTORE_VERSIONED_CANDIDATE` mode in the existing Isolated Operations
 Rehearsals workflow uses only the dedicated backup credential inside the existing
 protected selected-operation step. It retains operations-rehearsal review,
 main-only/exact-current-main checks, DO_NOT_RUN default, pinned actions and shared
-manual-rehearsal serialization. It has no schedule, production deploy, candidate
+manual-rehearsal serialization. The GitHub token has read-only issue permission
+to authenticate the two approval comments, with no issue write permission.
+It has no schedule, production deploy, candidate
 promotion, R2 write, automatic retry, reset or cleanup of remote databases.
 
 The transport pins account `ddd23cab31928a4bb3d4998df9b26d1d`, isolated D1

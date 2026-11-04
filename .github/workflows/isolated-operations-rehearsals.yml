@@ -54,6 +54,7 @@ on:
 
 permissions:
   contents: read
+  issues: read
 
 concurrency:
   # Read-only PR qualification must not wait behind an approval-gated rehearsal.

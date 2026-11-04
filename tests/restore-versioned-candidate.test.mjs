@@ -1,10 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
+import {readFileSync} from 'node:fs';
 import {readPinnedCandidateResponse,VERSIONED_RESTORE,approvalContract,verifyApprovalRecord,executeVersionedImport,verifyVersionedInventory,runVersionedImport} from '../scripts/restore-versioned-candidate.mjs';
 const sourceSha='a'.repeat(40);
 const record=(login,id)=>({id,user:{login},issue_url:'https://api.github.com/repos/adinosassist-stack/botswana-compliance-platform/issues/1950',body:'THEBE_VERSIONED_RESTORE_APPROVAL\n'+JSON.stringify(approvalContract(sourceSha))});
 const ownerRecord=record('adinosassist-stack',123),independentRecord=record('thusico',456);
+test('protected workflow grants only issue read and keeps credentials inside selected operation',()=>{
+ const wf=readFileSync('.github/workflows/isolated-operations-rehearsals.yml','utf8');
+ assert.match(wf,/permissions:\n  contents: read\n  issues: read/);
+ assert.doesNotMatch(wf,/issues: write|contents: write/);
+ const protectedStep=wf.slice(wf.indexOf('- name: Run selected isolated rehearsal'));
+ assert.ok(protectedStep.includes("GH_TOKEN: ${{ inputs.mode == 'RESTORE_VERSIONED_CANDIDATE' && github.token || '' }}"));
+ assert.ok(protectedStep.includes("inputs.mode == 'RESTORE_VERSIONED_CANDIDATE') && secrets.PRIVATE_BACKUP_CLOUDFLARE_TOKEN"));
+ assert.match(wf,/default: DO_NOT_RUN/);
+});
 test('binary reader bounds streamed bytes and rejects provider errors, short or oversized content',async()=>{
  const bytes=Buffer.alloc(VERSIONED_RESTORE.bytes,1);
  assert.deepEqual(await readPinnedCandidateResponse(new Response(bytes)),bytes);
