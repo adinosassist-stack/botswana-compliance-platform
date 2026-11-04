@@ -1237,7 +1237,9 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     if(!scrollRegion||responseScrollLock)return;
     const remaining=Math.max(0,scrollRegion.scrollHeight-scrollRegion.scrollTop-scrollRegion.clientHeight);
     autoFollowResponse=remaining<=96;
-    if(autoFollowResponse&&latestResponseButton)latestResponseButton.hidden=true;
+    // Scrolling up must reveal the "Latest response" shortcut immediately,
+    // not only when another answer arrives.
+    syncLatestResponseButton();
   }
   function scrollResponseIntoView(force=false){
     if(!scrollRegion||!responseBox||dock?.hidden||(!force&&!autoFollowResponse))return false;
