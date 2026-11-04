@@ -18,7 +18,7 @@ export function verifyCoreOnlyFreeze({config,worker,exportSpec}){
   // override a frozen value at deployment time. Qualify only configurations
   // with one authoritative declaration of each release-critical flag.
   for(const name of ['POP_UPLOAD_STAGING_ENABLED','THEBE_AI_EXPORTS_ENABLED','THEBE_GENERAL_AI_ENABLED','APP_ENV']){
-    const assignments=[...config.matchAll(new RegExp('^\\\\s*'+name+'\\\\s*=','gm'))];
+    const assignments=[...config.matchAll(new RegExp('^\\s*'+name+'\\s*=','gm'))];
     assert.equal(assignments.length,1,name+' must have exactly one global assignment (no env override)');
   }
 
