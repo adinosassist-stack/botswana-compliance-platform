@@ -105,7 +105,7 @@ assert.equal(payload.contextAvailability?.financeAndBusiness,"role_restricted","
 assert.equal(payload.contextAvailability?.financeAndBusinessReason,"role_restricted");
 assert.equal(payload.contextAvailability?.financeAndBusinessComplete,false);
 assert.doesNotMatch(capturedAiInput.input.prompt,/TenantTwoSecretRisk|OtherTenantSecretIndustry/);
-assert.doesNotMatch(capturedAiInput.input.prompt,/"finance":\\s*\\{/,"reviewer prompt cannot contain finance object");
+assert.doesNotMatch(capturedAiInput.input.prompt,/"finance":\s*\{/,"reviewer prompt cannot contain finance object");
 sqlite.prepare("UPDATE memberships SET role='owner' WHERE tenant_id='tenant-1' AND user_id='owner-1'").run();
 sqlite.prepare("UPDATE sessions SET role='owner' WHERE token_hash=?").run(tokenHash);
 
