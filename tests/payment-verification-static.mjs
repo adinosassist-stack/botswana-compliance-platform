@@ -61,11 +61,12 @@ const manualApprove=w.split('const manualAdminMatch=url.pathname.match(')[1]?.sp
 if(!manualApprove)throw Error('manual_bank_approval_route_missing');
 for(const required of [
   'platformBillingAdmin(a,env)',
+  '!body||typeof body!=="object"||Array.isArray(body)',
   'body.bankFundsConfirmed!==true',
   'body.bankAmountMatched!==true',
   'body.bankTransactionMatched!==true'
 ])if(!manualApprove.includes(required))throw Error('manual_bank_approval_guard_must_precede_database_access: '+required);
-const positions=['platformBillingAdmin(a,env)','body.bankFundsConfirmed!==true','body.bankAmountMatched!==true','body.bankTransactionMatched!==true'].map(x=>manualApprove.indexOf(x));
+const positions=['platformBillingAdmin(a,env)','!body||typeof body!=="object"||Array.isArray(body)','body.bankFundsConfirmed!==true','body.bankAmountMatched!==true','body.bankTransactionMatched!==true'].map(x=>manualApprove.indexOf(x));
 if(positions.some((pos,i)=>i>0&&pos<=positions[i-1]))throw Error('manual_bank_approval_guard_order_invalid');
 
 const bad=checks.filter(x=>!x[1]);for(const [n,o] of checks)console.log(`${o?"PASS":"FAIL"} ${n}`);if(bad.length)process.exit(1);
