@@ -131,6 +131,8 @@ test('scheduled authority requires real GitHub records; manual path never reques
  const f=fixture();
  const scheduled={...env,GITHUB_EVENT_NAME:'schedule',BACKUP_CONFIRM:'',
    PRIVATE_BACKUP_SCHEDULE_ENABLED:'true',GITHUB_TOKEN:'test-git',
+   PRIVATE_BACKUP_SCHEDULE_R2_ACCESS_KEY_ID:'test-r2-access',
+   PRIVATE_BACKUP_SCHEDULE_R2_SECRET_ACCESS_KEY:'test-r2-secret',
    PRIVATE_BACKUP_SCHEDULE_OWNER_APPROVAL_ID:'31001',
    PRIVATE_BACKUP_SCHEDULE_REVIEW_APPROVAL_ID:'31002'};
  const created_at=new Date(Date.now()-3600000).toISOString().slice(0,19)+'Z';
@@ -141,7 +143,8 @@ test('scheduled authority requires real GitHub records; manual path never reques
    databaseId:'8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce',
    bucket:'bw-compliance-ops-backups',prefix:'candidates/',
    maxIntervalMinutes:120,retentionDays:30,
-   retentionAndAccessAccepted:true,dedicatedCredentialScopeAccepted:true,expiresAt
+   retentionAndAccessAccepted:true,dedicatedCredentialScopeAccepted:true,
+   atomicConditionalUploadReviewed:true,expiresAt
  };
  const rec=(id,login)=>({id,user:{login},created_at,
    issue_url:'https://api.github.com/repos/adinosassist-stack/botswana-compliance-platform/issues/1950',
@@ -154,10 +157,20 @@ test('scheduled authority requires real GitHub records; manual path never reques
    if(url.endsWith('/issues/comments/31002'))return Response.json(rec(31002,'thusico'));
    throw Error('unexpected GitHub URL');
  };
- const approved=await prepareBackup(scheduled,{...f,approvalFetchImpl});
+ let s3Count=0;
+ const atomicUploader=async(e,body)=>{
+   s3Count++;
+   assert.equal(body.key,'candidates/123/1/production-d1.sql');
+   assert.equal(e.PRIVATE_BACKUP_SCHEDULE_R2_ACCESS_KEY_ID,'test-r2-access');
+   return {atomicConditionalCreateVerified:true,privateRoundtripVerified:true,
+     bytes:body.bytes.length,sha256:body.expectedSha256};
+ };
+ const approved=await prepareBackup(scheduled,{...f,approvalFetchImpl,atomicUploader});
  assert.equal(approvalCalls,3);
+ assert.equal(s3Count,1);
  assert.equal(approved.privateRoundtripVerified,true);
- assert.equal(f.calls.filter(x=>x.o.method==='PUT').length,1);
+ assert.equal(approved.atomicConditionalCreateVerified,true);
+ assert.equal(f.calls.filter(x=>x.o.method==='PUT').length,0,'scheduled exporter must not call REST PUT');
  const manual=fixture();
  const r=await prepareBackup(env,{...manual,approvalFetchImpl:async()=>{throw Error('manual must not request schedule approvals')}});
  assert.equal(r.privateRoundtripVerified,true);
