@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {assessCandidateFreshness,readCandidateFreshness} from '../scripts/assess-r2-candidate-freshness.mjs';
+import {decideCandidateCadence} from '../scripts/run-backup-cadence-observer.mjs';
 const now='2026-11-04T17:30:00.000Z';
 const valid=()=>({observedAt:now,lock:{success:true,result:{rules:[{id:'candidates-30-day-retention',enabled:true,prefix:'candidates/',condition:{type:'Age',maxAgeSeconds:2592000}}]}},listing:{success:true,result:[
  {key:'candidates/41709222476/1/production-d1.sql',size:3224706,last_modified:'2026-11-03T20:11:10.090Z'},
@@ -52,6 +53,25 @@ test('no candidate in the 24-hour observation window remains stale and has a 144
  assert.equal(r.observedCandidateCountLast24h,0);
  assert.equal(r.maxObservedGapLast24hMinutes,1440);
  assert.equal(r.exceedsTwoHourRecencyThreshold,true);
+});
+test('millisecond-precise policy edges cannot be hidden by two-decimal display rounding',()=>{
+ const start=Date.parse(now)-24*60*60*1000;
+ const v=valid();
+ v.listing.result=Array.from({length:11},(_,i)=>({
+  key:`candidates/${90000000000+i}/1/production-d1.sql`,size:3100000,
+  last_modified:new Date(start+(i+1)*120*60000+1).toISOString()
+ }));
+ const report=assessCandidateFreshness(v);
+ assert.equal(report.maxObservedGapLast24hMinutes,120);
+ assert.equal(report.exceedsTwoHourObservedGapLast24h,true);
+ assert.equal(decideCandidateCadence(report).severity,'WINDOW_GAP');
+ // Exactly one millisecond beyond 120 minutes is stale even if rendered 120.00.
+ v.listing.result=[{key:'candidates/80000000000/1/production-d1.sql',size:3100000,
+  last_modified:new Date(Date.parse(now)-120*60000-1).toISOString()}];
+ const old=assessCandidateFreshness(v);
+ assert.equal(old.latestAgeMinutes,120);
+ assert.equal(old.exceedsTwoHourRecencyThreshold,true);
+ assert.equal(decideCandidateCadence(old).severity,'STALE');
 });
 test('lock drift, partial/untrusted listing, future dates and incorrect keys fail closed',()=>{
  const v=valid();
