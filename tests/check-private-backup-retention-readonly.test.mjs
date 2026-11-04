@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {inspectCandidateRetentionPolicy,readCandidateRetentionPolicy} from '../scripts/check-private-backup-retention-readonly.mjs';
 
-const valid=()=>({success:true,result:{rules:[{id:'thebe-backup-candidates-30-day-immutable-20261103',
+const valid=()=>({success:true,result:{rules:[{id:'candidates-30-day-retention',
   enabled:true,prefix:'candidates/',condition:{type:'Age',maxAgeSeconds:2592000}}]}});
 test('exact readback matches policy but cannot certify irreversible object retention',()=>{
  const result=inspectCandidateRetentionPolicy(valid());
@@ -20,6 +20,7 @@ test('missing, disabled, unrelated or drifted rules fail closed',()=>{
  [{...valid().result.rules[0],prefix:'approved/'}],
  [{...valid().result.rules[0],condition:{type:'Age',maxAgeSeconds:120}}],
  [{...valid().result.rules[0],id:'other'}],
+ [{...valid().result.rules[0],id:'thebe-backup-candidates-30-day-immutable-20261103'}],
  [...valid().result.rules,{id:'other',enabled:true,prefix:'else/',condition:{type:'Age',maxAgeSeconds:2592000}}]]) {
  assert.throws(()=>inspectCandidateRetentionPolicy({success:true,result:{rules}}),/r2_retention_readback_hold_/);
  }
