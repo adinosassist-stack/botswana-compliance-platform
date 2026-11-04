@@ -21,3 +21,25 @@ test("workspace still reserves space in emergency desktop fallback", () => {
   assert.match(source, /if\(width>=1024\)reserveDesktopLane\(dock,widthFor\(width,expanded\)\)/);
   assert.match(source, /else releaseDesktopLane\(\)/);
 });
+
+test("resize separator exposes current bounds and supports accessible controls", () => {
+  assert.match(source, /handle\.setAttribute\("role","separator"\)/);
+  assert.match(source, /handle\.setAttribute\("aria-valuemin",String\(bounds\.min\)\)/);
+  assert.match(source, /handle\.setAttribute\("aria-valuemax",String\(bounds\.max\)\)/);
+  assert.match(source, /handle\.setAttribute\("aria-valuenow",String\(clamped\)\)/);
+  assert.match(source, /handle\.addEventListener\("keydown"/);
+});
+
+test("pointer cancellation and capture loss release resizing state", () => {
+  assert.match(source, /handle\.addEventListener\("pointercancel",stopDrag\)/);
+  assert.match(source, /handle\.addEventListener\("lostpointercapture",stopDrag\)/);
+  assert.match(source, /global\.document\?\.body\?\.classList\?\.remove\("thebe-workspace-dock-resizing"\)/);
+  assert.match(source, /handle\.releasePointerCapture\?\.\(pointerId\)/);
+});
+
+test("saved floating workspace dock is clamped when the viewport changes", () => {
+  const repair = source.split("function repair(){")[1]?.split("function schedule()")[0];
+  assert.ok(repair);
+  assert.match(repair, /if\(dock\.dataset\.workspaceFloating==="true"\)/);
+  assert.match(repair, /if\(saved\)setDockPosition\(dock,saved\)/);
+});
