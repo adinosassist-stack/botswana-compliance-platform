@@ -7505,6 +7505,7 @@ export default {
       if(manualAdminMatch&&req.method==="POST"){
         if(!roleAllowed(a,"owner")||!platformBillingAdmin(a,env))return json({error:"platform_billing_forbidden"},403);
         const submissionId=manualAdminMatch[1],action=manualAdminMatch[2].toLowerCase(),body=await readJson(req);
+        if(!body||typeof body!=="object"||Array.isArray(body))return json({error:"invalid_json"},400);
         // A customer's payment reference is not evidence of receipt; require an
         // explicit authenticated platform-owner bank-credit attestation.
         if(action==="approve"&&body.bankFundsConfirmed!==true)return json({error:"bank_funds_confirmation_required"},400);
