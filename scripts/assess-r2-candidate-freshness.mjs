@@ -31,12 +31,28 @@ export function assessCandidateFreshness({lock,listing,observedAt}){
  const mostRecent=stamps.at(-1);
  let maxObservedGapMinutes=0;
  for(let i=1;i<stamps.length;i++)maxObservedGapMinutes=Math.max(maxObservedGapMinutes,(stamps[i].time-stamps[i-1].time)/60000);
+ // Measure the *observed* 24-hour window, including the boundary-to-first and
+ // last-to-now gaps. A newly prepared candidate must never mask hours without
+ // backup evidence. This remains metadata-only, not a qualified recovery point.
+ const windowStart=now-24*60*60*1000;
+ const recent=stamps.filter(item=>item.time>=windowStart);
+ let previous=windowStart,maxObservedGapLast24hMinutes=0;
+ for(const item of recent){
+  maxObservedGapLast24hMinutes=Math.max(maxObservedGapLast24hMinutes,(item.time-previous)/60000);
+  previous=item.time;
+ }
+ maxObservedGapLast24hMinutes=Math.max(maxObservedGapLast24hMinutes,(now-previous)/60000);
  const latestAgeMinutes=(now-mostRecent.time)/60000;
  const stale=latestAgeMinutes>120;
  return Object.freeze({kind:'r2_backup_candidate_metadata_freshness_only',
   bucket:BUCKET,observedAt,listedSqlCandidates:points.length,
   newestCandidateKey:mostRecent.key,newestCandidateLastModified:new Date(mostRecent.time).toISOString(),
   latestAgeMinutes:Number(latestAgeMinutes.toFixed(2)),maxObservedCandidateGapMinutes:Number(maxObservedGapMinutes.toFixed(2)),
+  maxObservedGapLast24hMinutes:Number(maxObservedGapLast24hMinutes.toFixed(2)),
+  observedCandidateCountLast24h:recent.length,observationWindowHours:24,
+  // Use raw millisecond precision for policy decisions; two-decimal fields are display only.
+  exceedsTwoHourObservedGapLast24h:maxObservedGapLast24hMinutes>120,
+  atOrAboveNinetyMinuteWarningThreshold:latestAgeMinutes>=90,
   exceedsTwoHourRecencyThreshold:stale,
   actualExportFinishedAtVerified:false,receiptAndBytesMatched:false,
   schedulerCadenceVerified:false,sustainedRpoQualified:false,restoreAuthorized:false,

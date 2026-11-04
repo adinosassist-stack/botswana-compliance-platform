@@ -16,6 +16,7 @@ on:
       - scripts/assess-r2-candidate-freshness.mjs
       - scripts/run-backup-cadence-observer.mjs
       - tests/run-backup-cadence-observer.test.mjs
+      - tests/assess-r2-candidate-freshness.test.mjs
       - .github/workflows/backup-cadence-observer.yml
 permissions:
   contents: read
@@ -65,7 +66,7 @@ jobs:
           [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
           [[ -z "$(git status --porcelain --untracked-files=all)" ]]
           [[ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" == "$GITHUB_SHA" ]]
-      - name: Read candidate listing and evaluate 90/120-minute alarm thresholds
+      - name: Read candidate listing and evaluate recency plus 24-hour gap alarms
         env:
           BACKUP_CADENCE_OBSERVER_ENABLED: ${{ vars.BACKUP_CADENCE_OBSERVER_ENABLED }}
           BACKUP_MONITOR_CONFIRM: ${{ inputs.confirmation || '' }}
