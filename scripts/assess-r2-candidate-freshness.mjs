@@ -15,6 +15,11 @@ export function assessCandidateFreshness({lock,listing,observedAt}){
  if(listing?.success!==true||!Array.isArray(listing.result)||listing.result.length>1000||
     listing.result.some(x=>!x||typeof x!=='object')||listing.result_info?.cursor||
     listing.cursor||listing.truncated===true)fail('listing_unverified');
+ // The scoped listing must not contain malformed or duplicated object keys.
+ // Such a response cannot establish which backup metadata was actually seen.
+ const keys=listing.result.map(x=>x.key);
+ if(keys.some(key=>typeof key!=='string'||!key.startsWith('candidates/'))||
+    new Set(keys).size!==keys.length)fail('listing_keys_unverified');
  const points=listing.result.filter(x=>KEY.test(x.key));
  if(points.length===0)fail('no_sql_candidates');
  const stamps=points.map(x=>{
