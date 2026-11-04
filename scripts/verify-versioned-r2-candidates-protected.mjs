@@ -1,4 +1,4 @@
-// Privileged read-only verifier for exactly two versioned production backup candidates.
+// Privileged read-only verifier for explicitly reviewed versioned production backup candidates.
 // Never logs SQL/data, creates objects, grants backup acceptance, or restores a database.
 import {createHash} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
@@ -8,7 +8,8 @@ const ACCOUNT='ddd23cab31928a4bb3d4998df9b26d1d';
 const BUCKET='bw-compliance-ops-backups';
 export const CANDIDATE_SIZES=Object.freeze({
  '41709222476':3224706,
- '41710740133':3225845
+ '41710740133':3225845,
+ '41892086437':3277137
 });
 const fail=code=>{throw Error('versioned_r2_readonly_hold_'+code)};
 const sha=b=>createHash('sha256').update(b).digest('hex');
