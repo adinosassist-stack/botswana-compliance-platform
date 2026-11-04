@@ -16,17 +16,28 @@ export function decideCandidateCadence(report){
  if(report?.kind!=='r2_backup_candidate_metadata_freshness_only'||
    report.sustainedRpoQualified!==false||report.restoreAuthorized!==false||
    report.productionWriteAuthorized!==false||
+   typeof report.exceedsTwoHourRecencyThreshold!=='boolean'||
+   typeof report.exceedsTwoHourObservedGapLast24h!=='boolean'||
+   typeof report.atOrAboveNinetyMinuteWarningThreshold!=='boolean'||
    !Number.isFinite(report.latestAgeMinutes)||report.latestAgeMinutes<0||
    report.observationWindowHours!==24||
    !Number.isFinite(report.maxObservedGapLast24hMinutes)||
    report.maxObservedGapLast24hMinutes<0||report.maxObservedGapLast24hMinutes>1440||
    !Number.isSafeInteger(report.observedCandidateCountLast24h)||
-   report.observedCandidateCountLast24h<0||report.observedCandidateCountLast24h>1000)fail('untrusted_observation');
+   report.observedCandidateCountLast24h<0||report.observedCandidateCountLast24h>1000||
+   // Disallow contradictory classifications, allowing a rounded 120.00/90.00 edge.
+   (report.exceedsTwoHourRecencyThreshold && report.latestAgeMinutes<120)||
+   (!report.exceedsTwoHourRecencyThreshold && report.latestAgeMinutes>120)||
+   (report.exceedsTwoHourObservedGapLast24h && report.maxObservedGapLast24hMinutes<120)||
+   (!report.exceedsTwoHourObservedGapLast24h && report.maxObservedGapLast24hMinutes>120)||
+   (report.atOrAboveNinetyMinuteWarningThreshold && report.latestAgeMinutes<90)||
+   (!report.atOrAboveNinetyMinuteWarningThreshold && report.latestAgeMinutes>90))fail('untrusted_observation');
  const minutes=report.latestAgeMinutes;
  // Even a brand-new candidate is not a healthy cadence if the preceding
  // observation window contains a gap longer than the two-hour policy.
- const windowGapDetected=report.maxObservedGapLast24hMinutes>120;
- const severity=minutes>120?'STALE':windowGapDetected?'WINDOW_GAP':minutes>=90?'WARNING':'OBSERVED_RECENT';
+ const windowGapDetected=report.exceedsTwoHourObservedGapLast24h;
+ const severity=report.exceedsTwoHourRecencyThreshold?'STALE':windowGapDetected?'WINDOW_GAP':
+   report.atOrAboveNinetyMinuteWarningThreshold?'WARNING':'OBSERVED_RECENT';
  return {kind:'backup_candidate_recency_watchdog',severity,
   newestCandidateKey:report.newestCandidateKey,
   newestCandidateLastModified:report.newestCandidateLastModified,
