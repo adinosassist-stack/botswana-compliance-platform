@@ -44,3 +44,11 @@ test('both workflows enforce no-secret check in qualify before protected environ
   assert.doesNotMatch(wf,/cancel-in-progress: true/);
  }
 });
+
+test('versioned import requires distinct numeric approval IDs before environment review',()=>{
+ const request={...isolated,RECOVERY_MODE:'RESTORE_VERSIONED_CANDIDATE',VERSIONED_OWNER_APPROVAL_ID:'123',VERSIONED_REVIEW_APPROVAL_ID:'456'};
+ assert.equal(verifyProtectedRecoveryDispatch(request).preapprovalSourceCheckPassed,true);
+ for(const patch of [{VERSIONED_OWNER_APPROVAL_ID:''},{VERSIONED_REVIEW_APPROVAL_ID:'123'},{VERSIONED_OWNER_APPROVAL_ID:'1;echo unsafe'}])
+ assert.throws(()=>verifyProtectedRecoveryDispatch({...request,...patch}),/dispatch_refused/);
+});
+

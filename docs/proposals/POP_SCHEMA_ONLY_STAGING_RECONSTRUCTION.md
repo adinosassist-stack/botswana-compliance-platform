@@ -1,10 +1,12 @@
 # POP 070/071 schema-only staging reconstruction — qualification plan
 
-**Status:** proposed evidence procedure, not permission to modify production or staging.
+**Status:** Historical reconstruction proposal, **not an executable initializer for the already populated POP staging D1**, and not authorization to modify production or staging.
+
+**4 November 2026 read-only update:** staging UUID `812f9021-890b-41e6-8fa1-6001f90a9b53` now contains **233 application tables**, versus **231** in production, including the two reviewed POP tables. Read-only comparisons of 573 production SQLite catalog objects against 578 staged objects found **no missing production objects, no changed shared SQL definitions, and exactly five reviewed POP additions** (two tables and three indexes). Staging foreign-key check returned zero violations. Do **not** rerun a pre-070 initializer or replay migrations 070/071 on this populated target: the 071 ALTER statements are not replay-safe. Catalog/DDL compatibility is not an authenticated migration receipt, provenance proof, restored application test, production permission or live feature enablement.
 
 ## Proven inventory
 - Current production D1: `bw-compliance-os`, UUID `8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce`; read-only `sqlite_master` returned 573 objects including internal objects.
-- Isolated POP staging D1: `bw-compliance-os-pop-staging`, UUID `812f9021-890b-41e6-8fa1-6001f90a9b53`; only the internal `_cf_KV` table.
+- Isolated POP staging D1: `bw-compliance-os-pop-staging`, UUID `812f9021-890b-41e6-8fa1-6001f90a9b53`; the **original** `_cf_KV`-only observation is superseded by the November 4 populated-staging inventory above.
 - Production has `tenants`, `payment_orders`, `manual_payment_submissions`, but neither POP table.
 - The pinned pre-070 repository candidate is **not** a production schema snapshot; the current consolidated schema covers fewer tables than the live database.
 
@@ -14,8 +16,8 @@
 3. Compare table names, column names/types/nullability/defaults/PKs, indexes, views, triggers and FK targets/actions. Treat unresolved drift and missing migration history as stop conditions.
 4. Strip unsafe environment-dependent functions and operational seeds under independent review; do not invent absent migration history or claim the schema-only baseline equals production data.
 
-## Stage B — isolated staging reconstruction (separate authorization)
-1. Ensure exact staging UUID and environment have independent access; never point a write-capable token to production.
+## Stage B — historical reconstruction plan (NOT approved for the current populated target)
+1. **STOP for the existing populated staging target.** This historical stage applies only to a separately authorized, verified-empty disposable database; never point a write-capable token to production.
 2. Approve a bounded initialization plan for the **empty staging database only**, using the reviewed, sanitized, compatible pre-070 DDL, excluding customer rows.
 3. Run schema and integrity comparisons. If mismatched, stop and collect evidence; never repair by applying arbitrary SQL.
 4. Apply checksum-pinned `070_payment_pop_documents.sql` followed by `071_payment_pop_runtime_compat.sql` **in staging only**. Verify columns, indexes, FKs, duplicate-replay failure, zero unexpected mutations and POP features disabled.

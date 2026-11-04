@@ -34,12 +34,19 @@ export function buildBusinessAnalytics(context={}){
   const valuationServicesAvailable=valuationServices?.available===true;
   const signals=[];
 
-  if(Number(reconciliation?.unresolvedCount||0)>0)signals.push(signal(
+  const reconciliationEvidence=Number.isSafeInteger(reconciliation?.unresolvedCount)&&reconciliation.unresolvedCount>=0&&
+    (reconciliation?.stale===true||reconciliation?.stale===false);
+  if(!reconciliationEvidence)signals.push(signal(
+    "finance_reconciliation_evidence_unavailable","medium","Finance reconciliation evidence unavailable",
+    "A current reconciliation status cannot be confirmed until the canonical unresolved count and freshness state are available.",
+    ["finance_reconciliation_runs"]
+  ));
+  if(reconciliationEvidence&&reconciliation.unresolvedCount>0)signals.push(signal(
     "finance_reconciliation_exceptions","high","Finance reconciliation needs attention",
     `${Number(reconciliation.unresolvedCount||0)} unresolved reconciliation exception(s) remain across the canonical Finance Core.`,
     ["finance_reconciliation_runs"]
   ));
-  else if(reconciliation?.stale===true)signals.push(signal(
+  else if(reconciliationEvidence&&reconciliation?.stale===true)signals.push(signal(
     "finance_reconciliation_stale","medium","Finance reconciliation is stale",
     "Refresh reconciliation before relying on cash analytics for management decisions.",
     ["finance_reconciliation_runs"]
@@ -134,7 +141,7 @@ export function buildBusinessAnalytics(context={}){
   signals.sort((a,b)=>severityRank(a.severity)-severityRank(b.severity)||a.key.localeCompare(b.key));
 
   const moneyAvailable=money?.available===true;
-  const reconciliationCurrent=Number(reconciliation?.unresolvedCount||0)===0&&reconciliation?.stale!==true;
+  const reconciliationCurrent=reconciliationEvidence&&reconciliation.unresolvedCount===0&&reconciliation.stale===false;
   const operationsAvailable=!!operations?.latestSummaryDate;
   const readiness=dataReadiness({moneyAvailable,reconciliationCurrent,operationsAvailable});
   const highCount=signals.filter(item=>item.severity==="high").length;
@@ -158,10 +165,10 @@ export function buildBusinessAnalytics(context={}){
     domains:frozen({
       money:frozen({
         available:moneyAvailable,
-        cashPositionMinor:number(finance?.cashPositionMinor),
-        current30InflowMinor:number(current30?.inflow),
-        current30OutflowMinor:number(current30?.outflow),
-        current30NetCashMovementMinor:number(current30?.net),
+        cashPositionMinor:optionalNumber(finance?.cashPositionMinor),
+        current30InflowMinor:optionalNumber(current30?.inflow),
+        current30OutflowMinor:optionalNumber(current30?.outflow),
+        current30NetCashMovementMinor:optionalNumber(current30?.net),
         prior30InflowMinor:number(prior30?.inflow),
         prior30OutflowMinor:number(prior30?.outflow),
         inflowChangePct:optionalNumber(trend?.inflowChangePct),
@@ -169,11 +176,11 @@ export function buildBusinessAnalytics(context={}){
         cashFlowMarginProxyPct:optionalNumber(scenario?.cashFlowMarginProxyPct),
         estimatedRunwayDays:optionalNumber(money?.assumptions?.estimatedRunwayDays),
         reconciliationCurrent,
-        unresolvedReconciliationCount:number(reconciliation?.unresolvedCount),
-        overdueReceivablesMinor:number(receivables?.overdueMinor),
-        outstandingReceivablesMinor:number(receivables?.outstandingMinor),
-        overduePayablesMinor:number(payables?.overdueMinor),
-        payablesDue14dMinor:number(payables?.due14dMinor),
+        unresolvedReconciliationCount:reconciliationEvidence?reconciliation.unresolvedCount:null,
+        overdueReceivablesMinor:optionalNumber(receivables?.overdueMinor),
+        outstandingReceivablesMinor:optionalNumber(receivables?.outstandingMinor),
+        overduePayablesMinor:optionalNumber(payables?.overdueMinor),
+        payablesDue14dMinor:optionalNumber(payables?.due14dMinor),
         payableCoverage14dRatio:optionalNumber(commitmentStress?.coverageRatio),
         payableShortfall14dMinor:number(commitmentStress?.shortfallMinor),
         accountingProfitAvailable:false,
