@@ -28,17 +28,56 @@ test('a private object GET failure stays sanitized and cannot cause a write',asy
   calls.push({url,method:o.method,hasToken:!!o.headers.Authorization});
   if(url.endsWith('/domains/managed'))return Response.json({success:true,result:{enabled:false}});
   if(url.endsWith('/domains/custom'))return Response.json({success:true,result:{domains:[]}});
+  if(url.endsWith('/lock'))return Response.json({success:true,result:{rules:[]}});
   return new Response(null,{status:403});
  };
  await assert.rejects(verifyVersionedR2Candidate(base,{fetchImpl}),/private_object_unreadable/);
- assert.equal(calls.length,3);assert.ok(calls.every(x=>x.method==='GET'&&x.hasToken));
- assert.ok(calls[2].url.endsWith('/objects/candidates/41709222476/1/production-d1.sql'));
+ assert.equal(calls.length,4);assert.ok(calls.every(x=>x.method==='GET'&&x.hasToken));
+ assert.ok(calls[2].url.endsWith('/lock'));
+ assert.ok(calls[3].url.endsWith('/objects/candidates/41709222476/1/production-d1.sql'));
 });
 test('size mismatch fails before SQLite import and never logs SQL',async()=>{
  const fetchImpl=async url=>{
   if(url.endsWith('/domains/managed'))return Response.json({success:true,result:{enabled:false}});
   if(url.endsWith('/domains/custom'))return Response.json({success:true,result:{domains:[]}});
+  if(url.endsWith('/lock'))return Response.json({success:true,result:{rules:[]}});
   return new Response('PRIVATE_SYNTHETIC_SQL',{status:200});
  };
  await assert.rejects(verifyVersionedR2Candidate(base,{fetchImpl}),/observed_size_mismatch/);
+});
+
+test('missing, failed, or malformed retention lock policy blocks private SQL reads',async()=>{
+ for(const response of [new Response(null,{status:403}),Response.json({success:true,result:{}}),Response.json({success:false,result:{rules:[]}})]){
+  const calls=[];
+  const fetchImpl=async url=>{
+   calls.push(url);
+   if(url.endsWith('/domains/managed'))return Response.json({success:true,result:{enabled:false}});
+   if(url.endsWith('/domains/custom'))return Response.json({success:true,result:{domains:[]}});
+   if(url.endsWith('/lock'))return response;
+   throw Error('private SQL must not be fetched without known retention posture');
+  };
+  await assert.rejects(verifyVersionedR2Candidate(base,{fetchImpl}),/bucket_lock_unverified/);
+  assert.equal(calls.length,3);
+  assert.ok(calls.every(u=>!u.includes('/objects/')));
+ }
+});
+
+test('new current-main candidate is fixed run-1 and strictly GET-only before byte qualification',async()=>{
+ const e={...base,VERSIONED_RUN_ID:'41892086437'};
+ const calls=[];
+ const fetchImpl=async(url,options)=>{
+  calls.push({url,method:options.method});
+  if(url.endsWith('/domains/managed'))return Response.json({success:true,result:{enabled:false}});
+  if(url.endsWith('/domains/custom'))return Response.json({success:true,result:{domains:[]}});
+  if(url.endsWith('/lock'))return Response.json({success:true,result:{rules:[{id:'candidates-30-day-retention',enabled:true,prefix:'candidates/',condition:{type:'Age',maxAgeSeconds:2592000}}]}});
+  return new Response('synthetic-invalid-sized-data',{status:200});
+ };
+ await assert.rejects(verifyVersionedR2Candidate(e,{fetchImpl}),/observed_size_mismatch/);
+ assert.deepEqual(calls.map(x=>x.method),['GET','GET','GET','GET']);
+ assert.ok(calls[3].url.endsWith('/objects/candidates/41892086437/1/production-d1.sql'));
+});
+test('new SQL candidate cannot authorize restore and unknown newer runs fail before network',async()=>{
+ await reject({...base,VERSIONED_RUN_ID:'41892086438'});
+ await reject({...base,VERSIONED_RUN_ID:'41892086437/2'});
+ await reject({...base,VERSIONED_RUN_ID:'41892086437',GITHUB_SHA:'b'.repeat(40)});
 });

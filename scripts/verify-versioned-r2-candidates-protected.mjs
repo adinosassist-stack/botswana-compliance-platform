@@ -1,4 +1,4 @@
-// Privileged read-only verifier for exactly two versioned production backup candidates.
+// Privileged read-only verifier for exactly three versioned production backup candidates.
 // Never logs SQL/data, creates objects, grants backup acceptance, or restores a database.
 import {createHash} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
@@ -8,7 +8,8 @@ const ACCOUNT='ddd23cab31928a4bb3d4998df9b26d1d';
 const BUCKET='bw-compliance-ops-backups';
 export const CANDIDATE_SIZES=Object.freeze({
  '41709222476':3224706,
- '41710740133':3225845
+ '41710740133':3225845,
+ '41892086437':3277137
 });
 const fail=code=>{throw Error('versioned_r2_readonly_hold_'+code)};
 const sha=b=>createHash('sha256').update(b).digest('hex');
@@ -29,6 +30,10 @@ export async function verifyVersionedR2Candidate(env,{fetchImpl=fetch}={}){
  let m,c;try{m=await managed.json();c=await custom.json()}catch{fail('bucket_privacy_unverified')}
  if(m.success!==true||m.result?.enabled!==false||c.success!==true||
  !Array.isArray(c.result?.domains)||c.result.domains.length)fail('bucket_privacy_unverified');
+ // Read policy only; rule presence does not independently prove retained bytes.
+ let retention;try{const response=await get('/lock');if(!response.ok)fail('bucket_lock_unverified');retention=await response.json()}catch{fail('bucket_lock_unverified')}
+ if(retention.success!==true||!Array.isArray(retention.result?.rules))fail('bucket_lock_unverified');
+ const observedLockRules=retention.result.rules.length;
  let bytes;try{bytes=await boundedBytes(await get('/objects/'+key))}catch{fail('private_object_unreadable')}
  if(bytes.length!==CANDIDATE_SIZES[env.VERSIONED_RUN_ID])fail('observed_size_mismatch');
  const digest=sha(bytes);
@@ -39,6 +44,7 @@ export async function verifyVersionedR2Candidate(env,{fetchImpl=fetch}={}){
   rowCountsSha256:sha(JSON.stringify(inventory.counts)),
   sqliteIntegrityPassed:true,foreignKeyViolations:0,
   originalProtectedReceiptAuthenticated:false,exportBookmarkIndependentlyVerified:false,
+  observedLockRules,retentionRulesPresent:observedLockRules>0,
   rpoApproved:false,retentionEnforced:false,representativeR2ObjectVerified:false,
   independentRestoreApproval:false,restoreExecuted:false,productionWriteAuthorized:false,
   disposition:'HOLD_PROVENANCE_RETENTION_AND_INDEPENDENT_RESTORE_APPROVAL_REQUIRED'};

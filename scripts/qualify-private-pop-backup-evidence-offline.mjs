@@ -6,6 +6,7 @@ import {pathToFileURL} from 'node:url';
 const SHA=/^[a-f0-9]{64}$/;
 const GIT_SHA=/^[a-f0-9]{40}$/;
 const BOOKMARK=/^[A-Za-z0-9._:-]{8,300}$/;
+export const isValidBookmark = value => typeof value === 'string' && BOOKMARK.test(value);
 const ACCOUNT='ddd23cab31928a4bb3d4998df9b26d1d';
 const DATABASE='8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce';
 const BUCKET='bw-compliance-ops-backups';
@@ -17,8 +18,12 @@ function requireString(value,regexp,code){
 export function validateCandidateReceipt(input,{expectedMainSha}={}){
  if(!input||typeof input!=='object'||Array.isArray(input))fail('invalid_receipt');
  const keys=['kind','accountId','databaseId','bucket','sourceSha','runId','attempt','candidateKey','bytes','sha256','exportBookmark','privateRoundtripVerified'];
- // Strictly reject unknown fields: never accidentally persist signed URLs, tokens, SQL bytes, or tenant information.
- if(Object.keys(input).length!==keys.length||keys.some(key=>!Object.hasOwn(input,key)))fail('unexpected_fields');
+ // Scheduled candidates may add a single explicit atomic R2 conditional-create
+ // attestation. The old manual receipt format must remain fully compatible.
+ const atomic=Object.hasOwn(input,'atomicConditionalCreateVerified');
+ const allowed=atomic?[...keys,'atomicConditionalCreateVerified']:keys;
+ if(Object.keys(input).length!==allowed.length||allowed.some(key=>!Object.hasOwn(input,key)))fail('unexpected_fields');
+ if(atomic&&input.atomicConditionalCreateVerified!==true)fail('atomic_create_not_confirmed');
  if(input.kind!=='private_production_backup_candidate'||input.accountId!==ACCOUNT||input.databaseId!==DATABASE||input.bucket!==BUCKET)fail('authority');
  const sourceSha=requireString(input.sourceSha,GIT_SHA,'source_sha');
  if(expectedMainSha!==undefined&&sourceSha!==expectedMainSha)fail('stale_source');

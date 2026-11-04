@@ -7,14 +7,21 @@ const env={GITHUB_REPOSITORY:'adinosassist-stack/botswana-compliance-platform',G
   EXPECTED_SHA:'a'.repeat(40),GITHUB_SHA:'a'.repeat(40),PRIVATE_BACKUP_ACCOUNT_ID:'ddd23cab31928a4bb3d4998df9b26d1d',
   PRIVATE_BACKUP_CLOUDFLARE_TOKEN:'secret-test-only',GITHUB_RUN_ID:'123',GITHUB_RUN_ATTEMPT:'1'};
 const signed='https://'+'b'.repeat(32)+'.r2.cloudflarestorage.com/export.sql?signature=private';
-function fixture({publicBucket=false,downloadStatus=200,badRoundtrip=false,exists=false,finalBookmark='bookmark'}={}){
-  const calls=[];let exportCalls=0,written;
+function fixture({publicBucket=false,downloadStatus=200,badRoundtrip=false,exists=false,
+  finalBookmark='bookmark',retentionDrift=false,retentionDriftBeforeWrite=false}={}){
+  const calls=[];let exportCalls=0,lockReads=0,written;
   const json=result=>Response.json({success:true,result});
   const fetchImpl=async(url,o={})=>{
     calls.push({url,o});
     if(url===signed)return new Response('CREATE TABLE tenants(id TEXT);',{status:downloadStatus});
     if(url.endsWith('/domains/managed'))return json({enabled:publicBucket});
     if(url.endsWith('/domains/custom'))return json({domains:[]});
+    if(url.endsWith('/lock')){
+      lockReads++;
+      const bad=retentionDrift||(retentionDriftBeforeWrite&&lockReads===2);
+      return json({rules:[{id:'candidates-30-day-retention',enabled:!bad,
+        prefix:'candidates/',condition:{type:'Age',maxAgeSeconds:2592000}}]});
+    }
     if(url.endsWith('/d1/database/8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce'))return json({uuid:'8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce',name:'bw-compliance-os'});
     if(url.endsWith('/export'))return json(++exportCalls===1?{status:'active',at_bookmark:'bookmark'}:{status:'complete',...(finalBookmark===null?{}:{at_bookmark:finalBookmark}),result:{signed_url:signed}});
     if(url.includes('/objects/candidates/123/1/production-d1.sql')){
@@ -32,6 +39,7 @@ test('private candidate roundtrip uses fixed source and never sends bearer to si
   assert.equal(Object.hasOwn(r,'backupIndependentlyApproved'),false);
   assert.equal(Object.hasOwn(r,'restorePerformed'),false);
   assert.equal(checks,2);
+  assert.equal(f.calls.filter(x=>x.url.endsWith('/lock')).length,2,'retention must be checked before export and immediately before PUT');
   assert.equal(r.candidateKey,'candidates/123/1/production-d1.sql');
   assert.equal(r.accountId,env.PRIVATE_BACKUP_ACCOUNT_ID);
   assert.equal(r.databaseId,'8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce');
@@ -60,7 +68,7 @@ test('public bucket stops before export',async()=>{
   assert.equal(f.calls.some(x=>x.o.method==='POST'),false);
 });
 test('missing or blank completed export bookmark stops before any candidate download or write',async()=>{
- for(const finalBookmark of [null,'','  ']){
+ for(const finalBookmark of [null,'','  ','short','bad bookmark','x'.repeat(301)]){
   const f=fixture({finalBookmark});
   await assert.rejects(prepareBackup(env,f),/export_bookmark/);
   assert.equal(f.calls.some(x=>x.url===signed),false);
@@ -105,4 +113,65 @@ test('untrusted thrown errors cannot impersonate an internal diagnostic',async()
   assert.deepEqual(safeFailure(e),{code:'unexpected_failure'});
   let caught;try{await prepareBackup(env,{fetchImpl:async()=>{throw e}})}catch(x){caught=x;}
   assert.deepEqual(safeFailure(caught),{code:'transport_failed',stage:'backup_bucket_managed_domain'});
+});
+
+
+test('retention policy drift refuses export before provider POST and refuses mutation at write boundary',async()=>{
+ const early=fixture({retentionDrift:true});
+ await assert.rejects(prepareBackup(env,early),/r2_retention_readback_hold_policy_mismatch/);
+ assert.equal(early.calls.some(x=>x.o.method==='POST'),false);
+ assert.equal(early.calls.some(x=>x.o.method==='PUT'),false);
+ const late=fixture({retentionDriftBeforeWrite:true});
+ await assert.rejects(prepareBackup(env,late),/r2_retention_readback_hold_policy_mismatch/);
+ assert.ok(late.calls.some(x=>x.o.method==='POST'));
+ assert.equal(late.calls.some(x=>x.o.method==='PUT'),false);
+});
+
+test('scheduled authority requires real GitHub records; manual path never requests schedule grants',async()=>{
+ const f=fixture();
+ const scheduled={...env,GITHUB_EVENT_NAME:'schedule',BACKUP_CONFIRM:'',
+   PRIVATE_BACKUP_SCHEDULE_ENABLED:'true',GITHUB_TOKEN:'test-git',
+   PRIVATE_BACKUP_SCHEDULE_R2_ACCESS_KEY_ID:'test-r2-access',
+   PRIVATE_BACKUP_SCHEDULE_R2_SECRET_ACCESS_KEY:'test-r2-secret',
+   PRIVATE_BACKUP_SCHEDULE_OWNER_APPROVAL_ID:'31001',
+   PRIVATE_BACKUP_SCHEDULE_REVIEW_APPROVAL_ID:'31002'};
+ const created_at=new Date(Date.now()-3600000).toISOString().slice(0,19)+'Z';
+ const expiresAt=new Date(Date.now()+3600000).toISOString().slice(0,19)+'Z';
+ const payload={
+   scope:'HOURLY_PRIVATE_D1_CANDIDATE_EXPORT_ONLY',sourceSha:scheduled.GITHUB_SHA,
+   accountId:scheduled.PRIVATE_BACKUP_ACCOUNT_ID,
+   databaseId:'8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce',
+   bucket:'bw-compliance-ops-backups',prefix:'candidates/',
+   maxIntervalMinutes:120,retentionDays:30,
+   retentionAndAccessAccepted:true,dedicatedCredentialScopeAccepted:true,
+   atomicConditionalUploadReviewed:true,expiresAt
+ };
+ const rec=(id,login)=>({id,user:{login},created_at,
+   issue_url:'https://api.github.com/repos/adinosassist-stack/botswana-compliance-platform/issues/1950',
+   body:'THEBE_RECURRING_BACKUP_APPROVAL\n'+JSON.stringify(payload)});
+ let approvalCalls=0;
+ const approvalFetchImpl=async url=>{
+   approvalCalls++;
+   if(url.endsWith('/git/ref/heads/main'))return Response.json({object:{sha:scheduled.GITHUB_SHA}});
+   if(url.endsWith('/issues/comments/31001'))return Response.json(rec(31001,'adinosassist-stack'));
+   if(url.endsWith('/issues/comments/31002'))return Response.json(rec(31002,'thusico'));
+   throw Error('unexpected GitHub URL');
+ };
+ let s3Count=0;
+ const atomicUploader=async(e,body)=>{
+   s3Count++;
+   assert.equal(body.key,'candidates/123/1/production-d1.sql');
+   assert.equal(e.PRIVATE_BACKUP_SCHEDULE_R2_ACCESS_KEY_ID,'test-r2-access');
+   return {atomicConditionalCreateVerified:true,privateRoundtripVerified:true,
+     bytes:body.bytes.length,sha256:body.expectedSha256};
+ };
+ const approved=await prepareBackup(scheduled,{...f,approvalFetchImpl,atomicUploader});
+ assert.equal(approvalCalls,3);
+ assert.equal(s3Count,1);
+ assert.equal(approved.privateRoundtripVerified,true);
+ assert.equal(approved.atomicConditionalCreateVerified,true);
+ assert.equal(f.calls.filter(x=>x.o.method==='PUT').length,0,'scheduled exporter must not call REST PUT');
+ const manual=fixture();
+ const r=await prepareBackup(env,{...manual,approvalFetchImpl:async()=>{throw Error('manual must not request schedule approvals')}});
+ assert.equal(r.privateRoundtripVerified,true);
 });

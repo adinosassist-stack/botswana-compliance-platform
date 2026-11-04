@@ -2,7 +2,14 @@
 
 This checklist is a **hold point**, not authorization to migrate production. Never infer backup availability from a successful read-only schema inspection.
 
-## Current evidence
+## Updated read-only staging evidence — 4 November 2026
+- Production D1 catalog: **573 SQLite schema objects**, no POP tables; staging: **578**, including exactly two POP tables and three reviewed POP indexes.
+- All **573** production objects are present in staging; shared `sqlite_master.sql` definitions and object owners are unchanged. Five additional staged objects match the reviewed 070/071 names and table owners exactly.
+- Staging D1 reports 233 application tables, zero foreign-key violations and `PRAGMA quick_check=ok`. This is a point-in-time schema inspection, **not an authenticated 070/071 migration execution receipt**.
+- The former empty-staging/pre-070 initializer must **not** be replayed against the populated staging target. Its schema shape alone does not authorize production migration, activate POP ingestion or prove a recovery-time objective.
+- The read-only catalog and digest workflows are configured for an exact current `main` SHA and protected environment approval. Their schema-only review is a fail-closed check of exactly the five planned additions, not a migration or launch attestation.
+
+## Historical evidence
 - Last read-only production inspection: GitHub Actions run 40782512579; prerequisite tables exist, POP 070/071 objects are absent; d1_migrations was not found.
 - Isolated **minimal-fixture** SQLite rehearsal (PR #1928) passed. This does not prove compatibility with a production-like database or a recoverable Cloudflare D1 backup.
 - Verified main when drafted: 94f11ca79391c2db32e5618b48c197d51fb24d61. Recheck current main before using.

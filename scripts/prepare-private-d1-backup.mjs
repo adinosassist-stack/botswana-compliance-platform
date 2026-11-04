@@ -1,5 +1,9 @@
 import {createHash} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
+import {isValidBookmark} from './qualify-private-pop-backup-evidence-offline.mjs';
+import {inspectCandidateRetentionPolicy} from './check-private-backup-retention-readonly.mjs';
+import {verifyRecurringBackupAuthorization} from './authorize-recurring-private-backup.mjs';
+import {uploadPrivateCandidateAtomically} from './upload-private-r2-candidate-atomic.mjs';
 const ACCOUNT='ddd23cab31928a4bb3d4998df9b26d1d';
 const DB='8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce';
 const BUCKET='bw-compliance-ops-backups';
@@ -16,6 +20,7 @@ export function safeFailure(error){
 function stageFor(path){
   if(path.endsWith('/domains/managed'))return 'backup_bucket_managed_domain';
   if(path.endsWith('/domains/custom'))return 'backup_bucket_custom_domains';
+  if(path.endsWith('/lock'))return 'backup_bucket_retention';
   if(path.endsWith('/export'))return 'production_d1_export';
   return 'production_d1_metadata';
 }
@@ -36,12 +41,22 @@ export function validateExportUrl(value){
      !/^[a-f0-9]{32}\.r2\.cloudflarestorage\.com$/.test(u.hostname))stop('export_url');
   return u.href;
 }
-export async function prepareBackup(e,{fetchImpl=fetch,pause=ms=>new Promise(r=>setTimeout(r,ms)),assertCurrent=async()=>{}}={}){
+export async function prepareBackup(e,{fetchImpl=fetch,pause=ms=>new Promise(r=>setTimeout(r,ms)),
+  assertCurrent=async()=>{},approvalFetchImpl=fetch,
+  atomicUploader=uploadPrivateCandidateAtomically}={}){
+  const manual=e.GITHUB_EVENT_NAME==='workflow_dispatch'&&e.BACKUP_CONFIRM==='PREPARE_PRIVATE_PRODUCTION_BACKUP';
+  const scheduled=e.GITHUB_EVENT_NAME==='schedule'&&e.PRIVATE_BACKUP_SCHEDULE_ENABLED==='true';
   if(e.GITHUB_REPOSITORY!=='adinosassist-stack/botswana-compliance-platform'||e.GITHUB_REF!=='refs/heads/main'||
-     e.GITHUB_EVENT_NAME!=='workflow_dispatch'||e.BACKUP_CONFIRM!=='PREPARE_PRIVATE_PRODUCTION_BACKUP'||
-     !/^[a-f0-9]{40}$/.test(e.EXPECTED_SHA||'')||e.EXPECTED_SHA!==e.GITHUB_SHA||
-     e.PRIVATE_BACKUP_ACCOUNT_ID!==ACCOUNT||!e.PRIVATE_BACKUP_CLOUDFLARE_TOKEN?.trim()||
+     (!manual&&!scheduled)||!/^[a-f0-9]{40}$/.test(e.EXPECTED_SHA||'')||
+     e.EXPECTED_SHA!==e.GITHUB_SHA||e.PRIVATE_BACKUP_ACCOUNT_ID!==ACCOUNT||
+     !e.PRIVATE_BACKUP_CLOUDFLARE_TOKEN?.trim()||
      !/^[1-9]\d*$/.test(e.GITHUB_RUN_ID||'')||!/^[1-9]\d*$/.test(e.GITHUB_RUN_ATTEMPT||''))stop('authority');
+  if(scheduled){
+    const approval=await verifyRecurringBackupAuthorization(e,{fetchImpl:approvalFetchImpl});
+    if(approval?.kind!=='short_lived_private_backup_schedule_authorized'||
+       approval.sourceSha!==e.EXPECTED_SHA||approval.restoreAuthorized!==false||
+       approval.productionDeploymentAuthorized!==false)stop('schedule_authority');
+  }
   const root=`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}`;
   const request=async(path,method='GET',body)=>{
     const stage=stageFor(path);let r;
@@ -55,17 +70,19 @@ export async function prepareBackup(e,{fetchImpl=fetch,pause=ms=>new Promise(r=>
   const managed=await request(`/r2/buckets/${BUCKET}/domains/managed`);
   const custom=await request(`/r2/buckets/${BUCKET}/domains/custom`);
   if(managed?.enabled!==false||!Array.isArray(custom?.domains)||custom.domains.length)stop('bucket_public');
+  const retentionPath=`/r2/buckets/${BUCKET}/lock`;
+  inspectCandidateRetentionPolicy({success:true,result:await request(retentionPath)});
   const metadata=await request(`/d1/database/${DB}`);
   if(metadata?.uuid!==DB||metadata.name!=='bw-compliance-os')stop('database_identity');
   await assertCurrent();
   let result=await request(`/d1/database/${DB}/export`,'POST',{output_format:'polling'});
   for(let i=0;result?.status==='active'&&i<60;i++){
-    if(typeof result.at_bookmark!=='string'||!result.at_bookmark)stop('export_bookmark');
+    if(!isValidBookmark(result.at_bookmark)||!result.at_bookmark)stop('export_bookmark');
     await pause(1000);
     result=await request(`/d1/database/${DB}/export`,'POST',{output_format:'polling',current_bookmark:result.at_bookmark});
   }
   if(result?.status!=='complete')stop('export_incomplete');
-  if(typeof result.at_bookmark!=='string'||!result.at_bookmark.trim())stop('export_bookmark');
+  if(!isValidBookmark(result.at_bookmark))stop('export_bookmark');
   // The signed URL is never logged, persisted, or given the API bearer credential.
   const url=validateExportUrl(result.result?.signed_url);
   const bytes=await boundedBytes(await fetchImpl(url,{redirect:'error',signal:AbortSignal.timeout(60000)}));
@@ -73,24 +90,37 @@ export async function prepareBackup(e,{fetchImpl=fetch,pause=ms=>new Promise(r=>
   const sha256=hash(bytes),key=`candidates/${e.GITHUB_RUN_ID}/${e.GITHUB_RUN_ATTEMPT}/production-d1.sql`;
   const target=root+`/r2/buckets/${BUCKET}/objects/`+key;
   const headers={Authorization:`Bearer ${e.PRIVATE_BACKUP_CLOUDFLARE_TOKEN}`};
-  const existing=await fetchImpl(target,{headers,redirect:'error',signal:AbortSignal.timeout(30000)});
-  await existing.body?.cancel();
-  if(existing.status!==404)stop('candidate_exists_or_unverifiable');
+  // Check scope/approvals/main again before the only candidate-write boundary.
   await assertCurrent();
-  // This key is a candidate, never the restore runner's approved input key.
-  const upload=await fetchImpl(target,{method:'PUT',headers:{...headers,'Content-Type':'application/sql'},
-    body:bytes,redirect:'error',signal:AbortSignal.timeout(60000)});
-  if(!upload.ok)stop('upload_refused');
-  let uploaded;try{uploaded=await upload.json()}catch{stop('upload_unconfirmed')}
-  if(uploaded.success!==true)stop('upload_unconfirmed');
-  const roundtrip=await boundedBytes(await fetchImpl(target,{headers,redirect:'error',signal:AbortSignal.timeout(60000)}));
-  if(hash(roundtrip)!==sha256)stop('roundtrip_mismatch');
+  inspectCandidateRetentionPolicy({success:true,result:await request(retentionPath)});
+  let atomicConditionalCreateVerified=false;
+  if(scheduled){
+    // Never use REST GET-before-PUT for unattended exports; it is not atomic.
+    // S3 PutObject If-None-Match:* is an atomic create-once operation in R2.
+    const result=await atomicUploader(e,{key,bytes,expectedSha256:sha256});
+    if(result?.atomicConditionalCreateVerified!==true||
+       result.privateRoundtripVerified!==true||result.sha256!==sha256||
+       result.bytes!==bytes.length)stop('atomic_unconfirmed');
+    atomicConditionalCreateVerified=true;
+  }else{
+    // Preserve the existing separately approved *manual* exporter unchanged.
+    const existing=await fetchImpl(target,{headers,redirect:'error',signal:AbortSignal.timeout(30000)});
+    await existing.body?.cancel();
+    if(existing.status!==404)stop('candidate_exists_or_unverifiable');
+    const upload=await fetchImpl(target,{method:'PUT',headers:{...headers,'Content-Type':'application/sql'},
+      body:bytes,redirect:'error',signal:AbortSignal.timeout(60000)});
+    if(!upload.ok)stop('upload_refused');
+    let uploaded;try{uploaded=await upload.json()}catch{stop('upload_unconfirmed')}
+    if(uploaded.success!==true)stop('upload_unconfirmed');
+    const roundtrip=await boundedBytes(await fetchImpl(target,{headers,redirect:'error',signal:AbortSignal.timeout(60000)}));
+    if(hash(roundtrip)!==sha256)stop('roundtrip_mismatch');
+  }
   // Exact receipt schema consumed by the offline evidence verifier. Never add
   // untrusted approval flags or private bytes to the signed operator handoff.
   return {kind:'private_production_backup_candidate',accountId:ACCOUNT,databaseId:DB,bucket:BUCKET,
     sourceSha:e.EXPECTED_SHA,runId:e.GITHUB_RUN_ID,attempt:e.GITHUB_RUN_ATTEMPT,
     candidateKey:key,bytes:bytes.length,sha256,exportBookmark:result.at_bookmark,
-    privateRoundtripVerified:true};
+    privateRoundtripVerified:true,...(atomicConditionalCreateVerified?{atomicConditionalCreateVerified:true}:{})};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   try{
@@ -98,6 +128,7 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
       const r=await fetch(`https://api.github.com/repos/adinosassist-stack/botswana-compliance-platform/git/ref/heads/main`,
         {headers:{Authorization:`Bearer ${process.env.GITHUB_TOKEN}`},redirect:'error',signal:AbortSignal.timeout(30000)});
       if(!r.ok||(await r.json()).object?.sha!==process.env.EXPECTED_SHA)stop('main_drift');
+      if(process.env.GITHUB_EVENT_NAME==='schedule')await verifyRecurringBackupAuthorization(process.env);
     };
     console.log(JSON.stringify(await prepareBackup(process.env,{assertCurrent})));
   }catch(error){console.error(JSON.stringify(safeFailure(error)));process.exitCode=1;}

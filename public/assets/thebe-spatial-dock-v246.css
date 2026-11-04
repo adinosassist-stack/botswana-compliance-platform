@@ -573,3 +573,42 @@ html body #thebeAiDock[data-surface="workspace"] .thebe-ai-expand{
     border-radius:24px!important;
   }
 }
+
+/* Mobile composer: authoritative hidden states and collision-safe four-action row.
+   Keep controls accessible without overlapping a narrow text field. */
+#thebeAiDock .thebe-ai-compose :is(.thebe-ai-composer-action,.thebe-ai-send)[hidden]{
+  display:none!important;
+}
+@media (max-width:767px){
+  html body #thebeAiDock .thebe-ai-compose{
+    display:flex!important;
+    align-items:flex-end!important;
+    gap:4px!important;
+    max-width:calc(100% - 16px)!important;
+    margin-left:8px!important;
+    margin-right:8px!important;
+    padding:6px!important;
+    box-sizing:border-box!important;
+  }
+  html body #thebeAiDock .thebe-ai-compose-body{
+    flex:1 1 0%!important;
+    min-width:0!important;
+    max-width:100%!important;
+  }
+  html body #thebeAiDock .thebe-ai-compose :is(.thebe-ai-composer-action,.thebe-ai-send){
+    flex:0 0 38px!important;
+    width:38px!important;
+    min-width:38px!important;
+    height:42px!important;
+    min-height:42px!important;
+    max-width:38px!important;
+    align-self:flex-end!important;
+    box-sizing:border-box!important;
+  }
+  html body #thebeAiDock .thebe-ai-compose textarea{
+    min-width:0!important;
+    width:100%!important;
+    max-width:100%!important;
+    box-sizing:border-box!important;
+  }
+}
