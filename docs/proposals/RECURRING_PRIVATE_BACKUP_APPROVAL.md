@@ -33,12 +33,17 @@ credential. **Do not enable it merely because this PR or offline CI passes.**
    includes protection; dedicated environment credentials must never be copied
    from the broad production deploy token.
 3. Provision a **distinct** `PRIVATE_BACKUP_SCHEDULE_CLOUDFLARE_TOKEN` secret
-   in that environment. Grant only provider-supported permissions needed for
-   production D1 export and private R2 candidate object creation/readback,
-   with explicit Cloudflare account scope and any tighter database/bucket scopes
-   the provider supports. Verify GET/POST/PUT routes under this dedicated
-   identity before approving recurring execution; avoid the S3-only object-read
-   token on Cloudflare REST endpoints. Document expiry, owner, revocation and
+   for Cloudflare REST D1 export, account/database identity and bucket domain/
+   retention readback only, plus **separate bucket-scoped R2 S3 credentials**
+   `PRIVATE_BACKUP_SCHEDULE_R2_ACCESS_KEY_ID` and
+   `PRIVATE_BACKUP_SCHEDULE_R2_SECRET_ACCESS_KEY` for S3 `PutObject` and
+   `GetObject`. The S3 credential must have the smallest supported object
+   read/write scope for **only** `bw-compliance-ops-backups`. Never use the
+   broad production deploy token. Validate that the Cloudflare REST credential
+   has no R2 object upload/delete permission where the provider supports the
+   separation; test supported scopes independently. R2 S3 object credentials
+   are **not** REST credentials; object-scoped S3 tokens used against REST may
+   return 403/provider code 10000. Document expiry, owner, revocation and
    rotation steps. No token values belong in comments, logs or PRs.
 4. Following **actual** retention/access acceptance, the authenticated GitHub
    issue #1950 owner `adinosassist-stack` and independent reviewer `thusico`
@@ -81,6 +86,7 @@ THEBE_RECURRING_BACKUP_APPROVAL
   "retentionDays": 30,
   "retentionAndAccessAccepted": true,
   "dedicatedCredentialScopeAccepted": true,
+  "atomicConditionalUploadReviewed": true,
   "expiresAt": "2026-11-06T20:00:00Z"
 }
 ```
@@ -105,15 +111,21 @@ creation. The live source SHA and all fields must match both records.
 - Both current private R2 domain state and the exact 30-day retention policy
   are verified, with a second policy readback immediately before candidate PUT.
   An existing or unverifiable destination is rejected rather than overwritten.
+- Scheduled candidate writes use the *documented R2 S3 atomic conditional
+  create* `PutObject` with `If-None-Match: *`, single attempt and bounded
+  `GetObject` byte readback through independently scoped R2 S3 credentials.
+  A 412 conflict fails closed. The manual REST GET-before-PUT workflow remains
+  separately protected and must not be mistaken for atomic create-once.
 - Candidate SQL is size-limited, SHA-256 checked on private roundtrip, and
   carries the already-reviewed export bookmark and source metadata in a receipt.
+  The scheduled receipt adds only `atomicConditionalCreateVerified=true`.
 - The scheduling authorization does **not** grant an isolated import or
   release right, and does not allow POP ingestion, advanced exports, bank
   reference-only subscription activation or production configuration changes.
 
 ## Remaining blockers
 
-This PR alone **does not create** the environment, credential, two approvals,
+This PR alone **does not create** the environment, separate REST/S3 credentials, two approvals,
 operations rotation plan, alerting recipient, actual recurring exports or
 completed recoverability acceptance. GitHub Actions scheduling can be delayed,
 so a one-hour cron **does not guarantee** a two-hour RPO. The read-only
@@ -121,3 +133,15 @@ cadence observer must continue checking real candidate gaps; independent
 restore testing with user/tenant isolation is still required. Production launch,
 Release 590 and restore versioned candidate remain on HOLD until their
 **separate existing** independent approvals and protected gates are satisfied.
+
+
+## Source documentation for the conditional write contract
+
+Cloudflare documents the atomic `PutObject If-None-Match: *` S3 behavior,
+including a 412 result for concurrent attempts, at
+https://developers.cloudflare.com/r2/reference/consistency/#conditional-writes
+and its R2 S3 compatibility reference
+https://developers.cloudflare.com/r2/api/s3/api/.
+The Cloudflare REST `Upload Object` operation does not document the same
+conditional header: https://developers.cloudflare.com/api/resources/r2/.
+No actual R2 write was performed as part of this documentation or code review.
