@@ -18,9 +18,9 @@ function normalize(rows,requireDigest=false){
     typeof row.name!=='string'||!row.name||typeof row.tbl_name!=='string'||!row.tbl_name)fail('invalid_row');
   const key=row.type+':'+row.name;
   if(items.has(key))fail('duplicate');
+  if(requireDigest&&row.type!=='index'&&row.digest===null)fail('missing_ddl');
   if(requireDigest && !(row.digest===null&&row.type==='index') &&
      !(typeof row.digest==='string'&&/^[a-f0-9]{64}$/.test(row.digest)))fail('invalid_digest');
-  if(requireDigest&&row.type!=='index'&&row.digest===null)fail('missing_ddl');
   items.set(key,{owner:row.tbl_name,digest:requireDigest?row.digest:undefined});
  }
  return items;
