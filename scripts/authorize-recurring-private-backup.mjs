@@ -16,6 +16,8 @@ export function verifyRecurringBackupEnvironment(e){
     e.EXPECTED_SHA!==e.GITHUB_SHA||e.PRIVATE_BACKUP_SCHEDULE_ENABLED!=='true'||
     e.PRIVATE_BACKUP_ACCOUNT_ID!==ACCOUNT||
     !e.PRIVATE_BACKUP_CLOUDFLARE_TOKEN?.trim()||!e.GITHUB_TOKEN?.trim()||
+    !e.PRIVATE_BACKUP_SCHEDULE_R2_ACCESS_KEY_ID?.trim()||
+    !e.PRIVATE_BACKUP_SCHEDULE_R2_SECRET_ACCESS_KEY?.trim()||
     !id(e.GITHUB_RUN_ID)||e.GITHUB_RUN_ATTEMPT!=='1'||
     !id(e.PRIVATE_BACKUP_SCHEDULE_OWNER_APPROVAL_ID)||
     !id(e.PRIVATE_BACKUP_SCHEDULE_REVIEW_APPROVAL_ID)||
@@ -34,7 +36,8 @@ function parseRecord(record,author,approvalId,sha,now){
   scope:'HOURLY_PRIVATE_D1_CANDIDATE_EXPORT_ONLY',
   sourceSha:sha,accountId:ACCOUNT,databaseId:DATABASE,bucket:BUCKET,
   prefix:'candidates/',maxIntervalMinutes:120,retentionDays:30,
-  retentionAndAccessAccepted:true,dedicatedCredentialScopeAccepted:true
+  retentionAndAccessAccepted:true,dedicatedCredentialScopeAccepted:true,
+  atomicConditionalUploadReviewed:true
  };
  if(!p||Array.isArray(p)||typeof p!=='object')stop('scope');
  const keys=Object.keys(expected).concat('expiresAt').sort();
