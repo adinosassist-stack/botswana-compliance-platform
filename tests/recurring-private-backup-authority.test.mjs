@@ -19,7 +19,9 @@ const env={
  PRIVATE_BACKUP_SCHEDULE_OWNER_APPROVAL_ID:'31001',
  PRIVATE_BACKUP_SCHEDULE_REVIEW_APPROVAL_ID:'31002',
  PRIVATE_BACKUP_ACCOUNT_ID:account,
- PRIVATE_BACKUP_CLOUDFLARE_TOKEN:'test-dedicated-backup-token'
+ PRIVATE_BACKUP_CLOUDFLARE_TOKEN:'test-dedicated-backup-token',
+ PRIVATE_BACKUP_SCHEDULE_R2_ACCESS_KEY_ID:'test-r2-access',
+ PRIVATE_BACKUP_SCHEDULE_R2_SECRET_ACCESS_KEY:'test-r2-secret'
 };
 const payload={
  scope:'HOURLY_PRIVATE_D1_CANDIDATE_EXPORT_ONLY',sourceSha:source,
@@ -27,6 +29,7 @@ const payload={
  bucket:'bw-compliance-ops-backups',prefix:'candidates/',
  maxIntervalMinutes:120,retentionDays:30,
  retentionAndAccessAccepted:true,dedicatedCredentialScopeAccepted:true,
+ atomicConditionalUploadReviewed:true,
  expiresAt:'2026-11-06T20:00:00Z'
 };
 function record(id,user,changes={}){
@@ -64,6 +67,8 @@ test('any disabled, wrong-event, unreviewed, stale, retry or missing-secret sche
  {PRIVATE_BACKUP_ACCOUNT_ID:'b'.repeat(32)},
  {GITHUB_TOKEN:''},
  {PRIVATE_BACKUP_CLOUDFLARE_TOKEN:''},
+ {PRIVATE_BACKUP_SCHEDULE_R2_ACCESS_KEY_ID:''},
+ {PRIVATE_BACKUP_SCHEDULE_R2_SECRET_ACCESS_KEY:''},
  {PRIVATE_BACKUP_SCHEDULE_REVIEW_APPROVAL_ID:'31001'},
  {PRIVATE_BACKUP_SCHEDULE_OWNER_APPROVAL_ID:''}
  ];
@@ -83,6 +88,7 @@ test('forged or wrong author/issue/id/expiry/source/scope fails before productio
  {...v,reviewerRecord:record(31002,'thusico',{payload:{sourceSha:'b'.repeat(40)}})},
  {...v,reviewerRecord:record(31002,'thusico',{payload:{retentionAndAccessAccepted:false}})},
  {...v,reviewerRecord:record(31002,'thusico',{payload:{dedicatedCredentialScopeAccepted:false}})},
+ {...v,reviewerRecord:record(31002,'thusico',{payload:{atomicConditionalUploadReviewed:false}})},
  {...v,reviewerRecord:record(31002,'thusico',{payload:{expiresAt:'2026-11-07T20:00:00Z'}})},
  {...v,ownerRecord:record(31001,'adinosassist-stack',{payload:{expiresAt:'2026-11-04T19:01:00Z'}})},
  {...v,ownerRecord:record(31001,'adinosassist-stack',{payload:{expiresAt:'2026-11-15T20:00:00Z'}})},
