@@ -6,6 +6,10 @@ on:
       - 'cloudflare/migrations/071_payment_pop_runtime_compat.sql'
       - 'scripts/rehearse-pop-070-071-sqlite.py'
       - 'scripts/rehearse-pop-070-071-adversarial.py'
+      - 'tests/pop-staging-local-tenant-replay.test.mjs'
+      - 'tests/payment-pop-staging-service.test.mjs'
+      - 'tests/manual-bank-owner-approval-flow.test.mjs'
+      - 'tests/owner-payment-evidence-policy.test.mjs'
       - 'scripts/plan-production-pop-070-071.mjs'
       - 'tests/pop-ordered-preflight.test.mjs'
       - '.github/workflows/rehearse-pop-070-071-sqlite.yml'
@@ -33,3 +37,6 @@ jobs:
         run: python3 scripts/rehearse-pop-070-071-sqlite.py
       - name: Reject interrupted and duplicate 071 replay without changing fixture evidence
         run: python3 scripts/rehearse-pop-070-071-adversarial.py
+      - name: Prove synthetic tenant-isolated POP replay and bank-credit fail-closed acceptance
+        run: |
+          node --test tests/pop-staging-local-tenant-replay.test.mjs tests/payment-pop-staging-service.test.mjs tests/owner-payment-evidence-policy.test.mjs tests/manual-bank-owner-approval-flow.test.mjs
