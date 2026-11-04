@@ -39,3 +39,19 @@ test('production deployment checks freeze before dry-run and again before mutati
   assert.match(workflow,/environment: production/);
   assert.match(workflow,/BF-07 Supply-Chain Seal/);
 });
+
+test('production freeze rejects contradictory env-scope overrides and duplicate declarations',()=>{
+  for(const [name,value] of [
+    ['POP_UPLOAD_STAGING_ENABLED','false'],
+    ['THEBE_AI_EXPORTS_ENABLED','false'],
+    ['THEBE_GENERAL_AI_ENABLED','false'],
+    ['APP_ENV','production']
+  ]){
+    const declaration=name+' = "'+value+'"';
+    assert.ok(config.includes(declaration),'expected canonical declaration: '+name);
+    for(const duplicate of [declaration,name+' = "'+(name==='APP_ENV'?'staging':'true')+'"']){
+      const changed=config+'\n[env.production.vars]\n'+duplicate+'\n';
+      assert.throws(()=>verifyCoreOnlyFreeze({config:changed,worker,exportSpec}),/exactly one global assignment/,name);
+    }
+  }
+});
