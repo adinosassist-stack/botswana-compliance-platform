@@ -40,7 +40,7 @@ test('production database remains rejected even with the dedicated credential',a
 });
 test('write credential is mode-restricted and existing independent gates remain',()=>{
   const workflow=readFileSync('.github/workflows/isolated-operations-rehearsals.yml','utf8');
-  assert.ok(workflow.includes("PRIVATE_BACKUP_CLOUDFLARE_TOKEN: ${{ (inputs.mode == 'RESTORE_APPROVED_BACKUP' || inputs.mode == 'VERIFY_EXISTING_RESTORE') && secrets.PRIVATE_BACKUP_CLOUDFLARE_TOKEN || '' }}"));
+  assert.ok(workflow.includes("PRIVATE_BACKUP_CLOUDFLARE_TOKEN: ${{ (inputs.mode == 'RESTORE_APPROVED_BACKUP' || inputs.mode == 'VERIFY_EXISTING_RESTORE' || inputs.mode == 'RESTORE_VERSIONED_CANDIDATE') && secrets.PRIVATE_BACKUP_CLOUDFLARE_TOKEN || '' }}"));
   assert.match(workflow,/environment: operations-rehearsal/);
   assert.match(workflow,/inputs.confirmation == 'RUN_ISOLATED_REHEARSAL'/);
   assert.match(workflow,/Reviewed revision is no longer current main/);
@@ -70,3 +70,4 @@ test('all 231 restored table counts use individual D1-compatible statements',asy
   assert.equal(rows[230].n,231);
   await assert.rejects(readRestoredCounts(async()=>assert.fail('unsafe transport'),['bad"name']),/backup_schema/);
 });
+
