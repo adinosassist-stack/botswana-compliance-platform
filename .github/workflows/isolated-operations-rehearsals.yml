@@ -4,6 +4,9 @@ run-name: Isolated operations ${{ inputs.mode || 'qualification' }} ${{ inputs.e
 on:
   pull_request:
     paths:
+      - scripts/restore-versioned-candidate.mjs
+      - tests/restore-versioned-candidate.test.mjs
+      - docs/versioned-isolated-restore.md
       - scripts/isolated-operations-rehearsal.mjs
       - tests/isolated-operations-rehearsal.test.mjs
       - cloudflare/src/ops-rehearsal-entry.js
@@ -28,10 +31,19 @@ on:
         options:
           - PREFLIGHT_ONLY
           - PREFLIGHT_WORKER
+          - RESTORE_VERSIONED_CANDIDATE
           - RESTORE_APPROVED_BACKUP
           - VERIFY_EXISTING_RESTORE
           - ROLLBACK_REHEARSAL_WORKER
           - ALERT_PROBE
+      versioned_owner_approval_id:
+        description: Issue 1950 exact-SHA owner approval comment ID (versioned mode only)
+        type: string
+        default: ''
+      versioned_review_approval_id:
+        description: Issue 1950 exact-SHA thusico approval comment ID (versioned mode only)
+        type: string
+        default: ''
       confirmation:
         description: Authorize only the selected isolated operation
         type: choice
@@ -68,6 +80,8 @@ jobs:
           RECOVERY_DISPATCH_KIND: isolated
           RECOVERY_CONFIRM: ${{ inputs.confirmation }}
           RECOVERY_MODE: ${{ inputs.mode }}
+          VERSIONED_OWNER_APPROVAL_ID: ${{ inputs.versioned_owner_approval_id }}
+          VERSIONED_REVIEW_APPROVAL_ID: ${{ inputs.versioned_review_approval_id }}
           EXPECTED_SHA: ${{ inputs.expected_sha }}
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -76,7 +90,7 @@ jobs:
           node scripts/verify-protected-recovery-dispatch.mjs
           live_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
           [[ "$live_sha" == "$EXPECTED_SHA" ]] || { echo 'Protected recovery dispatch is stale relative to current main.' >&2; exit 1; }
-      - run: node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs tests/ops-restore-credential.test.mjs tests/launch-recovery-credential-routing.test.mjs tests/protected-recovery-dispatch-preapproval.test.mjs
+      - run: node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs tests/ops-restore-credential.test.mjs tests/launch-recovery-credential-routing.test.mjs tests/protected-recovery-dispatch-preapproval.test.mjs tests/restore-versioned-candidate.test.mjs
   rehearse:
     needs: qualify
     if: >-
@@ -99,7 +113,7 @@ jobs:
           node-version-file: .nvmrc
           package-manager-cache: false
       - name: Qualify isolated boundaries
-        run: node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs tests/ops-restore-credential.test.mjs tests/launch-recovery-credential-routing.test.mjs tests/protected-recovery-dispatch-preapproval.test.mjs
+        run: node --test tests/isolated-operations-rehearsal.test.mjs tests/ops-rehearsal-bootstrap.test.mjs tests/ops-restore-credential.test.mjs tests/launch-recovery-credential-routing.test.mjs tests/protected-recovery-dispatch-preapproval.test.mjs tests/restore-versioned-candidate.test.mjs
       - name: Install lockfile-pinned transport without lifecycle scripts
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Verify exact current main immediately before rehearsal
@@ -115,9 +129,12 @@ jobs:
           [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'Checkout changed.' >&2; exit 1; }
       - name: Run selected isolated rehearsal
         env:
+          GH_TOKEN: ${{ inputs.mode == 'RESTORE_VERSIONED_CANDIDATE' && github.token || '' }}
+          VERSIONED_OWNER_APPROVAL_ID: ${{ inputs.versioned_owner_approval_id }}
+          VERSIONED_REVIEW_APPROVAL_ID: ${{ inputs.versioned_review_approval_id }}
           OPERATIONS_REHEARSAL_ACCOUNT_ID: ${{ secrets.OPERATIONS_REHEARSAL_ACCOUNT_ID }}
           OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN: ${{ secrets.OPERATIONS_REHEARSAL_CLOUDFLARE_TOKEN }}
-          PRIVATE_BACKUP_CLOUDFLARE_TOKEN: ${{ (inputs.mode == 'RESTORE_APPROVED_BACKUP' || inputs.mode == 'VERIFY_EXISTING_RESTORE') && secrets.PRIVATE_BACKUP_CLOUDFLARE_TOKEN || '' }}
+          PRIVATE_BACKUP_CLOUDFLARE_TOKEN: ${{ (inputs.mode == 'RESTORE_APPROVED_BACKUP' || inputs.mode == 'VERIFY_EXISTING_RESTORE' || inputs.mode == 'RESTORE_VERSIONED_CANDIDATE') && secrets.PRIVATE_BACKUP_CLOUDFLARE_TOKEN || '' }}
           REHEARSAL_DATABASE_ID: ${{ (inputs.mode == 'PREFLIGHT_WORKER' || inputs.mode == 'ROLLBACK_REHEARSAL_WORKER' || inputs.mode == 'ALERT_PROBE') && vars.OPS_WORKER_D1_ID || vars.OPS_RESTORE_D1_ID }}
           REHEARSAL_ISOLATION_APPROVAL: ${{ vars.REHEARSAL_ISOLATION_APPROVAL }}
           REHEARSAL_BASE_URL: ${{ vars.REHEARSAL_BASE_URL }}
@@ -135,7 +152,11 @@ jobs:
           umask 077
           report="$RUNNER_TEMP/isolated-operations-report.json"
           trap 'rm -f "$report"' EXIT
-          node --no-warnings scripts/isolated-operations-rehearsal.mjs > "$report"
+          if [[ "$REHEARSAL_MODE" == "RESTORE_VERSIONED_CANDIDATE" ]]; then
+            node --no-warnings scripts/restore-versioned-candidate.mjs > "$report"
+          else
+            node --no-warnings scripts/isolated-operations-rehearsal.mjs > "$report"
+          fi
           {
             echo '## Isolated rehearsal evidence'
             echo 'This result does not authorize a production rollback, restore, or launch.'
@@ -143,3 +164,4 @@ jobs:
             cat "$report"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
