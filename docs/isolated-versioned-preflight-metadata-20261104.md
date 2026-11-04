@@ -1,0 +1,7 @@
+# Versioned isolated restore: metadata-only preflight
+
+This review-only module compares Cloudflare GET response metadata for the exact previously verified candidate, singleton 30-day `candidates/` object lock policy and the distinct zero-schema restore database. A caller must supply both expected and observed current-main SHA, but those strings are **not** independent authentication: an eventual protected workflow must fetch the actual current branch and enforce exact SHA before and during any protected operation.
+
+The module never reads backup SQL bytes, creates/deletes objects, modifies the lock policy, invokes D1 import or Time Travel restore, changes Cloudflare settings, or marks object-level retention enforced. Offline CI uses in-memory fake responses and makes no live API calls. Its result explicitly withholds restore approval, producer access authority, and production-write authorization even when all three metadata checks succeed.
+
+Before any separately authorized isolated import, require independent reviewer approval, a protected globally serialized environment, verified authenticated candidate SHA-256 and export bookmark, source/target access segregation, actual object protection evidence, new target-empty check, bounded import and postimport SQLite/FK/tenant/rollback validation. The existing fixed-input legacy rehearsal is **not** interchangeable with this historical versioned candidate or its target. No restore is authorized by this change.
