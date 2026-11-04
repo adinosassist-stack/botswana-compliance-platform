@@ -1716,8 +1716,13 @@
     const complianceCoverageStatus=String(co.ruleCoverageStatus||"");
     const complianceCoverageInactive=complianceCoverageStatus==="inactive";
     const complianceCoverageUnknown=complianceCoverageStatus==="unknown";
-    const net=Number(m.current30NetCashMovementMinor||0),inChange=m.inflowChangePct,outChange=m.outflowChangePct;
-    setTextNode("ownerPulseCash",money(net/100));
+    // A missing canonical amount is unknown, never a verified zero.
+    const validMinor=value=>typeof value==="number"&&Number.isSafeInteger(value);
+    const cashEvidence=validMinor(m.current30NetCashMovementMinor)&&validMinor(m.current30InflowMinor)&&validMinor(m.current30OutflowMinor);
+    const collectionsEvidence=validMinor(m.overdueReceivablesMinor)&&validMinor(m.outstandingReceivablesMinor)&&m.overdueReceivablesMinor>=0&&m.outstandingReceivablesMinor>=0;
+    const supplierEvidence=validMinor(m.payablesDue14dMinor)&&validMinor(m.payableShortfall14dMinor)&&validMinor(m.overduePayablesMinor)&&m.payablesDue14dMinor>=0&&m.payableShortfall14dMinor>=0&&m.overduePayablesMinor>=0;
+    const net=cashEvidence?m.current30NetCashMovementMinor:null,inChange=m.inflowChangePct,outChange=m.outflowChangePct;
+    setTextNode("ownerPulseCash",cashEvidence?money(net/100):"—");
     setTextNode("ownerPulseSales",money(Number(s.openQuotationValueBwp||0)));
     setTextNode("ownerPulseOps",Number(o.criticalPerformanceSignals||0)+" critical");
     setTextNode("ownerPulseCompliance",complianceCoverageInactive?"inactive":complianceCoverageUnknown?"unknown":Number(co.overdueCount||0)+" overdue");
@@ -1728,22 +1733,28 @@
     const inProgressValuations=Number(p.valuationServiceInProgressCount||0);
     const completedValuationServiceValue=Number(p.valuationServiceCompletedValueBwp||0);
     grid.append(signalCard({
-      label:"Money · 30 days",value:money(net/100),
-      title:net<0?"Recorded outflows exceeded inflows.":"Recorded inflows covered outflows.",
-      detail:`Inflow ${money(Number(m.current30InflowMinor||0)/100)} · outflow ${money(Number(m.current30OutflowMinor||0)/100)} · inflow change ${inChange==null?"—":pct(Number(inChange)*100)} · outflow change ${outChange==null?"—":pct(Number(outChange)*100)}. Cash movement only; not accounting profit.`,
-      tone:net<0?"risk":"positive"
+      label:"Money · 30 days",value:cashEvidence?money(net/100):"Unavailable",
+      title:!cashEvidence?"Recorded cash movement evidence is unavailable.":net<0?"Recorded outflows exceeded inflows.":"Recorded inflows covered outflows.",
+      detail:cashEvidence
+        ?`Inflow ${money(m.current30InflowMinor/100)} · outflow ${money(m.current30OutflowMinor/100)} · inflow change ${inChange==null?"—":pct(Number(inChange)*100)} · outflow change ${outChange==null?"—":pct(Number(outChange)*100)}. Cash movement only; not accounting profit.`
+        :"Unable to confirm the 30-day cash figures from the current business snapshot. Missing financial data is not a zero balance.",
+      tone:!cashEvidence?"neutral":net<0?"risk":"positive"
     }));
     grid.append(signalCard({
-      label:"Collections",value:money(Number(m.overdueReceivablesMinor||0)/100),
-      title:Number(m.overdueReceivablesMinor||0)>0?"Customer money is overdue.":"No overdue receivable balance is currently recorded.",
-      detail:`${money(Number(m.outstandingReceivablesMinor||0)/100)} total outstanding receivables. Thebe never assumes overdue invoices will be collected.`,
-      tone:Number(m.overdueReceivablesMinor||0)>0?"risk":"positive"
+      label:"Collections",value:collectionsEvidence?money(m.overdueReceivablesMinor/100):"Unavailable",
+      title:!collectionsEvidence?"Customer receivables evidence is unavailable.":m.overdueReceivablesMinor>0?"Customer money is overdue.":"No overdue receivable balance is currently recorded.",
+      detail:collectionsEvidence
+        ?`${money(m.outstandingReceivablesMinor/100)} total outstanding receivables. Thebe never assumes overdue invoices will be collected.`
+        :"Outstanding and overdue invoice balances could not be confirmed. No collection amount is inferred.",
+      tone:!collectionsEvidence?"neutral":m.overdueReceivablesMinor>0?"risk":"positive"
     }));
     grid.append(signalCard({
-      label:"Supplier commitments · 14 days",value:money(Number(m.payablesDue14dMinor||0)/100),
-      title:Number(m.payableShortfall14dMinor||0)>0?"Recorded cash is short against near-term supplier commitments.":"Near-term supplier commitments are visible against recorded cash.",
-      detail:`${m.payableCoverage14dRatio==null?"Payable cover unavailable":`Payable cover ${Number(m.payableCoverage14dRatio).toFixed(2)}x`} · overdue payables ${money(Number(m.overduePayablesMinor||0)/100)}.`,
-      tone:Number(m.payableShortfall14dMinor||0)>0?"risk":"neutral"
+      label:"Supplier commitments · 14 days",value:supplierEvidence?money(m.payablesDue14dMinor/100):"Unavailable",
+      title:!supplierEvidence?"Supplier commitment evidence is unavailable.":m.payableShortfall14dMinor>0?"Recorded cash is short against near-term supplier commitments.":"Near-term supplier commitments are visible against recorded cash.",
+      detail:supplierEvidence
+        ?`${m.payableCoverage14dRatio==null?"Payable cover unavailable":`Payable cover ${Number(m.payableCoverage14dRatio).toFixed(2)}x`} · overdue payables ${money(m.overduePayablesMinor/100)}.`
+        :"Supplier amounts could not be confirmed from governed records; no zero balance or coverage claim is made.",
+      tone:!supplierEvidence?"neutral":m.payableShortfall14dMinor>0?"risk":"neutral"
     }));
     grid.append(signalCard({
       label:"Sales pipeline",value:money(Number(s.openQuotationValueBwp||0)),
