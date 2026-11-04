@@ -20,6 +20,39 @@ test('even fresh listed metadata cannot prove sustained operational RPO',()=>{
  assert.equal(r.sustainedRpoQualified,false);
  assert.match(r.disposition,/^HOLD_/);
 });
+test('24-hour window flags historical gaps despite a new successful backup candidate',()=>{
+ const v=valid();
+ v.listing.result.push({key:'candidates/41892086437/1/production-d1.sql',size:3277137,last_modified:'2026-11-04T17:20:00Z'});
+ const r=assessCandidateFreshness(v);
+ assert.equal(r.latestAgeMinutes,10);
+ assert.equal(r.exceedsTwoHourRecencyThreshold,false);
+ assert.equal(r.observationWindowHours,24);
+ assert.equal(r.observedCandidateCountLast24h,3);
+ assert.ok(r.maxObservedGapLast24hMinutes>120);
+ assert.equal(r.sustainedRpoQualified,false);
+});
+test('a complete 24-hour metadata window with candidates every two hours has no observed gap breach',()=>{
+ const v=valid(),start=Date.parse(now)-24*60*60*1000;
+ v.listing.result=Array.from({length:13},(_,i)=>({
+  key:`candidates/${80000000000+i}/1/production-d1.sql`,size:3100000,
+  last_modified:new Date(start+i*2*60*60*1000).toISOString()
+ }));
+ const r=assessCandidateFreshness(v);
+ assert.equal(r.latestAgeMinutes,0);
+ assert.equal(r.maxObservedGapLast24hMinutes,120);
+ assert.equal(r.observedCandidateCountLast24h,13);
+ assert.equal(r.sustainedRpoQualified,false);
+ assert.equal(r.restoreAuthorized,false);
+});
+test('no candidate in the 24-hour observation window remains stale and has a 1440-minute gap',()=>{
+ const v=valid();
+ v.listing.result=v.listing.result.filter(x=>x.key.endsWith('/production-d1.sql'));
+ for(const item of v.listing.result)item.last_modified='2026-11-01T20:16:23.971Z';
+ const r=assessCandidateFreshness(v);
+ assert.equal(r.observedCandidateCountLast24h,0);
+ assert.equal(r.maxObservedGapLast24hMinutes,1440);
+ assert.equal(r.exceedsTwoHourRecencyThreshold,true);
+});
 test('lock drift, partial/untrusted listing, future dates and incorrect keys fail closed',()=>{
  const v=valid();
  const cases=[
