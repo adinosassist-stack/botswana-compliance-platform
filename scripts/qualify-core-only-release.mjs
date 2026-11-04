@@ -14,6 +14,14 @@ export function verifyCoreOnlyFreeze({config,worker,exportSpec}){
     assert.deepEqual(flag(name),['false'],name+' must be explicitly false exactly once in production vars');
   }
   assert.deepEqual(flag('APP_ENV'),['production'],'production profile required');
+  // A second TOML variable assignment under an env-specific profile can
+  // override a frozen value at deployment time. Qualify only configurations
+  // with one authoritative declaration of each release-critical flag.
+  for(const name of ['POP_UPLOAD_STAGING_ENABLED','THEBE_AI_EXPORTS_ENABLED','THEBE_GENERAL_AI_ENABLED','APP_ENV']){
+    const assignments=[...config.matchAll(new RegExp('^\\s*'+name+'\\s*=','gm'))];
+    assert.equal(assignments.length,1,name+' must have exactly one global assignment (no env override)');
+  }
+
   assert.match(worker,/if\(url\.pathname==="\/api\/payments\/manual-bank\/pop\/stage"&&req\.method==="POST"\)\s*\{\s*\/\/ Core-first release: production must never enter staging-only ingestion\.\s*if\(env\?\.APP_ENV==="production"\)return json\(\{error:"pop_upload_disabled"\},503\);/);
   assert.match(worker,/if\(String\(env\?\.POP_UPLOAD_STAGING_ENABLED\|\|"false"\)!=="true"\)return json\(\{error:"pop_upload_disabled"\},503\)/);
   // No advanced document export HTTP transport may be attached to the production entry.

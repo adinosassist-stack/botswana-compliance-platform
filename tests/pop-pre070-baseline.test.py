@@ -64,5 +64,54 @@ class BaselineTests(unittest.TestCase):
                 db.executescript((ROOT / "cloudflare/migrations/071_payment_pop_runtime_compat.sql").read_text())
 
 
+    def test_pending_pop_metadata_survives_071_without_payment_activation(self):
+        """Only pending document metadata changes; no payment settlement is inferred."""
+        with sqlite3.connect(":memory:") as db:
+            db.execute("PRAGMA foreign_keys=ON")
+            db.executescript("""
+                CREATE TABLE tenants(id TEXT PRIMARY KEY);
+                CREATE TABLE payment_orders(id TEXT PRIMARY KEY,status TEXT NOT NULL DEFAULT 'pending');
+                CREATE TABLE manual_payment_submissions(id TEXT PRIMARY KEY);
+                INSERT INTO tenants(id) VALUES('synthetic-tenant');
+                INSERT INTO payment_orders(id,status) VALUES('synthetic-order','pending');
+            """)
+            db.executescript((ROOT / "cloudflare/migrations/070_payment_pop_documents.sql").read_text())
+            db.execute("""
+                INSERT INTO payment_pop_documents(
+                  id,tenant_id,payment_order_id,source,object_key,display_name,content_type,bytes
+                ) VALUES(?,?,?,?,?,?,?,?)
+            """, ('synthetic-pop','synthetic-tenant','synthetic-order','web',
+                  'private/synthetic-pop','sample.pdf','application/pdf',1024))
+            db.commit()
+            db.executescript((ROOT / "cloudflare/migrations/071_payment_pop_runtime_compat.sql").read_text())
+            self.assertEqual(db.execute(
+                "SELECT scan_status,content_sha256 FROM payment_pop_documents WHERE id='synthetic-pop'"
+            ).fetchone(), ('pending', None))
+            self.assertEqual(db.execute(
+                "SELECT status FROM payment_orders WHERE id='synthetic-order'"
+            ).fetchone(), ('pending',))
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM payment_pop_upload_requests").fetchone()[0],0)
+            self.assertEqual(db.execute("PRAGMA foreign_key_check").fetchall(), [])
+
+    def test_070_is_pending_metadata_only_and_replay_safe(self):
+        """Replaying the CREATE IF NOT EXISTS migration cannot settle an order."""
+        with sqlite3.connect(":memory:") as db:
+            db.execute("PRAGMA foreign_keys=ON")
+            db.executescript("""
+                CREATE TABLE tenants(id TEXT PRIMARY KEY);
+                CREATE TABLE payment_orders(id TEXT PRIMARY KEY,status TEXT NOT NULL DEFAULT 'pending');
+                CREATE TABLE manual_payment_submissions(id TEXT PRIMARY KEY);
+                INSERT INTO tenants(id) VALUES('synthetic-tenant');
+                INSERT INTO payment_orders(id,status) VALUES('synthetic-order','pending');
+            """)
+            sql = (ROOT / "cloudflare/migrations/070_payment_pop_documents.sql").read_text()
+            db.executescript(sql)
+            db.executescript(sql)
+            self.assertEqual(db.execute(
+                "SELECT status FROM payment_orders WHERE id='synthetic-order'"
+            ).fetchone(), ('pending',))
+            self.assertEqual(db.execute("PRAGMA foreign_key_check").fetchall(), [])
+
+
 if __name__ == "__main__":
     unittest.main()

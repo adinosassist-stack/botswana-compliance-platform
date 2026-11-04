@@ -18,9 +18,16 @@ promotion, R2 write, automatic retry, reset or cleanup of remote databases.
 The transport pins account `ddd23cab31928a4bb3d4998df9b26d1d`, isolated D1
 `be15acba-ba16-4704-9498-e296a164b3a2` and name
 `bw-compliance-os-ops-restore-candidate-20261103`. It reads only SQL candidate
-run 41709222476, attempt 1, exactly 3,224,706 bytes, SHA-256
-`2363d0cfc85a76e3cfef7c33a9f2f70a38899174042e23683aa663dfcbaf3f33`.
-The historical export bookmark/provenance remains the independently reviewed
+run 41892086437, attempt 1, exactly 3,277,137 bytes, SHA-256
+`e7736aebb9ddfabd378a0f198563dc9d9e127ff5cb9eaedff02237f58a4747e5`.
+The source was inspected by protected read-only run #41897060756 on reviewed main
+`6f0ed41bbb8f73de1d0052b1be16c4dfc68169ea`, with 231 tables, SQLite
+integrity passed, zero foreign-key violations, and authenticated preparation
+receipt comparison documented in issue #1950. Original preparation run #41892086437
+records export bookmark `0000064b-00000000-00005119-2bb64db4488db4adf6415399e20872ec`.
+This is historical receipt evidence; no remote D1 restore, Time Travel validation,
+object-level retention proof, sustained RPO, or tenant recovery has been established.
+The original export bookmark/provenance remains the independently reviewed
 receipt in #1950 and the immutable offline planner; importing SQL does not
 create or refresh a production Time Travel bookmark.
 
@@ -47,8 +54,8 @@ THEBE_VERSIONED_RESTORE_APPROVAL
   "scope": "IMPORT_VERSIONED_BACKUP_INTO_ISOLATED_D1_ONCE",
   "sourceSha": "REPLACE_WITH_REVIEWED_CURRENT_MAIN_40_CHARACTER_SHA",
   "target": "be15acba-ba16-4704-9498-e296a164b3a2",
-  "candidateSha256": "2363d0cfc85a76e3cfef7c33a9f2f70a38899174042e23683aa663dfcbaf3f33",
-  "candidateBytes": 3224706,
+  "candidateSha256": "e7736aebb9ddfabd378a0f198563dc9d9e127ff5cb9eaedff02237f58a4747e5",
+  "candidateBytes": 3277137,
   "retentionAndAccessAccepted": true
 }
 ```

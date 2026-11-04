@@ -54,6 +54,21 @@ const checks=[
  ["manual bank durable activation verification",w.includes('manual_payment_activation_failed')&&w.includes('f.fulfillment_status=\'applied\'')&&w.includes('s.status=\'active\'')],
  ["runtime current",/version:"v(?:65|6[6-9]|[7-9][0-9])",runtime:"cloudflare-worker"/.test(w)]
 ];
+// The manual-bank approval safety checks must precede *every* approval
+// attempt's first submission read or settlement operation. Presence-only
+// assertions above cannot detect a guard accidentally moved after a write.
+const manualApprove=w.split('const manualAdminMatch=url.pathname.match(')[1]?.split('const row=await env.DB.prepare(')[0];
+if(!manualApprove)throw Error('manual_bank_approval_route_missing');
+for(const required of [
+  'platformBillingAdmin(a,env)',
+  '!body||typeof body!=="object"||Array.isArray(body)',
+  'body.bankFundsConfirmed!==true',
+  'body.bankAmountMatched!==true',
+  'body.bankTransactionMatched!==true'
+])if(!manualApprove.includes(required))throw Error('manual_bank_approval_guard_must_precede_database_access: '+required);
+const positions=['platformBillingAdmin(a,env)','!body||typeof body!=="object"||Array.isArray(body)','body.bankFundsConfirmed!==true','body.bankAmountMatched!==true','body.bankTransactionMatched!==true'].map(x=>manualApprove.indexOf(x));
+if(positions.some((pos,i)=>i>0&&pos<=positions[i-1]))throw Error('manual_bank_approval_guard_order_invalid');
+
 const bad=checks.filter(x=>!x[1]);for(const [n,o] of checks)console.log(`${o?"PASS":"FAIL"} ${n}`);if(bad.length)process.exit(1);
 
 const settlementUpsert=w.match(/INSERT INTO subscriptions\(([^)]+)\) VALUES\(\?,\?,'active',[\s\S]*?ON CONFLICT\(tenant_id\) DO UPDATE SET ([^\x60]+)/);

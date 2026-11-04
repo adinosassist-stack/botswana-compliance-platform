@@ -13,7 +13,7 @@ test('asset register returns no-store tenant-scoped JSON',async()=>{
 });
 test('maintenance and insurance endpoints return expected envelopes',async()=>{
  const h=handler();assert.deepEqual((await h.run({method:'GET',path:'/api/assets/maintenance'})).body,{events:[]});
- assert.deepEqual((await h.run({method:'GET',path:'/api/assets/insurance'})).body,{policies:[]});
+ assert.deepEqual((await h.run({method:'GET',path:'/api/assets/insurance'})).body,{policies:[],summary:{shown:0,expired:0,due:0,current:0}});
 });
 test('denied authorization never accesses database',async()=>{
  let calls=0;const h=handler({authorize:async()=>false,getDatabase:async()=>{calls++;throw new Error('should not run')}});
