@@ -1,0 +1,28 @@
+name: Consolidated Corporate Assets review-only qualification
+on:
+  pull_request:
+    paths:
+      - 'server/corporate-assets-maintenance-reader.mjs'
+      - 'server/corporate-assets-insurance-reader.mjs'
+      - 'public/js/thebe-assets-native-panel.js'
+      - 'public/assets/thebe-assets-native-panel.css'
+      - 'tests/corporate-assets-maintenance-history-filters.test.mjs'
+      - 'tests/corporate-assets-insurance-summary.test.mjs'
+      - 'tests/corporate-assets-owner-attention-panel.test.mjs'
+      - '.github/workflows/corporate-assets-consolidated-offline.yml'
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Qualify three additive owner-assets changes together
+        run: node --test tests/corporate-assets-maintenance-history-filters.test.mjs tests/corporate-assets-insurance-summary.test.mjs tests/corporate-assets-owner-attention-panel.test.mjs
