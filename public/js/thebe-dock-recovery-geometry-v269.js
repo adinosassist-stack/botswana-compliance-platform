@@ -312,8 +312,10 @@
       return;
     }
     releaseNode(workspaceMain);
-    if(dock.dataset.surface==="public")setOwned(marketingGate,{"padding-right":`calc(${dockWidth}px + 32px)`});
-    else releaseNode(marketingGate);
+    // The Market dock floats above the page; reserving a right rail here
+    // squeezes the hero and cards even when no persistent rail is present.
+    // Always release legacy recovery-owned Market spacing.
+    releaseNode(marketingGate);
   }
 
   function releaseDesktopLane(){
