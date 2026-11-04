@@ -1,17 +1,18 @@
-# Protected read-only byte qualification for two versioned private R2 candidates
+# Protected read-only byte qualification for reviewed versioned private R2 candidates
 
 **Scope: independently compute a live private object's SHA-256 in a protected GitHub job; no restore authority.**
 
 ## Why
 
-Older `private-backup-integrity.yml` validates a fixed historical prefix, not either newer D1 backup SQL object. The connected Cloudflare API currently exposes inventory metadata but not usable binary SQL bytes for independent digest verification. This path reads the bytes **only inside a gated GitHub Actions environment** and emits a sanitized digest, not data.
+Older `private-backup-integrity.yml` validates a fixed historical prefix, not the explicitly reviewed newer D1 backup SQL objects. The connected Cloudflare API currently exposes inventory metadata but not usable binary SQL bytes for independent digest verification. This path reads the bytes **only inside a gated GitHub Actions environment** and emits a sanitized digest, not data.
 
 ## Explicit allowed private objects
 
 - `candidates/41709222476/1/production-d1.sql` — expected 3,224,706 bytes
 - `candidates/41710740133/1/production-d1.sql` — expected 3,225,845 bytes
+- `candidates/41892086437/1/production-d1.sql` — expected 3,277,137 bytes, independently listed 2026-11-04T18:59:27.345Z; preparation run succeeded at source `291bc12972137a45c6585668319a4ff6f52b8f42`
 
-Neither key implies approval or freshness. The flow never chooses the larger or more recent candidate automatically. The source code rejects all other run IDs.
+No listed key implies approval, sustained freshness, or recoverability. The flow never chooses the larger or more recent candidate automatically. The source code rejects all other run IDs.
 
 ## Protected execution
 
@@ -25,7 +26,7 @@ The protected Step Summary reports exact object key, actual SHA-256 and size, ta
 
 - Locate and authenticate the **original historical protected preparation Step Summary** for each run, including source SHA, final `at_bookmark`, exact key, claimed SHA-256 and roundtrip evidence. Current exporter's improved receipt format does **not** retroactively reconstruct these fields.
 - Independently compare the authenticated historical digest with the newly measured actual R2-object digest; authenticate any discrepancy instead of selecting by size.
-- Approve and enforce owner-defined RPO and backup retention/object lock in separate, independently reviewed account change; zero lock rules have been observed.
+- Approve and enforce owner-defined RPO and backup retention/object lock in separate, independently reviewed account change; one 30-day `candidates/` lock rule was observed on 2026-11-04; its configuration does not prove retention of the specific object's bytes, historical enforcement or sustainable RPO.
 - Approve an isolated **versioned input** restore workflow targeting only empty D1 `be15acba-ba16-4704-9498-e296a164b3a2`. Existing legacy restore script hardcodes `approved-d1-backup.sql` and the old `bw-compliance-os-ops-restore` target; this read-only job does not alter or authorize that path.
 - Conduct tenant/security and business acceptance after authorized isolated restore; require separate production approval. Keep unfinished POP ingestion, advanced AI exports and unverified customer-reference subscription activation disabled.
 
