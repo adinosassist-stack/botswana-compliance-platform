@@ -91,8 +91,9 @@
     handle.type="button";
     handle.className="thebe-workspace-dock-resize-handle";
     handle.setAttribute("aria-label","Resize Thebe assistant panel");
+    handle.setAttribute("role","separator");
     handle.setAttribute("aria-orientation","vertical");
-    handle.title="Drag to resize · double-click to reset";
+    handle.title="Drag to resize · arrow keys adjust · Home resets · End maximizes";
     dock.appendChild(handle);
 
     let drag=null;
@@ -106,7 +107,9 @@
     };
     const stopDrag=()=>{
       if(!drag)return;
+      const pointerId=drag.pointerId;
       drag=null;
+      if(handle.hasPointerCapture?.(pointerId))handle.releasePointerCapture?.(pointerId);
       global.document?.body?.classList?.remove("thebe-workspace-dock-resizing");
     };
     handle.addEventListener("pointerdown",event=>{
@@ -127,6 +130,7 @@
     });
     handle.addEventListener("pointerup",stopDrag);
     handle.addEventListener("pointercancel",stopDrag);
+    handle.addEventListener("lostpointercapture",stopDrag);
     handle.addEventListener("dblclick",event=>{
       clearStoredWorkspaceWidth();
       const bounds=workspaceWidthBounds();
@@ -179,6 +183,13 @@
     if(body.style.getPropertyValue("--thebe-spatial-width")!==cssWidth)body.style.setProperty("--thebe-spatial-width",cssWidth);
     dock.dataset.workspaceResizable="true";
     dock.dataset.workspaceWidth=String(clamped);
+    const handle=dock.querySelector?.(".thebe-workspace-dock-resize-handle");
+    if(handle){
+      handle.setAttribute("aria-valuemin",String(bounds.min));
+      handle.setAttribute("aria-valuemax",String(bounds.max));
+      handle.setAttribute("aria-valuenow",String(clamped));
+      handle.setAttribute("aria-valuetext",`${clamped} pixels wide`);
+    }
     dock.dataset.workspaceResizeRelease=WORKSPACE_RESIZE_RELEASE;
     return clamped;
   }
@@ -342,7 +353,15 @@
       return false;
     }
     syncWorkspaceResize(dock);
-    if(dock.dataset.surface==="workspace"&&viewportWidth()>=1024&&spatialStylesheetHealthy(dock))ensureDockMovement(dock);
+    if(dock.dataset.surface==="workspace"&&viewportWidth()>=1024&&spatialStylesheetHealthy(dock)){
+      ensureDockMovement(dock);
+      // A restored floating position can be outside the viewport after resize.
+      // Clamp on every layout repair without changing the saved preference.
+      if(dock.dataset.workspaceFloating==="true"){
+        const saved=readDockPosition();
+        if(saved)setDockPosition(dock,saved);
+      }
+    }
     if(dock.dataset.cssRecovery!=="1"){
       if(spatialStylesheetHealthy(dock)){
         releaseAll();
