@@ -612,3 +612,26 @@ html body #thebeAiDock[data-surface="workspace"] .thebe-ai-expand{
     box-sizing:border-box!important;
   }
 }
+
+
+/* #2157: Workspace focus visibility and reduced motion match Market dock.
+   Preserve voice/orb visibility, existing mobile geometry, and hidden control state. */
+html body #thebeAiDock[data-surface="workspace"] :is(button,textarea,input,a,[tabindex]):focus-visible,
+html body #thebeAiDockPill[data-surface="workspace"]:focus-visible{
+  outline:2px solid #f1b7be!important;
+  outline-offset:3px!important;
+}
+html body #thebeAiDock[data-surface="workspace"] .thebe-ai-compose:focus-within{
+  border-color:#f1b7be!important;
+}
+@media (prefers-reduced-motion:reduce){
+  html body #thebeAiDock[data-surface="workspace"] *,
+  html body #thebeAiDock[data-surface="workspace"] *::before,
+  html body #thebeAiDock[data-surface="workspace"] *::after,
+  html body #thebeAiDockPill[data-surface="workspace"]{
+    animation-duration:0.01ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:0.01ms!important;
+    scroll-behavior:auto!important;
+  }
+}
