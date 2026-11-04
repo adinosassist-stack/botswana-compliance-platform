@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {inspectCandidateRetentionPolicy,readCandidateRetentionPolicy} from '../scripts/check-private-backup-retention-readonly.mjs';
 
-const valid=()=>({success:true,result:{rules:[{id:'thebe-backup-candidates-30-day-immutable-20261103',
+const valid=()=>({success:true,result:{rules:[{id:'candidates-30-day-retention',
   enabled:true,prefix:'candidates/',condition:{type:'Age',maxAgeSeconds:2592000}}]}});
 test('exact readback matches policy but cannot certify irreversible object retention',()=>{
  const result=inspectCandidateRetentionPolicy(valid());
@@ -49,4 +49,21 @@ test('failed and malformed GET never fallback to write',async()=>{
   await assert.rejects(readCandidateRetentionPolicy({accountId:'ddd23cab31928a4bb3d4998df9b26d1d',token:'synthetic',fetchImpl:async(_,o)=>{calls++;assert.equal(o.method,'GET');return response;}}),/r2_retention_readback_hold_/);
   assert.equal(calls,1);
  }
+});
+
+test('owner-configured exact rule matches without granting enforcement or restore authority',()=>{
+ const payload=valid();
+ payload.result.rules[0].id='candidates-30-day-retention';
+ const result=inspectCandidateRetentionPolicy(payload);
+ assert.equal(result.ruleId,'candidates-30-day-retention');
+ assert.equal(result.exactPolicyReadbackMatched,true);
+ assert.equal(result.retentionEnforced,false);
+ assert.equal(result.restoreAuthorized,false);
+ assert.equal(result.productionWriteAuthorized,false);
+});
+
+test('superseded rule ID is rejected rather than accepted as an alias',()=>{
+ const payload=valid();
+ payload.result.rules[0].id='thebe-backup-candidates-30-day-immutable-20261103';
+ assert.throws(()=>inspectCandidateRetentionPolicy(payload),/policy_mismatch/);
 });
