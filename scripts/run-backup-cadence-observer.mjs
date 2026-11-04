@@ -16,13 +16,24 @@ export function decideCandidateCadence(report){
  if(report?.kind!=='r2_backup_candidate_metadata_freshness_only'||
    report.sustainedRpoQualified!==false||report.restoreAuthorized!==false||
    report.productionWriteAuthorized!==false||
-   !Number.isFinite(report.latestAgeMinutes)||report.latestAgeMinutes<0)fail('untrusted_observation');
+   !Number.isFinite(report.latestAgeMinutes)||report.latestAgeMinutes<0||
+   report.observationWindowHours!==24||
+   !Number.isFinite(report.maxObservedGapLast24hMinutes)||
+   report.maxObservedGapLast24hMinutes<0||report.maxObservedGapLast24hMinutes>1440||
+   !Number.isSafeInteger(report.observedCandidateCountLast24h)||
+   report.observedCandidateCountLast24h<0||report.observedCandidateCountLast24h>1000)fail('untrusted_observation');
  const minutes=report.latestAgeMinutes;
- const severity=minutes>120?'STALE':minutes>=90?'WARNING':'OBSERVED_RECENT';
+ // Even a brand-new candidate is not a healthy cadence if the preceding
+ // observation window contains a gap longer than the two-hour policy.
+ const windowGapDetected=report.maxObservedGapLast24hMinutes>120;
+ const severity=minutes>120?'STALE':windowGapDetected?'WINDOW_GAP':minutes>=90?'WARNING':'OBSERVED_RECENT';
  return {kind:'backup_candidate_recency_watchdog',severity,
   newestCandidateKey:report.newestCandidateKey,
   newestCandidateLastModified:report.newestCandidateLastModified,
   latestAgeMinutes:minutes,twoHourPolicyMinutes:120,earlyWarningMinutes:90,
+  maxObservedGapLast24hMinutes:report.maxObservedGapLast24hMinutes,
+  observedCandidateCountLast24h:report.observedCandidateCountLast24h,
+  observationWindowHours:24,windowGapDetected,
   metadataCompletenessIndependentlyVerified:false,
   rpoQualified:false,restoreAuthorized:false,productionWriteAuthorized:false,
   disposition:severity==='OBSERVED_RECENT'?'HOLD_REQUIRE_RECOVERY_POINT_RECEIPTS':'HOLD_BACKUP_CADENCE_OPERATOR_INVESTIGATION'};
