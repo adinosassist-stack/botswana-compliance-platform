@@ -9,6 +9,7 @@ const env=()=>({
 const report=age=>({kind:'r2_backup_candidate_metadata_freshness_only',
  latestAgeMinutes:age,newestCandidateKey:'candidates/41710740133/1/production-d1.sql',
  newestCandidateLastModified:'2026-11-03T20:16:23.971Z',
+ maxObservedGapLast24hMinutes:age,observedCandidateCountLast24h:12,observationWindowHours:24,
  sustainedRpoQualified:false,restoreAuthorized:false,productionWriteAuthorized:false});
 test('a schedule requires an exact repo/main, enabled operator flag and separate read-only token',()=>{
  assert.equal(validateMonitorAuthority(env()),true);
@@ -29,9 +30,31 @@ test('90 and 120 minute thresholds remain a HOLD, including on fresh metadata',(
   assert.match(r.disposition,/^HOLD_/);
  }
 });
+test('a fresh newest candidate cannot conceal a two-hour breach in the observed 24-hour window',()=>{
+ const alert=decideCandidateCadence({...report(15),maxObservedGapLast24hMinutes:1080,observedCandidateCountLast24h:2});
+ assert.equal(alert.severity,'WINDOW_GAP');
+ assert.equal(alert.windowGapDetected,true);
+ assert.equal(alert.latestAgeMinutes,15);
+ assert.equal(alert.maxObservedGapLast24hMinutes,1080);
+ assert.equal(alert.rpoQualified,false);
+ assert.match(alert.disposition,/^HOLD_/);
+ const healthyObservation=decideCandidateCadence({...report(10),maxObservedGapLast24hMinutes:119.99});
+ assert.equal(healthyObservation.severity,'OBSERVED_RECENT');
+ assert.equal(healthyObservation.windowGapDetected,false);
+ assert.equal(healthyObservation.rpoQualified,false);
+ const boundary=decideCandidateCadence({...report(10),maxObservedGapLast24hMinutes:120});
+ assert.equal(boundary.severity,'OBSERVED_RECENT');
+ const gap=decideCandidateCadence({...report(10),maxObservedGapLast24hMinutes:120.01});
+ assert.equal(gap.severity,'WINDOW_GAP');
+});
+
 test('rejects invented restore authority and malformed metadata',()=>{
  for(const item of [{...report(45),restoreAuthorized:true},{...report(45),sustainedRpoQualified:true},
-   {...report(45),productionWriteAuthorized:true},report(-1),report(NaN)])
+   {...report(45),productionWriteAuthorized:true},report(-1),report(NaN),
+   {...report(45),maxObservedGapLast24hMinutes:NaN},
+   {...report(45),maxObservedGapLast24hMinutes:1440.01},
+   {...report(45),observedCandidateCountLast24h:-1},
+   {...report(45),observationWindowHours:23}])
   assert.throws(()=>decideCandidateCadence(item),/backup_monitor_hold_/);
 });
 test('live transport adapter is restricted to two GET metadata requests',async()=>{
