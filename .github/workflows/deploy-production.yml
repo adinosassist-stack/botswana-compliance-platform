@@ -470,6 +470,8 @@ jobs:
           )"
           [[ "$live_main_sha" == "$TARGET_SHA" ]] || { echo "main advanced after runtime secret preparation; refusing deploy target=$TARGET_SHA current-main=$live_main_sha" >&2; exit 1; }
           node "$WRANGLER_JS" deploy --secrets-file "$SECRETS_FILE" --config "$PROD_CONFIG"
+          # Prove the active postdeploy binding freeze while this approved secret-bearing step remains in scope.
+          node scripts/verify-live-core-only-bindings.mjs
           printf 'google_enabled=%s\nfacebook_enabled=%s\nemail_enabled=%s\n' "$google_enabled" "$facebook_enabled" "$email_enabled" >> "$GITHUB_OUTPUT"
           cleanup
           trap - EXIT
