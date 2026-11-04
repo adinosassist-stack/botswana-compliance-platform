@@ -127,22 +127,38 @@ test('retention policy drift refuses export before provider POST and refuses mut
  assert.equal(late.calls.some(x=>x.o.method==='PUT'),false);
 });
 
-test('scheduled authority requires verified grant; existing manual pathway never accepts a scheduled token',async()=>{
+test('scheduled authority requires real GitHub records; manual path never requests schedule grants',async()=>{
  const f=fixture();
- let checked=0;
  const scheduled={...env,GITHUB_EVENT_NAME:'schedule',BACKUP_CONFIRM:'',
-   PRIVATE_BACKUP_SCHEDULE_ENABLED:'true',GITHUB_TOKEN:'test-git'};
- const approved=await prepareBackup(scheduled,{...f,authorizeSchedule:async e=>{
-   checked++;
-   assert.equal(e.GITHUB_EVENT_NAME,'schedule');
-   return {kind:'short_lived_private_backup_schedule_authorized',
-     sourceSha:e.EXPECTED_SHA,restoreAuthorized:false,productionDeploymentAuthorized:false};
- }});
- assert.equal(checked,1);
+   PRIVATE_BACKUP_SCHEDULE_ENABLED:'true',GITHUB_TOKEN:'test-git',
+   PRIVATE_BACKUP_SCHEDULE_OWNER_APPROVAL_ID:'31001',
+   PRIVATE_BACKUP_SCHEDULE_REVIEW_APPROVAL_ID:'31002'};
+ const created_at=new Date(Date.now()-3600000).toISOString().slice(0,19)+'Z';
+ const expiresAt=new Date(Date.now()+3600000).toISOString().slice(0,19)+'Z';
+ const payload={
+   scope:'HOURLY_PRIVATE_D1_CANDIDATE_EXPORT_ONLY',sourceSha:scheduled.GITHUB_SHA,
+   accountId:scheduled.PRIVATE_BACKUP_ACCOUNT_ID,
+   databaseId:'8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce',
+   bucket:'bw-compliance-ops-backups',prefix:'candidates/',
+   maxIntervalMinutes:120,retentionDays:30,
+   retentionAndAccessAccepted:true,dedicatedCredentialScopeAccepted:true,expiresAt
+ };
+ const rec=(id,login)=>({id,user:{login},created_at,
+   issue_url:'https://api.github.com/repos/adinosassist-stack/botswana-compliance-platform/issues/1950',
+   body:'THEBE_RECURRING_BACKUP_APPROVAL\\n'+JSON.stringify(payload)});
+ let approvalCalls=0;
+ const approvalFetchImpl=async url=>{
+   approvalCalls++;
+   if(url.endsWith('/git/ref/heads/main'))return Response.json({object:{sha:scheduled.GITHUB_SHA}});
+   if(url.endsWith('/issues/comments/31001'))return Response.json(rec(31001,'adinosassist-stack'));
+   if(url.endsWith('/issues/comments/31002'))return Response.json(rec(31002,'thusico'));
+   throw Error('unexpected GitHub URL');
+ };
+ const approved=await prepareBackup(scheduled,{...f,approvalFetchImpl});
+ assert.equal(approvalCalls,3);
  assert.equal(approved.privateRoundtripVerified,true);
  assert.equal(f.calls.filter(x=>x.o.method==='PUT').length,1);
- const manual=fixture();let unexpected=0;
- const r=await prepareBackup(env,{...manual,authorizeSchedule:async()=>{unexpected++;throw Error('manual must not use schedule')}});
+ const manual=fixture();
+ const r=await prepareBackup(env,{...manual,approvalFetchImpl:async()=>{throw Error('manual must not request schedule approvals')}});
  assert.equal(r.privateRoundtripVerified,true);
- assert.equal(unexpected,0);
 });
