@@ -41,7 +41,7 @@ export function validateExportUrl(value){
   return u.href;
 }
 export async function prepareBackup(e,{fetchImpl=fetch,pause=ms=>new Promise(r=>setTimeout(r,ms)),
-  assertCurrent=async()=>{},authorizeSchedule=verifyRecurringBackupAuthorization}={}){
+  assertCurrent=async()=>{},approvalFetchImpl=fetch}={}){
   const manual=e.GITHUB_EVENT_NAME==='workflow_dispatch'&&e.BACKUP_CONFIRM==='PREPARE_PRIVATE_PRODUCTION_BACKUP';
   const scheduled=e.GITHUB_EVENT_NAME==='schedule'&&e.PRIVATE_BACKUP_SCHEDULE_ENABLED==='true';
   if(e.GITHUB_REPOSITORY!=='adinosassist-stack/botswana-compliance-platform'||e.GITHUB_REF!=='refs/heads/main'||
@@ -50,7 +50,7 @@ export async function prepareBackup(e,{fetchImpl=fetch,pause=ms=>new Promise(r=>
      !e.PRIVATE_BACKUP_CLOUDFLARE_TOKEN?.trim()||
      !/^[1-9]\d*$/.test(e.GITHUB_RUN_ID||'')||!/^[1-9]\d*$/.test(e.GITHUB_RUN_ATTEMPT||''))stop('authority');
   if(scheduled){
-    const approval=await authorizeSchedule(e);
+    const approval=await verifyRecurringBackupAuthorization(e,{fetchImpl:approvalFetchImpl});
     if(approval?.kind!=='short_lived_private_backup_schedule_authorized'||
        approval.sourceSha!==e.EXPECTED_SHA||approval.restoreAuthorized!==false||
        approval.productionDeploymentAuthorized!==false)stop('schedule_authority');
