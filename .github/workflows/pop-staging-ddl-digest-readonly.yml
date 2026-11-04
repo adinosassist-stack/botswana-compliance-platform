@@ -9,6 +9,8 @@ on:
   pull_request:
     paths:
       - scripts/pop-staging-ddl-digest-readonly.mjs
+      - scripts/pop-staging-schema-policy.mjs
+      - tests/pop-staging-schema-policy.test.mjs
       - .github/workflows/pop-staging-ddl-digest-readonly.yml
 permissions:
   contents: read
@@ -19,7 +21,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - run: node --check scripts/pop-staging-ddl-digest-readonly.mjs
+      - run: |
+          node --check scripts/pop-staging-ddl-digest-readonly.mjs
+          node --test tests/pop-staging-schema-policy.test.mjs
   compare:
     if: github.event_name == 'workflow_dispatch'
     needs: static
