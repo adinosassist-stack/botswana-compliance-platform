@@ -48,7 +48,7 @@ export async function prepareBackup(e,{fetchImpl=fetch,pause=ms=>new Promise(r=>
      (!manual&&!scheduled)||!/^[a-f0-9]{40}$/.test(e.EXPECTED_SHA||'')||
      e.EXPECTED_SHA!==e.GITHUB_SHA||e.PRIVATE_BACKUP_ACCOUNT_ID!==ACCOUNT||
      !e.PRIVATE_BACKUP_CLOUDFLARE_TOKEN?.trim()||
-     !/^[1-9]\\d*$/.test(e.GITHUB_RUN_ID||'')||!/^[1-9]\\d*$/.test(e.GITHUB_RUN_ATTEMPT||''))stop('authority');
+     !/^[1-9]\d*$/.test(e.GITHUB_RUN_ID||'')||!/^[1-9]\d*$/.test(e.GITHUB_RUN_ATTEMPT||''))stop('authority');
   if(scheduled){
     const approval=await authorizeSchedule(e);
     if(approval?.kind!=='short_lived_private_backup_schedule_authorized'||
