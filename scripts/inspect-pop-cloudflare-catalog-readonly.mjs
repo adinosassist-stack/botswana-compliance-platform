@@ -33,6 +33,6 @@ async function inventory(id) {
 const [prod, stage] = await Promise.all([inventory(production), inventory(staging)]);
 const report={...assessPopStagingCatalog(prod,stage),
  main_sha:env.GITHUB_SHA,production_uuid:production,staging_uuid:staging,
- customer_rows_read:false,mutation_performed:false};
+ customer_rows_read:false,mutation_performed: false};
 console.log(JSON.stringify(report));
 if(!report.catalog_matches_reviewed_pop_additions)process.exitCode=2;
