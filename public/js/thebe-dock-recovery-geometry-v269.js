@@ -365,13 +365,20 @@
     // Recovery is temporary: when the primary stylesheet loads again, remove
     // its fallback selector and release recovery-owned inline dimensions.
     // Otherwise the fallback would remain pinned after a transient CSS failure.
-    if(spatialStylesheetHealthy(dock)){
-      if(dock.dataset.cssRecovery==="1")delete dock.dataset.cssRecovery;
+    if(dock.dataset.cssRecovery==="1"&&spatialStylesheetHealthy(dock)){
+      delete dock.dataset.cssRecovery;
       releaseAll();
       clearMarker(dock);
       return false;
     }
-    if(dock.dataset.cssRecovery!=="1")dock.dataset.cssRecovery="1";
+    if(dock.dataset.cssRecovery!=="1"){
+      if(spatialStylesheetHealthy(dock)){
+        releaseAll();
+        clearMarker(dock);
+        return false;
+      }
+      dock.dataset.cssRecovery="1";
+    }
     // Emergency geometry intentionally ignores user sizing. If the primary
     // spatial stylesheet is unavailable, deterministic fallback dimensions win.
     if(document.body?.style?.getPropertyValue?.("--thebe-spatial-width"))document.body.style.removeProperty("--thebe-spatial-width");
