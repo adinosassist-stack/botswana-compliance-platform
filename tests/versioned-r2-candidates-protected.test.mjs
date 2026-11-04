@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {verifyVersionedR2Candidate} from '../scripts/verify-versioned-r2-candidates-protected.mjs';
+import {verifyVersionedR2Candidate,CANDIDATE_SIZES} from '../scripts/verify-versioned-r2-candidates-protected.mjs';
 const base={GITHUB_REPOSITORY:'adinosassist-stack/botswana-compliance-platform',
  GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REF:'refs/heads/main',
  VERSIONED_CONFIRM:'QUALIFY_PRIVATE_BACKUP_CANDIDATES',EXPECTED_SHA:'a'.repeat(40),
@@ -17,6 +17,26 @@ test('rejects unapproved candidates, source drift, missing token, wrong event an
   {PRIVATE_BACKUP_CLOUDFLARE_TOKEN:''},{PRIVATE_BACKUP_ACCOUNT_ID:'b'.repeat(32)}
  ])await reject({...base,...patch});
 });
+test('new candidate is narrowly allowlisted with exact observed bytes and no authority expansion',async()=>{
+ assert.equal(CANDIDATE_SIZES['41892086437'],3277137);
+ assert.equal(Object.keys(CANDIDATE_SIZES).length,3);
+ const env={...base,VERSIONED_RUN_ID:'41892086437'};
+ let calls=0;
+ const fetchImpl=async(url,opts)=>{
+  calls++;
+  assert.equal(opts.method,'GET');
+  assert.equal(opts.redirect,'error');
+  if(url.endsWith('/domains/managed'))return Response.json({success:true,result:{enabled:false}});
+  if(url.endsWith('/domains/custom'))return Response.json({success:true,result:{domains:[]}});
+  if(url.endsWith('/lock'))return Response.json({success:true,result:{rules:[{id:'candidates-30-day-retention',enabled:true,prefix:'candidates/'}]}});
+  assert.ok(url.endsWith('/objects/candidates/41892086437/1/production-d1.sql'));
+  return new Response('synthetic short SQL',{status:200});
+ };
+ await assert.rejects(verifyVersionedR2Candidate(env,{fetchImpl}),/observed_size_mismatch/);
+ assert.equal(calls,4);
+ await reject({...env,VERSIONED_RUN_ID:'41892086438'});
+});
+
 test('privacy refusal prevents any private SQL fetch',async()=>{
  const paths=[];const fetchImpl=async(url,o)=>{paths.push({url,method:o.method});
   return Response.json({success:true,result:url.endsWith('/domains/managed')?{enabled:true}:{domains:[]}})};
