@@ -1,0 +1,23 @@
+name: Backup candidate freshness metadata offline CI
+on:
+  pull_request:
+    paths:
+      - scripts/assess-r2-candidate-freshness.mjs
+      - tests/assess-r2-candidate-freshness.test.mjs
+      - .github/workflows/backup-candidate-freshness-offline.yml
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Verify fail-closed RPO candidate freshness observations
+        run: node --test tests/assess-r2-candidate-freshness.test.mjs
