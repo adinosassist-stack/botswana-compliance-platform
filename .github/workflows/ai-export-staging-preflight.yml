@@ -9,6 +9,8 @@ on:
       - 'tests/ai-export-authorized-reader.test.mjs'
       - 'tests/ai-export-staging-schema-offline.test.py'
       - 'docs/ai-export-d1-schema-candidate.sql'
+      - 'scripts/inspect-ai-export-staging-preapply.mjs'
+      - 'tests/ai-export-staging-preapply-gates.test.mjs'
       - 'scripts/qualify-ai-export-staging-schema-offline.mjs'
       - 'tests/ai-export-staging-schema-plan.test.mjs'
       - 'scripts/ai-export-private-bucket-inventory-readonly.mjs'
@@ -33,5 +35,9 @@ jobs:
           node --check scripts/qualify-ai-export-staging-schema-offline.mjs
           node --test tests/ai-export-staging-schema-plan.test.mjs
           node scripts/qualify-ai-export-staging-schema-offline.mjs
+      - name: Default-deny isolated D1 preapply approval and inventory test
+        run: |
+          node --check scripts/inspect-ai-export-staging-preapply.mjs
+          node --test tests/ai-export-staging-preapply-gates.test.mjs
       - name: In-memory-only D1 export candidate schema and constraints
         run: python3 tests/ai-export-staging-schema-offline.test.py
