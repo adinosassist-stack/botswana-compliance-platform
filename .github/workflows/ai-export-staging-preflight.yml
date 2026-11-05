@@ -6,6 +6,8 @@ on:
       - 'tests/ai-export-staging-readonly.test.mjs'
       - 'tests/ai-export-staging-schema-offline.test.py'
       - 'docs/ai-export-d1-schema-candidate.sql'
+      - 'scripts/qualify-ai-export-staging-schema-offline.mjs'
+      - 'tests/ai-export-staging-schema-plan.test.mjs'
       - 'scripts/ai-export-private-bucket-inventory-readonly.mjs'
       - 'tests/ai-export-private-bucket-inventory-readonly.test.mjs'
       - 'docs/ai-export-staging-readonly-preflight.md'
@@ -23,5 +25,10 @@ jobs:
       - run: node --check cloudflare/src/ai-export-staging-readonly.js
       - run: node --check scripts/ai-export-private-bucket-inventory-readonly.mjs
       - run: node --test tests/ai-export-staging-readonly.test.mjs tests/ai-export-private-bucket-inventory-readonly.test.mjs
+      - name: Offline-only pinned D1 target and schema digest checks
+        run: |
+          node --check scripts/qualify-ai-export-staging-schema-offline.mjs
+          node --test tests/ai-export-staging-schema-plan.test.mjs
+          node scripts/qualify-ai-export-staging-schema-offline.mjs
       - name: In-memory-only D1 export candidate schema and constraints
         run: python3 tests/ai-export-staging-schema-offline.test.py
