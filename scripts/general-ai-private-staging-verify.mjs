@@ -24,7 +24,16 @@ const expected={
  ...Object.fromEntries(Object.entries(expectedVars).map(([name,value])=>[name,b=>b.type==="plain_text"&&b.text===value]))
 };
 const names=bindings.map(b=>b.name);
-const validBindings=names.length===Object.keys(expected).length&&new Set(names).size===names.length&&bindings.every(b=>Object.hasOwn(expected,b.name)&&expected[b.name](b));
+const counts=new Map();
+for(const name of names)counts.set(name,(counts.get(name)||0)+1);
+const missingBindings=Object.keys(expected).filter(name=>!counts.has(name));
+const mismatchedBindings=Object.keys(expected).filter(name=>counts.has(name)&&
+  (counts.get(name)!==1||!expected[name](bindings.find(b=>b.name===name))));
+const unexpectedBindingCount=names.filter(name=>!Object.hasOwn(expected,name)).length;
+const validBindings=missingBindings.length===0&&mismatchedBindings.length===0&&unexpectedBindingCount===0;
 const safe=subdomain?.enabled===false&&subdomain?.previews_enabled===false&&validBindings;
-console.log(JSON.stringify({worker,privateSubdomain:subdomain?.enabled===false,previewsDisabled:subdomain?.previews_enabled===false,bindingTypes:bindings.map(x=>x.type),isolated:safe}));
+// Emit only reviewed allowlisted binding names and counts. Never emit secret data or unrecognized names.
+console.log(JSON.stringify({worker,privateSubdomain:subdomain?.enabled===false,
+ previewsDisabled:subdomain?.previews_enabled===false,missingBindings,mismatchedBindings,
+ unexpectedBindingCount,isolated:safe}));
 if(!safe)process.exitCode=1;
