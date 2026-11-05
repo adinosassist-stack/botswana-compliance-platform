@@ -1800,7 +1800,7 @@ function browserGaboroneDate(){try{return new Intl.DateTimeFormat("en-CA",{timeZ
 function setText(id,value){return BW.dom.setText(id,value)}
 function moneyBwp(v){return `P${Number(v||0).toLocaleString(undefined,{maximumFractionDigits:2})}`}
 function trendLabel(v,prefix=""){const n=Number(v||0);return `${n>0?"+":""}${prefix}${Number.isInteger(n)?n:n.toFixed(2)} vs prev.`}
-function opsLatestSummary(items,locationId){return (items||[]).find(x=>String(x.location_id||"")===String(locationId||""))||(items||[])[0]||null}
+function opsLatestSummary(items,locationId){return (items||[]).find(x=>String(x.location_id??x.locationId??"")===String(locationId||""))||null}
 let currentOpsSummaryId="";
 function renderOpsNarrative(s){
   const box=document.getElementById("opsAiSummary"),mode=document.getElementById("opsSummaryMode"),feedback=document.getElementById("opsSummaryFeedback");if(!box||!mode)return;
@@ -1808,7 +1808,7 @@ function renderOpsNarrative(s){
   if(!s){mode.textContent="Not generated";box.safeHTML='<div class="muted">No management summary has been generated for this date.</div>';return}
   const n=s.narrative||{},metrics=s.metrics||{};mode.textContent=s.generationMode==="workers_ai"||s.generation_mode==="workers_ai"?"Workers AI · learned context":"Structured summary";
   const list=(title,arr)=>Array.isArray(arr)&&arr.length?`<div style="margin-top:12px"><b>${escapeHtml(title)}</b><ul class="ops-summary-list">${arr.map(x=>`<li>${escapeHtml(x)}</li>`).join("")}</ul></div>`:"";
-  box.safeHTML=`<div><b>${escapeHtml(n.executiveSummary||"Summary available")}</b></div>${list("Performance readout",n.performance)}${list("Highlights",n.highlights)}${list("Risks / exceptions",n.risks)}${list("Suggested management follow-up",n.actions)}<div class="muted small" style="margin-top:12px">${escapeHtml(n.disclaimer||"")} ${metrics.aiError?`· AI fallback: ${escapeHtml(metrics.aiError)}`:""}</div>`;
+  box.safeHTML=`<div class="notice info">Saved summary. Reports may have changed since it was generated. Generate a new summary to include current reports.</div><div><b>${escapeHtml(n.executiveSummary||"Summary available")}</b></div>${list("Performance readout",n.performance)}${list("Highlights",n.highlights)}${list("Risks / exceptions",n.risks)}${list("Suggested management follow-up",n.actions)}<div class="muted small" style="margin-top:12px">${escapeHtml(n.disclaimer||"")} ${metrics.aiError?`· AI fallback: ${escapeHtml(metrics.aiError)}`:""}</div>`;
 }
 function opsSeverityClass(severity){return severity==="critical"?"bad":severity==="warning"?"warn":severity==="positive"?"good":"info"}
 function opsLearningNumber(v,digits=0){const n=Number(v||0);return Number.isFinite(n)?n.toLocaleString(undefined,{maximumFractionDigits:digits}):"0"}
@@ -1934,6 +1934,7 @@ async function renderDailyOperations(){
     apiJson("/api/daily-reporting/settings"),
     reportingAnalyticsJson(`/api/daily-reporting/summaries?date=${encodeURIComponent(date)}`)
   ]);
+  if(setupEpoch!==opsReportingSetupEpoch)return;
   const settings=value(settingsR,{}),summaries=value(summariesR,{items:[]});
   const autoSummary=document.getElementById("opsAutoSummary");if(autoSummary){autoSummary.checked=Number(settings.auto_summary_enabled||0)===1||settings.autoSummaryEnabled===true;autoSummary.disabled=settingsR.status==="rejected"}
   renderOpsNarrative(summariesR.status==="fulfilled"?opsLatestSummary(summaries.items||[],locationId):null);
