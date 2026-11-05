@@ -33,10 +33,10 @@ sqlite.prepare("INSERT INTO business_risk_events(id,tenant_id,event_key,category
 let providerCalls=0;
 const env={DB,SESSION_SECRET:secret,AUDIT_INTEGRITY_SECRET:"test-only-audit-secret-32-characters",PUBLIC_ORIGIN:"https://app.example",AI:{async run(model,input){
   providerCalls++;
-  assert.match(input.prompt,/Recorded issue/,"actual advisor must assemble workspace records");
-  assert.match(input.prompt,/LANGUAGE_POLICY/,"language policy must be built by the actual advisor");
-  assert.match(input.prompt,/never present it as spending authorization or financial advice/);
-  return {response:JSON.stringify({answer:"Review the recorded issue.",confidence:"high",actions:[{title:"Review the recorded issue",reason:"An issue is recorded.",priority:"high",sourceRefs:["RISK-1","invented-ref"]}],caveats:[],sourceRefs:["RISK-1"]})};
+  assert.match((input.messages?.[0]?.content??input.prompt),/Recorded issue/,"actual advisor must assemble workspace records");
+  assert.match((input.messages?.[0]?.content??input.prompt),/LANGUAGE_POLICY/,"language policy must be built by the actual advisor");
+  assert.match((input.messages?.[0]?.content??input.prompt),/never present it as spending authorization or financial advice/);
+  return {choices:[{finish_reason:"stop",message:{content:JSON.stringify({answer:"Review the recorded issue.",confidence:"high",actions:[{title:"Review the recorded issue",reason:"An issue is recorded.",priority:"high",sourceRefs:["RISK-1","invented-ref"]}],caveats:[],sourceRefs:["RISK-1"]})}}]};
 }}};
 function request(path,goal){return new Request(`https://app.example${path}`,{method:"POST",headers:{cookie:`__Host-bw_session=${session}`,origin:"https://app.example","x-csrf-token":csrf,"content-type":"application/json"},body:JSON.stringify(goal?{goal}:{})})}
 try{
@@ -60,6 +60,16 @@ try{
   assert.equal(response.status,201,JSON.stringify(result));
   assert.equal(providerCalls,2,"continuations must also reach the real advisor");
   assert.equal(result.run.generationMode,"governed_ai_advisor");
+  env.AI={async run(){return {choices:[{finish_reason:"length",message:{reasoning:"not a user answer"}}]}}};
+  const balanceBeforeTruncation=sqlite.prepare("SELECT balance FROM ai_credit_wallets WHERE tenant_id='tenant-1'").get().balance;
+  const advisorRequest=new Request("https://app.example/api/ai/advisor",{method:"POST",headers:{cookie:`__Host-bw_session=${session}`,origin:"https://app.example","x-csrf-token":csrf,"content-type":"application/json","idempotency-key":"truncated-provider-recovery-001"},body:JSON.stringify({mode:"ask",question:"Review the recorded issue"})});
+  const truncatedResponse=await worker.fetch(advisorRequest,env,{}),truncatedResult=await truncatedResponse.json();
+  assert.equal(truncatedResponse.status,200);
+  assert.equal(truncatedResult.generationMode,"structured_fallback");
+  assert.equal(truncatedResult.creditsUsed,0);
+  assert.ok(!JSON.stringify(truncatedResult).includes("not a user answer"));
+  assert.equal(sqlite.prepare("SELECT balance FROM ai_credit_wallets WHERE tenant_id='tenant-1'").get().balance,balanceBeforeTruncation);
+  assert.equal(sqlite.prepare("SELECT status FROM api_idempotency WHERE idempotency_key='truncated-provider-recovery-001'").get().status,"completed");
   env.AI=undefined;
   response=await handleAgenticRequest({request:request("/api/agentic/plan","Review recorded issues"),env,ctx:{},coreFetch});
   result=await response.json();

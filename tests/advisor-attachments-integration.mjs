@@ -33,7 +33,7 @@ sqlite.prepare("INSERT INTO business_risk_events(id,tenant_id,event_key,category
 let providerCalls=0,converterCalls=0,lastPrompt="";
 const env={DB,SESSION_SECRET:secret,AUDIT_INTEGRITY_SECRET:"test-only-audit-secret-32-characters",PUBLIC_ORIGIN:"https://app.example",AI:{
  async toMarkdown(file){converterCalls++;assert.equal(file.name,"invoice.pdf");return {format:"markdown",data:"Invoice total P415.00"}},
- async run(model,input){providerCalls++;lastPrompt=input.prompt;return {response:JSON.stringify({answer:"The supplied document says P415.00.",confidence:"medium",actions:[],caveats:[],sourceRefs:["FILE-1","foreign-ref"]})}}
+ async run(model,input){providerCalls++;lastPrompt=(input.messages?.[0]?.content??input.prompt);return {response:JSON.stringify({answer:"The supplied document says P415.00.",confidence:"medium",actions:[],caveats:[],sourceRefs:["FILE-1","foreign-ref"]})}}
 }};
 const attach=(name,content)=>({name,data:Buffer.from(content).toString("base64")});
 async function ask(attachments,key="",extra={}){return worker.fetch(new Request("https://app.example/api/ai/advisor",{method:"POST",headers:{cookie:`__Host-bw_session=${session}`,origin:"https://app.example","x-csrf-token":csrf,"content-type":"application/json",...(key?{"idempotency-key":key}:{})},body:JSON.stringify({mode:"ask",question:"Review the attachment",attachments,...extra})}),env,{waitUntil(){}})}
