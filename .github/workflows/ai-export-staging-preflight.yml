@@ -4,6 +4,8 @@ on:
     paths:
       - 'cloudflare/src/ai-export-staging-readonly.js'
       - 'tests/ai-export-staging-readonly.test.mjs'
+      - 'scripts/ai-export-private-bucket-inventory-readonly.mjs'
+      - 'tests/ai-export-private-bucket-inventory-readonly.test.mjs'
       - 'docs/ai-export-staging-readonly-preflight.md'
       - '.github/workflows/ai-export-staging-preflight.yml'
 permissions:
@@ -17,4 +19,5 @@ jobs:
         with:
           node-version-file: '.nvmrc'
       - run: node --check cloudflare/src/ai-export-staging-readonly.js
-      - run: node --test tests/ai-export-staging-readonly.test.mjs
+      - run: node --check scripts/ai-export-private-bucket-inventory-readonly.mjs
+      - run: node --test tests/ai-export-staging-readonly.test.mjs tests/ai-export-private-bucket-inventory-readonly.test.mjs
