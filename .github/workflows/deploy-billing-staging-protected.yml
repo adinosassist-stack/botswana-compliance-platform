@@ -1,5 +1,12 @@
 name: Protected billing staging deploy (default preflight)
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/deploy-billing-staging-protected.yml'
+      - 'scripts/verify-billing-staging-deploy-boundary.mjs'
+      - 'tests/verify-billing-staging-deploy-boundary.test.mjs'
+      - 'tests/billing-staging-protected-deploy-workflow.test.mjs'
+      - 'docs/billing-staging-protected-deploy-handoff.md'
   workflow_dispatch:
     inputs:
       expected_sha:
@@ -24,8 +31,23 @@ concurrency:
   group: protected-billing-staging-deployment
   cancel-in-progress: false
 jobs:
+  offline-guard:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Test staging deploy boundary without credentials
+        run: node --test tests/verify-billing-staging-deploy-boundary.test.mjs tests/billing-staging-protected-deploy-workflow.test.mjs
   staging:
-    if: github.ref == 'refs/heads/main'
+    needs: offline-guard
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     environment: billing-staging-protected
