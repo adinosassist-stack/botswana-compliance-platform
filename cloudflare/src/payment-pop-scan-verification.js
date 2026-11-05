@@ -5,7 +5,7 @@ import {appendSealedAuditEvent} from './audit-lineage-writer.js';
 const encoder=new TextEncoder(),HEX=/^[a-f0-9]{64}$/;
 export const POP_SCAN_WINDOW_MS=5*60*1000;
 export function assertPopScanQualification(env){
- if(env?.APP_ENV!=='staging'||env?.DEPLOYMENT_PROFILE!=='billing-staging-readonly'||env?.POP_SCAN_STAGING_ENABLED!=='true')throw Error('pop_scanner_forbidden');
+ if(env?.APP_ENV!=='staging'||!['billing-staging-readonly','pop-http-staging'].includes(env?.DEPLOYMENT_PROFILE)||env?.POP_SCAN_STAGING_ENABLED!=='true')throw Error('pop_scanner_forbidden');
  if(typeof env.POP_SCAN_SECRET!=='string'||env.POP_SCAN_SECRET.trim().length<32||env.POP_SCAN_SECRET===env.AUDIT_INTEGRITY_SECRET||env.POP_SCAN_SECRET===env.EVIDENCE_SCAN_SECRET||!(/^[A-Za-z0-9._-]{1,80}$/).test(String(env.POP_SCANNER_ID||'')))throw Error('pop_scanner_not_configured');
  return {secret:env.POP_SCAN_SECRET,provider:env.POP_SCANNER_ID};
 }

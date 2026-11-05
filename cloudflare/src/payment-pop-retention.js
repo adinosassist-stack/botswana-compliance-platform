@@ -4,7 +4,7 @@ import {popStoredDocument,verifiedPopBytes} from './payment-pop-scan-verificatio
 
 function qualification(env,actor,flag,prefix){
  if(actor?.platformOwner!==true||typeof actor?.userId!=='string'||!actor.userId)throw Error(prefix+'_forbidden');
- if(env?.APP_ENV!=='staging'||env?.DEPLOYMENT_PROFILE!=='billing-staging-readonly'||env?.[flag]!=='true')throw Error(prefix+'_disabled');
+ if(env?.APP_ENV!=='staging'||!['billing-staging-readonly','pop-http-staging'].includes(env?.DEPLOYMENT_PROFILE)||env?.[flag]!=='true')throw Error(prefix+'_disabled');
  if(!env.AUDIT_INTEGRITY_SECRET)throw Error(prefix+'_audit_required');
 }
 function reasonText(reason,prefix){

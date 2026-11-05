@@ -1,4 +1,5 @@
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./regulatory-pack-registry.js";
+import {handlePopHttp} from "./payment-pop-http.js";
 import {handleCorporateAssets} from "./corporate-assets.js";
 import {createAdvisorStageTimer} from './advisor-stage-timing.js';
 import {billingDashboardRows,billingDashboardAggregate} from './billing-dashboard-reads.js';
@@ -5662,6 +5663,8 @@ export default {
       if(!["GET","HEAD","OPTIONS"].includes(req.method)&&!restrictedWorkspaceMutationAllowed(url.pathname,req.method,a.role))return json({error:"workspace_role_mutation_forbidden"},403);
       if(!evidenceUploadsEnabled(env)&&evidenceMutationDisabled(url,req.method))return json({error:"evidence_uploads_temporarily_disabled",evidenceUploadsEnabled:false},503);
       if(url.pathname==="/api/ai/operator/queue"&&req.method==="POST")return secureResponse(await handleOwnerOperatorRequest(req,{auth:a}));
+      const popHttpResponse=await handlePopHttp(req,env,{auth:a,platformOwner:platformBillingAdmin(a,env)});
+      if(popHttpResponse)return popHttpResponse;
       const businessMemoryResponse=await handleBusinessMemoryRequest({request:req,url,env,auth:a,json,readJson,roleAllowed,id,writeAudit});
       if(businessMemoryResponse)return businessMemoryResponse;
       const businessContextResponse=await handleBusinessContextRequest({request:req,url,env,auth:a,json,roleAllowed});
