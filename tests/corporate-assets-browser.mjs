@@ -55,6 +55,7 @@ try{
  await page.getByRole('button',{name:'Register asset',exact:true}).click();
  await page.getByRole('heading',{name:'Register asset',exact:true}).waitFor();
  await page.getByRole('button',{name:'Cancel',exact:true}).click();
+ await page.locator('.corporate-asset-dialog').waitFor({state:'detached'});
  assert.equal(await page.locator('.corporate-asset-dialog').count(),0);
  assert.deepEqual(errors,[]);
  console.log('PASS Asset API unavailable click feedback and independent schedule failure handling');
