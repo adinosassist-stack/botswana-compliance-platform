@@ -1,0 +1,41 @@
+name: General AI staging read-only Cloudflare audit
+on:
+  workflow_dispatch:
+    inputs:
+      authorization:
+        description: 'Exact phrase: AUDIT_PRIVATE_GENERAL_AI_STAGING_READONLY'
+        type: string
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: general-ai-staging-readonly-audit
+  cancel-in-progress: false
+jobs:
+  audit-private:
+    if: github.ref == 'refs/heads/main' && inputs.authorization == 'AUDIT_PRIVATE_GENERAL_AI_STAGING_READONLY'
+    runs-on: ubuntu-latest
+    environment: general-ai-private-staging
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run offline no-mutation audit contract tests
+        run: node --test tests/general-ai-staging-live-audit.test.mjs
+      - name: Verify dedicated read-only token is provisioned
+        env:
+          GENERAL_AI_STAGING_AUDIT_TOKEN: ${{ secrets.GENERAL_AI_STAGING_AUDIT_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -z "${GENERAL_AI_STAGING_AUDIT_TOKEN:-}" ]]; then
+            echo "::error::A dedicated scoped read-only GENERAL_AI_STAGING_AUDIT_TOKEN must be independently provisioned; do not reuse deployment or production tokens."
+            exit 1
+          fi
+      - name: Cloudflare read-only staging isolation and D1 audit
+        env:
+          GENERAL_AI_STAGING_AUDIT_TOKEN: ${{ secrets.GENERAL_AI_STAGING_AUDIT_TOKEN }}
+        run: node scripts/general-ai-staging-live-audit.mjs
