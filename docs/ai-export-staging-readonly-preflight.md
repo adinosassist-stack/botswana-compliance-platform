@@ -48,3 +48,12 @@ A new **empty** Cloudflare D1 metadata database is reserved **solely for AI-expo
 `scripts/qualify-ai-export-staging-schema-offline.mjs` is a **no-network, no-write** inspection tool. It computes SHA-256 over the exact bytes of the proposed `docs/ai-export-d1-schema-candidate.sql`, refuses mismatched or non-staging targets, and refuses extra SQL statements or write operations. The output is **REVIEW_ONLY_DO_NOT_EXECUTE** and `approvedToApply=false` even when checks pass. Negative tests run in `tests/ai-export-staging-schema-plan.test.mjs` alongside isolated SQLite tests in CI.
 
 **Separately required** before any staging DDL: independent `thusico` review of the exact SQL digest and isolation target; dedicated staging-only credentials with no production D1 write scope; a recorded empty schema inventory and rollback/retention plan; and a protected execution mechanism that can prove exact current reviewed source SHA. Applying DDL to this D1 is a **different action** from creating an empty database. Never apply these statements to `bw-compliance-os` or re-use a billing, POP, conversation or General AI auth staging database. No customer files or private export objects should be written until subsequent synthetic E2E test authorization.
+
+
+## 5 November — synthetic integration boundaries
+
+`tests/ai-export-isolated-synthetic-roundtrip.test.mjs` adds an entirely **in-process mock R2** rehearsal. It verifies the existing unmounted private binding can round-trip a synthetic PDF, detect content-hash tampering, deny expired reads and prevent unapproved retention deletes. It also demonstrates that a foreign tenant's *different object key* does not return another key's object.
+
+**Critical non-claim:** the low-level storage adapter does **not** authenticate tenant/actor identity. Calling it with another tenant's *correct* key would succeed if the caller were allowed to supply that key. This mock test is **not** evidence of HTTP tenant authorization; the eventual authenticated route must explicitly authorize actor, tenant, job and object key against durable metadata, with negative cross-tenant tests. No Cloudflare object PUT/GET/DELETE or staging D1 write is performed by this test.
+
+This mock rehearsal does not replace the independently approved **staging-only** DDL application, bound private staging Worker, real synthetic R2 roundtrip, retention and tenant-access review.
