@@ -1,4 +1,5 @@
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./regulatory-pack-registry.js";
+import {advisorProviderInput,advisorProviderOutput} from "./advisor-provider-contract.js";
 import {handlePopHttp} from "./payment-pop-http.js";
 import {handleCorporateAssets} from "./corporate-assets.js";
 import {createAdvisorStageTimer} from './advisor-stage-timing.js';
@@ -2544,8 +2545,7 @@ async function buildAiAdvisorContext(env,tenantId,{includeFinance=false,actorRol
   return {context:compacted.context,serialized:compacted.serialized,counts,allowedRefs,referenceCatalog:compactedReferenceCatalog,bytes:compacted.bytes,originalBytes:compacted.originalBytes,compaction:compacted.compaction};
 }
 function parseAiAdvisorResult(result,allowedRefs){
-  let raw=result;
-  if(result&&typeof result==="object"&&"response" in result)raw=result.response;
+  let raw=advisorProviderOutput(result);
   if(typeof raw==="string"){
     const cleaned=raw.replace(/^```(?:json)?\s*/i,"").replace(/\s*```$/,"");
     try{raw=JSON.parse(cleaned)}catch{throw new Error("ai_advisor_invalid_json")}
@@ -2609,7 +2609,7 @@ async function runAiAdvisor(env,a,{mode,question,attachments=[]}){
         bundle.allowedRefs.add(document.ref);
         bundle.referenceCatalog.push({ref:document.ref,type:"user_attachment",label:document.name,verificationStatus:"user_supplied"});
       }
-      const raw=await timeStage("provider",()=>env.AI.run(model,{prompt:aiAdvisorPrompt(mode,question,bundle,documents),response_format:{type:"json_schema",json_schema:AI_ADVISOR_SCHEMA},max_tokens:1000,temperature:0.1}));
+      const raw=await timeStage("provider",()=>env.AI.run(model,advisorProviderInput(model,aiAdvisorPrompt(mode,question,bundle,documents),AI_ADVISOR_SCHEMA)));
       result=parseAiAdvisorResult(raw,bundle.allowedRefs);generationMode="workers_ai";status="completed";usedModel=model;
     }catch(e){
       errorCode="workers_ai_failed";await timeStage("refund",()=>refundFailedAiCredit(env,a.tenant_id,"business_advisor",runId,e?.message||e,consumption));creditsUsed=0;
