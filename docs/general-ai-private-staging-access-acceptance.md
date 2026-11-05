@@ -30,3 +30,11 @@ Use the existing isolated D1 `ff229eef-7724-49ae-9d68-d3a1db669b63` only, after 
 The new `tests/general-ai-staging-sqlite-acceptance.py` exercises the **exact SQL SELECT** parsed from the staging entrypoint against the reviewed schema in a temporary in-memory SQLite connection. It tests valid tenant-bound session, forged token, inactive membership, revoked generation, expired session, cross-tenant membership, tenant FK enforcement and DB integrity. It neither accesses Cloudflare nor creates staging identities.
 
 **Do not deploy any new Worker or add any synthetic fixture based on this document alone.**
+
+## Prepared negative-path service-binding acceptance (offline only)
+
+The repository now includes `cloudflare/src/general-ai-private-acceptance.js` with `verifyPrivateAiDisabled({service,origin})`. The module accepts only an explicitly injected internal binding exposing `.fetch()`, exactly `https://ai-staging.thebedesk.com`, and no cookie, bearer token, user fixture or provider prompt. It verifies the target responds 404 when General AI is OFF, returns 404 for unrelated paths, and 405 to GET on the AI path. Any other status fails closed. It deliberately never parses response bodies.
+
+`tests/general-ai-private-acceptance.test.mjs` exercises the actual staging entrypoint in memory and tests invalid origins, missing service binding, unexpectedly enabled feature, invalid responses, and absence of cookies/authorization. These are offline checks; they do **not** prove deployed Worker-to-Worker connectivity or live authenticated acceptance.
+
+The intended future binding in a separately approved **private-only** runner is conceptual: `await verifyPrivateAiDisabled({service:env.STAGING_AI})`. Do not bind, deploy or invoke an externally accessible runner based on this document. A no-route Worker with a service binding has no automatically available remote trigger. Independently review a protected non-public trigger, its identity and cleanup before any live test. Do not grant a route or preview URL to either Worker.
