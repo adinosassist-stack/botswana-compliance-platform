@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import {qualifyProductionTenantDependencyTables} from './production-core-tenant-dependency-scope.mjs';
 
 const CF_API='https://api.cloudflare.com/client/v4';
 const token=String(process.env.CLOUDFLARE_API_TOKEN||'').trim();
@@ -38,11 +39,36 @@ assert(orphanTenants===0,`orphan tenants detected: ${orphanTenants}`);
 assert(orphanUsers===0,`orphan users detected: ${orphanUsers}`);
 
 const schema=fs.readFileSync('cloudflare/schema.sql','utf8');
+const settingsResponse=await fetch(`${CF_API}/accounts/${accountId}/workers/scripts/bw-compliance-os/settings`,{
+  headers:{Authorization:`Bearer ${token}`,Accept:'application/json'}
+});
+assert(settingsResponse.ok,'production Worker settings unavailable for strict POP deferral check');
+const settingsBody=await settingsResponse.json();
+assert(settingsBody.success===true,'production Worker settings read failed');
+const byName=new Map((settingsBody.result?.bindings||[]).filter(x=>x?.name).map(x=>[x.name,x]));
+const boundFlag=name=>byName.get(name)?.type==='plain_text'?byName.get(name)?.text:undefined;
+const inventoryResponse=await fetch(`${CF_API}/accounts/${accountId}/d1/database/${databaseId}/query`,{
+  method:'POST',
+  headers:{Authorization:`Bearer ${token}`,Accept:'application/json','Content-Type':'application/json'},
+  body:JSON.stringify({sql:"SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",params:[]})
+});
+assert(inventoryResponse.ok,'D1 physical-schema inventory unavailable');
+const inventoryBody=await inventoryResponse.json();
+assert(inventoryBody.success===true&&Array.isArray(inventoryBody.result),'D1 physical-schema inventory failed');
+const physicalTables=inventoryBody.result.flatMap(set=>set?.results||[]).map(row=>row.name);
+const tenantDependencyScope=qualifyProductionTenantDependencyTables({
+  schema,liveTableNames:physicalTables,
+  popUploadEnabled:boundFlag('POP_UPLOAD_STAGING_ENABLED'),
+  aiExportsEnabled:boundFlag('THEBE_AI_EXPORTS_ENABLED')
+});
+const activeTenantDependencyTables=new Set(tenantDependencyScope.includedTables);
+console.log('INFO zero-orphan physical schema declared='+tenantDependencyScope.declaredCount+' deferred='+tenantDependencyScope.deferredTables.join(','));
 const tableRe=/CREATE TABLE IF NOT EXISTS\s+([A-Za-z0-9_]+)\s*\((.*?)\);/gis;
 const danglingChecks=[];
 for(const match of schema.matchAll(tableRe)){
   const table=match[1],body=match[2];
   assert(/^[A-Za-z0-9_]+$/.test(table),`unsafe schema table identifier ${safe(table)}`);
+  if(!activeTenantDependencyTables.has(table))continue;
   if(table==='tenants')continue;
   const tenantColumns=[...new Set([...body.matchAll(/\b([A-Za-z0-9_]*tenant_id)\b/gi)].map(x=>x[1]))];
   for(const column of tenantColumns){

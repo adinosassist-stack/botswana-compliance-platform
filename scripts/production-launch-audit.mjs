@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import {qualifyProductionTenantDependencyTables} from './production-core-tenant-dependency-scope.mjs';
 
 const CF_API='https://api.cloudflare.com/client/v4';
 const ORIGIN='https://thebedesk.com';
@@ -345,12 +346,22 @@ const orphanSubscriptions=await d1Scalar('orphan tenant subscriptions',`SELECT C
 const orphanAuditChainState=await d1Scalar('orphan tenant audit chain state',`SELECT COUNT(*) AS count FROM audit_chain_state a WHERE EXISTS (SELECT 1 FROM tenants t WHERE t.id=a.tenant_id AND ${orphanPredicate})`);
 
 const schema=fs.readFileSync('cloudflare/schema.sql','utf8');
+const physicalTables=await d1Rows('physical tenant dependency tables',"SELECT name FROM sqlite_master WHERE type='table' ORDER BY name");
+const tenantDependencyScope=qualifyProductionTenantDependencyTables({
+  schema,
+  liveTableNames:physicalTables.map(row=>row.name),
+  popUploadEnabled:bindingValue(byName.get('POP_UPLOAD_STAGING_ENABLED')),
+  aiExportsEnabled:bindingValue(byName.get('THEBE_AI_EXPORTS_ENABLED'))
+});
+const activeTenantDependencyTables=new Set(tenantDependencyScope.includedTables);
+console.log('INFO physical tenant dependency inventory: declared='+tenantDependencyScope.declaredCount+' deferred='+tenantDependencyScope.deferredTables.join(','));
 const tableRe=/CREATE TABLE IF NOT EXISTS\s+([A-Za-z0-9_]+)\s*\((.*?)\);/gis;
 const legacyAllowedDependencies=new Set(['memberships.tenant_id','subscriptions.tenant_id','audit_chain_state.tenant_id']);
 const dependencySelects=[];
 for(const match of schema.matchAll(tableRe)){
   const table=match[1],body=match[2];
   assert(/^[A-Za-z0-9_]+$/.test(table),`unsafe schema table identifier ${safe(table)}`);
+  if(!activeTenantDependencyTables.has(table))continue;
   const tenantColumns=[...new Set([...body.matchAll(/\b([A-Za-z0-9_]*tenant_id)\b/gi)].map(x=>x[1]))];
   for(const column of tenantColumns){
     assert(/^[A-Za-z0-9_]+$/.test(column),`unsafe schema tenant column identifier ${safe(column)}`);

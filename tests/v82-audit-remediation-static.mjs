@@ -170,4 +170,20 @@ for(const path of ['/api/auth/register','/__thebe_api/auth/register','/?__thebe_
 const policy=await entry.fetch(new Request('https://thebedesk.com/api/auth/registration-policy'), {REGISTRATION_MODE:'open'}, {});
 assert.deepEqual(await policy.json(), {ok:true,mode:'open'});
 
+
+// Release 592: no phantom D1 reads for the explicitly deferred POP table,
+// without weakening physical-table completeness or orphan checks.
+const {qualifyProductionTenantDependencyTables}=await import('../scripts/production-core-tenant-dependency-scope.mjs');
+const tinySchema="CREATE TABLE IF NOT EXISTS tenants (id TEXT PRIMARY KEY);\nCREATE TABLE IF NOT EXISTS active_data (tenant_id TEXT);\nCREATE TABLE IF NOT EXISTS payment_pop_documents (tenant_id TEXT);";
+const scope=qualifyProductionTenantDependencyTables({schema:tinySchema,liveTableNames:['tenants','active_data'],popUploadEnabled:'false',aiExportsEnabled:'false'});
+assert.deepEqual(scope.deferredTables,['payment_pop_documents']);
+assert.deepEqual(scope.includedTables,['tenants','active_data']);
+for(const flags of [['true','false'],['false','true'],[undefined,'false'],['false',undefined]]){
+  assert.throws(()=>qualifyProductionTenantDependencyTables({schema:tinySchema,liveTableNames:['tenants','active_data'],popUploadEnabled:flags[0],aiExportsEnabled:flags[1]}),/tenant_dependency_missing_required_table/);
+}
+assert.throws(()=>qualifyProductionTenantDependencyTables({schema:tinySchema,liveTableNames:['tenants'],popUploadEnabled:'false',aiExportsEnabled:'false'}),/tenant_dependency_missing_required_table/);
+assert.deepEqual(qualifyProductionTenantDependencyTables({schema:tinySchema,liveTableNames:['tenants','active_data','payment_pop_documents'],popUploadEnabled:'true',aiExportsEnabled:'true'}).deferredTables,[]);
+assert.match(read('scripts/production-launch-audit.mjs'),/activeTenantDependencyTables\.has\(table\)/);
+assert.match(read('scripts/production-zero-orphan-audit.mjs'),/activeTenantDependencyTables\.has\(table\)/);
+
 console.log(`AUDIT_REMEDIATION_STATIC_PASS sequence=${release.sequence} sourceSha=${release.sourceSha}`);
