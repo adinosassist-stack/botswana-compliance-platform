@@ -93,8 +93,15 @@ jobs:
           const reviewers=rules.find(x=>x.type==='required_reviewers');
           if(!reviewers||reviewers.prevent_self_review!==true||
             !reviewers.reviewers?.some(x=>x.reviewer?.login==='thusico'))throw Error('independent_thusico_review_policy_required');
-          if(env.deployment_branch_policy?.protected_branches!==true||
-            env.deployment_branch_policy?.custom_branch_policies===true)throw Error('protected_main_branch_policy_required');
+          if(env.deployment_branch_policy?.protected_branches!==false||
+            env.deployment_branch_policy?.custom_branch_policies!==true)throw Error('selected_main_branch_policy_required');
+          const branchResponse=await fetch('https://api.github.com/repos/'+repo+'/environments/billing-staging-protected/deployment-branch-policies?per_page=100',{
+            headers:{Authorization:'Bearer '+process.env.ENVIRONMENT_READ_TOKEN,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
+          if(!branchResponse.ok)throw Error('deployment_branch_policies_unavailable');
+          const branchRules=await branchResponse.json();
+          if(branchRules.total_count!==1||branchRules.branch_policies?.length!==1||
+            branchRules.branch_policies[0].name!=='main'||branchRules.branch_policies[0].type!=='branch')
+            throw Error('only_exact_main_deployment_branch_required');
           console.log('Protected staging environment policy verified (no token output)');
           NODE
       - name: Checkout exact approved main source without persisted credentials
