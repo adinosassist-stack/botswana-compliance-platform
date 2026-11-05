@@ -1,0 +1,64 @@
+name: Manual-bank core launch offline qualification
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/manual-bank-core-launch-qualification.yml'
+      - 'cloudflare/src/platform-subscription-controls.js'
+      - 'cloudflare/src/worker.js'
+      - 'cloudflare/src/billing-staging-entry.js'
+      - 'cloudflare/wrangler.toml'
+      - 'server/payments/**'
+      - 'scripts/qualify-core-only-release.mjs'
+      - 'scripts/verify-live-core-only-bindings.mjs'
+      - 'tests/manual-bank-*.test.mjs'
+      - 'tests/owner-payment-*.test.mjs'
+      - 'tests/owner-bank-*.test.mjs'
+      - 'tests/platform-billing-*.test.mjs'
+      - 'tests/subscription-access-audit-d1.test.mjs'
+      - 'tests/core-only-launch-freeze.test.mjs'
+      - 'tests/verify-live-core-only-bindings.test.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact candidate with no persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Set up pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify actual production Worker code and reviewed core-only freeze
+        run: |
+          node scripts/qualify-core-only-release.mjs
+          node --test tests/core-only-launch-freeze.test.mjs tests/verify-live-core-only-bindings.test.mjs
+      - name: Verify owner bank evidence, audit, duplicates and settlement rollback
+        run: |
+          node --test             tests/owner-payment-evidence-policy.test.mjs             tests/owner-bank-allocation-contract.test.mjs             tests/owner-bank-allocation-sqlite.test.mjs             tests/d1-bank-allocation-adapter-reference.test.mjs             tests/owner-bank-d1-staging-fixture.test.mjs             tests/manual-bank-owner-approval-flow.test.mjs             tests/manual-bank-review-audit-d1.test.mjs
+      - name: Verify platform owner controls, tenancy and paid-period enforcement
+        run: |
+          node --test             tests/owner-payment-dashboard.test.mjs             tests/platform-billing-controls.test.mjs             tests/subscription-access-audit-d1.test.mjs             tests/owner-dashboard-audit.test.mjs
+      - name: Verify staging isolation and production POP disabled boundaries
+        run: |
+          node --test tests/billing-staging-boundary.test.mjs tests/billing-staging-acceptance.test.mjs
+      - name: Emit scoped offline release evidence only
+        run: |
+          {
+            echo "### Manual-bank core release — offline qualification"
+            echo "- Exact tested SHA: \`$GITHUB_SHA\` (PR checkout is the candidate head)"
+            echo "- Tests: owner bank verification, settlement replay/rollback, tenancy, paid-period controls, core-only POP/AI freeze"
+            echo "- Provider credentials used: none"
+            echo "- Bank reconciliation performed: no"
+            echo "- Production or staging D1 mutated: no"
+            echo "- Customer payment/subscription activated: no"
+            echo "- Live authenticated owner acceptance and independent exact-SHA release authorization: still required"
+          } >> "$GITHUB_STEP_SUMMARY"
