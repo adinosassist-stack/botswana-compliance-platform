@@ -13,6 +13,8 @@ on:
       - 'docs/proposals/payment-pop-retention-recovery.md'
       - 'cloudflare/src/platform-owner-access.js'
       - 'scripts/render-billing-staging-config.mjs'
+      - 'scripts/render-pop-http-staging-config.mjs'
+      - 'docs/pop-http-scanner-integration.md'
       - 'scripts/prepare-billing-staging-owner.mjs'
       - 'scripts/prepare-billing-staging-customers.mjs'
       - 'scripts/prepare-billing-staging-payments.mjs'

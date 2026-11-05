@@ -32,7 +32,7 @@ operators inspect it before retrying after the five-minute request window.
 
 ## Isolated deployment requirements — not performed
 
-`payment-pop-http-staging-entry.js` is an API-only entry with fixed intended
+`payment-pop-http-staging-entry.js` is an staging entry with fixed intended
 origin `https://pop-staging.thebedesk.com` and D1 UUID
 `812f9021-890b-41e6-8fa1-6001f90a9b53`. It allowlists login/session and these
 receipt routes only, strips unrelated integration secrets and forces AI and
@@ -57,7 +57,30 @@ The integration tests use real local SQLite and workerd R2; only scanner network
 transport is simulated with signed bytes. They cover upload/replay, clean and
 blocked/failed verdicts, audited attachment delivery, explicit retirement,
 tenant/role/CSRF/origin rejection, bounded streaming, and no payment effects.
-They do **not** establish a live provider, remote staging E2E, customer UI,
+They do **not** establish a live provider, remote staging E2E, production customer UI,
 production intake, migration/rollback acceptance or launch readiness.
 Production promotion requires a separately reviewed production trust boundary;
 changing the staging flags is explicitly insufficient.
+
+## Staging interface and configuration
+
+The isolated entry serves `/pop/` with a nonce-based CSP, same-origin-only
+requests and no browser persistence. Customers can sign in and upload; review
+controls require the server-derived platform billing capability. Receipt names
+use literal text nodes. Failed upload retries retain the same idempotency key;
+sign-out clears metadata and fences late responses. Retirement requires an
+explicit reason and confirmation. This interface has local DOM/controller tests,
+not a completed visual browser or remote provider acceptance.
+
+Generate a non-public, default-off config with
+`EXPECTED_SHA=<reviewed SHA> POP_STAGING_ADMIN_EMAILS=<designated admin> node scripts/render-pop-http-staging-config.mjs`.
+It binds only the fixed POP staging D1 and dedicated proposed bucket
+`bw-pop-http-staging-quarantine`; it creates neither. Public/custom routes,
+previews and all receipt/AI capability flags remain absent or disabled. Verify
+that the bucket exists, is private and unused by production before reviewing
+any deployment. The independent staging environment, secrets, actual synthetic
+accounts and scanner-provider contract remain required outside this generator.
+
+`payment-pop-authenticated-worker.test.mjs` exercises the actual Worker session,
+tenant, CSRF, revocation and platform-admin boundary using local SQLite. No
+caller-supplied role/header can authorize platform receipt access.

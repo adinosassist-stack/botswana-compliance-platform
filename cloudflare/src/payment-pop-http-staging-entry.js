@@ -1,3 +1,4 @@
+import {popStagingPage} from "./payment-pop-staging-ui.js";
 import core from './worker.js';
 const ORIGIN='https://pop-staging.thebedesk.com';
 const DB='812f9021-890b-41e6-8fa1-6001f90a9b53';
@@ -12,6 +13,7 @@ export function createPopHttpStagingEntry(delegate=core){return {async fetch(req
     env.PUBLIC_ORIGIN!==ORIGIN||env.PUBLIC_APP_URL!==ORIGIN||!/^[a-f0-9]{40}$/.test(env.POP_HTTP_STAGING_SOURCE_SHA||''))return reply('pop_staging_configuration_required',503);
  const url=new URL(request.url),path=url.pathname;
  if(url.origin!==ORIGIN||url.searchParams.has('__thebe_api_path'))return reply('pop_staging_origin_required',403);
+ if(path==='/pop/'&&request.method==='GET')return popStagingPage();
  const action=path.startsWith('/api/platform/billing/pop/')?path.slice('/api/platform/billing/pop/'.length):null;
  const allowed=request.method==='GET'&&(reads.has(path)||ownerReads.has(action))||request.method==='POST'&&
   (authWrites.has(path)||path==='/api/payments/manual-bank/pop/upload'||ownerWrites.has(action));
