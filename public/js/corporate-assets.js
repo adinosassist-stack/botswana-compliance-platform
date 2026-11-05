@@ -2,7 +2,7 @@
  'use strict';
  const ROOT='/api/corporate-assets',categories={fleet:'Fleet',it:'IT hardware',machinery:'Machinery',furniture:'Furniture',other:'Other'},statuses={active:'Active',maintenance:'In maintenance',written_off:'Written off',decommissioned:'Decommissioned'};
  const kinds={service:'Routine service',repair:'Repair',insurance:'Insurance renewal',warranty:'Warranty claim'};
- let root,rows=[],cursor=null,cursors=[''],page=0,busy=false,epoch=0,search='',filter='';
+ let root,rows=[],cursor=null,cursors=[''],page=0,busy=false,epoch=0,search='',filter='',registerReady=false;
  const identity=()=>{try{return typeof currentUser==='object'&&currentUser?currentUser:null}catch{return null}};
  const key=()=>{const u=identity();return u?`${u.id}:${u.tenantId}:${u.role}`:''};
  const allowed=()=>['owner','manager'].includes(identity()?.role);
@@ -12,7 +12,7 @@
  const api=(path,options={})=>globalThis.apiJson(path,options);
  const status=message=>{root.querySelector('[data-assets-status]').textContent=message};
  const current=(token,who)=>token===epoch&&who===key()&&allowed()&&root.classList.contains('active');
- function disableWrites(disabled){root.querySelectorAll('[data-asset-write]').forEach(b=>{b.disabled=disabled})}
+ function disableWrites(disabled){registerReady=!disabled;root.querySelectorAll('[data-asset-write]').forEach(b=>{b.setAttribute('aria-disabled',String(disabled));b.title=disabled?'Asset registration is unavailable until the company register finishes loading.':''})}
  function metrics(summary={}){
   const box=root.querySelector('.asset-metrics');box.replaceChildren();
   for(const [label,value] of [['Registered assets',summary.total??'—'],['Recorded book value',summary.bookValueMinor===undefined?'—':money(summary.bookValueMinor)],['In maintenance',summary.maintenance??'—'],['Due / overdue in 30 days',summary.due??'—']]){
@@ -41,8 +41,8 @@
    const result=await api(ROOT+'?after='+encodeURIComponent(cursors[page]||''));if(!current(token,who))return;
    rows=result.items;cursor=result.nextCursor;metrics(result.summary);renderRows();
    root.querySelector('[data-next]').disabled=!cursor;root.querySelector('[data-back]').disabled=page===0;disableWrites(false);status('');
-   const schedule=await api(ROOT+'/schedule');if(!current(token,who))return;renderSchedule(schedule);
-  }catch(error){if(!current(token,who))return;status(['assets_unavailable','assets_not_ready'].includes(error.code||error.data?.error)?'Assets is not available in this workspace yet.':'Could not load assets. Use Refresh to try again.');root.querySelector('[data-next]').disabled=true;root.querySelector('[data-back]').disabled=true;}
+   try{const schedule=await api(ROOT+'/schedule');if(!current(token,who))return;renderSchedule(schedule)}catch{if(current(token,who))root.querySelector('.asset-schedule').replaceChildren(make('p','muted','Maintenance schedule unavailable. Asset register remains available.'))}
+  }catch(error){if(!current(token,who))return;status(['assets_unavailable','assets_not_ready'].includes(error.code||error.data?.error)?'Asset registration is unavailable in this workspace. No records can be saved.':'Could not load asset registration. Use Refresh to retry; no records can be saved.');root.querySelector('[data-next]').disabled=true;root.querySelector('[data-back]').disabled=true;}
  }
  function renderSchedule(data){
   const box=root.querySelector('.asset-schedule');box.replaceChildren();
@@ -71,7 +71,8 @@
   finally{busy=false;dialogInfo.submit.disabled=false}
  }
  function assetForm(a=null){
-  if(!allowed())return;const who=key(),recordId=a?.id||crypto.randomUUID(),ui=dialog(a?'Edit asset':'Register asset'),f=ui.form;
+  if(!allowed())return;
+  if(!registerReady){status('Cannot register an asset yet: the asset service is still loading or unavailable. Use Refresh to retry. No asset has been saved.');return}const who=key(),recordId=a?.id||crypto.randomUUID(),ui=dialog(a?'Edit asset':'Register asset'),f=ui.form;
   field(f,'Asset name','name',{value:a?.name,required:true});field(f,'Category','category',{value:a?.category||'fleet',options:categories});field(f,'Branch / location','branch',{value:a?.branch,required:true,maxLength:100});field(f,'Serial / VIN','serial',{value:a?.serial,maxLength:100});field(f,'Custodian','custodian',{value:a?.custodian});field(f,'Acquisition date','acquisitionDate',{value:a?.acquisition_date,type:'date',required:true});
   const owner=identity()?.role==='owner';
   const cost=field(f,'Acquisition cost (BWP)','cost',{value:a?String(a.acquisition_cost_minor/100):'',type:'number',required:true});const book=field(f,'Recorded book value (BWP)','book',{value:a?String(a.book_value_minor/100):'',type:'number',required:true});
