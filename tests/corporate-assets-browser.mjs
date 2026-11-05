@@ -34,4 +34,28 @@ try{
  await page.evaluate(()=>showView('peopleops'));assert.equal(await page.locator('#corporateassets .asset-list').innerText(),'','leaving the workspace clears private records');
  assert.deepEqual(errors,[]);console.log('PASS Assets native navigation, deferred loading, register form, history, mobile width and data clearing');
  await page.evaluate(()=>{currentUser={id:'reviewer',tenantId:'tenant-b',role:'reviewer'};showView('corporateassets')});assert.equal(await page.locator('#corporateassets .asset-list').innerText(),'');
+ // Regression: failed asset-list API must never leave a silent inert Register asset button.
+ await page.evaluate(()=>{
+  showView('peopleops');
+  currentUser={id:'owner-a',tenantId:'tenant-a',role:'owner'};
+  window.savedAssetsApi=window.apiJson;
+  window.apiJson=async()=>{throw Object.assign(new Error('assets_unavailable'),{code:'assets_unavailable'})};
+  showView('corporateassets');
+ });
+ await page.getByText('Asset registration is unavailable in this workspace. No records can be saved.').waitFor();
+ await page.getByRole('button',{name:'Register asset',exact:true}).click();
+ await page.getByText('Cannot register an asset yet: the asset service is still loading or unavailable. Use Refresh to retry. No asset has been saved.').waitFor();
+ assert.equal(await page.locator('.corporate-asset-dialog').count(),0,'unqualified backend must not open a save form');
+ // A maintenance-read failure after a successful register read must not block creation form navigation.
+ await page.evaluate(()=>{
+  window.apiJson=(path,opts)=>path.endsWith('/schedule')?Promise.reject(Error('schedule unavailable')):window.savedAssetsApi(path,opts);
+ });
+ await page.getByRole('button',{name:'Refresh',exact:true}).click();
+ await page.getByText('Maintenance schedule unavailable. Asset register remains available.').waitFor();
+ await page.getByRole('button',{name:'Register asset',exact:true}).click();
+ await page.getByRole('heading',{name:'Register asset',exact:true}).waitFor();
+ await page.getByRole('button',{name:'Cancel',exact:true}).click();
+ assert.equal(await page.locator('.corporate-asset-dialog').count(),0);
+ assert.deepEqual(errors,[]);
+ console.log('PASS Asset API unavailable click feedback and independent schedule failure handling');
 }finally{await browser.close()}
