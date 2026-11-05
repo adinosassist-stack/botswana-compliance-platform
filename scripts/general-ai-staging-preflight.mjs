@@ -6,6 +6,7 @@
  * THEBE_AI_STAGING_COOKIE=<session-cookie> \
  * THEBE_AI_STAGING_CSRF=<csrf-token> \
  * THEBE_AI_STAGING_LIVE_TEST=I_ACKNOWLEDGE_PROVIDER_COSTS \
+ * # Optional, only after separate research qualification:\n * # THEBE_AI_STAGING_RESEARCH_TEST=I_ACKNOWLEDGE_RESEARCH_PROVIDER_COSTS \
  * node scripts/general-ai-staging-preflight.mjs
  *
  * No credentials, response bodies or private prompts are logged.
@@ -24,10 +25,16 @@ const endpoint=new URL("/api/ai/general",url);
 const denied=await fetch(endpoint,{method:"POST",redirect:"error",headers:{"content-type":"application/json",origin:url.origin},body:JSON.stringify({question:"Explain gravity."})});
 if(denied.status!==401&&denied.status!==404)throw Error("unauthenticated_boundary_failed_"+denied.status);
 console.log("unauthenticated boundary: passed");
+const researchOptIn=process.env.THEBE_AI_STAGING_RESEARCH_TEST||"";
+if(researchOptIn && researchOptIn!=="I_ACKNOWLEDGE_RESEARCH_PROVIDER_COSTS")throw Error("invalid_research_test_opt_in");
 const scenarios=[
-  {name:"general",question:"Explain photosynthesis in two sentences.",requiresCitation:false},
-  {name:"research",question:"Research recent publicly reported Botswana renewable energy developments. Cite retrieved sources.",requiresCitation:true}
+  {name:"general",question:"Explain photosynthesis in two sentences.",requiresCitation:false}
 ];
+if(researchOptIn==="I_ACKNOWLEDGE_RESEARCH_PROVIDER_COSTS"){
+  scenarios.push({name:"research",question:"Research recent publicly reported Botswana renewable energy developments. Cite retrieved sources.",requiresCitation:true});
+}else{
+  console.log("research: not tested (separate opt-in and qualification required)");
+}
 for(const item of scenarios){
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),25000);
