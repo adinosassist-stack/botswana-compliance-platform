@@ -5,7 +5,7 @@ import {popOwnerReadAllowed} from "./payment-pop-storage-boundary.js";
 export async function listPopForPlatformOwner(env,{actor,orderId}={}){
  if(actor?.platformOwner!==true)throw Error("pop_owner_forbidden");
  if(!env?.DB?.prepare)throw Error("pop_db_unavailable");
- const result=await env.DB.prepare("SELECT id,tenant_id,payment_order_id,display_name,content_type,bytes,scan_status,uploaded_at FROM payment_pop_documents WHERE payment_order_id=? AND deleted_at IS NULL ORDER BY uploaded_at DESC LIMIT 50").bind(orderId).all();
+ const result=await env.DB.prepare("SELECT id,tenant_id,payment_order_id,display_name,content_type,bytes,scan_status,uploaded_at,content_sha256,object_etag FROM payment_pop_documents WHERE payment_order_id=? AND deleted_at IS NULL ORDER BY uploaded_at DESC LIMIT 50").bind(orderId).all();
  return {items:result.results||[],bankFundsConfirmed:false};
 }
 export async function markPopScanResult(env,args={}){return applyPopScanResult(env,args)}
