@@ -27,5 +27,32 @@ test('local D1 atomically seals asset writes, enforces tenant FK and rolls back 
   assert.equal((await DB.prepare('SELECT COUNT(*) n FROM audit_events').first()).n,2);
   assert.equal((await DB.prepare('SELECT event_count FROM audit_chain_state').first()).event_count,2);
   await assert.rejects(DB.prepare("INSERT INTO corporate_asset_services(id,tenant_id,asset_id,kind,serviced_on,due_on,cost_minor,description) VALUES('service','b',?,'repair','2026-01-01','2026-02-01',0,'Repair')").bind(id).run());
+
+  // Exercise the same runtime handler against real local D1, not a mock list.
+  const scoped=(tenant_id,role,path,method='GET',data)=>handleCorporateAssets({
+   request:new Request('https://thebedesk.com/api/corporate-assets'+path,{method,...(data?{body:JSON.stringify(data)}:{})}),
+   env,auth:{tenant_id,user_id:'a',role},readJson:r=>r.json()
+  });
+  const ownerListing=await scoped('a','owner','');
+  assert.equal(ownerListing.status,200);
+  assert.deepEqual((await ownerListing.json()).items.map(a=>a.id),[id]);
+  const otherTenantListing=await scoped('b','owner','');
+  assert.equal(otherTenantListing.status,200);
+  assert.deepEqual((await otherTenantListing.json()).items,[],'tenant B cannot enumerate tenant A');
+  assert.equal((await scoped('b','owner','/'+id+'/history')).status,404,'tenant B cannot read asset history');
+  assert.equal((await scoped('a','reviewer','')).status,403,'reviewer cannot view register');
+  assert.equal((await handleCorporateAssets({request:new Request('https://thebedesk.com/api/corporate-assets'),env,auth:null})).status,401,'anonymous requests denied');
+  assert.equal((await scoped('a','manager','/'+id,'PUT',{...body,revision:2,status:'written_off'})).status,403,'manager cannot retire asset');
+  assert.equal((await scoped('a','manager','/'+id,'PUT',{...body,revision:2,bookValueMinor:1})).status,403,'manager cannot modify book value');
+  const disabled=await handleCorporateAssets({request:new Request('https://thebedesk.com/api/corporate-assets'),env:{...env,THEBE_CORPORATE_ASSETS_ENABLED:'false'},auth:{tenant_id:'a',user_id:'a',role:'owner'}});
+  assert.equal(disabled.status,404,'disabled feature fails closed despite a valid schema');
+  assert.equal((await DB.prepare('SELECT COUNT(*) AS count FROM audit_events WHERE tenant_id=?').bind('b').first()).count,0,'no cross-tenant audit writes');
+  assert.equal((await DB.prepare('SELECT COUNT(*) AS count FROM corporate_assets WHERE tenant_id=?').bind('a').first()).count,1,'denied writes left asset intact');
+  const auditRows=await DB.prepare('SELECT tenant_seq,event_hash,prev_hash FROM audit_events WHERE tenant_id=? ORDER BY tenant_seq').bind('a').all();
+  assert.equal(auditRows.results.length,2);
+  assert.equal(auditRows.results[0].tenant_seq,1);
+  assert.equal(auditRows.results[1].tenant_seq,2);
+  assert.equal(auditRows.results[1].prev_hash,auditRows.results[0].event_hash,'sealed event hash chain links successful writes');
+
  }finally{await mf.dispose()}
 });
