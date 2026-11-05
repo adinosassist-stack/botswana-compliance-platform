@@ -1,0 +1,30 @@
+name: Thebe composer contract v338
+
+on:
+  pull_request:
+    paths:
+      - "public/js/thebe-live-voice.js"
+      - "public/assets/thebe-spatial-dock-v246.css"
+      - "tests/v338-thebe-composer-contract-static.mjs"
+      - ".github/workflows/thebe-composer-contract-v338.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "public/js/thebe-live-voice.js"
+      - "public/assets/thebe-spatial-dock-v246.css"
+      - "tests/v338-thebe-composer-contract-static.mjs"
+
+permissions:
+  contents: read
+
+jobs:
+  static-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run composer contract regression
+        run: node tests/v338-thebe-composer-contract-static.mjs
