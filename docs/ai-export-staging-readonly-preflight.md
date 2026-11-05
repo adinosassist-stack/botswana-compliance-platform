@@ -57,3 +57,10 @@ A new **empty** Cloudflare D1 metadata database is reserved **solely for AI-expo
 **Critical non-claim:** the low-level storage adapter does **not** authenticate tenant/actor identity. Calling it with another tenant's *correct* key would succeed if the caller were allowed to supply that key. This mock test is **not** evidence of HTTP tenant authorization; the eventual authenticated route must explicitly authorize actor, tenant, job and object key against durable metadata, with negative cross-tenant tests. No Cloudflare object PUT/GET/DELETE or staging D1 write is performed by this test.
 
 This mock rehearsal does not replace the independently approved **staging-only** DDL application, bound private staging Worker, real synthetic R2 roundtrip, retention and tenant-access review.
+
+
+## Tenant-and-actor boundary candidate (5 November 2026)
+
+The unmounted `server/ai-export-authorized-reader.js` derives R2 object keys *exclusively* from an independently authenticated server principal and an exact job ID. It asks a supplied durable metadata lookup to confirm the exact tenant, actor, job, `completed` status, key and unexpired timestamp before calling the existing integrity-checking R2 reader. Missing authentication, a forged foreign object key, mismatched tenant/actor, missing metadata and provider errors fail closed without reading R2. CI tests cover cross-tenant and cross-actor access even when the attacker knows the other tenant's **correct** object key.
+
+**Not a live access-control attestation:** this module is neither registered as an HTTP route nor connected to a real auth provider, production Worker, or Cloudflare storage. The production integration must independently establish a trusted authenticated principal, verify durable D1 ownership, recheck permissions at the download boundary, and qualify private staging E2E before enabling customer exports. No migration, deployment or production flag changes are authorized here.
