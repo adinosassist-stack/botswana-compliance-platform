@@ -3,6 +3,7 @@
 export const ASSET_STAGING_REQUIRED_COLUMNS=Object.freeze({
  tenants:['id','name'],users:['id','email','password_hash','session_generation'],
  memberships:['tenant_id','user_id','role','status'],
+ auth_rate_limits:['key_hash','scope','count','window_start','expires_at'],
  sessions:['token_hash','user_id','tenant_id','role','session_generation','csrf_token','expires_at'],
  audit_events:['tenant_id','actor_user_id','event_type','entity_type','entity_id','tenant_seq','prev_hash','event_hash','integrity_version'],
  audit_chain_state:['tenant_id','last_hash','event_count'],
