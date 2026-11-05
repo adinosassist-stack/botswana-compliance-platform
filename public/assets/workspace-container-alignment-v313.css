@@ -75,3 +75,29 @@
     min-width:0!important;
   }
 }
+
+/* Mobile workspace overflow hardening: keep card content inside its grid track
+   without changing the property calculator or dock's fixed positioning. */
+@media (max-width: 620px) {
+  #mainContent :is(
+    #workhub, #businesshub, #evidencehub, #tenderhub,
+    #automationhub, #moneyhub, #protecthub, #sites, #servicesmarketplace
+  ).workspace-infographic-v309 > :is(
+    .outcome-grid, .business-outcome-grid, .proof-work-grid,
+    .workspace-info-grid-v309, .workspace-info-scale-v309
+  ) {
+    min-width: 0 !important;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  #mainContent :is(
+    #workhub, #businesshub, #evidencehub, #tenderhub,
+    #automationhub, #moneyhub, #protecthub, #sites, #servicesmarketplace
+  ).workspace-infographic-v309 > :is(
+    .outcome-grid, .business-outcome-grid, .proof-work-grid,
+    .workspace-info-grid-v309, .workspace-info-scale-v309
+  ) > * {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+}
