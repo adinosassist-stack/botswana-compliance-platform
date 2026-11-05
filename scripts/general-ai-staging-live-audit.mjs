@@ -52,8 +52,6 @@ export async function auditStaging({fetchImpl=fetch,token,accountId=ACCOUNT_ID,z
   const limiter=bindings.filter(b=>b.name==="GENERAL_AI_RATE_LIMITER");
   if(limiter.length!==1||limiter[0].type!=="ratelimit"||String(limiter[0].namespace_id)!=="78212078")error("staging_limiter_mismatch");
   if(bindings.some(b=>["OPENAI_API_KEY","BRAVE_SEARCH_API_KEY","THEBE_GENERAL_AI_MODEL"].includes(b.name)))error("unreviewed_paid_provider_binding");
-  if(!Array.isArray(domains.result))error("worker_domain_inventory_unavailable");
-  if(domains.result.some(d=>d.service===WORKER||/^(ai-staging)\.thebedesk\.com$/i.test(d.hostname||"")))error("public_worker_domain");
   // Exhaust paginated zone-level inventory. Failure to read any page is a no-go.
   async function allPages(path){
     const combined=[];let page=1;
@@ -74,7 +72,7 @@ export async function auditStaging({fetchImpl=fetch,token,accountId=ACCOUNT_ID,z
     allPages("/zones/"+ZONE_ID+"/dns_records"),
     allPages(workers+"/domains")
   ]);
-  if(domains.some(d=>d.service===WORKER||/^(ai-staging)\\.thebedesk\\.com$/i.test(d.hostname||"")))error("public_worker_domain");
+  if(domains.some(d=>d.service===WORKER||/^(ai-staging)\.thebedesk\.com$/i.test(d.hostname||"")))error("public_worker_domain");
   if(routes.some(r=>r.script===WORKER||/ai-staging\.thebedesk\.com/i.test(r.pattern||"")))error("public_worker_route");
   if(dns.some(r=>/^(ai-staging)\.thebedesk\.com$/i.test(r.name||"")))error("public_staging_dns");
   const d1="/accounts/"+ACCOUNT_ID+"/d1/database/"+DB_ID+"/query";
