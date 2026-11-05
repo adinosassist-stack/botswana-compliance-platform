@@ -1,0 +1,34 @@
+name: Advanced-feature default-off safety guard
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/wrangler.toml'
+      - 'cloudflare/wrangler.general-ai-staging.toml'
+      - 'cloudflare/migrations/071_payment_pop_runtime_compat.sql'
+      - 'docs/ai-export-private-safety-consolidation-20261103.md'
+      - 'tests/activation-2187-default-off-guard.test.mjs'
+      - '.github/workflows/activation-default-off-guard.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'cloudflare/wrangler.toml'
+      - 'cloudflare/wrangler.general-ai-staging.toml'
+      - 'cloudflare/migrations/071_payment_pop_runtime_compat.sql'
+      - 'docs/ai-export-private-safety-consolidation-20261103.md'
+      - 'tests/activation-2187-default-off-guard.test.mjs'
+      - '.github/workflows/activation-default-off-guard.yml'
+permissions:
+  contents: read
+jobs:
+  verify-default-off:
+    name: Verify advanced features remain off until individually qualified
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+      - run: node --test tests/activation-2187-default-off-guard.test.mjs
