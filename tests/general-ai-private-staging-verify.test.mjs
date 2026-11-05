@@ -29,3 +29,24 @@ for(const [name,modify] of Object.entries({
 test("rejects public worker",()=>assert.notEqual(run({subdomain:{enabled:true,previews_enabled:false}}).status,0));
 test("rejects previews",()=>assert.notEqual(run({subdomain:{enabled:false,previews_enabled:true}}).status,0));
 test("fails closed on provider errors",()=>assert.notEqual(run({providerFailure:true}).status,0));
+
+test("reports only allowlisted missing settings, never secret values",()=>{
+ const r=run({modify:b=>{
+   b.splice(b.findIndex(x=>x.name==="THEBE_GENERAL_AI_ENABLED"),1);
+   b.push({name:"UNTRUSTED_CUSTOM_SECRET_NAME",type:"secret_text"});
+ }});
+ assert.notEqual(r.status,0);
+ const report=JSON.parse(r.stdout);
+ assert.ok(report.missingBindings.includes("THEBE_GENERAL_AI_ENABLED"));
+ assert.equal(report.unexpectedBindingCount,1);
+ assert.equal(report.isolated,false);
+ assert.ok(!r.stdout.includes("UNTRUSTED_CUSTOM_SECRET_NAME"));
+ assert.ok(!r.stdout.includes("fake-test-token"));
+});
+test("reports mismatched reviewed binding names without leaking values",()=>{
+ const r=run({modify:b=>{b.find(x=>x.name==="PUBLIC_ORIGIN").text="https://private.invalid";}});
+ assert.notEqual(r.status,0);
+ const report=JSON.parse(r.stdout);
+ assert.ok(report.mismatchedBindings.includes("PUBLIC_ORIGIN"));
+ assert.ok(!r.stdout.includes("private.invalid"));
+});
