@@ -1,0 +1,203 @@
+name: Protected billing staging deploy (default preflight)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/deploy-billing-staging-protected.yml'
+      - 'scripts/verify-billing-staging-deploy-boundary.mjs'
+      - 'tests/verify-billing-staging-deploy-boundary.test.mjs'
+      - 'tests/billing-staging-protected-deploy-workflow.test.mjs'
+      - 'docs/billing-staging-protected-deploy-handoff.md'
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact current main 40-character SHA
+        required: true
+        type: string
+      mode:
+        description: PREFLIGHT_ONLY or DEPLOY_APPROVED
+        required: true
+        type: choice
+        default: PREFLIGHT_ONLY
+        options:
+          - PREFLIGHT_ONLY
+          - DEPLOY_APPROVED
+      authorization:
+        description: For actual deployment enter DEPLOY_READONLY_BILLING_STAGING (preflight uses PREFLIGHT_ONLY)
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: protected-billing-staging-deployment
+  cancel-in-progress: false
+jobs:
+  offline-guard:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Test staging deploy boundary without credentials
+        run: node --test tests/verify-billing-staging-deploy-boundary.test.mjs tests/billing-staging-protected-deploy-workflow.test.mjs
+  staging:
+    needs: offline-guard
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: billing-staging-protected
+    env:
+      TARGET_SHA: ${{ inputs.expected_sha }}
+      DEPLOY_MODE: ${{ inputs.mode }}
+      AUTHORIZATION: ${{ inputs.authorization }}
+      BILLING_STAGING_D1_ID: '9d1b8852-4424-46e9-ba24-cdad5ced215f'
+      PRODUCTION_D1_DATABASE_ID: '8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce'
+      BILLING_STAGING_ADMIN_EMAILS: ${{ vars.BILLING_STAGING_ADMIN_EMAILS }}
+      BILLING_STAGING_SOURCE_SHA: ${{ inputs.expected_sha }}
+      CLOUDFLARE_ACCOUNT_ID: 'ddd23cab31928a4bb3d4998df9b26d1d'
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - name: Verify dispatch scope and source SHA
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_SHA" =~ ^[a-f0-9]{40}$ ]] || exit 1
+          [[ "$DEPLOY_MODE" == "PREFLIGHT_ONLY" || "$DEPLOY_MODE" == "DEPLOY_APPROVED" ]] || exit 1
+          if [[ "$DEPLOY_MODE" == "DEPLOY_APPROVED" ]]; then
+            [[ "$AUTHORIZATION" == "DEPLOY_READONLY_BILLING_STAGING" ]] || exit 1
+          else
+            [[ "$AUTHORIZATION" == "PREFLIGHT_ONLY" ]] || exit 1
+          fi
+          actual="$(curl --fail --silent --show-error -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" | node -e 'let s="";process.stdin.on("data",x=>s+=x).on("end",()=>console.log(JSON.parse(s).commit.sha))')"
+          [[ "$actual" == "$TARGET_SHA" ]] || { echo 'staging exact-main-SHA gate refused'; exit 1; }
+      - name: Validate protected environment with independently scoped GitHub credential
+        env:
+          ENVIRONMENT_READ_TOKEN: ${{ secrets.BILLING_STAGING_GITHUB_READ_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${ENVIRONMENT_READ_TOKEN:-}" ]] || { echo 'dedicated environment inspection token missing'; exit 1; }
+          node --input-type=module <<'NODE'
+          const repo=process.env.GITHUB_REPOSITORY;
+          const r=await fetch('https://api.github.com/repos/'+repo+'/environments/billing-staging-protected',{
+            headers:{Authorization:'Bearer '+process.env.ENVIRONMENT_READ_TOKEN,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
+          if(!r.ok)throw Error('environment_protection_unavailable');
+          const env=await r.json(),rules=env.protection_rules||[];
+          const reviewers=rules.find(x=>x.type==='required_reviewers');
+          if(!reviewers||reviewers.prevent_self_review!==true||
+            !reviewers.reviewers?.some(x=>x.reviewer?.login==='thusico'))throw Error('independent_thusico_review_policy_required');
+          if(env.deployment_branch_policy?.protected_branches!==true||
+            env.deployment_branch_policy?.custom_branch_policies===true)throw Error('protected_main_branch_policy_required');
+          console.log('Protected staging environment policy verified (no token output)');
+          NODE
+      - name: Checkout exact approved main source without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.expected_sha }}
+          persist-credentials: false
+      - name: Setup reviewed Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Run offline approval, staging isolation and finance regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]] || exit 1
+          npm ci --ignore-scripts --no-audit --no-fund
+          node --test tests/verify-billing-staging-deploy-boundary.test.mjs tests/billing-staging-boundary.test.mjs tests/billing-staging-acceptance.test.mjs
+          node --test tests/manual-bank-owner-approval-flow.test.mjs tests/manual-bank-review-audit-d1.test.mjs tests/subscription-access-audit-d1.test.mjs
+      - name: Read-only Cloudflare resource and existing-secret metadata audit
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.BILLING_STAGING_CLOUDFLARE_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${CLOUDFLARE_API_TOKEN:-}" && -n "$BILLING_STAGING_ADMIN_EMAILS" ]] || { echo 'staging scoped token or approved admin setting missing'; exit 1; }
+          node --input-type=module <<'NODE'
+          import {verifyBillingDeployBoundary,ACCOUNT,STAGING_DB,BUCKET} from './scripts/verify-billing-staging-deploy-boundary.mjs';
+          const base='https://api.cloudflare.com/client/v4',headers={Authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN};
+          async function get(path,body){
+            const r=await fetch(base+path,{method:body?'POST':'GET',headers:{...headers,...(body?{'content-type':'application/json'}:{})},
+              ...(body?{body:JSON.stringify(body)}:{}),redirect:'error',signal:AbortSignal.timeout(16000)});
+            if(!r.ok)throw Error('cloudflare_staging_read_failed_'+r.status);
+            const json=await r.json();if(json.success!==true)throw Error('cloudflare_staging_read_rejected');
+            return json;
+          }
+          const p='/accounts/'+ACCOUNT;
+          const [settings,marker,publicBucket,customDomains,subdomain,domains]=await Promise.all([
+            get(p+'/workers/scripts/bw-billing-staging/settings'),
+            get(p+'/d1/database/'+STAGING_DB+'/query',{sql:'SELECT database_id,environment FROM billing_staging_identity WHERE id=1'}),
+            get(p+'/r2/buckets/'+BUCKET+'/domains/managed'),
+            get(p+'/r2/buckets/'+BUCKET+'/domains/custom'),
+            get(p+'/workers/scripts/bw-billing-staging/subdomain'),
+            get(p+'/workers/domains?per_page=100&page=1')]);
+          const proof=verifyBillingDeployBoundary({settings,marker,publicBucket,customDomains,subdomain,domains,
+            adminEmails:process.env.BILLING_STAGING_ADMIN_EMAILS});
+          console.log(JSON.stringify(proof));
+          NODE
+      - name: Render exact reviewed staging source and dry run without changing Cloudflare
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          node scripts/render-billing-staging-config.mjs > "$RUNNER_TEMP/billing-staging.json"
+          node ./node_modules/wrangler/bin/wrangler.js deploy --dry-run --config "$RUNNER_TEMP/billing-staging.json" --outdir "$RUNNER_TEMP/billing-staging-compiled"
+      - name: Reconfirm main is unchanged at deployment boundary
+        if: inputs.mode == 'DEPLOY_APPROVED'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(curl --fail --silent --show-error -H "Authorization: Bearer $GH_TOKEN" "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" | node -e 'let s="";process.stdin.on("data",x=>s+=x).on("end",()=>console.log(JSON.parse(s).commit.sha))')"
+          [[ "$sha" == "$TARGET_SHA" && "$(git rev-parse HEAD)" == "$TARGET_SHA" ]] || { echo 'source changed; deployment refused'; exit 1; }
+      - name: Deploy only reviewed billing staging with preserved approved staging-only secrets
+        if: inputs.mode == 'DEPLOY_APPROVED'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.BILLING_STAGING_CLOUDFLARE_TOKEN }}
+          BILLING_SESSION_SECRET: ${{ secrets.BILLING_STAGING_SESSION_SECRET }}
+          BILLING_AUDIT_SECRET: ${{ secrets.BILLING_STAGING_AUDIT_INTEGRITY_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ -n "${CLOUDFLARE_API_TOKEN:-}" && -n "${BILLING_SESSION_SECRET:-}" && -n "${BILLING_AUDIT_SECRET:-}" ]] || { echo 'staging deployment secrets missing'; exit 1; }
+          node --input-type=module <<'NODE'
+          import {writeFileSync} from 'node:fs';
+          const keys={SESSION_SECRET:process.env.BILLING_SESSION_SECRET,AUDIT_INTEGRITY_SECRET:process.env.BILLING_AUDIT_SECRET};
+          for(const [key,value] of Object.entries(keys))if(typeof value!=='string'||value.length<32)throw Error('short_or_missing_'+key);
+          writeFileSync(process.env.RUNNER_TEMP+'/billing-staging-secrets.json',JSON.stringify(keys),{mode:0o600});
+          NODE
+          node ./node_modules/wrangler/bin/wrangler.js deploy --config "$RUNNER_TEMP/billing-staging.json" --secrets-file "$RUNNER_TEMP/billing-staging-secrets.json"
+          rm -f "$RUNNER_TEMP/billing-staging-secrets.json"
+      - name: Verify deployed read-only staging source and deny payment mutations
+        if: inputs.mode == 'DEPLOY_APPROVED'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const r=await fetch('https://billing-staging.thebedesk.com/api/billing-staging/status',{redirect:'error',signal:AbortSignal.timeout(15000)});
+          if(!r.ok)throw Error('staging_postdeploy_status_failed');
+          const x=await r.json();
+          if(x.sourceSha!==process.env.TARGET_SHA||x.mode!=='read_only'||
+            x.authenticatedAcceptance!==false||x.billingMutationsEnabled!==false||
+            x.popUploadsEnabled!==false||x.regulatoryActivationEnabled!==false)
+            throw Error('staging_postdeploy_guard_failed');
+          console.log('Reviewed read-only billing staging source and mutation-denial flags verified');
+          NODE
+      - name: Record bounded outcome
+        shell: bash
+        run: |
+          echo "Billing staging requested mode: $DEPLOY_MODE" >> "$GITHUB_STEP_SUMMARY"
+          echo "Exact reviewed SHA: $TARGET_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo 'No production data, payment approval, POP upload, settlement or subscriptions touched by this workflow.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Authenticated owner + two customer acceptance still requires separate secure test credentials.' >> "$GITHUB_STEP_SUMMARY"
