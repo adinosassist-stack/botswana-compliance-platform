@@ -23,8 +23,8 @@ test("production AI, exports and POP activation remain explicitly disabled", () 
 test("private General AI staging remains disabled and not internet-exposed", () => {
   exactPlainTextFlag(generalStaging, "THEBE_GENERAL_AI_ENABLED", "false");
   exactPlainTextFlag(generalStaging, "THEBE_GENERAL_AI_RESEARCH_ENABLED", "false");
-  exactPlainTextFlag(generalStaging, "workers_dev", "false");
-  exactPlainTextFlag(generalStaging, "preview_urls", "false");
+  assert.match(generalStaging, /^\\s*workers_dev\\s*=\\s*false\\s*$/m);
+  assert.match(generalStaging, /^\\s*preview_urls\\s*=\\s*false\\s*$/m);
   assert.doesNotMatch(generalStaging, /^\\s*(?:route|routes|zone_id)\\s*=/m);
   assert.match(generalStaging, /database_id\\s*=\\s*"ff229eef-7724-49ae-9d68-d3a1db669b63"/);
   assert.match(generalStaging, /namespace_id\\s*=\\s*"78212078"/);
