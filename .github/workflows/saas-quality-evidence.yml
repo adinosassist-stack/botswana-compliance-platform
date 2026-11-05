@@ -7,6 +7,8 @@ on:
       - 'tests/saas-quality-evidence-gate.test.mjs'
       - 'tests/workspace-mobile-grid-containment.test.mjs'
       - 'public/assets/workspace-container-alignment-v313.css'
+      - 'public/js/thebe-dock-recovery-geometry-v269.js'
+      - 'tests/workspace-dock-pointer-lifecycle.test.mjs'
       - '.github/workflows/saas-quality-evidence.yml'
   workflow_dispatch:
 permissions:
@@ -28,4 +30,4 @@ jobs:
           node --check scripts/saas-quality-evidence-gate.mjs
           node --check tests/saas-quality-evidence-gate.test.mjs
       - name: Offline adversarial regression
-        run: node --test tests/saas-quality-evidence-gate.test.mjs tests/workspace-mobile-grid-containment.test.mjs
+        run: node --test tests/saas-quality-evidence-gate.test.mjs tests/workspace-mobile-grid-containment.test.mjs tests/workspace-dock-pointer-lifecycle.test.mjs
