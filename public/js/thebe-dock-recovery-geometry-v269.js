@@ -234,7 +234,11 @@
       setDockPosition(dock,{x:event.clientX-drag.dx,y:event.clientY-drag.dy});
     });
     const finish=()=>{if(!drag)return;drag=null;if(dock.dataset.workspaceFloating==="true")try{global.localStorage?.setItem?.(WORKSPACE_POSITION_KEY,JSON.stringify({x:parseInt(dock.style.getPropertyValue("--thebe-dock-float-left"),10),y:parseInt(dock.style.getPropertyValue("--thebe-dock-float-top"),10)}))}catch{}};
-    title.addEventListener("pointerup",finish);title.addEventListener("pointercancel",finish);
+    title.addEventListener("pointerup",finish);
+    title.addEventListener("pointercancel",finish);
+    // Pointer capture may be lost when the browser cancels a gesture or the
+    // panel is detached. Clear drag state so the next gesture starts cleanly.
+    title.addEventListener("lostpointercapture",finish);
     title.addEventListener("dblclick",()=>{try{global.localStorage?.removeItem?.(WORKSPACE_POSITION_KEY)}catch{};delete dock.dataset.workspaceFloating;dock.style.removeProperty("--thebe-dock-float-left");dock.style.removeProperty("--thebe-dock-float-top")});
     const saved=readDockPosition();if(saved)setDockPosition(dock,saved);
   }
