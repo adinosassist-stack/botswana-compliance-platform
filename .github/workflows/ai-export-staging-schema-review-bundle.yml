@@ -1,0 +1,56 @@
+name: AI export isolated staging schema review bundle
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact current main SHA for offline bundle (no Cloudflare access)
+        required: true
+        type: string
+  pull_request:
+    paths:
+      - 'docs/ai-export-d1-schema-candidate.sql'
+      - 'scripts/qualify-ai-export-staging-schema-offline.mjs'
+      - 'scripts/prepare-ai-export-staging-schema-review.mjs'
+      - 'tests/ai-export-staging-schema-plan.test.mjs'
+      - 'tests/ai-export-staging-schema-review.test.mjs'
+      - '.github/workflows/ai-export-staging-schema-review-bundle.yml'
+permissions:
+  contents: read
+concurrency:
+  group: ai-export-schema-review-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  review-only:
+    if: github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && inputs.expected_sha == github.sha)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Verify offline contract without credentials or network access
+        run: |
+          set -euo pipefail
+          node --check scripts/prepare-ai-export-staging-schema-review.mjs
+          node --test tests/ai-export-staging-schema-plan.test.mjs tests/ai-export-staging-schema-review.test.mjs
+          node scripts/qualify-ai-export-staging-schema-offline.mjs
+      - name: Produce source-bound reviewer artifact without executing candidate SQL
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p ai-export-staging-schema-review
+          cp docs/ai-export-d1-schema-candidate.sql ai-export-staging-schema-review/
+          node scripts/prepare-ai-export-staging-schema-review.mjs ai-export-staging-schema-review/review-manifest.json
+          printf '%s\n' "${GITHUB_SHA}" > ai-export-staging-schema-review/SOURCE_SHA.txt
+          (cd ai-export-staging-schema-review && sha256sum ai-export-d1-schema-candidate.sql review-manifest.json SOURCE_SHA.txt > SHA256SUMS.txt)
+          (cd ai-export-staging-schema-review && sha256sum -c SHA256SUMS.txt)
+      - name: Upload offline evidence for independent review
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-export-schema-review-${{ github.sha }}
+          path: ai-export-staging-schema-review/
+          retention-days: 7
+          if-no-files-found: error
