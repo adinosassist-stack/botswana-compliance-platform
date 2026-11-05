@@ -32,6 +32,8 @@ jobs:
       - run: npm ci --ignore-scripts
       - name: Verify isolated staging auth contract
         run: python3 tests/general-ai-staging-session-contract.py
+      - name: Exercise staging authentication SQL against isolated SQLite
+        run: python3 tests/general-ai-staging-sqlite-acceptance.py
       - name: Run complete General AI test family
         run: node --test tests/general-ai-*.test.mjs
       - name: Verify production and staging remain disabled and private
