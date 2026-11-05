@@ -4,7 +4,9 @@ on:
     paths:
       - 'cloudflare/src/ai-export-staging-readonly.js'
       - 'tests/ai-export-staging-readonly.test.mjs'
-      - 'tests/ai-export-isolated-synthetic-roundtrip.test.mjs'
+      - 'tests/ai-export-isolated-synthetic-roundtrip.test.mjs tests/ai-export-authorized-reader.test.mjs'
+      - 'server/ai-export-authorized-reader.js'
+      - 'tests/ai-export-authorized-reader.test.mjs'
       - 'tests/ai-export-staging-schema-offline.test.py'
       - 'docs/ai-export-d1-schema-candidate.sql'
       - 'scripts/qualify-ai-export-staging-schema-offline.mjs'
