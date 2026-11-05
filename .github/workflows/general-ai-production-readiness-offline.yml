@@ -1,0 +1,65 @@
+name: General AI production readiness offline gate
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/general-ai-production-readiness-offline.yml'
+      - '.github/workflows/general-ai-research-ci.yml'
+      - '.github/workflows/general-ai-private-staging-qualification.yml'
+      - 'cloudflare/src/general-ai-*.js'
+      - 'cloudflare/wrangler.toml'
+      - 'cloudflare/wrangler.general-ai-staging.toml'
+      - 'cloudflare/schema/general-ai-staging-auth.sql'
+      - 'tests/general-ai-*'
+      - 'scripts/general-ai-*'
+      - 'docs/general-ai-production-readiness.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: general-ai-production-readiness-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  offline-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - name: Verify isolated staging auth contract
+        run: python3 tests/general-ai-staging-session-contract.py
+      - name: Run complete General AI test family
+        run: node --test tests/general-ai-*.test.mjs
+      - name: Verify production and staging remain disabled and private
+        run: |
+          node --input-type=module <<'JS'
+          import {readFileSync} from 'node:fs';
+          const production=readFileSync('cloudflare/wrangler.toml','utf8');
+          const staging=readFileSync('cloudflare/wrangler.general-ai-staging.toml','utf8');
+          const productionRequired=['THEBE_GENERAL_AI_ENABLED = "false"','THEBE_GENERAL_AI_RESEARCH_ENABLED = "false"'];
+          const stagingRequired=['name = "bw-general-ai-staging"','workers_dev = false','preview_urls = false','THEBE_GENERAL_AI_ENABLED = "false"','THEBE_GENERAL_AI_RESEARCH_ENABLED = "false"','database_id = "ff229eef-7724-49ae-9d68-d3a1db669b63"','namespace_id = "78212078"'];
+          for(const [source,required] of [[production,productionRequired],[staging,stagingRequired]]){
+            for(const value of required)if(!source.includes(value))throw Error('general_ai_disabled_configuration_missing');
+          }
+          if(/^\s*(?:(?:route|routes|zone_id)\s*=|\[\[?routes\]\]?)/m.test(staging))throw Error('general_ai_staging_public_route_prohibited');
+          JS
+      - name: Build offline private staging bundle only
+        run: npx wrangler deploy --dry-run --config cloudflare/wrangler.general-ai-staging.toml --outdir /tmp/general-ai-production-readiness
+      - name: Record exact-source offline evidence
+        run: |
+          set -euo pipefail
+          test -n "$(find /tmp/general-ai-production-readiness -type f -print -quit)"
+          mkdir -p release-evidence
+          printf '%s\n' "$GITHUB_SHA" > release-evidence/COMMIT_SHA.txt
+          printf '%s\n' 'offline-only: no deployment, no secrets, no production activation' > release-evidence/SCOPE.txt
+          (cd /tmp/general-ai-production-readiness && find . -type f -print0 | sort -z | xargs -0 sha256sum) > release-evidence/BUNDLE_SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: general-ai-production-offline-${{ github.sha }}
+          path: release-evidence/
+          if-no-files-found: error
+          retention-days: 7
