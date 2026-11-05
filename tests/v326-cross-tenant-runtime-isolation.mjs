@@ -92,7 +92,8 @@ class IsolationDB{
 
 const db=new IsolationDB();
 const fakeAI={
-  async run(_model,{prompt}){
+  async run(_model,input){
+    const prompt=input.messages?.[0]?.content??input.prompt;
     const present=Object.entries(markers).filter(([,marker])=>String(prompt).includes(marker));
     assert.equal(present.length,1,`grounded AI prompt must contain exactly one tenant marker, got ${present.map(([tenant])=>tenant).join(",")||"none"}`);
     const [tenant,marker]=present[0];
