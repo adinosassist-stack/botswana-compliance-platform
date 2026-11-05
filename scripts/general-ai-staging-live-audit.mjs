@@ -35,10 +35,9 @@ export async function auditStaging({fetchImpl=fetch,token,accountId=ACCOUNT_ID,z
   }
   // Never fetch script content or any secret values.
   const workers="/accounts/"+ACCOUNT_ID+"/workers";
-  const [settings,subdomain,domains]=await Promise.all([
+  const [settings,subdomain]=await Promise.all([
     call("GET",workers+"/scripts/"+WORKER+"/settings"),
-    call("GET",workers+"/scripts/"+WORKER+"/subdomain"),
-    call("GET",workers+"/domains")
+    call("GET",workers+"/scripts/"+WORKER+"/subdomain")
   ]);
   if(subdomain.result?.enabled!==false||subdomain.result?.previews_enabled!==false)error("public_worker_subdomain_enabled");
   const bindings=settings.result?.bindings;
@@ -70,10 +69,12 @@ export async function auditStaging({fetchImpl=fetch,token,accountId=ACCOUNT_ID,z
     }
     return error("zone_inventory_pagination_overflow");
   }
-  const [routes,dns]=await Promise.all([
+  const [routes,dns,domains]=await Promise.all([
     allPages("/zones/"+ZONE_ID+"/workers/routes"),
-    allPages("/zones/"+ZONE_ID+"/dns_records")
+    allPages("/zones/"+ZONE_ID+"/dns_records"),
+    allPages(workers+"/domains")
   ]);
+  if(domains.some(d=>d.service===WORKER||/^(ai-staging)\\.thebedesk\\.com$/i.test(d.hostname||"")))error("public_worker_domain");
   if(routes.some(r=>r.script===WORKER||/ai-staging\.thebedesk\.com/i.test(r.pattern||"")))error("public_worker_route");
   if(dns.some(r=>/^(ai-staging)\.thebedesk\.com$/i.test(r.name||"")))error("public_staging_dns");
   const d1="/accounts/"+ACCOUNT_ID+"/d1/database/"+DB_ID+"/query";
