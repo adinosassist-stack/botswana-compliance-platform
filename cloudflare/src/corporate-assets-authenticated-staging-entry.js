@@ -1,4 +1,5 @@
 import governed from './release-governance-entry.js';
+import {corporateAssetsStagingSchemaPreflight} from './corporate-assets-staging-schema-preflight.js';
 
 // Review-only acceptance entry, not the deployed status-only staging Worker.
 // No public route and no automatic deployment are authorized by this module.
@@ -20,11 +21,10 @@ export function createCorporateAssetsAuthenticatedStagingEntry(delegate=governed
   const url=new URL(request.url);
   if(url.origin!==env.PUBLIC_ORIGIN)return json('asset_staging_origin_required',403);
   if(url.searchParams.has('__thebe_api_path'))return json('asset_staging_transport_alias_denied',403);
-  let identity;
-  try{identity=await env.DB.prepare('SELECT database_id,environment FROM corporate_assets_staging_identity WHERE id=1').first();}
-  catch{return json('asset_staging_database_unqualified',503)}
-  if(identity?.database_id!==env.ASSETS_STAGING_D1_ID||identity?.environment!=='corporate-assets-isolated')
-   return json('asset_staging_database_unqualified',503);
+  // Deny all requests, including login, when the isolated DB lacks any
+  // canonical auth/CSRF/asset/audit schema requirement.
+  const preflight=await corporateAssetsStagingSchemaPreflight(env);
+  if(!preflight.ready)return json('asset_staging_database_unqualified',503);
   const p=url.pathname,m=request.method;
   const permitted=(m==='GET'&&(READ.has(p)||(assetPath.test(p)&&p.endsWith('/history'))))||
    (m==='POST'&&(AUTH_POST.has(p)||p==='/api/corporate-assets'||(assetPath.test(p)&&p.endsWith('/services'))))||
