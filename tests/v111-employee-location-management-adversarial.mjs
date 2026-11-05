@@ -86,7 +86,7 @@ assert.match(html,/async function reactivateOpsLocation\(id\)/);
 for(const action of ["editOpsLocation","removeOpsLocation","reactivateOpsLocation"])assert.ok(delegatedEvents.includes(`'${action}'`),`delegated event allowlist missing ${action}`);
 assert.match(html,/let opsReportingSetupEpoch=0/);
 assert.equal((html.match(/const setupEpoch=\+\+opsReportingSetupEpoch/g)||[]).length,2,"People setup and Daily Reports must share the render epoch");
-assert.equal((html.match(/if\(setupEpoch!==opsReportingSetupEpoch\)return;/g)||[]).length,2,"both async reporting renders must discard stale completions");
+assert.equal((html.match(/if\(setupEpoch!==opsReportingSetupEpoch\)return;/g)||[]).length,3,"People setup and both Daily Reports await phases must discard stale completions");
 assert.match(html,/opsLocationsSignature/,"unchanged location rows must retain their DOM instead of detaching controls");
 assert.match(html,/allLocs\.filter\(x=>Number\(x\.active\)===1\)/);
 assert.match(html,/Remove location\?/);
