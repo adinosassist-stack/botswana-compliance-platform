@@ -5,7 +5,12 @@ const s=readFileSync('.github/workflows/deploy-billing-staging-protected.yml','u
 test('workflow is dispatch-only and gated on exact main with independent environment review',()=>{
  assert.match(s,/workflow_dispatch:/);assert.doesNotMatch(s,/\n  push:/);assert.match(s,/github\.ref == 'refs\/heads\/main'/);
  assert.match(s,/environment: billing-staging-protected/);assert.match(s,/independent_thusico_review_policy_required/);
- assert.match(s,/prevent_self_review/);assert.match(s,/protected_branches/);assert.match(s,/staging exact-main-SHA gate refused/);
+ assert.match(s,/prevent_self_review/);assert.match(s,/selected_main_branch_policy_required/);
+ assert.match(s,/only_exact_main_deployment_branch_required/);
+ assert.match(s,/branchRules.total_count!==1/);
+ assert.match(s,/branch_policies\[0\]\.name!=='main'/);
+ assert.match(s,/branch_policies\[0\]\.type!=='branch'/);
+ assert.match(s,/staging exact-main-SHA gate refused/);
 });
 test('preflight is default and deployment has separate explicit owner authorization',()=>{
  assert.match(s,/default: PREFLIGHT_ONLY/);assert.match(s,/DEPLOY_READONLY_BILLING_STAGING/);
