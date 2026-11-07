@@ -119,3 +119,13 @@ The adapter is deliberately **not imported by `worker.js`**, not deployed and no
 ### Outstanding before approval
 
 Run updated CI, assess least-privilege data binding isolation, complete adversarial tests with valid authenticated cookies and malicious tenant swaps, confirm retention/privacy obligations, conduct independent Namibia legal/tax approval, and obtain independent `thusico` sign-off. Do not merge, deploy, or enable customer-facing Namibia features without a later explicit owner approval.
+
+## Batch 7 — authenticated internal API regression harness
+
+Added `tests/namibia-authenticated-internal-api.test.mjs` and wired it into the Namibia candidate PR workflow.
+
+The suite uses synthetic HMAC session cookies against the **actual** existing `authenticate` helper, a simulated server-side session/membership response, and a disposable local SQLite database loaded from the candidate schema. It covers positive owner writes, evidence/audit reads, manager membership, inactive sessions, excluded roles, tenant allowlist mismatch, forged cookies, CSRF mismatch, cross-origin requests, client-supplied identity overrides, an attempted forged tenant header, and the same entity reference under two different tenants.
+
+**Boundaries:** The session/membership database is simulated; there is still no deployed HTTP worker route, no externally accessible API, no live tenant enrollment, and no proof that a staging Worker session store is distinct from the Botswana production session database. Do not introduce live tenant identifiers or personal information to tests. A true connected-Worker review requires explicit environment mapping, review of session tenant entitlements, independent security reviewer sign-off and a separate owner approval.
+
+The isolated Cloudflare D1 database created for the previous batch contains synthetic data only. It has not been connected to this API. Production routing, migrations, payments and customer-facing Namibia compliance remain disabled.
