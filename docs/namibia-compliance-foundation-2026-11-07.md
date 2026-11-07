@@ -299,3 +299,13 @@ Added `cloudflare/src/namibia-staging-entry.js`, an inert Worker which returns a
 Added `tests/namibia-staging-manifest.test.mjs` and CI coverage for the immutable 404 behavior and exact resource manifest. The manifest is not referenced by any live deployment workflow and no Cloudflare Worker was created or updated in this batch.
 
 Next gates: check fresh CI and exact current SHA, independently review least-privilege credentials and Cloudflare resource identities, validate the proposed distinct script/environment against account roles and access policies, attach separate synthetic-only auth with no public hostname under a protected approval, and obtain independent `thusico` review and separate owner staging-deploy approval. No customer Namibia activation, production migrations, payment changes, or live regulatory filings are authorized.
+
+## Batch 21 — explicit review-only staging preflight (no deployment)
+
+Prior head `0b605c1181c6ae877e2acae8b2c18ae49ca918bb` passed Namibia candidate CI. Several unrelated broader repository checks were in progress when verified.
+
+Added `scripts/namibia-staging-preflight.mjs` which validates the exact standalone Worker name, inert entrypoint, workers.dev/preview URL disablement, no routes/assets/crons, disabled runtime flags, three distinct expected disposable D1 IDs (not Botswana production), absence of secrets/payments, and preservation of the existing production Worker name. It exits nonzero if a policy check fails and outputs a machine-readable report with no approval state or deployment authorization.
+
+Added `.github/workflows/namibia-staging-preflight.yml` as a **read-only** PR/manual preflight with `contents: read` permissions and no Cloudflare tokens/secrets, no deploy step, and a required exact full commit SHA when manually dispatched. A PR run is only a check; it does not grant a reviewer attestation or consent to deploy. The existing Namibia candidate workflow also runs the offline preflight.
+
+**Not performed:** Worker deployment, actual D1 binding changes, production write, merging, enabling Namibia runtime or authorizing a release. Real Cloudflare resource metadata, source SHA qualification, independent `thusico` sign-off and an owner deployment decision remain mandatory. The newest CI must still complete before its result is reported as passing.
