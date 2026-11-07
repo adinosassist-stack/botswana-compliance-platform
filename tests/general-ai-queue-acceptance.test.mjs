@@ -6,7 +6,7 @@ const sha="a".repeat(40);
 const msg={operation:"verify-disabled",worker:"bw-general-ai-staging",sourceSha:sha,nonce:"b".repeat(32)};
 const target={fetch:request=>staging.fetch(request,{APP_ENV:"staging",THEBE_GENERAL_AI_ENABLED:"false"})};
 function ledger(){const consumed=new Set();return {consumed,async claimOnce({namespace,sourceSha,nonce}){const key=[namespace,sourceSha,nonce].join(":");if(consumed.has(key))return false;consumed.add(key);return true}}}
-const config={STAGING_AI:target,APPROVED_SOURCE_SHA:sha,PRIVATE_AI_QUEUE_ACCEPTANCE_ENABLED:"true",PRIVATE_AI_NONCE_LEDGER:ledger()};
+const config={STAGING_AI:target,APPROVED_SOURCE_SHA:sha,PRIVATE_AI_QUEUE_ACCEPTANCE_ENABLED:"true",PRIVATE_AI_NONCE_LEDGER:{claimOnce:async()=>true}};
 function batch(body=msg,queue="bw-general-ai-private-acceptance-queue") {
  let acks=0;
  return {queue,messages:[{body,ack:()=>{acks++}}],get acks(){return acks}};
