@@ -141,3 +141,16 @@ Added `cloudflare/src/namibia-source-review-candidate.js` and `tests/namibia-sou
 - This module is not imported into the live Worker, no new DB tables/migrations are applied, and no source content is automatically fetched.
 
 Before the Namibia compliance pack can progress: retain authoritative source snapshots with retrieval timestamps, independently verify relevant legislation and effective dates against official primary texts, classify entity applicability, record Namibian legal and tax reviewer decisions, test rule versioning and appeals, and complete the separate security/release approval. The current code is a gated research foundation only.
+
+## Batch 9 — versioned rule research review (2026-11-07)
+
+Added `cloudflare/src/namibia-rule-review-ledger.js` and `tests/namibia-rule-review-ledger.test.mjs`; both included in Namibia CI.
+
+- Every candidate revision binds a rule key, revision number, task domain, research question, official source identifier and SHA-256 fingerprint.
+- Task domains are fixed to their expected BIPA, NamRA or FIC source authority. Spoofed sources and cross-authority mappings are refused.
+- Proposed effective-from/to dates are valid-calendar-date checked and chronological, but **remain unverified legal effective dates**. No due date is inferred or published.
+- The review ledger rejects duplicate rule-key/revision pairs and refuses records that claim approval, regulatory-pack registration, automated notifications or filings.
+- Reviewer findings can record research concerns only (`needs_source_verification`, `requires_legal_opinion`, `needs_revision`, or `out_of_scope`); there is intentionally **no self-approval path**.
+- No regulatory pack is registered, no database schema/migration or Worker route changed, no production writes, and no tenant-facing Namibia feature enabled.
+
+Remaining tasks: immutable tenant/access-isolated persistence for source snapshot versions; SHA-256 verification of actual official document bytes; signed reviewer provenance; independent legal and security signoff; regulatory applicability mapping, notice and rule effective-date review; privacy/retention design; production migration and release approval. Automated CI results for this newest commit must be checked before calling this batch verified.
