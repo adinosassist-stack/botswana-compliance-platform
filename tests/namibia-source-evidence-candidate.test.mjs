@@ -17,7 +17,7 @@ test("matching source bytes create a nonapproved immutable evidence candidate",a
  const source=await createNamibiaSourceEvidenceCandidate({metadata:{...metadata,contentSha256:digest.sha256},bytes,revision:1});
  assert.equal(source.ok,true);assert.equal(source.value.storeBytes,false);
  assert.equal(source.value.legalApproved,false);assert.equal(source.value.releaseEnabled,false);
- assert.equal(checkNamibiaSourceEvidenceLedger([source.value]).value.activationReady,false);
+ assert.equal(checkNamibiaSourceEvidenceLedger([source.value]).activationReady,false);
  assert.equal(checkNamibiaSourceEvidenceLedger([source.value,source.value]).error,"duplicate_source_revision");
  assert.equal(regulatoryPackBundleForMarket("NA"),null);
  const rule=draftNamibiaRuleRevision({ruleKey:"na_bipa_annual_return",revision:1,
