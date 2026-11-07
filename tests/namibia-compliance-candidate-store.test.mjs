@@ -93,12 +93,17 @@ test("missing tenant entity and unsafe metadata are refused",async()=>{
   await createNamibiaEntityDraft(db,owner,entity);
   const input={entityRef:"NA-001",evidenceType:"entity_registration",label:"A"};
   assert.equal((await createNamibiaEvidenceMetadata(db,owner,{...input,file:"secret"})).ok,false);
+  assert.equal((await createNamibiaEvidenceMetadata(db,owner,{...input,file:null})).error,"unexpected_evidence_fields");
+  assert.equal((await createNamibiaEvidenceMetadata(db,owner,{...input,beneficialOwnerDetails:""})).error,"unexpected_evidence_fields");
+  assert.equal((await createNamibiaEvidenceMetadata(db,owner,{...input,unknownField:"hidden"})).error,"unexpected_evidence_fields");
+  assert.equal((await createNamibiaEntityDraft(db,owner,{...entity,ownerIdentity:null})).error,"unexpected_entity_fields");
   assert.equal((await createNamibiaEvidenceMetadata(db,owner,{...input,sourceUrl:"http://not-secure.example"})).ok,false);
   assert.equal((await createNamibiaEvidenceMetadata(db,owner,{...input,evidenceType:"passport"})).ok,false);
   assert.equal((await createNamibiaCalendarDraft(db,owner,{entityRef:"NA-001",taskType:"bipa_annual_return",title:"T",planningDate:"2026-02-30",sourceUrl})).ok,false);
   assert.equal((await createNamibiaCalendarDraft(db,owner,{entityRef:"NA-001",taskType:"bipa_annual_return",title:"T",planningDate:"2027-02-01",sourceUrl,notify:true})).error,"activation_not_authorized");
   assert.equal((await createNamibiaCalendarDraft(db,owner,{entityRef:"NA-001",taskType:"bipa_annual_return",title:"T",planningDate:"2027-02-01",sourceUrl,submit:true})).error,"activation_not_authorized");
   assert.equal(db.rows.evidence.length,0);
+  assert.equal((await createNamibiaCalendarDraft(db,owner,{entityRef:"NA-001",taskType:"bipa_annual_return",title:"T",planningDate:"2027-02-01",sourceUrl,extraAction:"file"})).error,"unexpected_calendar_fields");
   assert.equal(db.rows.calendar.length,0);
   assert.equal(db.rows.audit.length,1);
 });
