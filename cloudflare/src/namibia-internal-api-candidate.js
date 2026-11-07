@@ -7,6 +7,7 @@ import {
  listNamibiaEvidenceMetadata,listNamibiaCalendarDrafts,listNamibiaAuditEvents
 } from "./namibia-compliance-candidate-store.js";
 import {marketActivationReadiness} from "./market-profile.js";
+import {checkNamibiaIsolatedEnvironment} from "./namibia-isolation-preflight.js";
 export const NAMIBIA_INTERNAL_API_VERSION="2026-11-07.v1";
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{
  "content-type":"application/json; charset=utf-8","cache-control":"no-store",
@@ -32,6 +33,7 @@ export async function handleNamibiaInternalCandidate(request,env){
  if(!publicFlag(env?.NAMIBIA_INTERNAL_API_REHEARSAL_ENABLED)||
     env?.NAMIBIA_INTERNAL_API_MODE!=="isolated_candidate"||
     !env?.NA_CANDIDATE_DB||!env?.DB||!env?.SESSION_SECRET||
+    !checkNamibiaIsolatedEnvironment(env).ok||
     marketActivationReadiness("NA").ready)return json({error:"namibia_internal_api_disabled"},404);
  const url=new URL(request.url);
  let configuredOrigin;
