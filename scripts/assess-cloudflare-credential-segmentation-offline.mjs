@@ -4,6 +4,7 @@ const fail=reason=>{throw Error('credential_scope_hold_'+reason)};
 const RISK=new Set(['D1 Write','Workers R2 Storage Write','Workers Scripts Write','Workers KV Storage Write','Workers AI Write','Workers Containers Write','Workers CI Write']);
 const EXPECTED='Thebe Desk GitHub Production Deploy v2';
 const ACCOUNT='com.cloudflare.api.account.ddd23cab31928a4bb3d4998df9b26d1d';
+const ALL_ACCOUNTS='com.cloudflare.api.account.*';
 const fields=(x,keys)=>{if(!x||Array.isArray(x)||typeof x!=='object'||Object.keys(x).length!==keys.length||keys.some(k=>!Object.hasOwn(x,k)))fail('shape')};
 export function assessCredentialSegmentation(input){
  fields(input,['accountId','observedMainSha','tokens','accountTokenListingComplete','userTokenMetadataComplete','historicalWorkerBindingsComplete','r2S3KeyInventoryComplete']);
@@ -21,11 +22,26 @@ export function assessCredentialSegmentation(input){
  }
  const selected=input.tokens.find(t=>t.name===EXPECTED);
  if(!selected)fail('deployment_token_missing');
- const broad=[...new Set(selected.policies.filter(p=>p.effect==='allow'&&p.resources.includes(ACCOUNT)).flatMap(p=>p.permissions.filter(x=>RISK.has(x))))].sort();
+ // Observe allow entries, not effective access: deny precedence and provider-specific
+ // resource support remain independent review items. A zone wildcard is not an account wildcard.
+ const capabilities=(token,scope)=>[...new Set(token.policies
+  .filter(p=>p.effect==='allow'&&p.resources.includes(scope))
+  .flatMap(p=>p.permissions.filter(x=>RISK.has(x))))].sort();
+ const inventoryTokenExposures=input.tokens.map(token=>{
+  const allAccountsWriteCapabilities=capabilities(token,ALL_ACCOUNTS);
+  const targetAccountWriteCapabilities=capabilities(token,ACCOUNT);
+  return Object.freeze({name:token.name,status:token.status,
+   allAccountsWriteCapabilities,targetAccountWriteCapabilities,
+   activeBroadAccountWriteObserved:token.status==='active'&&
+    (allAccountsWriteCapabilities.length>0||targetAccountWriteCapabilities.length>0)});
+ });
+ const broad=[...new Set([...capabilities(selected,ACCOUNT),...capabilities(selected,ALL_ACCOUNTS)])].sort();
  return Object.freeze({
   kind:'cloudflare_credential_segmentation_offline_evidence',
   inspectedToken:EXPECTED,accountWriteCapabilities:broad,
   broadAccountWritePrivilegesObserved:selected.status==='active'&&broad.length>0,
+  inventoryTokenExposures,
+  anyInventoryTokenBroadAccountWriteObserved:inventoryTokenExposures.some(t=>t.activeBroadAccountWriteObserved),
   userTokenInventoryUnverified:input.userTokenMetadataComplete!==true,
   historicalWorkerInventoryUnverified:input.historicalWorkerBindingsComplete!==true,
   r2S3KeysUnverified:input.r2S3KeyInventoryComplete!==true,
@@ -36,3 +52,4 @@ export function assessCredentialSegmentation(input){
   disposition:'HOLD_REVIEW_AND_TEST_INDEPENDENT_CREDENTIAL_SEGMENTATION'
  });
 }
+
