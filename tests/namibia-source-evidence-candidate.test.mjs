@@ -47,10 +47,12 @@ test("disposable SQLite source provenance tables enforce append-only and no appr
    assert.throws(()=>db.prepare("DELETE FROM na_source_versions WHERE source_id='na_bipa_annual_duty'").run(),/namibia_source_append_only/);
    assert.throws(()=>db.prepare("INSERT INTO na_source_versions(source_id,revision,authority,source_url,captured_at,content_sha256,byte_length,release_enabled) VALUES(?,?,?,?,?,?,?,?)")
      .run("na_fic_scope",1,"fic","https://www.fic.na/","2026-11-07",hash,bytes.length,1),/CHECK constraint/);
-   assert.throws(()=>db.prepare("INSERT INTO na_source_review_notes(note_id,source_id,source_revision,reviewer_ref,finding,rationale) VALUES(?,?,?,?,?,?)")
-     .run("orphan","unknown",1,"reviewer","needs_revision","no source"),/FOREIGN KEY/);
-   db.prepare("INSERT INTO na_source_review_notes(note_id,source_id,source_revision,reviewer_ref,finding,rationale) VALUES(?,?,?,?,?,?)")
-     .run("note-1","na_bipa_annual_duty",1,"synthetic-reviewer","needs_source_verification","Source text review needed");
+   assert.throws(()=>db.prepare("INSERT INTO na_source_review_notes(note_id,source_id,source_revision,source_sha256,reviewer_ref,finding,rationale) VALUES(?,?,?,?,?,?,?)")
+     .run("orphan","unknown",1,hash,"reviewer","needs_revision","no source"),/FOREIGN KEY/);
+   assert.throws(()=>db.prepare("INSERT INTO na_source_review_notes(note_id,source_id,source_revision,source_sha256,reviewer_ref,finding,rationale) VALUES(?,?,?,?,?,?,?)")
+     .run("wrong-hash","na_bipa_annual_duty",1,"b".repeat(64),"synthetic-reviewer","needs_revision","Hash cannot be swapped"),/FOREIGN KEY/);
+   db.prepare("INSERT INTO na_source_review_notes(note_id,source_id,source_revision,source_sha256,reviewer_ref,finding,rationale) VALUES(?,?,?,?,?,?,?)")
+     .run("note-1","na_bipa_annual_duty",1,hash,"synthetic-reviewer","needs_source_verification","Source text review needed");
    assert.throws(()=>db.prepare("UPDATE na_source_review_notes SET approval_granted=1 WHERE note_id='note-1'").run(),/namibia_review_note_append_only/);
    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM na_source_versions").get().n,1);
  }finally{db.close()}
