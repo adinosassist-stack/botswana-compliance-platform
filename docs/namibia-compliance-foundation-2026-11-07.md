@@ -68,3 +68,15 @@ Run `node --test tests/namibia-compliance-candidate.test.mjs tests/namibia-compl
 4. Add review-aware authoritative source snapshots and verified jurisdiction-specific effective dates; keep all reminder delivery disabled until legal review.
 5. Add adversarial integration tests for tenant swaps, manager role boundaries, audit write failures, duplicate references, replay, and rollback.
 6. Keep Namibia rollout disabled and preserve Botswana production behavior. No merge, migration, or deploy without independent review and explicit owner release approval.
+
+## Batch 4: disposable transaction rehearsal and calendar overview
+
+- Added `tests/namibia-compliance-sqlite-rehearsal.test.mjs` using Node 22 `node:sqlite` and a fresh in-memory database for each test.
+- Tests apply only the **candidate proposal SQL**, with foreign keys on. They exercise tenant-scoped entity/evidence/calendar reads, audit events, schema constraints, cross-tenant reference rejection, and injected audit failures that must roll back the original write.
+- This is a **SQLite/D1-compatible local simulation**, not a Cloudflare D1 staging integration, and the test harness simulates D1 `batch()` transactional behavior. Cloudflare D1-specific execution, isolation, retries and fault-injection must still be rehearsed independently on a disposable account/database before production migration approval.
+- Added a small internal planning calendar overview to `prototypes/namibia-compliance-preview.html`. It does not use network calls, store records, persist dates, trigger notifications, or assert statutory deadlines.
+- Dedicated CI checks include the new rehearsal test. CI outcome must be confirmed from GitHub Actions; code committed does not imply tests passed.
+
+### Deferred, owner-controlled gates
+
+No PR merge, production/staging migration, Cloudflare runtime binding, customer rollout, official due-date notification, or Namibia regulatory activation. Require passing CI, independent `thusico` review, Namibian regulatory experts' verification, storage privacy assessment, disposable actual D1 rehearsal, and a separately authorized release.
