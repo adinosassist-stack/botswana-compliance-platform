@@ -97,3 +97,15 @@ test("composite foreign keys reject cross-tenant evidence even with shared refer
     assert.equal(count(db,"na_compliance_evidence","tenant-B"),0);
   }finally{db.sqlite.close()}
 });
+
+
+test("audit events are append-only even for a database writer",async()=>{
+  const db=disposableD1();
+  try{
+    assert.equal((await createNamibiaEntityDraft(db,tenantA,entity)).ok,true);
+    assert.equal(count(db,"na_compliance_audit_events",tenantA.tenant_id),1);
+    assert.throws(()=>db.sqlite.prepare("UPDATE na_compliance_audit_events SET actor_id=? WHERE tenant_id=?").run("tampered",tenantA.tenant_id),/namibia_audit_append_only/i);
+    assert.throws(()=>db.sqlite.prepare("DELETE FROM na_compliance_audit_events WHERE tenant_id=?").run(tenantA.tenant_id),/namibia_audit_append_only/i);
+    assert.equal(count(db,"na_compliance_audit_events",tenantA.tenant_id),1);
+  }finally{db.sqlite.close()}
+});
