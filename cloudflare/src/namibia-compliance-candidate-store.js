@@ -80,6 +80,7 @@ export async function createNamibiaEvidenceMetadata(db,auth,input){
 export async function createNamibiaCalendarDraft(db,auth,input){
   const c=common(db,auth);if(!c.ok)return c;
   if(!input||typeof input!=="object"||Array.isArray(input))return result(false,"invalid_calendar_payload");
+  if(input.deadlineConfirmed===true||input.notify===true||input.submit===true)return result(false,"activation_not_authorized");
   if(!allowedFields(input,CALENDAR_FIELDS))return result(false,"unexpected_calendar_fields");
   const entityRef=safeString(input.entityRef,64),date=parseISODate(input.planningDate);
   const title=safeString(input.title,160);
