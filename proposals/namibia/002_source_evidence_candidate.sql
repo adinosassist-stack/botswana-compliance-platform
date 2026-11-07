@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS na_source_versions (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (source_id,revision)
 );
+CREATE UNIQUE INDEX IF NOT EXISTS na_source_versions_hash_ref_uq
+ ON na_source_versions(source_id,revision,content_sha256);
 CREATE INDEX IF NOT EXISTS na_source_versions_authority_idx
  ON na_source_versions(authority,captured_at DESC);
 CREATE TRIGGER IF NOT EXISTS na_source_versions_no_update BEFORE UPDATE ON na_source_versions
@@ -27,13 +29,15 @@ CREATE TABLE IF NOT EXISTS na_source_review_notes (
   note_id TEXT PRIMARY KEY,
   source_id TEXT NOT NULL,
   source_revision INTEGER NOT NULL,
+  source_sha256 TEXT NOT NULL CHECK(length(source_sha256)=64 AND source_sha256 NOT GLOB '*[^0-9a-f]*'),
   reviewer_ref TEXT NOT NULL,
   finding TEXT NOT NULL CHECK(finding IN
     ('needs_source_verification','requires_legal_opinion','needs_revision','out_of_scope')),
   rationale TEXT NOT NULL CHECK(length(rationale) BETWEEN 1 AND 2000),
   approval_granted INTEGER NOT NULL DEFAULT 0 CHECK(approval_granted=0),
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(source_id,source_revision) REFERENCES na_source_versions(source_id,revision) ON DELETE RESTRICT
+  FOREIGN KEY(source_id,source_revision,source_sha256)
+    REFERENCES na_source_versions(source_id,revision,content_sha256) ON DELETE RESTRICT
 );
 CREATE INDEX IF NOT EXISTS na_source_review_notes_source_idx
  ON na_source_review_notes(source_id,source_revision,created_at DESC);
