@@ -3,6 +3,10 @@
 // Only metadata is stored: no personal IDs, BO identities, attachments or uploaded documents.
 import {parseEntityProfile, parseISODate, NAMIBIA_EVIDENCE_TYPES} from "./namibia-compliance-workflows.js";
 
+const allowedFields=(input,allowed)=>!!input&&typeof input==="object"&&!Array.isArray(input)&&Object.keys(input).every(key=>allowed.includes(key));
+const ENTITY_FIELDS=Object.freeze(["entityRef","entityType","financialYearEnd"]);
+const EVIDENCE_FIELDS=Object.freeze(["entityRef","evidenceType","label","externalReference","sourceUrl"]);
+const CALENDAR_FIELDS=Object.freeze(["entityRef","taskType","title","planningDate","sourceUrl"]);
 const EVENT_TYPES=Object.freeze(["entity_draft_created","evidence_metadata_created","calendar_draft_created"]);
 const TASK_TYPES=Object.freeze(["bipa_annual_return","bipa_beneficial_ownership","namra_vat_assessment","fic_applicability"]);
 const result=(ok,valueOrError)=>Object.freeze(ok?{ok:true,value:valueOrError}:{ok:false,error:valueOrError});
@@ -39,6 +43,7 @@ export function candidateStoreCapability(){
 }
 export async function createNamibiaEntityDraft(db,auth,input){
   const c=common(db,auth);if(!c.ok)return c;
+  if(!allowedFields(input,ENTITY_FIELDS))return result(false,"unexpected_entity_fields");
   const p=parseEntityProfile(input);if(!p.valid)return result(false,p.reason);
   // Reject, rather than truncate, external refs to prevent silent collisions.
   if(!safeString(input.entityRef,64))return result(false,"invalid_entity_reference");
@@ -55,6 +60,7 @@ export async function createNamibiaEntityDraft(db,auth,input){
 export async function createNamibiaEvidenceMetadata(db,auth,input){
   const c=common(db,auth);if(!c.ok)return c;
   if(!input||typeof input!=="object"||Array.isArray(input))return result(false,"invalid_evidence_payload");
+  if(!allowedFields(input,EVIDENCE_FIELDS))return result(false,"unexpected_evidence_fields");
   const entityRef=safeString(input.entityRef,64),type=input.evidenceType,label=safeString(input.label,160);
   if(!entityRef||!NAMIBIA_EVIDENCE_TYPES.includes(type)||!label)return result(false,"invalid_evidence_metadata");
   if(input.externalReference!==undefined&&!safeString(input.externalReference,120))return result(false,"invalid_external_reference");
@@ -74,6 +80,7 @@ export async function createNamibiaEvidenceMetadata(db,auth,input){
 export async function createNamibiaCalendarDraft(db,auth,input){
   const c=common(db,auth);if(!c.ok)return c;
   if(!input||typeof input!=="object"||Array.isArray(input))return result(false,"invalid_calendar_payload");
+  if(!allowedFields(input,CALENDAR_FIELDS))return result(false,"unexpected_calendar_fields");
   const entityRef=safeString(input.entityRef,64),date=parseISODate(input.planningDate);
   const title=safeString(input.title,160);
   if(!entityRef||!date||!title||!TASK_TYPES.includes(input.taskType)||!validUrl(input.sourceUrl))return result(false,"invalid_calendar_draft");
