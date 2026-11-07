@@ -247,3 +247,16 @@ Added `tests/namibia-disposable-sessions.test.mjs` for in-memory SQLite verifica
 An attempted live synthetic-session insertion verification was blocked by a safety check, so no live session record was inserted by that probe and its behavior **must not be represented as verified**. Physical D1 schema creation succeeded; functional session behavior is covered by local regression tests pending CI.
 
 Open gates: fresh CI, genuine physical Worker-binding review, isolated authentication service qualification, official Namibian legal source evidence and effective-date review, privacy/retention policy, independent reviewer `thusico`, and separately authorized deployment. Do not merge, connect a Worker, migrate production, or activate customer-facing Namibia compliance.
+
+## Batch 17 — end-to-end local dual-DB authentication integration
+
+The previous head `36045c565df7f2edca55a0fb0bf6fb8e3dbafd4f` had **successful** Namibia candidate, audit remediation, independent-review regression, client runtime identity and recovery CI runs.
+
+Added `tests/namibia-full-isolated-auth-rehearsal.test.mjs` to Namibia candidate CI. Unlike earlier mocked-membership tests, it instantiates two **physically separate in-memory SQLite handles** from the actual `003_disposable_sessions_candidate.sql` and `001_compliance_candidate.sql` proposals, then runs `handleNamibiaInternalCandidate` with a WebCrypto HMAC session cookie and the existing server-side `authenticate` helper. It covers:
+- synthetic session/user/membership fixture creation and authorized owner entity/evidence writes;
+- authenticated tenant-scoped evidence reads and audit trail integrity;
+- forged cookie rejection, CSRF failure, and suspended membership denial;
+- invalidation after session generation rotation;
+- denial of real user identity/email fixtures and deliberate production ID collision.
+
+This is a **local Node/SQLite end-to-end contract test**, not a deployed Cloudflare Worker. It does not create actual web sessions, test Cloudflare Worker binding metadata, or prove regulatory correctness. The Cloudflare disposable Namibia session D1 remains **unbound and not populated by this batch**. The candidate API and any HTTP endpoints remain disconnected from `worker.js`, all actual Namibia customer activation disabled, and no production migration or deployment took place. Latest CI results still require verification.
