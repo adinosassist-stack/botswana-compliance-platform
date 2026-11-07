@@ -39,3 +39,13 @@ test("inventing a session DB ID cannot bypass inventory check",()=>{
  assert.equal(outcome.sessionIsolated,true);
  assert.equal(outcome.pilotReady,false);
 });
+
+test("observed Namibia disposable session D1 is separate but does not prove Worker bindings",()=>{
+ const session="cb833f28-8ea6-4234-b183-c12c018aac15";
+ const result=auditNamibiaD1Inventory({...input,sessionDbId:session,
+   databases:[...inventory,{name:"na-sessions-disposable-20261107",id:session}]});
+ assert.equal(result.ok,true);
+ assert.equal(result.sessionIsolated,true);
+ assert.equal(result.pilotReady,false);
+ assert.ok(result.blockers.includes("physical_worker_binding_audit_required"));
+});
