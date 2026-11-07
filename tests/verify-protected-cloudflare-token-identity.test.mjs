@@ -6,7 +6,7 @@ const repo='adinosassist-stack/botswana-compliance-platform';
 const valid=()=>({
  TOKEN_ROLE:'production-deploy',PROTECTED_ENVIRONMENT_NAME:'production',
  GITHUB_REPOSITORY:repo,GITHUB_REF:'refs/heads/main',GITHUB_EVENT_NAME:'workflow_dispatch',
- CONFIRMATION:'VERIFY_TOKEN_IDENTITY_READONLY',EXPECTED_SHA:sha,GITHUB_SHA:sha,
+ CONFIRMATION:'VERIFY_TOKEN_IDENTITY_READONLY',VERIFICATION_MODE:'account-identity',EXPECTED_SHA:sha,GITHUB_SHA:sha,
  CLOUDFLARE_ACCOUNT_ID:'ddd23cab31928a4bb3d4998df9b26d1d',
  EXPECTED_TOKEN_ID:id,CLOUDFLARE_API_TOKEN:'synthetic-cloudflare-secret',GH_TOKEN:'synthetic-github-secret'
 });
@@ -106,4 +106,53 @@ test('stage-qualified network and malformed JSON refusals remain data-free',asyn
   };
   await assert.rejects(verifyProtectedTokenIdentity(valid(),{fetchImpl:malformed}),new RegExp('hold_'+stage+'_response'));
  }
+});
+
+test('explicit user-token diagnostic uses user verify endpoint only; never asserts account-token match or write authority',async()=>{
+ const urls=[];
+ const fetchImpl=async(url,opts)=>{
+  urls.push(url);
+  assert.equal(opts.method,'GET');
+  assert.equal(opts.redirect,'error');
+  if(url.includes('api.github.com'))return response({object:{sha}});
+  assert.equal(url,'https://api.cloudflare.com/client/v4/user/tokens/verify');
+  assert.equal(opts.headers.Authorization,'Bearer synthetic-cloudflare-secret');
+  return response({success:true,result:{id:'d'.repeat(32),status:'active'}});
+ };
+ const env={...valid(),VERIFICATION_MODE:'user-token-diagnostic',
+   CONFIRMATION:'DIAGNOSE_USER_TOKEN_READONLY',EXPECTED_TOKEN_ID:'NONE'};
+ const result=await verifyProtectedTokenIdentity(env,{fetchImpl});
+ assert.equal(urls.length,3);
+ assert.equal(result.userTokenEndpointAccepted,true);
+ assert.equal(result.providerTokenIdMatched,false);
+ assert.equal(result.restoreAuthorized,false);
+ assert.equal(result.credentialRotationAuthorized,false);
+ assert.equal(result.productionWriteAuthorized,false);
+ assert.doesNotMatch(JSON.stringify(result),/synthetic-|dddddddd/);
+});
+test('user diagnosis cannot be selected by account confirmation or arbitrary expected ID',async()=>{
+ for(const update of [
+   {VERIFICATION_MODE:'user-token-diagnostic'},
+   {VERIFICATION_MODE:'user-token-diagnostic',CONFIRMATION:'DIAGNOSE_USER_TOKEN_READONLY',EXPECTED_TOKEN_ID:id},
+   {VERIFICATION_MODE:'account-identity',CONFIRMATION:'DIAGNOSE_USER_TOKEN_READONLY',EXPECTED_TOKEN_ID:'NONE'},
+   {VERIFICATION_MODE:'automatic-fallback'},
+ ]) {
+   let called=false;
+   await assert.rejects(verifyProtectedTokenIdentity({...valid(),...update},{
+    fetchImpl:async()=>{called=true;throw Error('network')}
+   }),/hold_authority/);
+   assert.equal(called,false);
+ }
+});
+test('refused user verification fails closed without retrying account token endpoint',async()=>{
+ const calls=[];
+ const env={...valid(),VERIFICATION_MODE:'user-token-diagnostic',
+   CONFIRMATION:'DIAGNOSE_USER_TOKEN_READONLY',EXPECTED_TOKEN_ID:'NONE'};
+ await assert.rejects(verifyProtectedTokenIdentity(env,{fetchImpl:async url=>{
+   calls.push(url);
+   if(url.includes('api.github.com'))return response({object:{sha}});
+   return {ok:false,status:403};
+ }}),/hold_cloudflare_refused/);
+ assert.equal(calls.length,2);
+ assert.equal(calls.filter(x=>x.includes('cloudflare.com')).length,1);
 });
