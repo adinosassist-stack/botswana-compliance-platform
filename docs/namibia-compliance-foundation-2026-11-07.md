@@ -233,3 +233,17 @@ These three physical D1 UUIDs are distinct. **No dedicated Namibia session D1** 
 Added `cloudflare/src/namibia-d1-inventory-audit.js` and `tests/namibia-d1-inventory-audit.test.mjs`. The read-only inventory verifier detects mismatched expected identities, duplicate/colliding UUIDs and missing isolated session DB, and never declares a pilot launch-ready. The observed inventory values in regression tests are a fixed snapshot, not a live binding attestation. Actual Cloudflare Worker script/environment bindings and independently authenticated session membership must still be verified separately before any pilot.
 
 No Worker binding or deployment changed; neither disposable D1 was mutated in this batch. No regulatory rules, payments, customer sessions or production data were enabled or written. Independent `thusico` review, Namibian legal/tax signoff and owner release approval remain outstanding.
+
+## Batch 16 — isolated disposable session D1 (2026-11-07)
+
+Prior head `ff613babb43649be1cb8d9f58f9db3d55c0beda7` passed Namibia candidate checks, audit remediation and independent-review regression checks.
+
+Created Cloudflare D1 `na-sessions-disposable-20261107` (UUID `cb833f28-8ea6-4234-b183-c12c018aac15`). This UUID is distinct from the two Namibia research D1 instances and production Botswana D1 `bw-compliance-os`. It has **no Worker binding, no deployed login route and no actual customer accounts**.
+
+Created candidate SQL in `proposals/namibia/003_disposable_sessions_candidate.sql`, intentionally not in the production migrations directory. The schema was applied only to the new D1. It implements minimal `users`, `memberships` and `sessions` tables compatible with the existing session authentication SQL and imposes synthetic-ID and `@example.test` email constraints. No live authentication services have been activated.
+
+Added `tests/namibia-disposable-sessions.test.mjs` for in-memory SQLite verification of synthetic identity constraints, active/suspended membership access, session generation invalidation and token-hash matching. Updated the inventory regression test with the new physical D1 UUID and added both candidate SQL and tests to CI. All tests are synthetic; the staging isolation preflight still demands a separately verified binding audit.
+
+An attempted live synthetic-session insertion verification was blocked by a safety check, so no live session record was inserted by that probe and its behavior **must not be represented as verified**. Physical D1 schema creation succeeded; functional session behavior is covered by local regression tests pending CI.
+
+Open gates: fresh CI, genuine physical Worker-binding review, isolated authentication service qualification, official Namibian legal source evidence and effective-date review, privacy/retention policy, independent reviewer `thusico`, and separately authorized deployment. Do not merge, connect a Worker, migrate production, or activate customer-facing Namibia compliance.
