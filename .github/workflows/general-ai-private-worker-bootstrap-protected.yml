@@ -1,0 +1,152 @@
+name: General AI one-time inert Worker bootstrap
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/general-ai-private-worker-bootstrap-protected.yml'
+      - 'cloudflare/wrangler.general-ai-private-worker-bootstrap.toml'
+      - 'cloudflare/src/general-ai-private-worker-bootstrap.js'
+      - 'scripts/verify-general-ai-private-worker-bootstrap.mjs'
+      - 'tests/general-ai-private-worker-bootstrap.test.mjs'
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        required: true
+        description: Run offline preflight, or separately approved one-time bootstrap
+        default: preflight
+        options:
+          - preflight
+          - bootstrap-inert
+      expected_main_sha:
+        type: string
+        required: true
+        description: Exact current protected main SHA (40 lowercase hex)
+      authorization:
+        type: string
+        required: false
+        description: For bootstrap only, enter BOOTSTRAP_PRIVATE_GENERAL_AI_WORKER
+permissions:
+  contents: read
+concurrency:
+  group: general-ai-private-worker-inert-bootstrap
+  cancel-in-progress: false
+jobs:
+  preflight:
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact main for manual dispatch
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          EXPECTED: ${{ inputs.expected_main_sha }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          test "$GITHUB_SHA" = "$EXPECTED" || exit 1
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          test "$actual" = "$EXPECTED" || exit 1
+      - name: Static safety and adversarial tests
+        run: node --test tests/general-ai-private-worker-bootstrap.test.mjs
+      - name: Verify inert source lock
+        run: node scripts/verify-general-ai-private-worker-bootstrap.mjs
+      - name: Build bundle offline only
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx wrangler deploy --dry-run --config cloudflare/wrangler.general-ai-private-worker-bootstrap.toml --outdir /tmp/general-ai-private-worker-bootstrap
+          test -n "$(find /tmp/general-ai-private-worker-bootstrap -type f -print -quit)"
+  bootstrap-inert:
+    needs: preflight
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'bootstrap-inert' && inputs.authorization == 'BOOTSTRAP_PRIVATE_GENERAL_AI_WORKER'
+    runs-on: ubuntu-latest
+    environment: general-ai-private-staging
+    timeout-minutes: 12
+    steps:
+      - name: Recheck exact-current-main after independent approval
+        shell: bash
+        env:
+          EXPECTED: ${{ inputs.expected_main_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          test "$GITHUB_SHA" = "$EXPECTED" || exit 1
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          test "$actual" = "$EXPECTED" || { echo '::error::Main advanced during review'; exit 1; }
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify source and compile before credentials
+        run: |
+          node --test tests/general-ai-private-worker-bootstrap.test.mjs
+          node scripts/verify-general-ai-private-worker-bootstrap.mjs
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx wrangler deploy --dry-run --config cloudflare/wrangler.general-ai-private-worker-bootstrap.toml --outdir /tmp/general-ai-private-worker-bootstrap
+      - name: Refuse overwrite and require dedicated expiring bootstrap credential
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.GENERAL_AI_QUEUE_BOOTSTRAP_CLOUDFLARE_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.GENERAL_AI_QUEUE_STAGING_CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${CLOUDFLARE_API_TOKEN:-}" ]] || { echo '::error::Dedicated bootstrap credential missing'; exit 1; }
+          [[ "$CLOUDFLARE_ACCOUNT_ID" == 'ddd23cab31928a4bb3d4998df9b26d1d' ]] || exit 1
+          node --input-type=module <<'NODE'
+          const url='https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID+'/workers/scripts/bw-general-ai-private-queue-acceptance/settings';
+          const response=await fetch(url,{headers:{Authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN},signal:AbortSignal.timeout(15000)});
+          const data=await response.json();
+          if(response.status!==404 || data.errors?.[0]?.code!==10007)throw Error('bootstrap_requires_confirmed_absent_worker');
+          console.log('Target Worker confirmed absent; no existing Worker may be overwritten');
+          NODE
+      - name: Recheck current main immediately before first Worker creation
+        env:
+          EXPECTED: ${{ inputs.expected_main_sha }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_SHA" = "$EXPECTED" || exit 1
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          test "$actual" = "$EXPECTED" || { echo '::error::Main changed before Worker creation'; exit 1; }
+      - name: Bootstrap only the private inert Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.GENERAL_AI_QUEUE_BOOTSTRAP_CLOUDFLARE_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.GENERAL_AI_QUEUE_STAGING_CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler deploy --config cloudflare/wrangler.general-ai-private-worker-bootstrap.toml
+      - name: Read back absence of binds and disabled public exposure
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.GENERAL_AI_QUEUE_BOOTSTRAP_CLOUDFLARE_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.GENERAL_AI_QUEUE_STAGING_CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const root='https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID+'/workers/scripts/bw-general-ai-private-queue-acceptance';
+          const headers={Authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN};
+          async function get(path){const r=await fetch(root+path,{headers,signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error('bootstrap_readback_unavailable_'+r.status);const x=await r.json();if(!x.success)throw Error('bootstrap_readback_rejected');return x.result;}
+          const [settings,subdomain]=await Promise.all([get('/settings'),get('/subdomain')]);
+          if((settings.bindings||[]).length!==0)throw Error('unexpected_private_worker_binding');
+          if(subdomain.enabled!==false)throw Error('worker_public_subdomain_must_remain_disabled');
+          console.log('Inert Worker has zero bindings and no workers.dev subdomain');
+          NODE
+      - name: Report bootstrap-only hold and required token revocation
+        if: always()
+        shell: bash
+        run: |
+          echo 'ONE-TIME INERT BOOTSTRAP ONLY. No Queue consumer, fixture, AI provider or production feature activation authorized.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Security action required: revoke temporary bootstrap credential after independently verifying target Worker and account/Queue inventory.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Issue #1950 must retain HOLD until privilege revoked and independent reviewer signs off.' >> "$GITHUB_STEP_SUMMARY"

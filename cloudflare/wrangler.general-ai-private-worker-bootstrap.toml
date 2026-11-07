@@ -1,0 +1,7 @@
+# ONE-TIME INERT BOOTSTRAP ONLY — not the Queue consumer deployment.
+# Independent approval and a dedicated short-lived bootstrap token required.
+name = "bw-general-ai-private-queue-acceptance"
+main = "src/general-ai-private-worker-bootstrap.js"
+compatibility_date = "2026-09-03"
+workers_dev = false
+preview_urls = false
