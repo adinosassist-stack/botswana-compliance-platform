@@ -287,3 +287,15 @@ Authenticated read-only Cloudflare API checks discovered five Worker scripts and
 Added `cloudflare/src/namibia-worker-binding-audit.js` and `tests/namibia-worker-binding-audit.test.mjs` with regression coverage of observed settings, accidental Namibia bindings, missing production DB binding, bad/duplicate inventory and ID collisions. The tests use fixed observed identifiers and cannot substitute for a fresh authenticated Cloudflare inventory.
 
 The audit establishes current settings only; it is **not** proof of absent environment-scoped variations, future deployment behavior, domain routes, or security sign-off. It does not enable a staging pilot. No Worker, D1, route, environment or secret was modified. Namibia remains disabled, pending real staging auth, independent review and approved release.
+
+## Batch 20 — dormant Namibia staging-Worker proposal (not deployed)
+
+Verified prior head `dd77f9e381b6e7ef8b785924ae714899f81f2853` Namibia candidate CI **passed**; broader audit/recovery/reviewer workflows were still in progress at the initial check.
+
+Added `cloudflare/wrangler.namibia-internal-candidate.toml`, a separate Wrangler manifest whose script name is `na-compliance-internal-candidate`, **not** `bw-compliance-os`. It explicitly sets `workers_dev=false`, `preview_urls=false`, `NAMIBIA_INTERNAL_API_REHEARSAL_ENABLED=0`, `NAMIBIA_BINDINGS_AUDITED=0`, and pins only the dedicated disposable session, compliance, and source-review D1 IDs. No public/custom routes, assets, cron triggers, production secrets, payments, source/filing runtime or production D1 binding are configured. The production Wrangler manifest is untouched.
+
+Added `cloudflare/src/namibia-staging-entry.js`, an inert Worker which returns a no-store `404 namibia_staging_not_activated` response on every request even if environment flags were accidentally altered. It deliberately never imports the candidate API or accesses any D1. This gives independent reviewers a minimal safe deployment artifact but **does not authorize deployment**.
+
+Added `tests/namibia-staging-manifest.test.mjs` and CI coverage for the immutable 404 behavior and exact resource manifest. The manifest is not referenced by any live deployment workflow and no Cloudflare Worker was created or updated in this batch.
+
+Next gates: check fresh CI and exact current SHA, independently review least-privilege credentials and Cloudflare resource identities, validate the proposed distinct script/environment against account roles and access policies, attach separate synthetic-only auth with no public hostname under a protected approval, and obtain independent `thusico` review and separate owner staging-deploy approval. No customer Namibia activation, production migrations, payment changes, or live regulatory filings are authorized.
