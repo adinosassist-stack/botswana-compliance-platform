@@ -1,0 +1,37 @@
+# Candidate-only Namibia staging Worker. NOT deployed and not used by production workflow.
+# Explicit separate config prevents accidental reuse of cloudflare/wrangler.toml.
+name = "na-compliance-internal-candidate"
+main = "src/namibia-staging-entry.js"
+compatibility_date = "2026-09-03"
+workers_dev = false
+preview_urls = false
+keep_vars = false
+
+[vars]
+APP_ENV = "namibia-disposable-staging"
+NAMIBIA_INTERNAL_API_REHEARSAL_ENABLED = "0"
+NAMIBIA_INTERNAL_API_MODE = "disabled"
+NAMIBIA_BINDINGS_AUDITED = "0"
+NAMIBIA_STAGE_KIND = "disposable_internal_test"
+NAMIBIA_SESSION_DB_ID = "cb833f28-8ea6-4234-b183-c12c018aac15"
+NAMIBIA_CANDIDATE_DB_ID = "c8ce1dd7-6973-45e8-be7f-1b4f2b672312"
+BOTSWANA_PRODUCTION_DB_ID = "8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce"
+# No PUBLIC_ORIGIN, SESSION_SECRET, allowlists, routes, assets, crons or payment providers.
+# Do not set any production secret in this candidate environment.
+
+[[d1_databases]]
+binding = "DB"
+database_name = "na-sessions-disposable-20261107"
+database_id = "cb833f28-8ea6-4234-b183-c12c018aac15"
+
+[[d1_databases]]
+binding = "NA_CANDIDATE_DB"
+database_name = "na-compliance-disposable-20261107"
+database_id = "c8ce1dd7-6973-45e8-be7f-1b4f2b672312"
+
+[[d1_databases]]
+binding = "NA_SOURCE_REVIEW_DB"
+database_name = "na-source-review-disposable-v2-20261107"
+database_id = "b45ebf26-429d-47ae-ae88-c404c8965c5b"
+
+# Do not deploy without separate owner + thusico approvals and a verified current SHA.
