@@ -11,7 +11,10 @@ const enabled={
  NAMIBIA_INTERNAL_API_MODE:"isolated_candidate",
  NA_CANDIDATE_TENANT_ALLOWLIST:"synthetic-tenant-A",
  NA_CANDIDATE_DB:candidateDB,DB:authDB,SESSION_SECRET:"test-secret-not-production",
- PUBLIC_ORIGIN:base
+ PUBLIC_ORIGIN:base,
+ NAMIBIA_STAGE_KIND:"disposable_internal_test",NAMIBIA_BINDINGS_AUDITED:"1",
+ NAMIBIA_SESSION_DB_ID:"synthetic-session-db",NAMIBIA_CANDIDATE_DB_ID:"synthetic-candidate-db",
+ BOTSWANA_PRODUCTION_DB_ID:"synthetic-prod-db"
 };
 const req=(path="/internal/namibia/evidence",options={})=>new Request(base+path,options);
 test("internal Namibia adapter is not mounted in live worker or public routes",()=>{
