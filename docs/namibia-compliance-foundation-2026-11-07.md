@@ -154,3 +154,13 @@ Added `cloudflare/src/namibia-rule-review-ledger.js` and `tests/namibia-rule-rev
 - No regulatory pack is registered, no database schema/migration or Worker route changed, no production writes, and no tenant-facing Namibia feature enabled.
 
 Remaining tasks: immutable tenant/access-isolated persistence for source snapshot versions; SHA-256 verification of actual official document bytes; signed reviewer provenance; independent legal and security signoff; regulatory applicability mapping, notice and rule effective-date review; privacy/retention design; production migration and release approval. Automated CI results for this newest commit must be checked before calling this batch verified.
+
+## Batch 10 — source-byte integrity and append-only provenance (2026-11-07)
+
+Source-byte verifier `cloudflare/src/namibia-source-evidence-candidate.js` accepts caller-provided Uint8Array only, enforces a 2 MB ceiling, computes SHA-256 using Web Crypto, and rejects metadata/content mismatches. The module retains **only source hash, byte count, metadata and review-disabled state**; it does not fetch, upload or persist original source documents.
+
+Proposal `proposals/namibia/002_source_evidence_candidate.sql` introduces source-version and research-review-note candidate tables with append-only triggers, composite foreign keys, source-revision uniqueness, source integrity checks and database-level approval flags locked off. It is deliberately **not in the migration directory** and was not applied to any Cloudflare D1 database in this batch.
+
+Candidate tests in `tests/namibia-source-evidence-candidate.test.mjs` simulate digest mismatch, duplicate versions, unauthorized release flags, missing referenced source, immutability and linked rule/evidence integrity. Synthetic source text in the tests is not an actual BIPA/NamRA/FIC document.
+
+Before any live persistence: privacy/retention design including lawful controlled erasure, verified document capture with authoritative retrieval timestamps, independent expert/legal signoff, authentic review-user attestations, and an explicitly isolated non-production D1 integration. These guardrails do not create regulatory approval, published rules or automated deadlines. Namibia stays inactive, PR remains draft, and no Botswana production writes were performed.
