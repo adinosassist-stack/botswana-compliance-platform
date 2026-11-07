@@ -1,7 +1,5 @@
 // Namibia candidate review-only preflight. No deploy, no secrets, no Cloudflare writes.
 import {readFileSync} from "node:fs";
-import {inspectNamibiaWorkerBindings} from "../cloudflare/src/namibia-worker-binding-audit.js";
-import {auditNamibiaD1Inventory} from "../cloudflare/src/namibia-d1-inventory-audit.js";
 const config=readFileSync(new URL("../cloudflare/wrangler.namibia-internal-candidate.toml",import.meta.url),"utf8");
 const live=readFileSync(new URL("../cloudflare/wrangler.toml",import.meta.url),"utf8");
 const source=readFileSync(new URL("../cloudflare/src/namibia-staging-entry.js",import.meta.url),"utf8");
@@ -15,7 +13,8 @@ const expected=new Map([
  ["NA_SOURCE_REVIEW_DB","b45ebf26-429d-47ae-ae88-c404c8965c5b"]
 ]);
 const errors=[];
-function guard(name,condition){if(!condition)errors.push(name)}
+let checks=0;
+function guard(name,condition){checks++;if(!condition)errors.push(name)}
 guard("candidate_script_name",key("name")==="na-compliance-internal-candidate");
 guard("entrypoint",key("main")==="src/namibia-staging-entry.js");
 guard("workers_dev_off",key("workers_dev")===undefined&&/^workers_dev = false$/m.test(config));
@@ -34,7 +33,7 @@ guard("inert_worker",/namibia_staging_not_activated/.test(source)&&!/namibia-int
 guard("existing_production_name_preserved",/^name = "bw-compliance-os"$/m.test(live));
 guard("no_deploy",!/\bwrangler\s+deploy\b/.test(config+source));
 const result=Object.freeze({candidate:"NA",preflightOnly:true,commit:process.env.GITHUB_SHA||null,
-  passed:errors.length===0,checks:17,errors,
+  passed:errors.length===0,checks,errors,
   deploymentAuthorized:false,customerActivationAllowed:false,
   independentApprovalRequired:true,physicalBindingReviewRequired:true});
 console.log(JSON.stringify(result));
