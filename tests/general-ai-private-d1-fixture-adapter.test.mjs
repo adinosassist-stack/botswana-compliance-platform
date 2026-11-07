@@ -47,3 +47,13 @@ test('rejects unsafe identifiers, token hash and CSRF values',()=>{
     assert.throws(()=>createPrivateGeneralAiFixtureAdapter({db,...args,csrfToken:'short'}),/fixture_csrf_required/)
   }finally{sql.close()}
 });
+
+test('pre-existing synthetic fixture row survives collision guard without deletion',async()=>{
+  const {sql,db}=makeDB();
+  try{
+    sql.prepare('INSERT INTO users (id,email) VALUES (?,?)').run(fixtureId,fixtureId+'@example.invalid');
+    const adapter=createPrivateGeneralAiFixtureAdapter({db,...args});
+    await assert.rejects(()=>withPrivateSyntheticFixture({scope,fixtureId,adapter,exercise:async()=>{throw Error('must_not_run')}}),/fixture_residual_records/);
+    assert.equal(sql.prepare('SELECT count(*) n FROM users WHERE id=?').get(fixtureId).n,1);
+  }finally{sql.close()}
+});
