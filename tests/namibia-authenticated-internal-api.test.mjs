@@ -66,7 +66,10 @@ async function setup({principal=records.ownerA,allowlist="synthetic-A",enabled="
     NAMIBIA_INTERNAL_API_REHEARSAL_ENABLED:enabled,
     NAMIBIA_INTERNAL_API_MODE:"isolated_candidate",
     NA_CANDIDATE_TENANT_ALLOWLIST:allowlist,
-    NA_CANDIDATE_DB:db,DB:sessions,SESSION_SECRET:sessionSecret,PUBLIC_ORIGIN:base
+    NA_CANDIDATE_DB:db,DB:sessions,SESSION_SECRET:sessionSecret,PUBLIC_ORIGIN:base,
+    NAMIBIA_STAGE_KIND:"disposable_internal_test",NAMIBIA_BINDINGS_AUDITED:"1",
+    NAMIBIA_SESSION_DB_ID:"synthetic-session-db",NAMIBIA_CANDIDATE_DB_ID:"synthetic-candidate-db",
+    BOTSWANA_PRODUCTION_DB_ID:"synthetic-prod-db"
   },close(){db.sqlite.close()}};
 }
 function request(path,{method="GET",body,cookie=token,csrfValue=csrf,origin=base,contentType="application/json",extraHeaders={}}={}){
@@ -138,7 +141,10 @@ test("same entity reference in two tenants does not permit cross-tenant read or 
     for(const principal of [records.ownerA,records.managerB]){
       const env={NAMIBIA_INTERNAL_API_REHEARSAL_ENABLED:"1",NAMIBIA_INTERNAL_API_MODE:"isolated_candidate",
         NA_CANDIDATE_TENANT_ALLOWLIST:"synthetic-A,synthetic-B",NA_CANDIDATE_DB:db,
-        DB:sessionDb(expected,principal),SESSION_SECRET:sessionSecret,PUBLIC_ORIGIN:base};
+        DB:sessionDb(expected,principal),SESSION_SECRET:sessionSecret,PUBLIC_ORIGIN:base,
+        NAMIBIA_STAGE_KIND:"disposable_internal_test",NAMIBIA_BINDINGS_AUDITED:"1",
+        NAMIBIA_SESSION_DB_ID:"synthetic-session-db",NAMIBIA_CANDIDATE_DB_ID:"synthetic-candidate-db",
+        BOTSWANA_PRODUCTION_DB_ID:"synthetic-prod-db"};
       assert.equal((await send(env,"/internal/namibia/entities",{method:"POST",body:entity})).status,201);
       if(principal===records.ownerA)assert.equal((await send(env,"/internal/namibia/evidence",{method:"POST",body:evidence})).status,201);
       const result=await send(env,"/internal/namibia/evidence?entityRef=SAMPLE-NA-1");
