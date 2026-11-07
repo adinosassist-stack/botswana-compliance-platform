@@ -33,7 +33,7 @@ test('fresh backup restore approval is pinned to exact object and preparation so
   {candidateBytes:3277137},
   {candidateSha256:'e7736aebb9ddfabd378a0f198563dc9d9e127ff5cb9eaedff02237f58a4747e5'}
  ]){
-  const forged={...independentRecord,body:'THEBE_VERSIONED_RESTORE_APPROVAL\\n'+JSON.stringify({...approvalContract(sourceSha),...patch})};
+  const forged={...independentRecord,body:'THEBE_VERSIONED_RESTORE_APPROVAL\n'+JSON.stringify({...approvalContract(sourceSha),...patch})};
   assert.throws(()=>verifyApprovalRecord(forged,'thusico',sourceSha),/versioned_restore_approval_scope/);
  }
 });
