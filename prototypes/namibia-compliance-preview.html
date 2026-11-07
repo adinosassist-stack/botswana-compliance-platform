@@ -33,15 +33,15 @@ a{color:var(--blue)}.error{color:#a31515;font-weight:650}.muted{font-size:13px}
 <label>Optional planning date (not a legal due date)<input name="planningDate" type="date" value="2027-01-15"></label>
 <button type="submit">Prepare draft checklist</button></form><p class="muted">All data stays in this browser view. No API, submission, storage or reminder is triggered.</p></aside>
 <div class="card"><h2>Compliance drafts</h2><p class="muted">Official applicability, due dates and final obligations require independent review.</p>
-<div id="notice" role="status" aria-live="polite"></div><div id="tasks" class="cards"></div></div></section></main>
+<div id="notice" role="status" aria-live="polite"></div><div id="tasks" class="cards"></div><section aria-labelledby="calendarHeading"><h2 id="calendarHeading">Planning calendar</h2><p class="muted">Planning dates are manual suggestions, not legal filing deadlines. No notifications or filings are enabled.</p><div id="calendarPreview" class="cards" role="list"></div></section></div></section></main>
 <script type="module">
 import { namibiaDraftQueue,evidenceChecklist,reminderPreview } from "../cloudflare/src/namibia-compliance-workflows.js";
-const form=document.querySelector("#profile"), tasks=document.querySelector("#tasks"),notice=document.querySelector("#notice");
+const form=document.querySelector("#profile"), tasks=document.querySelector("#tasks"),notice=document.querySelector("#notice"),calendar=document.querySelector("#calendarPreview");
 function add(parent,tag,value,css){const e=document.createElement(tag);if(css)e.className=css;e.textContent=value;parent.append(e);return e;}
 function render(){
   const data=Object.fromEntries(new FormData(form).entries());
   const queue=namibiaDraftQueue(data,{ownershipChange:data.ownershipChange,annualTaxableTurnoverNAD:Number(data.annualTaxableTurnoverNAD),activityDescription:data.activityDescription});
-  tasks.replaceChildren();notice.textContent="";
+  tasks.replaceChildren();calendar.replaceChildren();notice.textContent="";
   if(!queue.valid){add(notice,"p","Input issue: "+queue.reason,"error");return;}
   add(notice,"p",queue.value.tasks.length+" review-only tasks generated. None approved or submitted.");
   for(const task of queue.value.tasks){
@@ -55,7 +55,12 @@ function render(){
     add(card,"p","Evidence checklist: "+c.value.missing.join(", "),"muted");
     if(data.planningDate){
       const reminder=reminderPreview(task,data.planningDate);
-      if(reminder.valid)add(card,"p","Planning calendar draft: "+reminder.value.date+" · NOT an official deadline · notifications off","muted");
+      if(reminder.valid){
+        add(card,"p","Planning calendar draft: "+reminder.value.date+" · NOT an official deadline · notifications off","muted");
+        const entry=add(calendar,"div","","task");entry.setAttribute("role","listitem");
+        add(entry,"strong",reminder.value.date+" · "+reminder.value.title);
+        add(entry,"p","Unverified planning date · No reminder scheduled · Review official source","muted");
+      }
     }
     const link=add(card,"a","Official source");link.href=task.sourceUrl;link.target="_blank";link.rel="noopener noreferrer";
   }
