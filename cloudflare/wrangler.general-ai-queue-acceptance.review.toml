@@ -1,0 +1,22 @@
+# REVIEW-ONLY proposal. Do NOT deploy, create queue, send messages or attach consumer.
+# Separate Cloudflare Queue + Worker service binding, no URL or public route.
+name = "bw-general-ai-private-queue-acceptance"
+main = "src/general-ai-queue-acceptance.js"
+compatibility_date = "2026-09-03"
+workers_dev = false
+preview_urls = false
+
+[vars]
+PRIVATE_AI_QUEUE_ACCEPTANCE_ENABLED = "false"
+# APPROVED_SOURCE_SHA intentionally absent. The reviewer must bind the exact
+# approved SHA in a protected staging-only environment before testing.
+
+[[services]]
+binding = "STAGING_AI"
+service = "bw-general-ai-staging"
+
+[[queues.consumers]]
+queue = "bw-general-ai-private-acceptance-queue"
+max_batch_size = 1
+max_batch_timeout = 1
+max_concurrency = 1
