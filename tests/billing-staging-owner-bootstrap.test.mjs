@@ -113,7 +113,7 @@ test('separate customer sessions isolate workspace and order reads across every 
    db.prepare("INSERT INTO memberships(tenant_id,user_id,role,status) VALUES(?,?,'owner','active')").run(key,key);
    db.prepare('INSERT INTO app_state(tenant_id,version,state_json) VALUES(?,1,?)').run(key,JSON.stringify({privateMarker:key}));
    db.prepare("INSERT INTO subscriptions(tenant_id,plan,status,provider) VALUES(?,'business','inactive','manual_bank')").run(key);
-   db.prepare("INSERT INTO payment_orders(id,tenant_id,order_type,amount_bwp,status,idempotency_key) VALUES(?,?,'subscription',100,'pending',?)").run('order-'+key,key,'fixture-'+key);
+   db.prepare("INSERT INTO payment_orders(id,tenant_id,order_type,amount_bwp,status,provider,idempotency_key) VALUES(?,?,'subscription',100,'pending','manual_bank',?)").run('order-'+key,key,'fixture-'+key);
    db.prepare('INSERT INTO manual_payment_submissions(id,payment_order_id,tenant_id,bank_reference) VALUES(?,?,?,?)').run('submission-'+key,'order-'+key,key,'fixture-ref-'+key);
   }
   const DB={prepare(sql){let values=[];return {bind(...p){values=p;return this},async first(){return db.prepare(sql).get(...values)||null},async all(){return {results:db.prepare(sql).all(...values)}},async run(){return {meta:{changes:Number(db.prepare(sql).run(...values).changes)}}}}}};
