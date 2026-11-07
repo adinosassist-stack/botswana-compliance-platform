@@ -99,3 +99,23 @@ Verified against Cloudflare's D1 query API:
 **Retention note:** Audit immutability is a candidate safeguard only; legal retention, erasure, record minimization, and controlled deletion must be reviewed before real-person data is added. The disposable test database can be deleted after evidence retention approval; do not treat it as a deployable Namibia database.
 
 **Still gated:** CI on latest commit, independent reviewer signoff, full tenant-authenticated route integration, privacy and legal review, deliberate migration strategy, owner approval, and production release. Namibia stays disabled.
+
+## Batch 6 — Internal API candidate (2026-11-07)
+
+Added `cloudflare/src/namibia-internal-api-candidate.js` and `tests/namibia-internal-api-candidate.test.mjs` on the existing draft PR.
+
+The adapter is deliberately **not imported by `worker.js`**, not deployed and not exposed as a route. Before any future isolated-stage wiring, security review must confirm:
+- Existing, server-validated session `authenticate(request,env)` resolves the actor and tenant from session and active membership records. No client-supplied tenant/role/market claim is trusted.
+- An isolated `NA_CANDIDATE_DB` binding, separate from `env.DB`, is required.
+- Both `NAMIBIA_INTERNAL_API_REHEARSAL_ENABLED=1` and `NAMIBIA_INTERNAL_API_MODE=isolated_candidate` must be explicitly set; no production enablement is defined.
+- `NA_CANDIDATE_TENANT_ALLOWLIST` contains only synthetic, test accounts; a real Namibia entitlement source is **not yet implemented**.
+- Owner/manager RBAC, configured same-origin checks, CSRF protection for writes, bounded JSON reads and closed API operation paths.
+- Evidence storage is **metadata-only**; no document contents or beneficial-owner personal data.
+- Security tests assert disabled-by-default mode, server-session requirement, no public route, wrong-origin rejection and authenticated principal restrictions.
+- This module has **no legal authority, filing capability or customer access**.
+
+**Important limit:** An allowlist is not a production market entitlement. Authentication against the existing Botswana sessions database is a design dependency, not proof of Namibia-eligible tenant status. CI tests using synthetic sessions are not equivalent to deployed Cloudflare Worker end-to-end authorization tests. Never mount the API until independent security review verifies separate session/account data and cross-country access controls.
+
+### Outstanding before approval
+
+Run updated CI, assess least-privilege data binding isolation, complete adversarial tests with valid authenticated cookies and malicious tenant swaps, confirm retention/privacy obligations, conduct independent Namibia legal/tax approval, and obtain independent `thusico` sign-off. Do not merge, deploy, or enable customer-facing Namibia features without a later explicit owner approval.
