@@ -18,15 +18,21 @@ on:
         type: choice
         options: [production-deploy, isolated-recovery]
       expected_token_id:
-        description: Exact 32-character Cloudflare account API token metadata ID, not its secret value
+        description: Account mode - exact 32-character account token metadata ID; user diagnostic mode - literal NONE
         required: true
         type: string
+      verification_mode:
+        description: Explicit account-owned identity check or user-owned diagnostic (no automatic fallback)
+        required: true
+        type: choice
+        default: account-identity
+        options: [account-identity, user-token-diagnostic]
       confirmation:
         description: Read-only identity check only; never a deploy or restore
         required: true
         type: choice
         default: DO_NOT_RUN
-        options: [DO_NOT_RUN, VERIFY_TOKEN_IDENTITY_READONLY]
+        options: [DO_NOT_RUN, VERIFY_TOKEN_IDENTITY_READONLY, DIAGNOSE_USER_TOKEN_READONLY]
 permissions:
   contents: read
 concurrency:
@@ -49,7 +55,7 @@ jobs:
           node --check scripts/verify-protected-cloudflare-token-identity.mjs
           node --test tests/verify-protected-cloudflare-token-identity.test.mjs
   production:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.role == 'production-deploy' && inputs.confirmation == 'VERIFY_TOKEN_IDENTITY_READONLY'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.role == 'production-deploy' && (inputs.confirmation == 'VERIFY_TOKEN_IDENTITY_READONLY' && inputs.verification_mode == 'account-identity' || inputs.confirmation == 'DIAGNOSE_USER_TOKEN_READONLY' && inputs.verification_mode == 'user-token-diagnostic')
     needs: qualify
     environment: production
     runs-on: ubuntu-24.04
@@ -65,6 +71,7 @@ jobs:
           package-manager-cache: false
       - name: Check existing production GitHub secret token identity (read-only)
         env:
+          VERIFICATION_MODE: ${{ inputs.verification_mode }}
           TOKEN_ROLE: production-deploy
           PROTECTED_ENVIRONMENT_NAME: production
           EXPECTED_SHA: ${{ inputs.expected_sha }}
@@ -75,7 +82,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/verify-protected-cloudflare-token-identity.mjs
   recovery:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.role == 'isolated-recovery' && inputs.confirmation == 'VERIFY_TOKEN_IDENTITY_READONLY'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.role == 'isolated-recovery' && (inputs.confirmation == 'VERIFY_TOKEN_IDENTITY_READONLY' && inputs.verification_mode == 'account-identity' || inputs.confirmation == 'DIAGNOSE_USER_TOKEN_READONLY' && inputs.verification_mode == 'user-token-diagnostic')
     needs: qualify
     environment: operations-rehearsal
     runs-on: ubuntu-24.04
@@ -91,6 +98,7 @@ jobs:
           package-manager-cache: false
       - name: Check existing dedicated recovery secret token identity (read-only)
         env:
+          VERIFICATION_MODE: ${{ inputs.verification_mode }}
           TOKEN_ROLE: isolated-recovery
           PROTECTED_ENVIRONMENT_NAME: operations-rehearsal
           EXPECTED_SHA: ${{ inputs.expected_sha }}
