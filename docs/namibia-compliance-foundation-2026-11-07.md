@@ -260,3 +260,13 @@ Added `tests/namibia-full-isolated-auth-rehearsal.test.mjs` to Namibia candidate
 - denial of real user identity/email fixtures and deliberate production ID collision.
 
 This is a **local Node/SQLite end-to-end contract test**, not a deployed Cloudflare Worker. It does not create actual web sessions, test Cloudflare Worker binding metadata, or prove regulatory correctness. The Cloudflare disposable Namibia session D1 remains **unbound and not populated by this batch**. The candidate API and any HTTP endpoints remain disconnected from `worker.js`, all actual Namibia customer activation disabled, and no production migration or deployment took place. Latest CI results still require verification.
+
+## Batch 18 — strict payload and Origin protections
+
+Prior head `30d993b1445ce60f80a198af842f8cf4bd039a06`: Namibia candidate CI and independent-review regression jobs passed; broader recovery/audit jobs were still running at the initial check.
+
+Tightened the **unmounted** Namibia candidate store to use explicit field allowlists for entity drafts, evidence metadata and calendar drafts. Unexpected fields are refused even if their value is null, false or an empty string, preventing silently ignored hidden personal-data objects or upload metadata. Existing positive schemas and tenant-keyed D1 transactions remain unchanged. Calendar action attempts explicitly return `activation_not_authorized`.
+
+Tightened the internal API candidate: authenticated POST requests require an exact explicit `Origin` matching `PUBLIC_ORIGIN`, in addition to the existing CSRF check and cookie authentication. Read requests maintain existing origin semantics. Extended API and store regressions for absent Origin and extra input keys.
+
+These are code-only protections in a review branch. They do not verify an actual deployed edge policy, real Worker binding, production authorization, or a Namibian regulatory deadline. Latest CI must be checked before a green qualification assertion. Namibia stays off, PR is unmerged and Botswana production is unchanged.
