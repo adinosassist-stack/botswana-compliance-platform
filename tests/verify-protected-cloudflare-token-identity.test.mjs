@@ -66,7 +66,8 @@ test('provider refusal and malformed JSON fail closed',async()=>{
 });
 
 test('safe failure classification cannot echo token values, IDs, or arbitrary errors',()=>{
- const known=['authority','connection','provider_refused','provider_response','stale_main',
+ const known=['authority','github_connection','github_refused','github_response',
+  'cloudflare_connection','cloudflare_refused','cloudflare_response','stale_main',
   'inactive_or_unverified','token_id_mismatch'];
  for(const reason of known)assert.equal(sanitizedTokenHoldCode(new Error('protected_token_identity_hold_'+reason)),reason);
  for(const message of [
@@ -76,4 +77,33 @@ test('safe failure classification cannot echo token values, IDs, or arbitrary er
   'anything else',
  ])assert.equal(sanitizedTokenHoldCode(new Error(message)),'unclassified');
  assert.equal(sanitizedTokenHoldCode({message:'protected_token_identity_hold_unlisted_reason'}),'unclassified');
+});
+
+test('GitHub refusal is distinguishable from Cloudflare refusal without disclosing the provider response',async()=>{
+ const gh=async(url)=>{
+  if(url.includes('api.github.com'))return {status:403,ok:false,json:async()=>({private:'never-echo'})};
+  throw Error('Cloudflare should never be reached');
+ };
+ await assert.rejects(verifyProtectedTokenIdentity(valid(),{fetchImpl:gh}),/hold_github_refused/);
+ const cf=async(url)=>{
+  if(url.includes('api.github.com'))return response({object:{sha}});
+  return {status:401,ok:false,json:async()=>({private:'never-echo'})};
+ };
+ await assert.rejects(verifyProtectedTokenIdentity(valid(),{fetchImpl:cf}),/hold_cloudflare_refused/);
+});
+test('stage-qualified network and malformed JSON refusals remain data-free',async()=>{
+ for(const stage of ['github','cloudflare']){
+  const failing=async url=>{
+   if(stage==='github'&&url.includes('api.github.com'))throw Error('secret from GitHub');
+   if(stage==='cloudflare'&&url.includes('api.github.com'))return response({object:{sha}});
+   if(stage==='cloudflare')throw Error('secret from Cloudflare');
+   throw Error('unexpected provider');
+  };
+  await assert.rejects(verifyProtectedTokenIdentity(valid(),{fetchImpl:failing}),new RegExp('hold_'+stage+'_connection'));
+  const malformed=async url=>{
+   if(stage==='cloudflare'&&url.includes('api.github.com'))return response({object:{sha}});
+   return {status:200,ok:true,json:async()=>{throw Error('sensitive value')}};
+  };
+  await assert.rejects(verifyProtectedTokenIdentity(valid(),{fetchImpl:malformed}),new RegExp('hold_'+stage+'_response'));
+ }
 });
