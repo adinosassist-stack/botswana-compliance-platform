@@ -129,3 +129,15 @@ The suite uses synthetic HMAC session cookies against the **actual** existing `a
 **Boundaries:** The session/membership database is simulated; there is still no deployed HTTP worker route, no externally accessible API, no live tenant enrollment, and no proof that a staging Worker session store is distinct from the Botswana production session database. Do not introduce live tenant identifiers or personal information to tests. A true connected-Worker review requires explicit environment mapping, review of session tenant entitlements, independent security reviewer sign-off and a separate owner approval.
 
 The isolated Cloudflare D1 database created for the previous batch contains synthetic data only. It has not been connected to this API. Production routing, migrations, payments and customer-facing Namibia compliance remain disabled.
+
+## Batch 8 — regulator-source provenance candidate
+
+Added `cloudflare/src/namibia-source-review-candidate.js` and `tests/namibia-source-review-candidate.test.mjs`.
+
+- This candidate only validates research source metadata: unique Namibia source key, regulator, exact regulator domain, HTTPS URL, capture date and required SHA-256 of captured source content.
+- BIPA, NamRA and FIC authority domains are allowlisted. Lookalike-domain, non-HTTPS, embedded credentials, query string, fragment, cross-authority mapping, invalid dates and absent hash are rejected.
+- All records remain **unreviewed** with legal effective dates unset, and automatic deadline, filing, and customer release flags false. No rules are approved or automatically published by a valid source snapshot.
+- The source hashes in tests are synthetic; no official website content has been captured, stored, or independently validated in this batch.
+- This module is not imported into the live Worker, no new DB tables/migrations are applied, and no source content is automatically fetched.
+
+Before the Namibia compliance pack can progress: retain authoritative source snapshots with retrieval timestamps, independently verify relevant legislation and effective dates against official primary texts, classify entity applicability, record Namibian legal and tax reviewer decisions, test rule versioning and appeals, and complete the separate security/release approval. The current code is a gated research foundation only.
