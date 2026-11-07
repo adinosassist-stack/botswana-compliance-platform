@@ -11,6 +11,8 @@ on:
       - 'cloudflare/src/namibia-worker-binding-audit.js'
       - 'cloudflare/src/namibia-staging-entry.js'
       - 'cloudflare/wrangler.namibia-internal-candidate.toml'
+      - 'scripts/namibia-staging-preflight.mjs'
+      - '.github/workflows/namibia-staging-preflight.yml'
       - 'cloudflare/src/namibia-source-review-candidate.js'
       - 'cloudflare/src/namibia-rule-review-ledger.js'
       - 'cloudflare/src/namibia-source-evidence-candidate.js'
@@ -64,6 +66,7 @@ jobs:
           node --check cloudflare/src/namibia-d1-inventory-audit.js
           node --check cloudflare/src/namibia-worker-binding-audit.js
           node --check cloudflare/src/namibia-staging-entry.js
+          node scripts/namibia-staging-preflight.mjs
           node --check cloudflare/src/namibia-source-review-candidate.js
           node --check cloudflare/src/namibia-rule-review-ledger.js
           node --check cloudflare/src/namibia-source-evidence-candidate.js
