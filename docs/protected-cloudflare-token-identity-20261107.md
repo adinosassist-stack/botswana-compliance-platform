@@ -76,3 +76,9 @@ protected run solely to force a token match; recheck independent environment
 review and exact current main first. A `token_id_mismatch` would only prove the
 current secret is **not** the independently selected account token; it would not
 identify its owner or establish absence of privileged alternative credentials.
+
+## 7 November 2026 — Stage-qualified read-only diagnostic refinement
+
+On merged main `6ca96b5d22adbc1fb7a9263fcef41c52aced1291`, the second protected production identity check [run 42401002641](https://github.com/adinosassist-stack/botswana-compliance-platform/actions/runs/42401002641) completed with qualification SUCCESS, production FAILURE, recovery SKIPPED. The sanitized reason was `provider_refused`, which was common to both the GitHub exact-main GET and Cloudflare account-token verification GET. Separately, the connected Cloudflare token's own `/accounts/{account_id}/tokens/verify` returned HTTP 401 Invalid API Token, but that is **not** the protected GitHub secret; it cannot establish which endpoint refused the protected run.
+
+This change emits fixed **stage-qualified codes** (`github_refused`, `cloudflare_refused`, corresponding `_connection` and `_response` codes) that identify the source of a future failure, **not** the failed credential, token ownership, privileges, provider error bodies, IPs or resource identifiers. Existing revision and approval boundaries remain unchanged. Offline synthetic tests cover both provider refusals and malformed responses. Protected verification stays manual-only; no repeat run is authorized by this PR, and no token rotation or isolated SQL import is performed.
