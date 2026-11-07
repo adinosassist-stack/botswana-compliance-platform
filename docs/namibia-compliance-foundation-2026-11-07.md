@@ -270,3 +270,20 @@ Tightened the **unmounted** Namibia candidate store to use explicit field allowl
 Tightened the internal API candidate: authenticated POST requests require an exact explicit `Origin` matching `PUBLIC_ORIGIN`, in addition to the existing CSRF check and cookie authentication. Read requests maintain existing origin semantics. Extended API and store regressions for absent Origin and extra input keys.
 
 These are code-only protections in a review branch. They do not verify an actual deployed edge policy, real Worker binding, production authorization, or a Namibian regulatory deadline. Latest CI must be checked before a green qualification assertion. Namibia stays off, PR is unmerged and Botswana production is unchanged.
+
+## Batch 19 — read-only Worker settings binding audit
+
+Prior commit `f32a808731fd2fc5a983f2b27e877d4e0a2f61bd`: Namibia candidate CI, audit-remediation and independent review regressions succeeded. A separate recovery CI run was cancelled, not passed.
+
+Authenticated read-only Cloudflare API checks discovered five Worker scripts and retrieved each script's binding settings (no secret values). Observed binding D1 identifiers:
+- `bw-compliance-os`: `DB` → `8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce` (Botswana production).
+- `bw-billing-staging`: `DB` → `9d1b8852-4424-46e9-ba24-cdad5ced215f`.
+- `bw-compliance-os-ops-rehearsal`: `DB` → `c5c232a8-8fe7-440c-81ba-021a44fd3fdd`.
+- `bw-corporate-assets-staging`: `DB` → `e19f09de-3bb9-4021-b4f8-44df04c8aaa8`.
+- `bw-general-ai-staging`: `DB` → `ff229eef-7724-49ae-9d68-d3a1db669b63`.
+
+**Finding:** None of these five script settings contains a D1 binding to the disposable Namibia compliance, source-review, or session database IDs. No dedicated Namibia Worker was present in that account's listed scripts. The production Worker uses its expected Botswana database ID.
+
+Added `cloudflare/src/namibia-worker-binding-audit.js` and `tests/namibia-worker-binding-audit.test.mjs` with regression coverage of observed settings, accidental Namibia bindings, missing production DB binding, bad/duplicate inventory and ID collisions. The tests use fixed observed identifiers and cannot substitute for a fresh authenticated Cloudflare inventory.
+
+The audit establishes current settings only; it is **not** proof of absent environment-scoped variations, future deployment behavior, domain routes, or security sign-off. It does not enable a staging pilot. No Worker, D1, route, environment or secret was modified. Namibia remains disabled, pending real staging auth, independent review and approved release.
