@@ -1,0 +1,13 @@
+# REVIEW/LOCAL DEV ONLY. Worker name is distinct from deployed Cloudflare Worker.
+# No D1, no provider bindings, no credentials, no remote=true bindings.
+name = "bw-general-ai-local-target"
+main = "src/general-ai-staging-entry.js"
+compatibility_date = "2026-09-03"
+workers_dev = false
+preview_urls = false
+[vars]
+APP_ENV = "staging"
+THEBE_GENERAL_AI_ENABLED = "false"
+THEBE_GENERAL_AI_RESEARCH_ENABLED = "false"
+AI_FEATURES_DEFAULT = "off"
+PUBLIC_ORIGIN = "https://ai-staging.thebedesk.com"
