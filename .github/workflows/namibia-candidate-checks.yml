@@ -8,7 +8,9 @@ on:
       - 'cloudflare/src/namibia-internal-api-candidate.js'
       - 'cloudflare/src/namibia-source-review-candidate.js'
       - 'cloudflare/src/namibia-rule-review-ledger.js'
+      - 'cloudflare/src/namibia-source-evidence-candidate.js'
       - 'proposals/namibia/001_compliance_candidate.sql'
+      - 'proposals/namibia/002_source_evidence_candidate.sql'
       - 'prototypes/namibia-compliance-preview.html'
       - 'cloudflare/src/market-profile.js'
       - 'cloudflare/src/regulatory-pack-registry.js'
@@ -20,6 +22,7 @@ on:
       - 'tests/namibia-authenticated-internal-api.test.mjs'
       - 'tests/namibia-source-review-candidate.test.mjs'
       - 'tests/namibia-rule-review-ledger.test.mjs'
+      - 'tests/namibia-source-evidence-candidate.test.mjs'
       - 'docs/namibia-compliance-foundation-2026-11-07.md'
       - '.github/workflows/namibia-candidate-checks.yml'
   workflow_dispatch:
@@ -43,6 +46,7 @@ jobs:
           node --check cloudflare/src/namibia-internal-api-candidate.js
           node --check cloudflare/src/namibia-source-review-candidate.js
           node --check cloudflare/src/namibia-rule-review-ledger.js
-          node --test tests/namibia-compliance-candidate.test.mjs tests/namibia-compliance-workflows.test.mjs tests/namibia-compliance-candidate-store.test.mjs tests/namibia-compliance-sqlite-rehearsal.test.mjs tests/namibia-internal-api-candidate.test.mjs tests/namibia-authenticated-internal-api.test.mjs tests/namibia-source-review-candidate.test.mjs tests/namibia-rule-review-ledger.test.mjs
+          node --check cloudflare/src/namibia-source-evidence-candidate.js
+          node --test tests/namibia-compliance-candidate.test.mjs tests/namibia-compliance-workflows.test.mjs tests/namibia-compliance-candidate-store.test.mjs tests/namibia-compliance-sqlite-rehearsal.test.mjs tests/namibia-internal-api-candidate.test.mjs tests/namibia-authenticated-internal-api.test.mjs tests/namibia-source-review-candidate.test.mjs tests/namibia-rule-review-ledger.test.mjs tests/namibia-source-evidence-candidate.test.mjs
           node tests/v169-regulatory-pack-registry.mjs
           node tests/v172-market-activation-gate.mjs
