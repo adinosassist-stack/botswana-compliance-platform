@@ -50,3 +50,21 @@ Run `node --test tests/namibia-compliance-candidate.test.mjs tests/namibia-compl
 - Verified filing calendar and notices, immutable source snapshots, and professional review records.
 - Security architecture and access-control review for any preview-to-runtime integration.
 - Namibia-only billing and regional data-protection assessment.
+
+## Batch 3: tenant-scoped persistence *candidate* and planning calendar
+
+- Candidate SQL only: `proposals/namibia/001_compliance_candidate.sql`; intentionally excluded from `cloudflare/migrations` and production schema.
+- Review-only metadata adapter: `cloudflare/src/namibia-compliance-candidate-store.js`; intentionally not imported by the Cloudflare Worker or routed through production APIs.
+- Explicit tenant and user context is required from an authenticated principal for every read and mutation. No user-provided tenant override. Role restricted to NA owners and managers, with tenant-keyed queries and foreign keys.
+- Metadata-only evidence records, calendar planning drafts, and audit records are proposed as transactional D1 batches. No document uploads, personal BO identities, filing submission, reminder delivery, or tax/legal determination.
+- Internal prototype now shows manual planning dates beside each obligation; these are NOT statutory deadlines.
+- Candidate tests: `tests/namibia-compliance-candidate-store.test.mjs`. Mocked DB tests check tenant filtering, absence of cross-tenant rows, audit coupling, input rejection, and that the migration is separate from production. They do not establish integration with a real D1 instance.
+
+### Required independent review before persistence is enabled
+
+1. Rehearse candidate SQL on a disposable, Namibia-only D1 database and test transactions, composite foreign keys, triggers/invariants and rollback under injected failures.
+2. Confirm authenticated principal shape, explicit country/tenant entitlement, RBAC and safe access paths for any future Worker route. The current adapter is **not** an authorization boundary for user traffic by itself.
+3. Design field-level data minimization, retention, access requests, lawful processing, encryption, and deletion/backup behavior under Namibia data-protection requirements before handling personal documents.
+4. Add review-aware authoritative source snapshots and verified jurisdiction-specific effective dates; keep all reminder delivery disabled until legal review.
+5. Add adversarial integration tests for tenant swaps, manager role boundaries, audit write failures, duplicate references, replay, and rollback.
+6. Keep Namibia rollout disabled and preserve Botswana production behavior. No merge, migration, or deploy without independent review and explicit owner release approval.
