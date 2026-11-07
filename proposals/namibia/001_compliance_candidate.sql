@@ -62,3 +62,12 @@ CREATE TABLE IF NOT EXISTS na_compliance_audit_events (
 );
 CREATE INDEX IF NOT EXISTS na_compliance_audit_tenant_idx ON na_compliance_audit_events(tenant_id,occurred_at DESC);
 -- Intentionally no update/delete of audit records in candidate repository code.
+
+-- Audit records are append-only in the candidate schema. Destructive lifecycle
+-- needs a separately reviewed retention/privacy design, not silent audit edits.
+CREATE TRIGGER IF NOT EXISTS na_compliance_audit_no_update
+BEFORE UPDATE ON na_compliance_audit_events
+BEGIN SELECT RAISE(ABORT,'namibia_audit_append_only'); END;
+CREATE TRIGGER IF NOT EXISTS na_compliance_audit_no_delete
+BEFORE DELETE ON na_compliance_audit_events
+BEGIN SELECT RAISE(ABORT,'namibia_audit_append_only'); END;
