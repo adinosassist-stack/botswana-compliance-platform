@@ -7501,11 +7501,21 @@ export default {
       }
       if(url.pathname==="/api/platform/billing/manual-payments"&&req.method==="GET"){
         if(!roleAllowed(a,"owner")||!platformBillingAdmin(a,env))return json({error:"platform_billing_forbidden"},403);
+        // Show only actionable manual-bank subscription reviews. Tenant and order
+        // must agree; customer references and other provider orders are not approvals.
         try{const r=await env.DB.prepare(`SELECT m.id,m.payment_order_id,m.tenant_id,m.bank_reference,m.status,m.submitted_at,m.reviewed_at,m.rejection_reason,
-          o.amount_bwp,o.metadata_json,t.name tenant_name
-          FROM manual_payment_submissions m JOIN payment_orders o ON o.id=m.payment_order_id JOIN tenants t ON t.id=m.tenant_id
-          WHERE m.status IN ('submitted','reviewing') ORDER BY m.submitted_at ASC LIMIT 200`).all();
-        const total=await env.DB.prepare("SELECT COUNT(*) total FROM manual_payment_submissions WHERE status IN ('submitted','reviewing')").first();
+          o.amount_bwp,o.metadata_json,o.status order_status,t.name tenant_name
+          FROM manual_payment_submissions m
+          JOIN payment_orders o ON o.id=m.payment_order_id AND o.tenant_id=m.tenant_id
+          JOIN tenants t ON t.id=m.tenant_id
+          WHERE m.status IN ('submitted','reviewing') AND o.provider='manual_bank' AND o.order_type='subscription'
+            AND o.status IN ('pending','processing','failed','paid')
+          ORDER BY m.submitted_at ASC LIMIT 200`).all();
+        const total=await env.DB.prepare(`SELECT COUNT(*) total FROM manual_payment_submissions m
+          JOIN payment_orders o ON o.id=m.payment_order_id AND o.tenant_id=m.tenant_id
+          JOIN tenants t ON t.id=m.tenant_id
+          WHERE m.status IN ('submitted','reviewing') AND o.provider='manual_bank' AND o.order_type='subscription'
+            AND o.status IN ('pending','processing','failed','paid')`).first();
         billingDashboardAggregate(total,["total"]);
         return json({items:billingDashboardRows(r).map(x=>({...x,metadata:safeJson(x.metadata_json,{})})),total:Number(total.total)});
         }catch{return json({error:"billing_dashboard_unavailable"},503)}
@@ -7521,7 +7531,7 @@ export default {
         if(action==="approve"&&body.bankAmountMatched!==true)return json({error:"bank_amount_match_required"},400);
         if(action==="approve"&&body.bankTransactionMatched!==true)return json({error:"bank_transaction_match_required"},400);
         const row=await env.DB.prepare(`SELECT m.*,o.amount_bwp,o.status order_status,o.order_type,o.provider,o.provider_payment_id,o.metadata_json
-          FROM manual_payment_submissions m JOIN payment_orders o ON o.id=m.payment_order_id WHERE m.id=? LIMIT 1`).bind(submissionId).first();
+          FROM manual_payment_submissions m JOIN payment_orders o ON o.id=m.payment_order_id AND o.tenant_id=m.tenant_id WHERE m.id=? LIMIT 1`).bind(submissionId).first();
         if(!row)return json({error:"manual_payment_submission_not_found"},404);
         if(!["submitted","reviewing"].includes(row.status))return json({error:"manual_payment_already_reviewed",status:row.status},409);
         if(row.status==="reviewing"&&String(row.reviewed_by_user_id||"")!==String(a.user_id))return json({error:"manual_payment_review_in_progress"},409);
