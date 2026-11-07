@@ -1,0 +1,102 @@
+name: Protected Cloudflare token identity read-only
+on:
+  pull_request:
+    paths:
+      - scripts/verify-protected-cloudflare-token-identity.mjs
+      - tests/verify-protected-cloudflare-token-identity.test.mjs
+      - docs/protected-cloudflare-token-identity-20261107.md
+      - .github/workflows/cloudflare-token-identity-readonly.yml
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact independently reviewed current main SHA
+        required: true
+        type: string
+      role:
+        description: Select exactly one credential role and protected environment
+        required: true
+        type: choice
+        options: [production-deploy, isolated-recovery]
+      expected_token_id:
+        description: Exact 32-character Cloudflare account API token metadata ID, not its secret value
+        required: true
+        type: string
+      confirmation:
+        description: Read-only identity check only; never a deploy or restore
+        required: true
+        type: choice
+        default: DO_NOT_RUN
+        options: [DO_NOT_RUN, VERIFY_TOKEN_IDENTITY_READONLY]
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('cf-token-id-test-{0}', github.event.pull_request.number) || 'cf-token-id-readonly' }}
+  cancel-in-progress: false
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: |
+          node --check scripts/verify-protected-cloudflare-token-identity.mjs
+          node --test tests/verify-protected-cloudflare-token-identity.test.mjs
+  production:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.role == 'production-deploy' && inputs.confirmation == 'VERIFY_TOKEN_IDENTITY_READONLY'
+    needs: qualify
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Check existing production GitHub secret token identity (read-only)
+        env:
+          TOKEN_ROLE: production-deploy
+          PROTECTED_ENVIRONMENT_NAME: production
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          EXPECTED_TOKEN_ID: ${{ inputs.expected_token_id }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          CLOUDFLARE_ACCOUNT_ID: ddd23cab31928a4bb3d4998df9b26d1d
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/verify-protected-cloudflare-token-identity.mjs
+  recovery:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.role == 'isolated-recovery' && inputs.confirmation == 'VERIFY_TOKEN_IDENTITY_READONLY'
+    needs: qualify
+    environment: operations-rehearsal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Check existing dedicated recovery secret token identity (read-only)
+        env:
+          TOKEN_ROLE: isolated-recovery
+          PROTECTED_ENVIRONMENT_NAME: operations-rehearsal
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          EXPECTED_TOKEN_ID: ${{ inputs.expected_token_id }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          CLOUDFLARE_ACCOUNT_ID: ddd23cab31928a4bb3d4998df9b26d1d
+          CLOUDFLARE_API_TOKEN: ${{ secrets.PRIVATE_BACKUP_CLOUDFLARE_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/verify-protected-cloudflare-token-identity.mjs
