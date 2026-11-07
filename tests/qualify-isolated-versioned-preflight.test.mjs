@@ -4,7 +4,7 @@ import {assessIsolatedVersionedPreflight,readIsolatedVersionedPreflight,EVIDENCE
 const sha='b'.repeat(40);
 const valid=()=>({expectedMainSha:sha,observedMainSha:sha,
  lock:{success:true,result:{rules:[{id:EVIDENCE.lockId,enabled:true,prefix:'candidates/',condition:{type:'Age',maxAgeSeconds:2592000}}]}},
- objects:{success:true,result:[{key:EVIDENCE.candidateKey,size:3224706}]},
+ objects:{success:true,result:[{key:EVIDENCE.candidateKey,size:3393714}]},
  target:{success:true,result:{uuid:EVIDENCE.targetId,name:EVIDENCE.targetName,num_tables:0}}});
 test('metadata preflight cannot grant restore, retention enforcement or production write',()=>{
  const x=assessIsolatedVersionedPreflight(valid());
@@ -24,7 +24,7 @@ test('rejects drifted lock policy and malformed lock response',()=>{
 test('rejects stale SHA, wrong candidate, changed size or target',()=>{
  const v=valid();
  for(const patch of [{observedMainSha:'c'.repeat(40)},{expectedMainSha:'invalid'},
- {objects:{success:true,result:[]}},{objects:{success:true,result:[{key:'other',size:3224706}]}},
+ {objects:{success:true,result:[]}},{objects:{success:true,result:[{key:'other',size:3393714}]}},
  {objects:{success:true,result:[{key:EVIDENCE.candidateKey,size:1}]}},
  {target:{success:true,result:{...v.target.result,num_tables:1}}},
  {target:{success:true,result:{...v.target.result,uuid:EVIDENCE.sourceId}}},
