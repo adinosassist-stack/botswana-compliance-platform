@@ -28,3 +28,25 @@ Regulatory source pages and legislation can change; verify at an effective date 
 - No production D1 writes, migration, API exposure, payment activation, public Namibia launch claim, or legal determination.
 - Preserve Botswana seed import compatibility and market activation fail-closed tests.
 - Independent review requested from `thusico`; never self-approve or bypass required checks.
+
+## Batch 2: draft workflow engine and internal preview
+
+Implemented in `cloudflare/src/namibia-compliance-workflows.js`, with tests in `tests/namibia-compliance-workflows.test.mjs` and an internal, non-public prototype at `prototypes/namibia-compliance-preview.html`. This preview reads local browser inputs only and does not call production APIs, save data, send notifications, or submit filings.
+
+- BIPA entity-type selection: companies and Section 21 companies → CM23; close corporations → CC7; confirm final classification and applicable fees with BIPA.
+- Beneficial ownership: BO1 for changed details, BO2 candidate for unchanged details, or a review state when unknown. BO2 is not automatically approved, and change-specific deadlines are never inferred.
+- NamRA VAT: ITAS currently publishes mandatory registration above N$500,000 of annual taxable turnover and voluntary registration where above N$200,000 (subject to eligibility). The engine uses these only to flag **review categories**; it does not register, file, or calculate liabilities. [Source](https://itas.namra.org.na/taxes).
+- FIC: sector/activity review task without automatic classification.
+- Evidence checklist: explicit accepted evidence categories with missing-item calculation; even a complete checklist does not authorize filing.
+- Reminder preview: user-proposed dates only, explicitly unverified with notifications disabled.
+
+### Validation requirements
+
+Run `node --test tests/namibia-compliance-candidate.test.mjs tests/namibia-compliance-workflows.test.mjs`, `node tests/v169-regulatory-pack-registry.mjs`, and `node tests/v172-market-activation-gate.mjs` in the dedicated CI workflow. CI green is not regulatory approval. Verify every policy source, effective date, BIPA BO2 condition, NamRA taxable turnover definition, FIC applicability, and legal interpretation with authorized local reviewers before activation.
+
+### Known next implementation gates
+
+- Tenant-keyed persisted evidence storage / audit API using existing security model (not built here).
+- Verified filing calendar and notices, immutable source snapshots, and professional review records.
+- Security architecture and access-control review for any preview-to-runtime integration.
+- Namibia-only billing and regional data-protection assessment.
