@@ -7,19 +7,35 @@ const sourceSha='a'.repeat(40);
 const record=(login,id)=>({id,user:{login},issue_url:'https://api.github.com/repos/adinosassist-stack/botswana-compliance-platform/issues/1950',body:'THEBE_VERSIONED_RESTORE_APPROVAL\n'+JSON.stringify(approvalContract(sourceSha))});
 const ownerRecord=record('adinosassist-stack',123),independentRecord=record('thusico',456);
 test('fresh candidate is exactly pinned to independently inspected source without widening target or approval scope',()=>{
- assert.equal(VERSIONED_RESTORE.key,'candidates/41892086437/1/production-d1.sql');
- assert.equal(VERSIONED_RESTORE.bytes,3277137);
- assert.equal(VERSIONED_RESTORE.sha256,'e7736aebb9ddfabd378a0f198563dc9d9e127ff5cb9eaedff02237f58a4747e5');
+ assert.equal(VERSIONED_RESTORE.key,'candidates/42293276778/1/production-d1.sql');
+ assert.equal(VERSIONED_RESTORE.bytes,3393714);
+ assert.equal(VERSIONED_RESTORE.sha256,'4e1674e65b7cae766ba07f1c009550b0aee60bca6fc08121ce91928d55f04a1a');
+ assert.equal(VERSIONED_RESTORE.backupSourceSha,'68e36578c3ce57b8d0a8cf9b229310de35b67d5a');
  assert.equal(VERSIONED_RESTORE.target,'be15acba-ba16-4704-9498-e296a164b3a2');
  assert.deepEqual(approvalContract(sourceSha),{
   scope:'IMPORT_VERSIONED_BACKUP_INTO_ISOLATED_D1_ONCE',
   sourceSha,target:'be15acba-ba16-4704-9498-e296a164b3a2',
-  candidateSha256:'e7736aebb9ddfabd378a0f198563dc9d9e127ff5cb9eaedff02237f58a4747e5',
-  candidateBytes:3277137,retentionAndAccessAccepted:true
+  candidateKey:'candidates/42293276778/1/production-d1.sql',
+  candidateSha256:'4e1674e65b7cae766ba07f1c009550b0aee60bca6fc08121ce91928d55f04a1a',
+  candidateBytes:3393714,backupSourceSha:'68e36578c3ce57b8d0a8cf9b229310de35b67d5a',
+  retentionAndAccessAccepted:true
  });
  const stale={...ownerRecord,body:'THEBE_VERSIONED_RESTORE_APPROVAL\n'+JSON.stringify({
   ...approvalContract(sourceSha),candidateSha256:'2363d0cfc85a76e3cfef7c33a9f2f70a38899174042e23683aa663dfcbaf3f33',candidateBytes:3224706})};
  assert.throws(()=>verifyApprovalRecord(stale,'adinosassist-stack',sourceSha),/versioned_restore_approval_scope/);
+});
+
+test('fresh backup restore approval is pinned to exact object and preparation source',()=>{
+ for(const patch of [
+  {candidateKey:'candidates/41892086437/1/production-d1.sql'},
+  {candidateKey:'candidates/42293276778/2/production-d1.sql'},
+  {backupSourceSha:'b'.repeat(40)},
+  {candidateBytes:3277137},
+  {candidateSha256:'e7736aebb9ddfabd378a0f198563dc9d9e127ff5cb9eaedff02237f58a4747e5'}
+ ]){
+  const forged={...independentRecord,body:'THEBE_VERSIONED_RESTORE_APPROVAL\n'+JSON.stringify({...approvalContract(sourceSha),...patch})};
+  assert.throws(()=>verifyApprovalRecord(forged,'thusico',sourceSha),/versioned_restore_approval_scope/);
+ }
 });
 
 test('protected workflow grants only issue read and keeps credentials inside selected operation',()=>{
