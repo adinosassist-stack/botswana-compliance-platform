@@ -14,6 +14,9 @@ function validateConfig(batch, env) {
   if(env?.PRIVATE_AI_QUEUE_ACCEPTANCE_ENABLED!=="true")fail("ai_queue_not_authorized");
   if(typeof env?.STAGING_AI?.fetch!=="function")fail("ai_private_target_binding_missing");
   if(!SHA.test(env?.APPROVED_SOURCE_SHA||""))fail("ai_approved_source_sha_required");
+  // An implementation must guarantee an atomic, durable, globally unique claim.
+  // KV get/put or in-memory Sets are NOT sufficient replay protection.
+  if(typeof env?.PRIVATE_AI_NONCE_LEDGER?.claimOnce!=="function")fail("ai_durable_nonce_ledger_required");
 }
 export function validatePrivateAiQueueMessage(body, approvedSha) {
   if(!body || typeof body!=="object" || Array.isArray(body) ||
@@ -29,9 +32,17 @@ export default {
     if(!Array.isArray(batch.messages) || batch.messages.length!==1)fail("ai_queue_one_message_only");
     // No cookies, prompts, session IDs, D1 writes, provider requests or response bodies.
     const data=validatePrivateAiQueueMessage(batch.messages[0].body,env.APPROVED_SOURCE_SHA);
+    // Claim before invoking. On failure, do NOT release the nonce: a repeated
+    // message must not re-execute the private target. Dead-letter/manual review
+    // is safer than silently retrying a partially executed acceptance run.
+    const claimed=await env.PRIVATE_AI_NONCE_LEDGER.claimOnce({
+      namespace:QUEUE,sourceSha:env.APPROVED_SOURCE_SHA,nonce:data.nonce
+    });
+    if(claimed!==true)fail("ai_queue_nonce_reused_or_unverified");
     const result=await verifyPrivateAiDisabled({service:env.STAGING_AI});
     if(result.ok!==true || result.tested!==3)fail("ai_queue_private_boundary_no_go");
-    console.log(JSON.stringify({event:"general_ai_private_disabled_accepted",nonce:data.nonce,tests:result.tested}));
+    // No nonce or message payload in logs.
+    console.log(JSON.stringify({event:"general_ai_private_disabled_accepted",tests:result.tested}));
     batch.messages[0].ack();
   }
 };
