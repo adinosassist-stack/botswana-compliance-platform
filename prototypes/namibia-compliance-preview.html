@@ -30,11 +30,12 @@ a{color:var(--blue)}.error{color:#a31515;font-weight:650}.muted{font-size:13px}
 <label>Ownership information<select name="ownershipChange"><option value="unknown">Not reviewed</option><option value="changed">Material changes</option><option value="no_change">No changes (review BO2 eligibility)</option></select></label>
 <label>Annual taxable turnover · N$<input name="annualTaxableTurnoverNAD" type="number" min="0" step="0.01" value="550000" required></label>
 <label>Business activity<input name="activityDescription" value="General retail"></label>
+<label>Optional planning date (not a legal due date)<input name="planningDate" type="date" value="2027-01-15"></label>
 <button type="submit">Prepare draft checklist</button></form><p class="muted">All data stays in this browser view. No API, submission, storage or reminder is triggered.</p></aside>
 <div class="card"><h2>Compliance drafts</h2><p class="muted">Official applicability, due dates and final obligations require independent review.</p>
 <div id="notice" role="status" aria-live="polite"></div><div id="tasks" class="cards"></div></div></section></main>
 <script type="module">
-import { namibiaDraftQueue,evidenceChecklist } from "../cloudflare/src/namibia-compliance-workflows.js";
+import { namibiaDraftQueue,evidenceChecklist,reminderPreview } from "../cloudflare/src/namibia-compliance-workflows.js";
 const form=document.querySelector("#profile"), tasks=document.querySelector("#tasks"),notice=document.querySelector("#notice");
 function add(parent,tag,value,css){const e=document.createElement(tag);if(css)e.className=css;e.textContent=value;parent.append(e);return e;}
 function render(){
@@ -52,6 +53,10 @@ function render(){
     if(task.indicator)add(card,"p","VAT indication: "+task.indicator.replaceAll("_"," "));
     const c=evidenceChecklist(task,[]);
     add(card,"p","Evidence checklist: "+c.value.missing.join(", "),"muted");
+    if(data.planningDate){
+      const reminder=reminderPreview(task,data.planningDate);
+      if(reminder.valid)add(card,"p","Planning calendar draft: "+reminder.value.date+" · NOT an official deadline · notifications off","muted");
+    }
     const link=add(card,"a","Official source");link.href=task.sourceUrl;link.target="_blank";link.rel="noopener noreferrer";
   }
 }
