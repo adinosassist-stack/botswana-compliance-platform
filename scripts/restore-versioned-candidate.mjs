@@ -11,8 +11,9 @@ import {inspectCandidateRetentionPolicy} from './check-private-backup-retention-
 
 export const VERSIONED_RESTORE=Object.freeze({account:'ddd23cab31928a4bb3d4998df9b26d1d',
  target:'be15acba-ba16-4704-9498-e296a164b3a2',name:'bw-compliance-os-ops-restore-candidate-20261103',
- bucket:'bw-compliance-ops-backups',key:'candidates/41892086437/1/production-d1.sql',bytes:3277137,
- sha256:'e7736aebb9ddfabd378a0f198563dc9d9e127ff5cb9eaedff02237f58a4747e5'});
+ bucket:'bw-compliance-ops-backups',key:'candidates/42293276778/1/production-d1.sql',bytes:3393714,
+ sha256:'4e1674e65b7cae766ba07f1c009550b0aee60bca6fc08121ce91928d55f04a1a',
+ backupSourceSha:'68e36578c3ce57b8d0a8cf9b229310de35b67d5a'});
 const C=VERSIONED_RESTORE,REPO='adinosassist-stack/botswana-compliance-platform';
 const fail=code=>{throw Error('versioned_restore_'+code)};
 const hash=b=>createHash('sha256').update(b).digest('hex');
@@ -21,7 +22,8 @@ const TABLES="SELECT name FROM sqlite_schema WHERE type='table' AND substr(name,
 export function approvalContract(sourceSha){
  if(typeof sourceSha!=='string'||!/^[a-f0-9]{40}$/.test(sourceSha))fail('revision');
  return {scope:'IMPORT_VERSIONED_BACKUP_INTO_ISOLATED_D1_ONCE',sourceSha,target:C.target,
- candidateSha256:C.sha256,candidateBytes:C.bytes,retentionAndAccessAccepted:true};
+ candidateKey:C.key,candidateSha256:C.sha256,candidateBytes:C.bytes,
+ backupSourceSha:C.backupSourceSha,retentionAndAccessAccepted:true};
 }
 export function verifyApprovalRecord(record,author,sourceSha){
  const prefix='THEBE_VERSIONED_RESTORE_APPROVAL\n';
