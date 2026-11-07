@@ -11,7 +11,7 @@ const env={APP_ENV:'staging',DEPLOYMENT_PROFILE:'corporate-assets-authenticated-
 const hit=(app,path,method='GET',vars=env)=>app.fetch(new Request(origin+path,{method}),vars);
 test('acceptance staging is disabled by default and demands exact binding, secrets and origin',async()=>{
  const app=createCorporateAssetsAuthenticatedStagingEntry({fetch:()=>Response.json({ok:true})});
- for(const vars of [{...env,ASSETS_STAGING_AUTH_ACCEPTANCE_ENABLED:'false'},{...env,THEBE_CORPORATE_ASSETS_ENABLED:'false'},
+ for(const vars of [{...env,ASSETS_STAGING_AUTH_ACCEPTANCE_ENABLED:'false'},{...env,ASSETS_STAGING_WRITES_ENABLED:'false'},{...env,THEBE_CORPORATE_ASSETS_ENABLED:'false'},
   {...env,SESSION_SECRET:undefined},{...env,APP_ENV:'production'},{...env,ASSETS_STAGING_SOURCE_SHA:'wrong'}])
   assert.equal((await hit(app,'/api/corporate-assets','GET',vars)).status,503);
  assert.equal((await app.fetch(new Request('https://production.thebedesk.com/api/corporate-assets'),env)).status,403);
