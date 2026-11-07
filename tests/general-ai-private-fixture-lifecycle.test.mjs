@@ -48,7 +48,7 @@ test("runs synthetic exercise then deletes session, membership, user and verifie
   assert.equal(result.cleanupVerified,true);
   assert.equal(result.result,"completed");
   assert.equal(a.records.size,0);
-  assert.deepEqual(a.calls,["create:user","create:membership","create:session","remove:session","remove:membership","remove:user","assertAbsent"]);
+  assert.deepEqual(a.calls,["assertAbsent","create:user","create:membership","create:session","remove:session","remove:membership","remove:user","assertAbsent"]);
 });
 test("exercise error does not skip cleanup",async()=>{
   const a=adapter();
@@ -60,7 +60,7 @@ test("partially completed database write is also cleaned",async()=>{
   const a=adapter("create:membership");
   await assert.rejects(()=>withPrivateSyntheticFixture({scope,fixtureId,adapter:a,exercise:async()=>{throw Error("must_not_run")}}),/injected_create_failure/);
   assert.equal(a.records.size,0);
-  assert.deepEqual(a.calls,["create:user","create:membership","remove:membership","remove:user","assertAbsent"]);
+  assert.deepEqual(a.calls,["assertAbsent","create:user","create:membership","remove:membership","remove:user","assertAbsent"]);
 });
 test("cleanup error fails closed and never claims success",async()=>{
   const a=adapter("remove:session");
@@ -79,4 +79,12 @@ test("missing cleanup/verification capabilities fail before creating any records
   let calls=0;
   await assert.rejects(()=>withPrivateSyntheticFixture({scope,fixtureId,adapter:{create:()=>calls++},exercise:async()=>{}}),/fixture_adapter_required/);
   assert.equal(calls,0);
+});
+
+test("pre-existing synthetic ID fails before creation or deletion",async()=>{
+  const a=adapter();
+  a.records.add(fixtureId+":user");
+  await assert.rejects(()=>withPrivateSyntheticFixture({scope,fixtureId,adapter:a,exercise:async()=>{throw Error("exercise_must_not_run")}}),/residual_fixture/);
+  assert.deepEqual(a.calls,["assertAbsent"]);
+  assert.equal(a.records.has(fixtureId+":user"),true);
 });
