@@ -185,3 +185,21 @@ At commit `f3b270aa43340935974a7330926cfa57b339b53f`, the Namibia candidate chec
 - The amended proposal is intentionally **not re-applied to the existing disposable D1** because that database has an older schema; real migration/rollback on a newly isolated blank D1 must be separately qualified. No production migration, release, or Namibia activation occurred.
 
 Still required: source documents actually fetched and SHA-256 checked against regulator-approved evidence, retention and legal-hold counsel review, real staging principal binding and auth, legal/tax reviewer acceptance, independent `thusico` review, CI, and separately authorized release.
+
+## Batch 13 — reviewer-note regression fix and fresh D1 v2 rehearsal
+
+The CI for head `fb5a0a6af7255555f855661cc10c82871ac7ff4d` reported a **failed Namibia candidate check**. The job log identified a test assertion comparing a null-prototype SQLite row directly with an object literal; the values themselves matched. The current branch test normalizes the result with `rows.map(row=>({...row}))`. This does not change functional security behavior. Do not claim the newest head passed CI until its run is checked.
+
+Created a fresh **disposable Cloudflare D1** named `na-source-review-disposable-v2-20261107`, ID `b45ebf26-429d-47ae-ae88-c404c8965c5b`, with no Worker binding or customer route. The latest `proposals/namibia/002_source_evidence_candidate.sql` applied successfully (9 D1 query results).
+
+Synthetic D1 probes:
+- Insert source revision and matching `source_sha256` research note: **passed**.
+- Insert note with mismatched SHA-256: **rejected**.
+- Insert note for nonexistent source revision: **rejected**.
+- Change reviewer note to approved: **rejected**.
+- Delete append-only review note: **rejected**.
+- Post-probe counts: exactly **1 synthetic source revision** and **1 synthetic reviewer note**.
+
+This is direct-query database constraint testing, **not authenticated API or legal review validation**. It does not prove a reviewer is authenticated, independently authorized, or legally qualified. No official document or personal data was ingested. No existing Botswana D1 or earlier Namibia D1 was altered. The fresh isolated D1 is not a production/staging runtime database and requires a deliberate retention/cleanup decision.
+
+Remaining gates: connected staging authentication and reviewer authorization, source review against real BIPA/NamRA/FIC primary documents, legal effective-date verification, privacy retention acceptance, independent `thusico` approval, and separately authorized deployment. All market activation and filing automation remain disabled.
