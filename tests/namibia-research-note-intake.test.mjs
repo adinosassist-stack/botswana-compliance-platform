@@ -25,7 +25,7 @@ test("server-derived researcher identity is recorded against exact immutable sou
   assert.equal(r.ok,true);
   assert.equal(r.value.approvalGranted,false);
   const rows=d.sqlite.prepare("SELECT reviewer_ref,source_sha256,approval_granted FROM na_source_review_notes").all();
-  assert.deepEqual(rows,[{reviewer_ref:reviewer.user_id,source_sha256:hash,approval_granted:0}]);
+  assert.deepEqual(rows.map(row=>({...row})),[{reviewer_ref:reviewer.user_id,source_sha256:hash,approval_granted:0}]);
  }finally{d.sqlite.close()}
 });
 test("rejects requester reviewer spoof, unauthorized roles and wrong source hash",async()=>{
