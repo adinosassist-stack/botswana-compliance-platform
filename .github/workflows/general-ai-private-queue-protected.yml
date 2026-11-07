@@ -39,12 +39,13 @@ jobs:
         shell: bash
         env:
           EXPECTED: ${{ inputs.expected_main_sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           [[ "$EXPECTED" =~ ^[a-f0-9]{40}$ ]] || { echo "::error::Malformed exact SHA"; exit 1; }
           test "$GITHUB_SHA" = "$EXPECTED" || { echo "::error::Exact SHA mismatch"; exit 1; }
-          git fetch --no-tags --depth=1 origin main
-          test "$(git rev-parse FETCH_HEAD)" = "$EXPECTED" || { echo "::error::Current main advanced"; exit 1; }
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          test "$actual" = "$EXPECTED" || { echo "::error::Current main advanced"; exit 1; }
       - name: Install exact dependency lock
         run: npm ci --ignore-scripts
       - name: Review-only static safety preflight
