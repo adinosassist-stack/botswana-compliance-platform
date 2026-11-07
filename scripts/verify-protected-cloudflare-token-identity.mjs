@@ -43,7 +43,15 @@ export async function verifyProtectedTokenIdentity(env,{fetchImpl=fetch}={}){
   disposition:'HOLD_PERMISSION_SCOPE_AND_CONTROLLED_CUTOVER_REVIEW'
  });
 }
+// Only fixed internal failure codes may reach protected job logs; never print errors,
+// tokens, response bodies, URL query data, token IDs or environment contents.
+const SAFE_HOLDS=new Set(['authority','connection','provider_refused','provider_response',
+ 'stale_main','inactive_or_unverified','token_id_mismatch']);
+export function sanitizedTokenHoldCode(error){
+ const m=/^protected_token_identity_hold_([a-z_]+)$/.exec(error?.message||'');
+ return m&&SAFE_HOLDS.has(m[1])?m[1]:'unclassified';
+}
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
  try{console.log(JSON.stringify(await verifyProtectedTokenIdentity(process.env)))}
- catch{console.error('protected_cloudflare_token_identity_HOLD');process.exitCode=1}
+ catch(e){console.error('protected_cloudflare_token_identity_HOLD_'+sanitizedTokenHoldCode(e));process.exitCode=1}
 }
