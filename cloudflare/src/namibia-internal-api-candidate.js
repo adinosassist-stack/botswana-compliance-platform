@@ -54,6 +54,8 @@ export async function handleNamibiaInternalCandidate(request,env){
  if(!allow.includes(String(auth.tenant_id)))return json({error:"tenant_not_enabled"},403);
  const principal={tenant_id:auth.tenant_id,user_id:auth.user_id,role:String(auth.role).toLowerCase(),marketCode:"NA"};
  if(request.method==="POST"){
+   // The wider app permits absent Origin; the isolated candidate deliberately does not.
+   if(request.headers.get("origin")!==configuredOrigin)return json({error:"explicit_origin_required"},403);
    if(!csrfAllowed(request,auth))return json({error:"csrf_required"},403);
    if(!/^application\/json(?:\s*;|$)/i.test(request.headers.get("content-type")||""))return json({error:"json_content_type_required"},415);
    let body;
