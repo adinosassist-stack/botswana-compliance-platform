@@ -1,0 +1,30 @@
+# REVIEW-ONLY. NOT referenced by any deploy workflow. DO NOT wrangler deploy.
+# Staging-only Queue and dedicated replay D1 confirmed 2026-11-07.
+# This config is NOT an authorization or protected release artifact.
+name = "bw-general-ai-private-queue-acceptance"
+main = "src/general-ai-private-queue-d1-entry.review.js"
+compatibility_date = "2026-09-03"
+workers_dev = false
+preview_urls = false
+
+[vars]
+PRIVATE_AI_QUEUE_ACCEPTANCE_ENABLED = "false"
+PRIVATE_AI_LEDGER_SCHEMA_QUALIFIED = "false"
+PRIVATE_AI_LEDGER_ISOLATION_VERIFIED = "false"
+# APPROVED_SOURCE_SHA intentionally omitted. Require exact reviewed main SHA.
+
+[[services]]
+binding = "STAGING_AI"
+service = "bw-general-ai-staging"
+
+[[d1_databases]]
+binding = "PRIVATE_AI_NONCE_DB"
+database_name = "bw-general-ai-private-queue-nonce-staging"
+database_id = "71e2d394-7dec-4878-bdc8-afe8f73cf541"
+
+[[queues.consumers]]
+queue = "bw-general-ai-private-acceptance-queue"
+max_batch_size = 1
+max_batch_timeout = 1
+max_concurrency = 1
+max_retries = 0
