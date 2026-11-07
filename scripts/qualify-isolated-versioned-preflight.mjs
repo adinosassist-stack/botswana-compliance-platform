@@ -5,8 +5,8 @@ export const EVIDENCE=Object.freeze({
  targetId:'be15acba-ba16-4704-9498-e296a164b3a2',
  targetName:'bw-compliance-os-ops-restore-candidate-20261103',
  bucket:'bw-compliance-ops-backups',
- candidateKey:'candidates/41709222476/1/production-d1.sql',
- candidateSize:3224706, lockId:'candidates-30-day-retention',
+ candidateKey:'candidates/42293276778/1/production-d1.sql',
+ candidateSize:3393714, lockId:'candidates-30-day-retention',
  lockPrefix:'candidates/',lockSeconds:2592000
 });
 const fail=code=>{throw Error('versioned_preflight_hold_'+code)};
@@ -33,7 +33,7 @@ export async function readIsolatedVersionedPreflight({accountId,token,expectedMa
  if(accountId!==EVIDENCE.accountId||typeof token!=='string'||!token.trim())fail('authority');
  const root=`https://api.cloudflare.com/client/v4/accounts/${accountId}`;
  const urls=[`${root}/r2/buckets/${EVIDENCE.bucket}/lock`,
- `${root}/r2/buckets/${EVIDENCE.bucket}/objects?prefix=${encodeURIComponent('candidates/41709222476/1/')}&per_page=10`,
+ `${root}/r2/buckets/${EVIDENCE.bucket}/objects?prefix=${encodeURIComponent('candidates/42293276778/1/')}&per_page=10`,
  `${root}/d1/database/${EVIDENCE.targetId}`];
  const replies=[];
  for(const url of urls){

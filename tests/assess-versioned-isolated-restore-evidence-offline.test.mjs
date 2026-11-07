@@ -5,13 +5,13 @@ import {assessVersionedRestoreEvidence} from '../scripts/assess-versioned-isolat
 const valid=()=>({
  sourceDatabaseId:'8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce',
  reviewedMainSha:'a'.repeat(40),
- observedAt:'2026-11-04T10:00:00.000Z',evaluatedAt:'2026-11-04T10:05:00.000Z',
+ observedAt:'2026-11-07T13:55:00.000Z',evaluatedAt:'2026-11-07T14:00:00.000Z',
  target:{databaseId:'be15acba-ba16-4704-9498-e296a164b3a2',name:'bw-compliance-os-ops-restore-candidate-20261103',schemaObjects:0,writes:0,workerBound:false},
- candidate:{bucket:'bw-compliance-ops-backups',key:'candidates/41709222476/1/production-d1.sql',bytes:3224706,
- sha256:'2363d0cfc85a76e3cfef7c33a9f2f70a38899174042e23683aa663dfcbaf3f33',
+ candidate:{bucket:'bw-compliance-ops-backups',key:'candidates/42293276778/1/production-d1.sql',bytes:3393714,
+ sha256:'4e1674e65b7cae766ba07f1c009550b0aee60bca6fc08121ce91928d55f04a1a',
  byteHashIndependentlyVerified:true},
  retention:{ruleId:'candidates-30-day-retention',prefix:'candidates/',enabled:true,
- type:'Age',maxAgeSeconds:2592000,objectListed:true,lastModified:'2026-11-03T20:11:10.090Z'}
+ type:'Age',maxAgeSeconds:2592000,objectListed:true,lastModified:'2026-11-07T12:53:51.097Z'}
 });
 test('clean operator assertions remain HOLD, never import or claim independent verification',()=>{
  const x=assessVersionedRestoreEvidence(valid());
@@ -46,11 +46,11 @@ test('forged candidate, broad retention scope, and missing lock coverage are rej
 });
 test('stale, future and malformed observations are rejected',()=>{
  for(const patch of [
- {observedAt:'2026-11-04T09:00:00.000Z'},
- {observedAt:'2026-11-04T10:06:00.000Z'},
+ {observedAt:'2026-11-07T13:00:00.000Z'},
+ {observedAt:'2026-11-07T14:06:00.000Z'},
  {evaluatedAt:'2026-11-04T10:05:00Z'},
  {reviewedMainSha:'current-main'},
- {retention:{...valid().retention,lastModified:'2026-11-04T10:07:00.000Z'}}
+ {retention:{...valid().retention,lastModified:'2026-11-07T14:07:00.000Z'}}
  ])assert.throws(()=>assessVersionedRestoreEvidence({...valid(),...patch}),/isolated_restore_evidence_hold_/);
 });
 test('additional unaudited authority fields are rejected',()=>{

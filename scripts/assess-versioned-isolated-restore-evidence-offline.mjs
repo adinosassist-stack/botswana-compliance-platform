@@ -4,8 +4,8 @@ const fail=reason=>{throw Error('isolated_restore_evidence_hold_'+reason)};
 const SOURCE='8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce';
 const TARGET='be15acba-ba16-4704-9498-e296a164b3a2';
 const BUCKET='bw-compliance-ops-backups';
-const KEY='candidates/41709222476/1/production-d1.sql';
-const HASH='2363d0cfc85a76e3cfef7c33a9f2f70a38899174042e23683aa663dfcbaf3f33';
+const KEY='candidates/42293276778/1/production-d1.sql';
+const HASH='4e1674e65b7cae766ba07f1c009550b0aee60bca6fc08121ce91928d55f04a1a';
 const SHA=/^[0-9a-f]{40}$/;
 const fields=(x,keys)=>{if(!x||typeof x!=='object'||Array.isArray(x)||Object.keys(x).length!==keys.length||keys.some(k=>!Object.hasOwn(x,k)))fail('shape')};
 const instant=value=>{if(typeof value!=='string'||!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(value)||!Number.isFinite(Date.parse(value))||new Date(value).toISOString()!==value)fail('timestamp');return Date.parse(value)};
@@ -18,7 +18,7 @@ export function assessVersionedRestoreEvidence(input){
  if(input.target.databaseId!==TARGET||input.target.name!=='bw-compliance-os-ops-restore-candidate-20261103'||
     input.target.schemaObjects!==0||input.target.writes!==0||input.target.workerBound!==false)fail('target_not_isolated_empty');
  fields(input.candidate,['bucket','key','bytes','sha256','byteHashIndependentlyVerified']);
- if(input.candidate.bucket!==BUCKET||input.candidate.key!==KEY||input.candidate.bytes!==3224706||
+ if(input.candidate.bucket!==BUCKET||input.candidate.key!==KEY||input.candidate.bytes!==3393714||
     input.candidate.sha256!==HASH||input.candidate.byteHashIndependentlyVerified!==true)fail('backup_provenance');
  fields(input.retention,['ruleId','prefix','enabled','type','maxAgeSeconds','objectListed','lastModified']);
  if(input.retention.ruleId!=='candidates-30-day-retention'||input.retention.prefix!=='candidates/'||
