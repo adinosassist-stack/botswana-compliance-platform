@@ -203,3 +203,18 @@ Synthetic D1 probes:
 This is direct-query database constraint testing, **not authenticated API or legal review validation**. It does not prove a reviewer is authenticated, independently authorized, or legally qualified. No official document or personal data was ingested. No existing Botswana D1 or earlier Namibia D1 was altered. The fresh isolated D1 is not a production/staging runtime database and requires a deliberate retention/cleanup decision.
 
 Remaining gates: connected staging authentication and reviewer authorization, source review against real BIPA/NamRA/FIC primary documents, legal effective-date verification, privacy retention acceptance, independent `thusico` approval, and separately authorized deployment. All market activation and filing automation remain disabled.
+
+## Batch 14 — isolated staging guard at the candidate API boundary
+
+The previous head `532be1e6403368d0cb53e5e7e24c0caebe937c33` passed Namibia CI, audit-remediation CI and independent review regression workflows. The separate recovery workflow was still running at initial check.
+
+Added `cloudflare/src/namibia-isolation-preflight.js` and `tests/namibia-isolation-preflight.test.mjs`; integrated preflight into the **unmounted** `namibia-internal-api-candidate.js`. Its rehearsal mode now rejects:
+- Shared `DB` and `NA_CANDIDATE_DB` binding objects.
+- Missing or duplicate staging-session, candidate-data and Botswana-production database identifier declarations.
+- A non-disposable stage kind or missing deployment-provided binding-audit flag.
+- Missing, duplicate, or non-synthetic tenant allowlist entries.
+- All customer or production activation modes; existing market readiness remains fail-closed.
+
+Existing simulated HMAC-authenticated API tests now include explicit **synthetic** staging declarations. The added guard is not proof of real Cloudflare binding identities: environment markers can be misconfigured and must be checked independently by reviewing Cloudflare metadata, account permissions, environment source SHA, and a physically separate staging authentication database. No Cloudflare Worker was deployed or bound in this batch.
+
+Before a genuine internal pilot: separately audit physical binding UUIDs and session-store segregation, require independent `thusico` security review, reconcile real legal source evidence, confirm privacy/retention and controlled erasure, and obtain a separate owner approval for any deployment. All Namibia customer functions remain disabled.
