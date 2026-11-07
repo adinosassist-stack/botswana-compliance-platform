@@ -62,7 +62,7 @@ test('missing, failed, or malformed retention lock policy blocks private SQL rea
  }
 });
 
-test('new current-main candidate is fixed run-1 and strictly GET-only before byte qualification',async()=>{
+test('reviewed private candidate is fixed run-1 and strictly GET-only before byte qualification',async()=>{
  const e={...base,VERSIONED_RUN_ID:'41892086437'};
  const calls=[];
  const fetchImpl=async(url,options)=>{
@@ -75,6 +75,23 @@ test('new current-main candidate is fixed run-1 and strictly GET-only before byt
  await assert.rejects(verifyVersionedR2Candidate(e,{fetchImpl}),/observed_size_mismatch/);
  assert.deepEqual(calls.map(x=>x.method),['GET','GET','GET','GET']);
  assert.ok(calls[3].url.endsWith('/objects/candidates/41892086437/1/production-d1.sql'));
+});
+test('Release 595 backup is pinned to exact run-1 and strictly GET-only without restore',async()=>{
+ const e={...base,VERSIONED_RUN_ID:'42293276778'};
+ const calls=[];
+ const fetchImpl=async (url,options)=>{
+  calls.push({url,method:options.method});
+  if(url.endsWith('/domains/managed'))return Response.json({success:true,result:{enabled:false}});
+  if(url.endsWith('/domains/custom'))return Response.json({success:true,result:{domains:[]}});
+  if(url.endsWith('/lock'))return Response.json({success:true,result:{rules:[{id:'candidates-30-day-retention',enabled:true,prefix:'candidates/',condition:{type:'Age',maxAgeSeconds:2592000}}]}});
+  return new Response('synthetic-only-invalid-size',{status:200});
+ };
+ await assert.rejects(verifyVersionedR2Candidate(e,{fetchImpl}),/observed_size_mismatch/);
+ assert.deepEqual(calls.map(c=>c.method),['GET','GET','GET','GET']);
+ assert.ok(calls[3].url.endsWith('/objects/candidates/42293276778/1/production-d1.sql'));
+ await reject({...e,VERSIONED_RUN_ID:'42293276778/2'});
+ await reject({...e,VERSIONED_RUN_ID:'42293276779'});
+ await reject({...e,GITHUB_SHA:'b'.repeat(40)});
 });
 test('new SQL candidate cannot authorize restore and unknown newer runs fail before network',async()=>{
  await reject({...base,VERSIONED_RUN_ID:'41892086438'});
