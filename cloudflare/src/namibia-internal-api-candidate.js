@@ -34,7 +34,9 @@ export async function handleNamibiaInternalCandidate(request,env){
     !env?.NA_CANDIDATE_DB||!env?.DB||!env?.SESSION_SECRET||
     marketActivationReadiness("NA").ready)return json({error:"namibia_internal_api_disabled"},404);
  const url=new URL(request.url);
- if(url.origin!==new URL(env.PUBLIC_ORIGIN).origin)return json({error:"origin_mismatch"},403);
+ let configuredOrigin;
+ try{configuredOrigin=new URL(env.PUBLIC_ORIGIN).origin}catch{return json({error:"internal_origin_not_configured"},503)}
+ if(url.origin!==configuredOrigin)return json({error:"origin_mismatch"},403);
  const path=url.pathname.replace(/\/+$/,"")||"/";
  const key=request.method.toUpperCase()+" "+path;
  const action=fixedPaths[key];
