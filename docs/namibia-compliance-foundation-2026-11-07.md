@@ -218,3 +218,18 @@ Added `cloudflare/src/namibia-isolation-preflight.js` and `tests/namibia-isolati
 Existing simulated HMAC-authenticated API tests now include explicit **synthetic** staging declarations. The added guard is not proof of real Cloudflare binding identities: environment markers can be misconfigured and must be checked independently by reviewing Cloudflare metadata, account permissions, environment source SHA, and a physically separate staging authentication database. No Cloudflare Worker was deployed or bound in this batch.
 
 Before a genuine internal pilot: separately audit physical binding UUIDs and session-store segregation, require independent `thusico` security review, reconcile real legal source evidence, confirm privacy/retention and controlled erasure, and obtain a separate owner approval for any deployment. All Namibia customer functions remain disabled.
+
+## Batch 15 — actual Cloudflare D1 identity check (read-only)
+
+The Namibia candidate workflow passed for prior head `7891e209fd7e88c2faf0a103a828701aecd3d691`; several broader repository CI jobs remained in progress at the time of the check.
+
+An authenticated **read-only** Cloudflare D1 inventory listed:
+- Botswana production `bw-compliance-os`: `8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce`.
+- Namibia compliance disposable `na-compliance-disposable-20261107`: `c8ce1dd7-6973-45e8-be7f-1b4f2b672312`.
+- Namibia source review disposable `na-source-review-disposable-v2-20261107`: `b45ebf26-429d-47ae-ae88-c404c8965c5b`.
+
+These three physical D1 UUIDs are distinct. **No dedicated Namibia session D1** was found in the checked inventory. This is a **blocking requirement** for a physically isolated authenticated Namibia pilot; using the Botswana production session DB as a substitute is not approved.
+
+Added `cloudflare/src/namibia-d1-inventory-audit.js` and `tests/namibia-d1-inventory-audit.test.mjs`. The read-only inventory verifier detects mismatched expected identities, duplicate/colliding UUIDs and missing isolated session DB, and never declares a pilot launch-ready. The observed inventory values in regression tests are a fixed snapshot, not a live binding attestation. Actual Cloudflare Worker script/environment bindings and independently authenticated session membership must still be verified separately before any pilot.
+
+No Worker binding or deployment changed; neither disposable D1 was mutated in this batch. No regulatory rules, payments, customer sessions or production data were enabled or written. Independent `thusico` review, Namibian legal/tax signoff and owner release approval remain outstanding.
