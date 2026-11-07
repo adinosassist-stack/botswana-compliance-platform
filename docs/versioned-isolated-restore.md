@@ -18,14 +18,12 @@ promotion, R2 write, automatic retry, reset or cleanup of remote databases.
 The transport pins account `ddd23cab31928a4bb3d4998df9b26d1d`, isolated D1
 `be15acba-ba16-4704-9498-e296a164b3a2` and name
 `bw-compliance-os-ops-restore-candidate-20261103`. It reads only SQL candidate
-run 41892086437, attempt 1, exactly 3,277,137 bytes, SHA-256
-`e7736aebb9ddfabd378a0f198563dc9d9e127ff5cb9eaedff02237f58a4747e5`.
-The source was inspected by protected read-only run #41897060756 on reviewed main
-`6f0ed41bbb8f73de1d0052b1be16c4dfc68169ea`, with 231 tables, SQLite
-integrity passed, zero foreign-key violations, and authenticated preparation
-receipt comparison documented in issue #1950. Original preparation run #41892086437
-records export bookmark `0000064b-00000000-00005119-2bb64db4488db4adf6415399e20872ec`.
-This is historical receipt evidence; no remote D1 restore, Time Travel validation,
+run 42293276778, attempt 1, exactly 3,393,714 bytes, SHA-256
+`4e1674e65b7cae766ba07f1c009550b0aee60bca6fc08121ce91928d55f04a1a`.
+Its production export source commit is `68e36578c3ce57b8d0a8cf9b229310de35b67d5a`.
+The private object was independently verified by protected read-only [run 42375623870](https://github.com/adinosassist-stack/botswana-compliance-platform/actions/runs/42375623870) after reviewed PR #2224; 231 tables, SQLite integrity passed, zero foreign-key violations and an exact SHA-256 match to the original [preparation run 42293276778](https://github.com/adinosassist-stack/botswana-compliance-platform/actions/runs/42293276778).
+The preparation receipt records export bookmark `000006a8-00000000-0000511c-72b93059f224f35e66e88030274f7e4f` and private roundtrip verification.
+This is verified receipt and object-byte evidence; no remote D1 restore, Time Travel validation,
 object-level retention proof, sustained RPO, or tenant recovery has been established.
 The original export bookmark/provenance remains the independently reviewed
 receipt in #1950 and the immutable offline planner; importing SQL does not
@@ -54,13 +52,15 @@ THEBE_VERSIONED_RESTORE_APPROVAL
   "scope": "IMPORT_VERSIONED_BACKUP_INTO_ISOLATED_D1_ONCE",
   "sourceSha": "REPLACE_WITH_REVIEWED_CURRENT_MAIN_40_CHARACTER_SHA",
   "target": "be15acba-ba16-4704-9498-e296a164b3a2",
-  "candidateSha256": "e7736aebb9ddfabd378a0f198563dc9d9e127ff5cb9eaedff02237f58a4747e5",
-  "candidateBytes": 3277137,
+  "candidateKey": "candidates/42293276778/1/production-d1.sql",
+  "candidateSha256": "4e1674e65b7cae766ba07f1c009550b0aee60bca6fc08121ce91928d55f04a1a",
+  "candidateBytes": 3393714,
+  "backupSourceSha": "68e36578c3ce57b8d0a8cf9b229310de35b67d5a",
   "retentionAndAccessAccepted": true
 }
 ```
 
-The source-sha placeholder is deliberately invalid. These instructions are not
+The approval contract now includes the immutable candidate key and original backup source SHA, in addition to its digest and size. **`sourceSha` is the future, independently reviewed execution `main` commit; `backupSourceSha` is the fixed original export source.** The source-sha placeholder is deliberately invalid. These instructions are not
 approval records. Both records are fetched through authenticated GitHub GETs;
 author, issue, exact shape and scope are checked. Missing, different, deleted or
 changed approvals stop execution. Comments are re-read during both isolation
@@ -124,3 +124,9 @@ records/bytes and actual local SQLite checks; they never contain private backup
 bytes or perform remote operations. The exact pinned private backup's successful
 import path requires protected live qualification after independent approvals;
 local tests are not a substitute for that acceptance.
+
+## 7 November 2026 review-only candidate update
+
+This review PR changes only the isolated, approval-gated versioned import candidate to the fresh Release 595 backup. It **does not dispatch a restore**. It does not modify the legacy fixed-input restore mode, the protected environment, Cloudflare settings, D1, R2, credentials or production. The old historical candidate remains separately recorded in issue #1950, but is no longer this mode's import input after this PR merges.
+
+The candidate-specific owner and independent `thusico` approval comments must be written **after** independent review of retention enforcement, administrators, access isolation and exclusive writer controls, using the then-current reviewed main SHA. Existing bare `approved` comments cannot authorize this import. If target identity/emptiness changes or any import fails, halt; never auto-reset or replay. The exact backup-byte hash matches its preparation receipt, but `retentionEnforced`, actual isolated restore and application tenant recovery are **not accepted** by that result. Do not activate POP, exports or General AI on this PR alone.
