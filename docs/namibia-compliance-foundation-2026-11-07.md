@@ -309,3 +309,13 @@ Added `scripts/namibia-staging-preflight.mjs` which validates the exact standalo
 Added `.github/workflows/namibia-staging-preflight.yml` as a **read-only** PR/manual preflight with `contents: read` permissions and no Cloudflare tokens/secrets, no deploy step, and a required exact full commit SHA when manually dispatched. A PR run is only a check; it does not grant a reviewer attestation or consent to deploy. The existing Namibia candidate workflow also runs the offline preflight.
 
 **Not performed:** Worker deployment, actual D1 binding changes, production write, merging, enabling Namibia runtime or authorizing a release. Real Cloudflare resource metadata, source SHA qualification, independent `thusico` sign-off and an owner deployment decision remain mandatory. The newest CI must still complete before its result is reported as passing.
+
+## Batch 22 — strict manifest capability allowlist and adversarial review
+
+All 10 reported workflows on previous head `eca52ef07708f7125dd243e3f32a2b63c6b271ec` completed successfully, including Namibia staging review-only preflight, Namibia candidate checks, independent-review regressions, audit remediation, recovery and client runtime.
+
+Added `cloudflare/src/namibia-staging-manifest-policy.js`: conservative static parser for the *proposed dormant* `wrangler.namibia-internal-candidate.toml`. It permits only six named root keys, eight named staging variable keys, and three D1 binding sections with exact verified disposable database names and IDs. Unexpected TOML sections (routes, secrets, KV, service bindings, triggers, analytics, etc.), unknown keys, duplicate keys, changed runtime flags, misbound production D1 and additional binding sections fail closed. Ambiguous/complex TOML syntax must be deliberately reviewed rather than automatically accepted. This parser is an additional review gate, not a general TOML parser and not a substitute for inspecting Cloudflare's effective deployed settings.
+
+The staging preflight now invokes this policy. Added `tests/namibia-staging-manifest-policy.test.mjs` covering the accepted dormant configuration and a range of attempted privilege/capability expansions, and integrated it into both the candidate CI and review-only staging preflight CI. Work remains PR-only: no Worker deployed, no routes/DBs changed, no real sessions, no merge, no production writes. Recheck new SHA CI before claiming these adversarial tests passed.
+
+Remaining authorization: a separate security review by `thusico`, source and privacy counsel review, validated staging-only deployment credentials and an explicit owner decision for any future isolated deployment. Customer Namibia runtime remains disabled.

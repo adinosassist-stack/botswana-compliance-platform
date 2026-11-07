@@ -4,8 +4,10 @@ on:
     paths:
       - 'cloudflare/wrangler.namibia-internal-candidate.toml'
       - 'cloudflare/src/namibia-staging-entry.js'
+      - 'cloudflare/src/namibia-staging-manifest-policy.js'
       - 'scripts/namibia-staging-preflight.mjs'
       - 'tests/namibia-staging-manifest.test.mjs'
+      - 'tests/namibia-staging-manifest-policy.test.mjs'
       - '.github/workflows/namibia-staging-preflight.yml'
   workflow_dispatch:
     inputs:
@@ -41,7 +43,7 @@ jobs:
         run: |
           node --check scripts/namibia-staging-preflight.mjs
           node scripts/namibia-staging-preflight.mjs
-          node --test tests/namibia-staging-manifest.test.mjs
+          node --test tests/namibia-staging-manifest.test.mjs tests/namibia-staging-manifest-policy.test.mjs
       - name: Report protected deployment remains blocked
         run: |
           echo "Preflight only. No Cloudflare credentials, worker deployments, production writes or approval attestations."
