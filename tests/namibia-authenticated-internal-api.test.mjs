@@ -110,8 +110,8 @@ test("auth, role and allowlist cannot be overridden by body, cookie or forged he
     assert.equal((await send(c.env,"/internal/namibia/entities",{method:"POST",body:entity,cookie:"forged"})).status,401);
     assert.equal((await send(c.env,"/internal/namibia/entities",{method:"POST",body:{...entity,tenant_id:"synthetic-B"}})).status,400);
     assert.equal((await send(c.env,"/internal/namibia/entities",{method:"POST",body:entity,extraHeaders:{"x-tenant-id":"synthetic-B"}})).status,201);
-    const records=c.db.sqlite.prepare("SELECT DISTINCT tenant_id FROM na_compliance_entities").all();
-    assert.deepEqual(records.map(x=>x.tenant_id),["synthetic-A"]);
+    const storedTenants=c.db.sqlite.prepare("SELECT DISTINCT tenant_id FROM na_compliance_entities").all();
+    assert.deepEqual(storedTenants.map(x=>x.tenant_id),["synthetic-A"]);
   }finally{c.close()}
 });
 test("CSRF, cross-origin, malformed JSON, and unsupported methods fail closed",async()=>{
