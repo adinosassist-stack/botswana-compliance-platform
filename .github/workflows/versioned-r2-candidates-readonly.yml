@@ -21,6 +21,7 @@ on:
           - '41709222476'
           - '41710740133'
           - '41892086437'
+          - '42293276778'
       confirmation:
         description: Only protected private object reads and in-memory SQL inspection
         type: choice
