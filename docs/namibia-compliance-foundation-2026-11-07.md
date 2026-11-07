@@ -80,3 +80,22 @@ Run `node --test tests/namibia-compliance-candidate.test.mjs tests/namibia-compl
 ### Deferred, owner-controlled gates
 
 No PR merge, production/staging migration, Cloudflare runtime binding, customer rollout, official due-date notification, or Namibia regulatory activation. Require passing CI, independent `thusico` review, Namibian regulatory experts' verification, storage privacy assessment, disposable actual D1 rehearsal, and a separately authorized release.
+
+## Batch 5 — actual isolated Cloudflare D1 execution (2026-11-07)
+
+An independent **disposable** D1 database named `na-compliance-disposable-20261107` (ID `c8ce1dd7-6973-45e8-be7f-1b4f2b672312`) was created in the existing Cloudflare account. This is not a production/staging binding, is not linked to a Worker, and contains only synthetic tenant IDs and entity references.
+
+Verified against Cloudflare's D1 query API:
+- Candidate SQL applied: all four NA tables and their indexes created successfully.
+- Synthetic tenant A and tenant B entity inserts succeeded.
+- A cross-tenant foreign-key evidence insert was rejected.
+- Setting `filing_enabled=1` was rejected by a CHECK constraint.
+- Duplicate tenant/entity primary key was rejected.
+- In one multi-statement D1 query, a deliberately invalid audit insert caused the preceding evidence insert to roll back. Follow-up count query confirmed **zero** evidence and audit records from the failed batch.
+- Added and applied append-only audit triggers to the disposable database. UPDATE and DELETE attempts on synthetic audit events were rejected.
+
+**Scope limitations:** No executable Worker adapter or authenticated HTTP route was exercised. These tests demonstrate schema constraints and D1 batch rollback under the tested direct-query path, **not** identity authorization, tenancy security at an API boundary, application end-to-end behavior, or regulatory correctness. No customer data was accessed. Existing Botswana D1 databases were not modified.
+
+**Retention note:** Audit immutability is a candidate safeguard only; legal retention, erasure, record minimization, and controlled deletion must be reviewed before real-person data is added. The disposable test database can be deleted after evidence retention approval; do not treat it as a deployable Namibia database.
+
+**Still gated:** CI on latest commit, independent reviewer signoff, full tenant-authenticated route integration, privacy and legal review, deliberate migration strategy, owner approval, and production release. Namibia stays disabled.
