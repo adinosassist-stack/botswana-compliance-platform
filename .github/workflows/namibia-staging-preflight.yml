@@ -1,0 +1,47 @@
+name: Namibia staging review-only preflight
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/wrangler.namibia-internal-candidate.toml'
+      - 'cloudflare/src/namibia-staging-entry.js'
+      - 'scripts/namibia-staging-preflight.mjs'
+      - 'tests/namibia-staging-manifest.test.mjs'
+      - '.github/workflows/namibia-staging-preflight.yml'
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: 'Full exact commit SHA to qualify (no deployment)'
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  review-only-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Require exact selected commit when manually dispatched
+        env:
+          EXPECTED_SHA: "${{ inputs.expected_sha }}"
+          EVENT_NAME: "${{ github.event_name }}"
+        run: |
+          if [ "$EVENT_NAME" = workflow_dispatch ]; then
+            ACTUAL_SHA="$(git rev-parse HEAD)"
+            if ! [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]] || [ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]; then
+              echo "::error::Expected SHA does not match checked-out commit"
+              exit 1
+            fi
+          fi
+      - name: Validate candidate config without Cloudflare credentials
+        run: |
+          node --check scripts/namibia-staging-preflight.mjs
+          node scripts/namibia-staging-preflight.mjs
+          node --test tests/namibia-staging-manifest.test.mjs
+      - name: Report protected deployment remains blocked
+        run: |
+          echo "Preflight only. No Cloudflare credentials, worker deployments, production writes or approval attestations."
