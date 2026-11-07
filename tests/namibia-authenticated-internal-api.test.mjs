@@ -123,6 +123,8 @@ test("CSRF, cross-origin, malformed JSON, and unsupported methods fail closed",a
     for(const [options,expected] of [
       [{method:"POST",body:entity,csrfValue:"bad"},403],
       [{method:"POST",body:entity,origin:"https://attacker.example"},403],
+      [{method:"POST",body:entity,origin:null},403],
+      [{method:"POST",body:{...entity,hiddenData:"should be rejected"}},400],
       [{method:"POST",body:entity,contentType:"text/plain"},415],
       [{method:"DELETE"},404],
     ]){
