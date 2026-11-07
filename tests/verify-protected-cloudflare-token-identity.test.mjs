@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {verifyProtectedTokenIdentity} from '../scripts/verify-protected-cloudflare-token-identity.mjs';
+import {verifyProtectedTokenIdentity,sanitizedTokenHoldCode} from '../scripts/verify-protected-cloudflare-token-identity.mjs';
 const id='b'.repeat(32),sha='a'.repeat(40);
 const repo='adinosassist-stack/botswana-compliance-platform';
 const valid=()=>({
@@ -63,4 +63,17 @@ test('provider refusal and malformed JSON fail closed',async()=>{
  for(const fetchImpl of [async()=>({status:403,ok:false}),async()=>({status:200,ok:true,json:async()=>{throw Error('bad json')}})]){
   await assert.rejects(verifyProtectedTokenIdentity(valid(),{fetchImpl}),/protected_token_identity_hold_/);
  }
+});
+
+test('safe failure classification cannot echo token values, IDs, or arbitrary errors',()=>{
+ const known=['authority','connection','provider_refused','provider_response','stale_main',
+  'inactive_or_unverified','token_id_mismatch'];
+ for(const reason of known)assert.equal(sanitizedTokenHoldCode(new Error('protected_token_identity_hold_'+reason)),reason);
+ for(const message of [
+  'Bearer synthetic-secret',
+  'protected_token_identity_hold_token_id_mismatch secret=private',
+  'protected_token_identity_hold_'+('b'.repeat(32)),
+  'anything else',
+ ])assert.equal(sanitizedTokenHoldCode(new Error(message)),'unclassified');
+ assert.equal(sanitizedTokenHoldCode({message:'protected_token_identity_hold_unlisted_reason'}),'unclassified');
 });
