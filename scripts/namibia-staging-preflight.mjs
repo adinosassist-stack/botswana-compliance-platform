@@ -1,5 +1,6 @@
 // Namibia candidate review-only preflight. No deploy, no secrets, no Cloudflare writes.
 import {readFileSync} from "node:fs";
+import {validateNamibiaDormantManifest} from "../cloudflare/src/namibia-staging-manifest-policy.js";
 const config=readFileSync(new URL("../cloudflare/wrangler.namibia-internal-candidate.toml",import.meta.url),"utf8");
 const live=readFileSync(new URL("../cloudflare/wrangler.toml",import.meta.url),"utf8");
 const source=readFileSync(new URL("../cloudflare/src/namibia-staging-entry.js",import.meta.url),"utf8");
@@ -15,6 +16,7 @@ const expected=new Map([
 const errors=[];
 let checks=0;
 function guard(name,condition){checks++;if(!condition)errors.push(name)}
+guard("deny_unreviewed_capabilities",validateNamibiaDormantManifest(config).ok);
 guard("candidate_script_name",key("name")==="na-compliance-internal-candidate");
 guard("entrypoint",key("main")==="src/namibia-staging-entry.js");
 guard("workers_dev_off",key("workers_dev")===undefined&&/^workers_dev = false$/m.test(config));
