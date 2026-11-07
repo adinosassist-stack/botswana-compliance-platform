@@ -53,3 +53,26 @@ production deployment, approval creation, POP migrations, payments or AI flags
 are triggered by this workflow. Neither a successful run nor a reviewer-approved
 PR substitutes for separate authenticated exact-current-main owner and
 `thusico` restore approval comments in issue #1950. Track #1950 and #2187.
+
+## Failed first protected identity check and diagnostics update
+
+Following protected merge of PR #2228, a manual read-only production-role
+check [workflow run 42400325320](https://github.com/adinosassist-stack/botswana-compliance-platform/actions/runs/42400325320)
+was dispatched on exact main `5553e904f9be8652e65718d5099d36847d0762ec`
+with the public Cloudflare account-token *metadata ID* for the token named
+`Thebe Desk GitHub Production Deploy v2`. The `qualify` job succeeded,
+`production` returned a fail-closed `HOLD`, and `recovery` was skipped.
+The job log masked the credential value; the original runner intentionally did not
+explain whether the failure was identity mismatch, refusal, user-owned token,
+or other validation. **No token-to-secret mapping was established.** No
+production deployment, restore, secret change, or token rotation occurred.
+
+This reviewed follow-up adds only a fixed, sanitized failure-reason category
+(`authority`, `connection`, `provider_refused`, `provider_response`,
+`stale_main`, `inactive_or_unverified`, `token_id_mismatch`, or `unclassified`)
+to future protected job logs. It never prints the provider's response, token values,
+token IDs, original exception text or any header. One must not replay a failed
+protected run solely to force a token match; recheck independent environment
+review and exact current main first. A `token_id_mismatch` would only prove the
+current secret is **not** the independently selected account token; it would not
+identify its owner or establish absence of privileged alternative credentials.
