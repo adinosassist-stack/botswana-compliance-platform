@@ -64,7 +64,8 @@ test("wrong scope and reused evidence receipts fail closed with rollback",async(
 });
 
 test("service binding isolation must be independently attested before enable",async()=>{
- const m=mock();m.adapter.attestServiceIsolation=async()=>{m.calls.push("attestServiceIsolation");return receipt("attestServiceIsolation",{stagingOnly:false,productionResourcesTouched:false})};
+ const m=mock();const original=m.adapter.attestServiceIsolation;
+ m.adapter.attestServiceIsolation=async(...args)=>({...await original(...args),stagingOnly:false});
  await assert.rejects(run(options(m.adapter)),/staging-only proof required/);
  assert.equal(m.calls.includes("enable"),false);
 });
