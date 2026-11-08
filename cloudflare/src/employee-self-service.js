@@ -125,8 +125,8 @@ export async function handleStaffPublic({request,url,env,json,readJson,requestOr
 export async function handleStaffManager({request,url,env,auth,json,readJson,id}){
  if(!url.pathname.startsWith("/api/employee-self-service"))return null;
  if(!staffPortalEnabled(env)||!env.DB)return json({error:"not_found"},404);
- if(!env.PUBLIC_RATE_LIMITER||!env.SESSION_SECRET)return json({error:"staff_security_configuration_incomplete"},503);
  if(!auth||!["owner","manager"].includes(auth.role))return json({error:"forbidden"},403);
+ if(!env.PUBLIC_RATE_LIMITER||!env.SESSION_SECRET)return json({error:"staff_security_configuration_incomplete"},503);
  const method=request.method,path=url.pathname,tenantId=auth.tenant_id;
  if(path==="/api/employee-self-service/tasks"&&method==="GET"){
   const rows=await env.DB.prepare("SELECT t.id,t.employee_id,e.full_name employee_name,t.title,t.detail,t.priority,t.status,t.due_date,t.version,t.updated_at FROM employee_portal_tasks t JOIN employees e ON e.id=t.employee_id AND e.tenant_id=t.tenant_id WHERE t.tenant_id=? ORDER BY CASE t.status WHEN 'submitted' THEN 0 ELSE 1 END,t.updated_at DESC LIMIT 100").bind(tenantId).all();
