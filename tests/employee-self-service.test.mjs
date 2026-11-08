@@ -79,11 +79,13 @@ test("employee portal renders text without injecting untrusted HTML",()=>{
  }
  assert.match(html,/id="staffInviteForm"/);
  assert.match(html,/id="staffDashboard"/);
- assert.doesNotMatch(html,/\/js\/api-client\.js/,"employee page must not depend on the production workspace API client");
+ assert.match(html,/name="bw-runtime-mode" content="staff"/,"employee-only page may use staging origin");
+ assert.match(html,/src="\/js\/api-client\.js/,"employee page must use the centralized API client");
  assert.match(portal,/STAFF_PATH=/);
+ assert.match(portal,/globalThis\.BW\?\.api\?\.createClient/);
  assert.match(portal,/credentials:"same-origin"/);
- assert.match(portal,/mode:"same-origin"/);
- assert.match(portal,/redirect:"error"/);
+ assert.match(portal,/client\.request\(url\.pathname/);
+ assert.doesNotMatch(portal,/\bfetch\s*\(/,"employee portal must not bypass centralized transport");
  assert.match(portal,/Sign-out could not be confirmed/);
  assert.match(portal,/refreshTasks\(/);
  assert.match(manager,/Create 48-hour invitation/);
