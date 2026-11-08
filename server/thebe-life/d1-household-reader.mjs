@@ -31,8 +31,8 @@ export async function readHouseholdEntries({db,householdId,userId,limit=50}={}){
   const member=await memberRow(db,householdId,userId);
   if(!member||!['owner','adult','viewer'].includes(member.role))return Object.freeze({ok:false,reason:'not_authorized'});
   const result=await db.prepare(
-    "SELECT id, type, category, amount_minor, currency, occurred_on, transfer_id FROM life_household_entries WHERE household_id = ?1 ORDER BY occurred_on DESC, id DESC LIMIT ?2"
-  ).bind(householdId,limit).all();
+    "SELECT e.id, e.type, e.category, e.amount_minor, e.currency, e.occurred_on, e.transfer_id FROM life_household_entries e WHERE e.household_id = ?1 AND EXISTS (SELECT 1 FROM life_household_members m WHERE m.household_id = e.household_id AND m.user_id = ?3 AND m.status = 'active' AND m.role IN ('owner','adult','viewer')) ORDER BY e.occurred_on DESC, e.id DESC LIMIT ?2"
+  ).bind(householdId,limit,userId).all();
   if(!result||!Array.isArray(result.results))throw new Error('invalid_d1_response');
   const entries=result.results.map(row=>{
     if(!row||typeof row.id!=='string'||!['income','expense','commitment','transfer_in','transfer_out'].includes(row.type)||
