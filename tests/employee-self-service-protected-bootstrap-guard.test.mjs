@@ -16,6 +16,12 @@ const records=()=>[
 ];
 test("only explicit main-only exact SHA and inert operation can proceed",()=>{
  assert.equal(assertExactSource(config()),sha);
+ assert.equal(assertExactSource({...config(),DEPLOY_MODE:"preflight",AUTHORIZATION:"PREFLIGHT_ONLY"}),sha);
+ assert.throws(()=>assertExactSource({...config(),DEPLOY_MODE:"preflight"}),/employee_staging_/);
+ assert.throws(()=>assertExactSource({...config(),DEPLOY_MODE:"preflight",AUTHORIZATION:AUTHORIZATION}),/employee_staging_/);
+ assert.throws(()=>assertExactSource({...config(),DEPLOY_MODE:"bootstrap-inert",AUTHORIZATION:"PREFLIGHT_ONLY"}),/employee_staging_/);
+ assert.throws(()=>assertExactSource({...config(),DEPLOY_MODE:"preflight",AUTHORIZATION:"PREFLIGHT_ONLY",EXPECTED_MAIN_SHA:"b".repeat(40)}),/employee_staging_/);
+
  for(const change of [
   {GITHUB_REPOSITORY:"bad/repo"},
   {GITHUB_REF:"refs/heads/feature"},
@@ -69,6 +75,20 @@ test("one-time bootstrap requires Cloudflare Worker to be conclusively absent",(
 test("workflow has no PR deployment or permissive public route and requires independent environment",()=>{
  const wf=readFileSync(new URL("../.github/workflows/employee-self-service-inert-bootstrap-protected.yml",import.meta.url),"utf8");
  assert.match(wf,/environment: employee-self-service-staging-protected/);
+ assert.ok(wf.includes("  protected-preflight:\n    needs: offline"),"protected read-only preflight must follow offline gate");
+ assert.ok(wf.includes("inputs.mode == 'preflight' && inputs.authorization == 'PREFLIGHT_ONLY'"));
+ assert.ok(wf.includes("AUTHORIZATION: ${{ inputs.authorization }}"));
+ assert.ok(wf.includes("default: PREFLIGHT_ONLY"));
+ const preflightStart=wf.indexOf("  protected-preflight:");
+ const bootstrapStart=wf.indexOf("  bootstrap-inert:",preflightStart);
+ assert.ok(preflightStart>=0&&bootstrapStart>preflightStart,"separate protected preflight must exist before bootstrap");
+ const preflightJob=wf.slice(preflightStart,bootstrapStart);
+ assert.ok(preflightJob.includes("environment: employee-self-service-staging-protected"));
+ assert.ok(preflightJob.includes("STAFF_STAGING_GITHUB_READ_TOKEN"));
+ assert.ok(preflightJob.includes("STAFF_STAGING_CLOUDFLARE_TOKEN"));
+ assert.ok(preflightJob.includes("node scripts/employee-self-service-protected-bootstrap-guard.mjs verify-remote"));
+ assert.doesNotMatch(preflightJob,/npx wrangler deploy|--force|bootstrap-inert|worker-route|route add/,"remote preflight must not deploy");
+
  assert.match(wf,/github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main'/);
  assert.match(wf,/inputs\.authorization == 'BOOTSTRAP_INERT_EMPLOYEE_STAGING'/);
  assert.match(wf,/STAFF_STAGING_GITHUB_READ_TOKEN/);

@@ -20,8 +20,10 @@ export function assertExactSource(env){
     env.GITHUB_REF!=="refs/heads/main"||
     !SHA.test(String(env.EXPECTED_MAIN_SHA||""))||
     env.GITHUB_SHA!==env.EXPECTED_MAIN_SHA ||
-    env.DEPLOY_MODE!=="bootstrap-inert" ||
-    env.AUTHORIZATION!==AUTHORIZATION)
+    !(
+      (env.DEPLOY_MODE==="bootstrap-inert" && env.AUTHORIZATION===AUTHORIZATION) ||
+      (env.DEPLOY_MODE==="preflight" && env.AUTHORIZATION==="PREFLIGHT_ONLY")
+    ))
   failure("employee_staging_exact_main_authority_required");
  if(env.CLOUDFLARE_ACCOUNT_ID!==ACCOUNT)failure("employee_staging_account_id_mismatch");
  return env.EXPECTED_MAIN_SHA;
