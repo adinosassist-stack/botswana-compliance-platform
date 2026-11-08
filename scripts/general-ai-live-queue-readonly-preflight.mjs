@@ -1,0 +1,26 @@
+/** Read-only local guard for any future protected live Queue acceptance run. */
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const read = path => readFileSync(new URL(path,import.meta.url),'utf8');
+const cfg=read('../cloudflare/wrangler.general-ai-private-consumer.toml');
+const entry=read('../cloudflare/src/general-ai-private-queue-d1-entry.review.js');
+const consumer=read('../cloudflare/src/general-ai-queue-acceptance.js');
+const ledger=read('../cloudflare/src/general-ai-private-queue-d1-ledger.js');
+const exact=(name,value)=>assert.match(cfg,new RegExp('^'+name+' = "'+value+'"$','m'));
+exact('PRIVATE_AI_QUEUE_ACCEPTANCE_ENABLED','false');
+exact('PRIVATE_AI_LEDGER_SCHEMA_QUALIFIED','false');
+exact('PRIVATE_AI_LEDGER_ISOLATION_VERIFIED','false');
+assert.match(cfg,/^workers_dev = false$/m);
+assert.match(cfg,/^preview_urls = false$/m);
+assert.doesNotMatch(cfg,/^\\s*(?:route|routes|zone_id)\\s*=/m);
+assert.match(cfg,/^database_id = "71e2d394-7dec-4878-bdc8-afe8f73cf541"$/m);
+assert.match(cfg,/^database_name = "bw-general-ai-private-queue-nonce-staging"$/m);
+assert.match(cfg,/^queue = "bw-general-ai-private-acceptance-queue"$/m);
+assert.match(cfg,/^max_retries = 0$/m);
+assert.match(entry,/ai_nonce_isolation_unverified/);
+assert.match(entry,/ai_nonce_ledger_injection_forbidden/);
+assert.match(consumer,/ai_queue_nonce_reused_or_unverified/);
+assert.match(consumer,/batch.messages\\[0\\]\\.ack\\(\\)/);
+assert.match(ledger,/INSERT OR IGNORE INTO ai_private_queue_nonce_claims/);
+assert.doesNotMatch(cfg,/^APPROVED_SOURCE_SHA\\s*=/m);
+console.log('PASS: inert private Queue baseline; no live delivery or retry qualification claimed');
