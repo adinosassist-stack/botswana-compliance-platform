@@ -51,12 +51,13 @@ jobs:
       - name: Review-only static safety preflight
         run: node scripts/general-ai-private-rollout-preflight.mjs
       - name: Run private Queue and durable D1 offline regressions
-        run: node --test tests/general-ai-queue-acceptance.test.mjs tests/general-ai-private-queue-d1-ledger.test.mjs tests/general-ai-private-queue-d1-entry.test.mjs
+        run: node --test tests/general-ai-queue-acceptance.test.mjs tests/general-ai-private-queue-d1-ledger.test.mjs tests/general-ai-private-queue-d1-entry.test.mjs tests/general-ai-private-queue-failure-qualification.test.mjs
       - name: Verify locked private consumer deployment config
         shell: bash
         run: |
           set -euo pipefail
           node scripts/general-ai-private-consumer-config-preflight.mjs
+          node scripts/general-ai-live-queue-readonly-preflight.mjs
       - name: Dry-run the private Worker bundle only
         run: npx wrangler deploy --dry-run --config cloudflare/wrangler.general-ai-private-consumer.toml --outdir /tmp/general-ai-private-queue
       - name: Archive deployment provenance and bundle checksum
@@ -111,7 +112,8 @@ jobs:
         run: |
           node scripts/general-ai-private-rollout-preflight.mjs
           node scripts/general-ai-private-consumer-config-preflight.mjs
-          node --test tests/general-ai-queue-acceptance.test.mjs tests/general-ai-private-queue-d1-ledger.test.mjs tests/general-ai-private-queue-d1-entry.test.mjs
+          node scripts/general-ai-live-queue-readonly-preflight.mjs
+          node --test tests/general-ai-queue-acceptance.test.mjs tests/general-ai-private-queue-d1-ledger.test.mjs tests/general-ai-private-queue-d1-entry.test.mjs tests/general-ai-private-queue-failure-qualification.test.mjs
       - name: Publish DISABLED private Queue consumer (separate authorization required)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.GENERAL_AI_QUEUE_STAGING_CLOUDFLARE_TOKEN }}
