@@ -1,0 +1,48 @@
+name: Thebe Life foundation qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'server/thebe-life/**'
+      - 'cloudflare/src/thebe-life-household-route.js'
+      - 'public/js/thebe-life-*.js'
+      - 'public/assets/thebe-life-*.css'
+      - 'tests/thebe-life-*.test.mjs'
+      - 'docs/sql/thebe-life-d1-proposal.sql'
+      - '.github/workflows/thebe-life-foundation-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  life-foundations:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact PR revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+      - name: Syntax checks
+        run: |
+          node --check cloudflare/src/thebe-life-household-route.js
+          node --check server/thebe-life/d1-household-reader.mjs
+          node --check server/thebe-life/d1-household-writer.mjs
+          node --check public/js/thebe-life-workspace-preview.js
+          node --check public/js/thebe-life-workspace-adapter.js
+      - name: Offline Life tests — no credentials or customer data
+        run: |
+          node --test \
+            tests/thebe-life-finance-core.test.mjs \
+            tests/thebe-life-ledgers-governance.test.mjs \
+            tests/thebe-life-d1-reader.test.mjs \
+            tests/thebe-life-d1-writer.test.mjs \
+            tests/thebe-life-household-route.test.mjs \
+            tests/thebe-life-workspace-adapter-static.test.mjs

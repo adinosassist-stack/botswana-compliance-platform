@@ -1,0 +1,35 @@
+/* Scoped Thebe Life module: inherit existing Workspace typography, nav, and AI dock. */
+.thebe-life-view{--tl-blue:#0b66d6;--tl-charcoal:#111315;--tl-line:#e3e7ee;--tl-muted:#64748b;font:inherit;color:#172333;max-width:1180px;width:100%;padding:16px 0 40px;min-width:0}
+.thebe-life-view *{box-sizing:border-box}
+.thebe-life-view .tl-head{margin:0 0 18px}
+.thebe-life-view .tl-eyebrow{font-size:10px;color:var(--tl-blue);font-weight:700;letter-spacing:.12em;margin-bottom:6px}
+.thebe-life-view .tl-head h1{font-size:clamp(23px,2.5vw,30px);line-height:1.25;letter-spacing:-.03em;margin:0 0 6px;font-weight:750}
+.thebe-life-view .tl-head p{margin:0;font-size:13px;line-height:1.5}
+.thebe-life-view .tl-muted{color:var(--tl-muted)}
+.thebe-life-view .tl-tabs{display:flex;align-items:center;gap:4px;border-bottom:1px solid var(--tl-line);overflow-x:auto;padding:0 0 4px;scrollbar-width:thin;margin-bottom:20px}
+.thebe-life-view .tl-tab{flex:none;font:inherit;font-size:13px;background:transparent;color:#64748b;border:0;border-bottom:2px solid transparent;border-radius:0;padding:11px 13px;min-height:44px;cursor:pointer}
+.thebe-life-view .tl-tab.is-active{border-bottom-color:var(--tl-blue);color:var(--tl-blue);font-weight:700}
+.thebe-life-view .tl-tab:hover{color:var(--tl-blue)}
+.thebe-life-view .tl-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.thebe-life-view .tl-card,.thebe-life-view .tl-panel,.thebe-life-view .tl-note{border:1px solid var(--tl-line);border-radius:16px;background:white;padding:17px;box-shadow:0 1px 2px #0f172a0c;min-width:0}
+.thebe-life-view .tl-card{display:flex;flex-direction:column;gap:9px;min-height:128px}
+.thebe-life-view .tl-card span{font-size:12px}
+.thebe-life-view .tl-card small{font-size:11px;line-height:1.45}
+.thebe-life-view .tl-number{font-size:clamp(17px,1.8vw,23px);line-height:1.25;letter-spacing:-.025em;overflow-wrap:anywhere}
+.thebe-life-view .tl-panel,.thebe-life-view .tl-note{margin-top:16px}
+.thebe-life-view .tl-panel h2{font-size:16px;margin:0 0 14px}
+.thebe-life-view .tl-note{background:#f2f6fc;border-color:#dce8f7;font-size:12px;line-height:1.6}
+.thebe-life-view .tl-list{list-style:none;padding:0;margin:0}
+.thebe-life-view .tl-list li{padding:12px 0;border-bottom:1px solid var(--tl-line);font-size:13px}
+.thebe-life-view .tl-form{margin-top:14px;display:flex;flex-wrap:wrap;gap:9px}
+.thebe-life-view .tl-form input{flex:1 1 170px;min-width:0;min-height:42px;border:1px solid #ced6e1;border-radius:10px;padding:9px 12px;background:white;color:#172333;font:inherit;font-size:13px}
+.thebe-life-view .tl-primary{min-height:42px;border:1px solid var(--tl-blue);background:var(--tl-blue);border-radius:10px;padding:9px 15px;color:white;font:inherit;font-weight:600;cursor:pointer}
+.thebe-life-view .tl-primary:hover{background:#0758bb}
+.thebe-life-view :is(button,input):focus-visible{outline:2px solid #83baff;outline-offset:3px}
+.thebe-life-view .tl-goal{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin:0 0 18px}
+.thebe-life-view .tl-goal strong,.thebe-life-view .tl-goal span{font-size:13px}
+.thebe-life-view .tl-track{grid-column:1/-1;height:7px;background:#e9eef5;border-radius:20px;overflow:hidden}
+.thebe-life-view .tl-progress{height:100%;background:var(--tl-blue);border-radius:20px}
+@media(max-width:900px){.thebe-life-view .tl-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.thebe-life-view{padding:8px 0 95px}.thebe-life-view .tl-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.thebe-life-view .tl-card{padding:12px;min-height:115px}.thebe-life-view .tl-tab{font-size:12px;padding-inline:10px}.thebe-life-view .tl-form{flex-direction:column}.thebe-life-view .tl-form input,.thebe-life-view .tl-primary{width:100%;flex:auto}}
+@media(prefers-reduced-motion:reduce){.thebe-life-view *{animation:none!important;transition:none!important}}
