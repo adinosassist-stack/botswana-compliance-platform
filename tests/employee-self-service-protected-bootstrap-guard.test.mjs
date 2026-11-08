@@ -75,16 +75,18 @@ test("one-time bootstrap requires Cloudflare Worker to be conclusively absent",(
 test("workflow has no PR deployment or permissive public route and requires independent environment",()=>{
  const wf=readFileSync(new URL("../.github/workflows/employee-self-service-inert-bootstrap-protected.yml",import.meta.url),"utf8");
  assert.match(wf,/environment: employee-self-service-staging-protected/);
- assert.match(wf,/  protected-preflight:\\n    needs: offline/);
- assert.match(wf,/inputs\\.mode == 'preflight' && inputs\\.authorization == 'PREFLIGHT_ONLY'/);
- assert.match(wf,/AUTHORIZATION: \\$\\{\\{ inputs\\.authorization \\}\\}/);
- assert.match(wf,/default: PREFLIGHT_ONLY/);
- const preflightJob=wf.split("  protected-preflight:\\n")[1]?.split("  bootstrap-inert:\\n")[0];
- assert.ok(preflightJob,"read-only remote preflight job must exist");
- assert.match(preflightJob,/environment: employee-self-service-staging-protected/);
- assert.match(preflightJob,/STAFF_STAGING_GITHUB_READ_TOKEN/);
- assert.match(preflightJob,/STAFF_STAGING_CLOUDFLARE_TOKEN/);
- assert.match(preflightJob,/node scripts\\/employee-self-service-protected-bootstrap-guard\\.mjs verify-remote/);
+ assert.ok(wf.includes("  protected-preflight:\n    needs: offline"),"protected read-only preflight must follow offline gate");
+ assert.ok(wf.includes("inputs.mode == 'preflight' && inputs.authorization == 'PREFLIGHT_ONLY'"));
+ assert.ok(wf.includes("AUTHORIZATION: ${{ inputs.authorization }}"));
+ assert.ok(wf.includes("default: PREFLIGHT_ONLY"));
+ const preflightStart=wf.indexOf("  protected-preflight:");
+ const bootstrapStart=wf.indexOf("  bootstrap-inert:",preflightStart);
+ assert.ok(preflightStart>=0&&bootstrapStart>preflightStart,"separate protected preflight must exist before bootstrap");
+ const preflightJob=wf.slice(preflightStart,bootstrapStart);
+ assert.ok(preflightJob.includes("environment: employee-self-service-staging-protected"));
+ assert.ok(preflightJob.includes("STAFF_STAGING_GITHUB_READ_TOKEN"));
+ assert.ok(preflightJob.includes("STAFF_STAGING_CLOUDFLARE_TOKEN"));
+ assert.ok(preflightJob.includes("node scripts/employee-self-service-protected-bootstrap-guard.mjs verify-remote"));
  assert.doesNotMatch(preflightJob,/npx wrangler deploy|--force|bootstrap-inert|worker-route|route add/,"remote preflight must not deploy");
 
  assert.match(wf,/github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main'/);
