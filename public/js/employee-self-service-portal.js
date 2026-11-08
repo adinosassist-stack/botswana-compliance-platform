@@ -1,14 +1,32 @@
 (()=>{
 "use strict";
 const byId=id=>document.getElementById(id);
-const client=globalThis.BW?.api?.createClient?.({timeoutMs:30000,retries:0});
+// Staff APIs are deliberately independent of the owner workspace client and its
+// canonical-production redirect, so an isolated staging origin can be tested safely.
+const STAFF_PATH=/^\/public\/employee\/(?:accept|login|logout|me|tasks(?:\/[a-f0-9-]{32,36}\/progress)?)$/i;
 let staffCsrf="";
 const api=async(path,{method="GET",body=null,csrf=false}={})=>{
- if(!client)throw Error("Unable to load the employee service.");
+ if(!STAFF_PATH.test(String(path||"")))throw Error("Unsupported employee service route.");
+ const current=new URL(location.href),url=new URL(path,current.origin);
+ if(url.origin!==current.origin)throw Error("Cross-origin employee access is blocked.");
+ if(current.protocol!=="https:"&&!["localhost","127.0.0.1","::1"].includes(current.hostname.toLowerCase()))throw Error("Employee sign-in requires a secure connection.");
  const headers={"accept":"application/json"};
  if(body!==null)headers["content-type"]="application/json";
  if(csrf)headers["x-staff-csrf"]=staffCsrf;
- return client.request(path,{method,headers,credentials:"same-origin",cache:"no-store",referrerPolicy:"no-referrer",...(body!==null?{body:JSON.stringify(body)}:{})});
+ const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),30000);
+ try{
+  const response=await fetch(url.href,{method,headers,credentials:"same-origin",redirect:"error",mode:"same-origin",cache:"no-store",referrerPolicy:"no-referrer",signal:controller.signal,...(body!==null?{body:JSON.stringify(body)}:{})});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok){
+   const error=new Error(response.status===429?"Too many attempts. Try again later.":response.status===503?"The employee service is temporarily unavailable.":"This action could not be completed. Please retry.");
+   error.code=String(data?.error||"request_failed");error.status=response.status;
+   throw error;
+  }
+  return data;
+ }catch(error){
+  if(error?.name==="AbortError")throw Error("The connection timed out. Please retry.");
+  throw error;
+ }finally{clearTimeout(timeout)}
 };
 const element=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=String(text);return el};
 const message=text=>{const n=byId("staffGlobalMessage");n.textContent=String(text||"");n.hidden=!text};
@@ -102,8 +120,12 @@ document.addEventListener("DOMContentLoaded",()=>{
   finally{setBusy(loginForm,false)}
  });
  byId("staffSignOut").addEventListener("click",async()=>{
-  try{await api("/public/employee/logout",{method:"POST",csrf:true})}
-  catch{}finally{staffCsrf="";panel("staffLogin");message("Signed out.")}
+  const button=byId("staffSignOut");button.disabled=true;message("");
+  try{
+   await api("/public/employee/logout",{method:"POST",csrf:true});
+   staffCsrf="";panel("staffLogin");message("Signed out.");
+  }catch(error){message("Sign-out could not be confirmed. Your session may still be active; please retry.")}
+  finally{button.disabled=false}
  });
  bootstrap();
 });
