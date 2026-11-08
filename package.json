@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node server/server.js",
     "dev": "node --watch server/server.js",
-    "check": "node --check server/server.js && node --check cloudflare/src/worker.js && node --check scripts/smoke-test.mjs && node scripts/frontend-syntax-test.mjs",
+    "check": "node --check server/server.js && node --check cloudflare/src/worker.js && node --check scripts/smoke-test.mjs && node scripts/frontend-syntax-test.mjs && npm run test:employee-self-service",
     "migrate": "node db/migrate.mjs",
     "test:workspace-stale-hydration": "node --test tests/daily-summary-scope.test.mjs tests/workspace-stale-hydration-guard.test.mjs tests/workspace-stale-hydration-behavior.test.mjs",
     "test:workspace-navigation-performance": "node --test tests/workspace-infographics.test.mjs tests/workspace-dashboard-metrics-guard.test.mjs tests/workspace-navigation-render-budget.test.mjs tests/workspace-navigation-performance-evidence.test.mjs tests/workspace-route-recovery-navigation.test.mjs tests/workspace-navigation-cpu-profile.test.mjs tests/voice-dock-navigation-render.test.mjs tests/workspace-navigation-freeze-budget.test.mjs tests/people-location-save-feedback.test.mjs tests/owner-five-location-allowance.test.mjs",
@@ -317,7 +317,8 @@
     "audit:regulatory-staging-readonly": "node scripts/run-regulatory-staging-readonly-preflight.mjs",
     "test:workspace-deferred-extensions": "node --test tests/workspace-deferred-extension-loading.test.mjs",
     "test:workspace-churn-batch": "node --test tests/workspace-churn-and-retry-batch.test.mjs",
-    "test:corporate-assets": "node --test tests/corporate-assets*.test.mjs"
+    "test:corporate-assets": "node --test tests/corporate-assets*.test.mjs",
+    "test:employee-self-service": "node --test tests/employee-self-service.test.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1126.0",
