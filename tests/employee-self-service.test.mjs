@@ -19,7 +19,7 @@ test("feature is strictly opt-in and does not grant workspace access",async()=>{
  const adminUrl=new URL("https://example.test/api/employee-self-service/tasks");
  const blockedAdmin=await handleStaffManager({request:new Request(adminUrl),url:adminUrl,env:{},json:mkJson});
  assert.equal(blockedAdmin.status,404);
- const forbidden=await handleStaffManager({request:new Request(adminUrl),url:adminUrl,env:{THEBE_STAFF_PORTAL_ENABLED:"true"},auth:{role:"auditor"},json:mkJson});
+ const forbidden=await handleStaffManager({request:new Request(adminUrl),url:adminUrl,env:{THEBE_STAFF_PORTAL_ENABLED:"true",DB:{prepare(){throw Error("must not touch db")}}},auth:{role:"auditor"},json:mkJson});
  assert.equal(forbidden.status,403);
 });
 test("task transitions require correct actor and manager approval",()=>{
