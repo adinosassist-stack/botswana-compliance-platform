@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {validateStagingServiceIsolation} from "./general-ai-staging-service-isolation-evidence.mjs";
 import {verifyInertPrivateQueueInventory} from "./general-ai-cloudflare-inventory-guard.mjs";
 import {preparePrivateQueueTestEnvelope,prepareQueueRollbackCheck} from "./general-ai-live-queue-execution-guardrails.mjs";
 import {validateLiveQueueAcceptance,initialLiveQueueAcceptance} from "./general-ai-live-queue-acceptance-gate.mjs";
@@ -48,9 +49,7 @@ export async function runProtectedPrivateQueueAcceptance({sourceSha,approvedSour
   // staging-only. An environment label is not sufficient proof.
   assert.equal(typeof adapter.attestServiceIsolation,"function","independent service isolation attestation required");
   const isolation=await adapter.attestServiceIsolation({sourceSha,service:"bw-general-ai-staging",bindingEnvironment:inventory.serviceBindingEnvironment});
-  collect(isolation,"service isolation");
-  assert.equal(isolation.stagingOnly,true,"service binding may reach production");
-  assert.equal(isolation.productionResourcesTouched,false);
+  collect(validateStagingServiceIsolation({sourceSha,inventory,evidence:isolation}),"service isolation");
   enableAttempted=true;
   collect(await adapter.enable({sourceSha}),"enable");
   const envelope=preparePrivateQueueTestEnvelope({sourceSha,approvedSourceSha,nonce,authorization,independentReview,environment:"general-ai-private-staging",queue:baseline.queue,consumerDisabled:false,productionEnabled:false});
