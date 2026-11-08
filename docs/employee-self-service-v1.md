@@ -29,6 +29,15 @@ When enabled, **both** `PUBLIC_RATE_LIMITER` and `SESSION_SECRET` are mandatory;
 - All synthetic tenants, users, employees, tasks, and task events were deleted afterward. A fresh count of all eight relevant tables was **0**, and the foreign-key check remained clear.
 - The SQL rehearsal does not prove deployed Worker request routing, actual browser authentication, native rate-limiting, or mobile accessibility. Those require independently reviewed staging release controls.
 
+## Inert employee staging Worker preflight (8 November 2026)
+
+- Review-only config: `cloudflare/wrangler.employee-self-service-staging.toml` names `bw-employee-self-service-staging` and binds **only** the already-created `bw-employee-self-service-staging` D1 (`adfa3871-5ecf-4672-8d2f-be9b142d5fc1`). It disables `workers_dev`, preview URLs, routes, static asset serving, application writes, staff logins, registration, payment and unrelated AI.
+- `cloudflare/src/employee-self-service-staging-entry.js` is a **separate inert Worker**, not the production Worker and not a delegated employee login runtime. It fails closed until `STAFF_STAGING_SOURCE_SHA` is an exact attested commit SHA and the isolated database marker and five employee tables are present. Even when qualified, it allows only a non-secret status GET; employee login and management requests always return 403.
+- `node scripts/employee-self-service-staging-preflight.mjs` verifies the absence of production identifiers or routes. `node scripts/employee-self-service-staging-preflight.mjs --identity-sql` **prints** staging-only marker SQL but does not execute it. The marker must be applied only to the verified isolated D1 after the appropriate staging qualification.
+- `node --test tests/employee-self-service-staging-boundary.test.mjs` checks invalid flags, unexpected DB identity, missing schema, route denylist, production config exclusion and no-deployment behavior. The dedicated GitHub PR workflow runs these tests and existing employee lifecycle tests entirely offline.
+- The config's `STAFF_STAGING_SOURCE_SHA = "UNQUALIFIED"` intentionally keeps the inert status unavailable until separately approved exact-source configuration. This is not evidence of a deployed or publicly reachable Worker.
+- To perform actual login/assignment browser acceptance later, a **different independently reviewed authenticated staging profile** needs the full isolated workspace schema, real security bindings, staff-only staging origin and protections. Neither this inert Worker nor the sparse isolated D1 fixture can be used as a production substitute.
+
 ## Human staging and release gates
 1. Independently review branch diff, SQL migration, staff authentication/anti-brute-force controls, cross-tenant access, revocation and employee data use.
 2. Qualify migration `cloudflare/migrations/20261108_employee_self_service.sql` **on isolated staging D1**; verify schema, foreign keys, indexes and backup/rollback evidence. Production D1 is unchanged by this PR.
