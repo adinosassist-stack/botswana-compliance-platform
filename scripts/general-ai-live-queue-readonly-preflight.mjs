@@ -20,7 +20,7 @@ assert.match(cfg,/^max_retries = 0$/m);
 assert.match(entry,/ai_nonce_isolation_unverified/);
 assert.match(entry,/ai_nonce_ledger_injection_forbidden/);
 assert.match(consumer,/ai_queue_nonce_reused_or_unverified/);
-assert.match(consumer,/batch.messages\\[0\\]\\.ack\\(\\)/);
+assert.ok(consumer.includes('batch.messages[0].ack()'), 'consumer must acknowledge the accepted message');
 assert.match(ledger,/INSERT OR IGNORE INTO ai_private_queue_nonce_claims/);
 assert.doesNotMatch(cfg,/^APPROVED_SOURCE_SHA\\s*=/m);
 console.log('PASS: inert private Queue baseline; no live delivery or retry qualification claimed');
