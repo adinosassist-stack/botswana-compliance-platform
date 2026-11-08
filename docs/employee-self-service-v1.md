@@ -6,6 +6,7 @@
 - Employees receive a one-time 48-hour invitation **through a manager-controlled link** (not automatically emailed), choose a password and sign in via `/staff/`. Staff sees only their own assigned tasks.
 - The allowed state machine is `assigned → in_progress → submitted → completed`; a manager can return a submitted task to `in_progress`. Submission is never self-approval.
 - Separate tenant-scoped database records and task events. Task changes and their events commit in the same D1 batch with version and one-time transition markers.
+- The employee task inbox shows the most recent non-empty manager review/return note; the manager People task list shows the employee's most recent non-empty progress/handover note. All notes are read only through a tenant- and employee-scoped task query; untrusted note content renders as text.
 
 ## Disabled unless separately qualified
 `THEBE_STAFF_PORTAL_ENABLED` must be exactly `true`. No variable, public activation or migration execution is performed by this PR. Public staff routes return 404 when disabled.
@@ -19,6 +20,13 @@ When enabled, **both** `PUBLIC_RATE_LIMITER` and `SESSION_SECRET` are mandatory;
 - No external messages, payroll transactions, employee scoring, disciplinary findings, pay calculation, company-wide reporting or automatic job execution.
 - Existing `/report/` private-link daily reports and uploads remain separate. **Assignment photo uploads, staff MFA, email delivery, employee leave balances and full attendance check-in are not part of this v1.**
 - Before production rollout: conduct privacy notice, record retention/access review (including task notes and audit history), security assessment and accessibility/mobile testing.
+
+## Isolated Cloudflare D1 verification (8 November 2026)
+- Database: `bw-employee-self-service-staging` (`adfa3871-5ecf-4672-8d2f-be9b142d5fc1`). The schema was applied to this separate D1; the production database was not written.
+- The five portal tables and required indexes exist; `PRAGMA foreign_keys=1` and `PRAGMA foreign_key_check` reported zero violations.
+- A second remote-D1 rehearsal inserted synthetic tenant A and B records and one synthetic assignment under tenant A. Tenant B task query returned **0**, tenant A returned **1**. The versioned update transitioned assigned to in_progress (version 1); the simulated stale-version update changed **0** rows; two immutable task audit events existed.
+- All synthetic tenants, users, employees, tasks, and task events were deleted afterward. A fresh count of all eight relevant tables was **0**, and the foreign-key check remained clear.
+- The SQL rehearsal does not prove deployed Worker request routing, actual browser authentication, native rate-limiting, or mobile accessibility. Those require independently reviewed staging release controls.
 
 ## Human staging and release gates
 1. Independently review branch diff, SQL migration, staff authentication/anti-brute-force controls, cross-tenant access, revocation and employee data use.
