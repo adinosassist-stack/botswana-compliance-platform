@@ -103,7 +103,7 @@ export async function handleStaffPublic({request,url,env,json,readJson,requestOr
  }
  if(path==="/public/employee/tasks"&&method==="GET"){
   if(!staff)return json({error:"unauthenticated"},401);
-  const rows=await env.DB.prepare("SELECT id,title,detail,due_date,priority,status,version,created_at,updated_at FROM employee_portal_tasks WHERE tenant_id=? AND employee_id=? ORDER BY CASE status WHEN 'submitted' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'assigned' THEN 2 ELSE 3 END,due_date,created_at DESC LIMIT 100").bind(staff.tenant_id,staff.employee_id).all();
+  const rows=await env.DB.prepare("SELECT t.id,t.title,t.detail,t.due_date,t.priority,t.status,t.version,t.created_at,t.updated_at,n.note latest_note,n.actor_kind latest_note_actor FROM employee_portal_tasks t LEFT JOIN employee_portal_task_events n ON n.rowid=(SELECT MAX(ev.rowid) FROM employee_portal_task_events ev WHERE ev.task_id=t.id AND ev.tenant_id=t.tenant_id AND LENGTH(TRIM(ev.note))>0) WHERE t.tenant_id=? AND t.employee_id=? ORDER BY CASE t.status WHEN 'submitted' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'assigned' THEN 2 ELSE 3 END,t.due_date,t.created_at DESC LIMIT 100").bind(staff.tenant_id,staff.employee_id).all();
   return json({items:rows.results||[]});
  }
  if(path==="/public/employee/logout"&&method==="POST"){
@@ -129,7 +129,7 @@ export async function handleStaffManager({request,url,env,auth,json,readJson,id}
  if(!env.PUBLIC_RATE_LIMITER||!env.SESSION_SECRET)return json({error:"staff_security_configuration_incomplete"},503);
  const method=request.method,path=url.pathname,tenantId=auth.tenant_id;
  if(path==="/api/employee-self-service/tasks"&&method==="GET"){
-  const rows=await env.DB.prepare("SELECT t.id,t.employee_id,e.full_name employee_name,t.title,t.detail,t.priority,t.status,t.due_date,t.version,t.updated_at FROM employee_portal_tasks t JOIN employees e ON e.id=t.employee_id AND e.tenant_id=t.tenant_id WHERE t.tenant_id=? ORDER BY CASE t.status WHEN 'submitted' THEN 0 ELSE 1 END,t.updated_at DESC LIMIT 100").bind(tenantId).all();
+  const rows=await env.DB.prepare("SELECT t.id,t.employee_id,e.full_name employee_name,t.title,t.detail,t.priority,t.status,t.due_date,t.version,t.updated_at,n.note latest_note,n.actor_kind latest_note_actor FROM employee_portal_tasks t JOIN employees e ON e.id=t.employee_id AND e.tenant_id=t.tenant_id LEFT JOIN employee_portal_task_events n ON n.rowid=(SELECT MAX(ev.rowid) FROM employee_portal_task_events ev WHERE ev.task_id=t.id AND ev.tenant_id=t.tenant_id AND LENGTH(TRIM(ev.note))>0) WHERE t.tenant_id=? ORDER BY CASE t.status WHEN 'submitted' THEN 0 ELSE 1 END,t.updated_at DESC LIMIT 100").bind(tenantId).all();
   return json({items:rows.results||[]});
  }
  if(path==="/api/employee-self-service/tasks"&&method==="POST"){
