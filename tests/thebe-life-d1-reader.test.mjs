@@ -32,8 +32,9 @@ test('scopes household records and limits results using bound parameters',async(
   assert.equal(value.ok,true);
   assert.equal(value.entries[0].amountMinor,12345);
   assert.equal(db.calls.length,2);
-  assert.match(db.calls[1].sql,/WHERE household_id = \?1/);
-  assert.deepEqual(db.calls[1].params,['h1',5]);
+  assert.match(db.calls[1].sql,/WHERE e.household_id = \?1 AND EXISTS/);
+  assert.match(db.calls[1].sql,/m.user_id = \?3 AND m.status = 'active'/);
+  assert.deepEqual(db.calls[1].params,['h1',5,'u1']);
 });
 test('fails closed for forged identities, limit overrun or bad stored data',async()=>{
   const db=mockDb({role:'owner'},[{id:'bad',type:'income',amount_minor:-1,currency:'BWP'}]);
