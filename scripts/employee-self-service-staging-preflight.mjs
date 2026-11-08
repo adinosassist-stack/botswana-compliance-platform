@@ -1,7 +1,7 @@
 // Offline staging qualification only. This script makes NO Cloudflare API calls.
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {fileURLToPath,pathToFileURL} from "node:url";
+import {pathToFileURL} from "node:url";
 const root=new URL("../",import.meta.url);
 const read=p=>readFileSync(new URL(p,root),"utf8");
 export const STAGING_D1="adfa3871-5ecf-4672-8d2f-be9b142d5fc1";
@@ -46,7 +46,7 @@ export function employeeStagingIdentitySql(){
  return "CREATE TABLE IF NOT EXISTS employee_self_service_staging_identity (id INTEGER PRIMARY KEY CHECK(id=1), database_id TEXT NOT NULL, environment TEXT NOT NULL);\n"+
   "INSERT INTO employee_self_service_staging_identity(id,database_id,environment) VALUES(1,'"+id+"','"+name+"') ON CONFLICT(id) DO UPDATE SET database_id=excluded.database_id,environment=excluded.environment;\n";
 }
-if(process.argv[1]&&import.meta.url===pathToFileURL(fileURLToPath(process.argv[1])).href){
+if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
  try{
   const evidence=qualifyEmployeeStagingConfig();
   if(process.argv[2]==="--identity-sql")process.stdout.write(employeeStagingIdentitySql());
