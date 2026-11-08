@@ -231,7 +231,8 @@ test("synthetic staging: expired, forged and revoked staff sessions never author
  assert.equal(task.res.status,201);
  assert.equal((await f.staff("/public/employee/tasks/"+task.body.id+"/progress","POST",{action:"start"},{cookie,"x-staff-csrf":csrf})).res.status,401);
  const state=f.sql.prepare("SELECT status,version FROM employee_portal_tasks WHERE id=?").get(task.body.id);
- assert.deepEqual(state,{status:"assigned",version:0});
+ assert.equal(state.status,"assigned");
+ assert.equal(state.version,0);
 });
 test("synthetic staging: logout requires valid CSRF and destroys the server-side session",async t=>{
  const f=fixture(t);
