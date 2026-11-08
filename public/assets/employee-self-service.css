@@ -1,5 +1,5 @@
-:root{color-scheme:light;--staff-blue:#1467df;--staff-ink:#121c2b;--staff-grey:#596577;--staff-bg:#f6f8fc;--staff-line:#dfe5ee;--staff-radius:16px}
-*{box-sizing:border-box}
+.thebe-staff-page{color-scheme:light;--staff-blue:#1467df;--staff-ink:#121c2b;--staff-grey:#596577;--staff-bg:#f6f8fc;--staff-line:#dfe5ee;--staff-radius:16px}
+.thebe-staff-page *, .thebe-staff-manager *{box-sizing:border-box}
 .thebe-staff-page{margin:0;background:var(--staff-bg);color:var(--staff-ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
 .thebe-staff-shell{max-width:960px;margin:0 auto;padding:24px 18px 64px}
 .thebe-staff-header{display:flex;align-items:center;gap:10px;margin-bottom:26px}
