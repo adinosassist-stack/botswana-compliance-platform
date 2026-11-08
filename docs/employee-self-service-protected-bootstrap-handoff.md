@@ -4,8 +4,8 @@
 
 ## Dependencies
 
-1. First merge [employee feature PR #2253](https://github.com/adinosassist-stack/botswana-compliance-platform/pull/2253) under its main-branch rules: exact source, successful mandatory checks, an up-to-date branch, and independent `thusico` approval on the final commit.
-2. Review and separately merge this stacked protected-bootstrap PR. Its initial base is `feature/employee-self-service-20261108`; retarget to `main` after the dependency has merged. Never deploy it from the feature branch.
+1. **Already complete:** employee feature [PR #2253](https://github.com/adinosassist-stack/botswana-compliance-platform/pull/2253), bootstrap [PR #2268](https://github.com/adinosassist-stack/botswana-compliance-platform/pull/2268) and security acceptance [PR #2276](https://github.com/adinosassist-stack/botswana-compliance-platform/pull/2276) have merged under independent review and mandatory checks. This handoff is for the separately gated `employee-self-service-staging-protected` deployment environment.
+2. Confirm the workflow is present in exact-current `main`. Do not deploy from feature branches, earlier merged-PR SHAs or stale job runs. GitHub branch protection and environment protection are **different** approvals.
 3. Inspect Cloudflare D1 **only** `bw-employee-self-service-staging`, UUID `adfa3871-5ecf-4672-8d2f-be9b142d5fc1`, account `ddd23cab31928a4bb3d4998df9b26d1d`. Its marker `employee_self_service_staging_identity` and five employee portal tables were separately verified. The protected guard requires all eight data tables to remain empty with no FK errors.
 4. Configure GitHub Actions environment **`employee-self-service-staging-protected`**, selected deployment branch **`main` only**, required reviewer **`thusico`**, **prevent self-review on**, **do not allow admin bypass**. The guard verifies policy via GitHub REST, not the existence of the named environment.
 5. Configure two **environment secrets**, not repository-wide secrets:
@@ -15,12 +15,16 @@
 
 ## Execute, only when all prerequisites are met
 
-Open the GitHub Actions workflow **Protected employee self-service inert staging bootstrap** on protected `main`. First select `preflight`. For the actual one-time operation, enter:
+Open the GitHub Actions workflow **Protected employee self-service inert staging bootstrap** on protected `main`.
+
+**Stage 1 — independent, read-only remote preflight:** select `mode=preflight`, `authorization=PREFLIGHT_ONLY`, and the exact current 40-hex `expected_main_sha`. The `offline` job performs credential-free tests and a dry-run build. A **separate `protected-preflight` job** then waits for independently protected `employee-self-service-staging-protected` deployment review, uses environment-only credentials to read the GitHub environment policy and Cloudflare isolated D1/Worker state, checks the current `main` SHA and verifies that the Worker is absent. It performs **no deployment** or Cloudflare database mutation. A successful offline job alone is not a successful protected preflight.
+
+**Stage 2 — separately approved one-time bootstrap:** only after fresh preflight evidence and the current exact `main` SHA are confirmed, dispatch a new run using:
 - `mode`: `bootstrap-inert`
 - `expected_main_sha`: exact current 40-hex `main` commit SHA
-- `authorization`: `BOOTSTRAP_INERT_EMPLOYEE_STAGING`
+- `authorization`: `BOOTSTRAP_INERT_EMPLOYEE_STAGING` (replaces the preflight-only authorization; must not be reused in the preflight job)
 
-The job requires the protected environment gate and reruns the exact SHA check, route-free config checks, adversarial tests, Wrangler offline dry-run, GitHub environment-policy inspection, empty isolated D1 evidence, and proof that the named Worker does **not** already exist. It repeats the source and resource checks immediately before creating the Worker.
+The `bootstrap-inert` job **independently** requires protected environment review and reruns the exact SHA check, route-free config checks, adversarial tests, Wrangler offline dry-run, GitHub environment-policy inspection, empty isolated D1 evidence, and proof that the named Worker does **not** already exist. It repeats the source and resource checks immediately before creating the Worker.
 
 Successful deployment creates only `bw-employee-self-service-staging`, with `workers_dev=false`, `preview_urls=false`, no routes, no assets, no triggers, no other bindings except the isolated D1, `THEBE_STAFF_PORTAL_ENABLED=false`, `STAFF_STAGING_WRITES_ENABLED=false`, and an intentionally **UNQUALIFIED** source marker. Therefore the Worker will not serve employee login or any public endpoint, even if an unauthorized request could reach it. It is not a customer-facing release.
 
