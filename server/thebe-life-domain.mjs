@@ -127,17 +127,19 @@ export function motsheloPayoutReview({memberIds,monthlyContribution,recipientMem
     const member=slug(p?.memberId,"contributor");
     if(!members.includes(member))fail("contributor_not_member");
     if(byMember.has(member))fail("duplicate_contributor");
-    if(p?.amount!==monthlyContribution)issues.push("amount_mismatch:"+member);
+    const contributed=pulaToThebe(p?.amount);
+    if(contributed!==amount)issues.push("amount_mismatch:"+member);
     const verified=p?.status==="verified_external" &&
       typeof p.receiptId==="string" && /^[a-zA-Z0-9_-]{8,100}$/.test(p.receiptId) &&
       typeof p.verifiedBy==="string" && /^[a-z0-9][a-z0-9_-]{0,63}$/.test(p.verifiedBy) &&
+      typeof p.recordedBy==="string" && /^[a-z0-9][a-z0-9_-]{0,63}$/.test(p.recordedBy) &&
       p.verifiedBy!==member && p.verifiedBy!==p.recordedBy;
     if(!verified)issues.push("independent_receipt_missing:"+member);
     if(verified){
       if(seenReceipts.has(p.receiptId))issues.push("reused_receipt");
       seenReceipts.add(p.receiptId);
     }
-    byMember.set(member,verified && p.amount===monthlyContribution);
+    byMember.set(member,verified && contributed===amount);
   }
   for(const member of members)if(!byMember.has(member))issues.push("contribution_missing:"+member);
   const officers=new Map();
