@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {qualifyThebeLifeStaging} from '../cloudflare/src/thebe-life-staging-preflight.js';
 const productionDatabaseId='8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce';
-const stagingDatabaseId='9d1b8852-4424-46e9-ba24-cdad5ced215f';
+const stagingDatabaseId='11111111-2222-4333-8444-555555555555';
 const sha='a'.repeat(40);
 const names=['life_households','life_household_members','life_household_entries','life_motshelo_groups','life_motshelo_members','life_motshelo_contributions'];
 function safeEnv(){
