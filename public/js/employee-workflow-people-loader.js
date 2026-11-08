@@ -45,6 +45,17 @@
       }catch{
         // The optional review list must never block People workflows.
       }
+      try{
+        const staffHost=document.createElement("section");
+        staffHost.id="employee-self-service-manager";
+        const {mountStaffManager}=await import("/js/employee-self-service-manager.js");
+        if(people.isConnected&&!people.hidden&&people.getClientRects().length){
+          const attached=await mountStaffManager(staffHost,{client});
+          if(attached)people.appendChild(staffHost);
+        }
+      }catch{
+        // A disabled or inaccessible staff portal must not disrupt the People workspace.
+      }
       mounted=true;
     }catch{
       // Optional enhancement must never break the existing People page.
