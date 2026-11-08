@@ -157,7 +157,7 @@ export async function handleStaffManager({request,url,env,auth,json,readJson,id}
   const link=url.origin+"/staff/?tenant="+encodeURIComponent(tenantId)+"#invite="+encodeURIComponent(token);
   return json({ok:true,expiresInHours:48,link},201);
  }
- const revoke=path.match(/^\\/api\\/employee-self-service\\/employees\\/([a-f0-9-]{32,36})\\/revoke$/i);
+ const revoke=path.match(/^\/api\/employee-self-service\/employees\/([a-f0-9-]{32,36})\/revoke$/i);
  if(revoke&&method==="POST"){
   const employeeId=revoke[1];
   const found=await env.DB.prepare("SELECT id FROM employee_portal_accounts WHERE tenant_id=? AND employee_id=? LIMIT 1").bind(tenantId,employeeId).first();
