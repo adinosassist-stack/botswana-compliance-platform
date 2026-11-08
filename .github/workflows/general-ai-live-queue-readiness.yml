@@ -1,0 +1,33 @@
+name: General AI live Queue readiness evidence
+on:
+  pull_request:
+    paths:
+      - 'scripts/general-ai-live-queue-readiness.mjs'
+      - 'tests/general-ai-live-queue-readiness.test.mjs'
+      - '.github/workflows/general-ai-live-queue-readiness.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run synthetic-only readiness regression
+        run: node --test tests/general-ai-live-queue-readiness.test.mjs
+      - name: Produce accurately scoped offline evidence
+        run: |
+          mkdir -p live-queue-readiness-evidence
+          node scripts/general-ai-live-queue-readiness.mjs "$GITHUB_SHA" > live-queue-readiness-evidence/readiness.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: general-ai-live-queue-offline-readiness-${{ github.sha }}
+          path: live-queue-readiness-evidence/
+          retention-days: 14
+          if-no-files-found: error
