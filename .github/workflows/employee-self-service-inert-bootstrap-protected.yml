@@ -22,9 +22,10 @@ on:
         type: string
         required: true
       authorization:
-        description: For inert bootstrap ONLY enter BOOTSTRAP_INERT_EMPLOYEE_STAGING
+        description: Enter PREFLIGHT_ONLY for read-only preflight, or BOOTSTRAP_INERT_EMPLOYEE_STAGING for protected bootstrap
         type: string
-        required: false
+        required: true
+        default: PREFLIGHT_ONLY
 permissions:
   contents: read
 concurrency:
@@ -52,6 +53,46 @@ jobs:
           npm ci --ignore-scripts --no-audit --no-fund
           npx wrangler deploy --dry-run --config cloudflare/wrangler.employee-self-service-staging.toml --outdir /tmp/employee-staging-bundle
           test -n "$(find /tmp/employee-staging-bundle -type f -print -quit)"
+  protected-preflight:
+    needs: offline
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'preflight' && inputs.authorization == 'PREFLIGHT_ONLY'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: employee-self-service-staging-protected
+    env:
+      EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+      DEPLOY_MODE: ${{ inputs.mode }}
+      AUTHORIZATION: ${{ inputs.authorization }}
+      CLOUDFLARE_ACCOUNT_ID: ddd23cab31928a4bb3d4998df9b26d1d
+      STAFF_STAGING_GITHUB_READ_TOKEN: ${{ secrets.STAFF_STAGING_GITHUB_READ_TOKEN }}
+      STAFF_STAGING_CLOUDFLARE_TOKEN: ${{ secrets.STAFF_STAGING_CLOUDFLARE_TOKEN }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - name: Confirm exact main SHA and preflight-only scope before credential use
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_MAIN_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_SHA" = "$EXPECTED_MAIN_SHA"
+          test "$DEPLOY_MODE" = "preflight"
+          test "$AUTHORIZATION" = "PREFLIGHT_ONLY"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.expected_main_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Recheck exact checkout and offline staging config
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN_SHA"
+          node scripts/employee-self-service-staging-preflight.mjs
+      - name: Read-only protected GitHub policy and Cloudflare staging qualification
+        run: node scripts/employee-self-service-protected-bootstrap-guard.mjs verify-remote
   bootstrap-inert:
     needs: offline
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'bootstrap-inert' && inputs.authorization == 'BOOTSTRAP_INERT_EMPLOYEE_STAGING'
