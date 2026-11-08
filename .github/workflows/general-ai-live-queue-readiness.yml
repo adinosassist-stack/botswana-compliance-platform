@@ -1,0 +1,56 @@
+name: General AI live Queue readiness evidence
+on:
+  pull_request:
+    paths:
+      - 'scripts/general-ai-live-queue-readiness.mjs'
+      - 'tests/general-ai-live-queue-readiness.test.mjs'
+      - '.github/workflows/general-ai-live-queue-readiness.yml'
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Exact current main commit SHA
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  synthetic-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reject non-main or stale manual qualification
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          [[ "$EXPECTED_MAIN_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$GITHUB_SHA" = "$EXPECTED_MAIN_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" = "$EXPECTED_MAIN_SHA"
+      - name: Run synthetic-only readiness regression
+        run: node --test tests/general-ai-live-queue-readiness.test.mjs
+      - name: Produce accurately scoped offline evidence
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SOURCE_REF: ${{ github.ref }}
+        run: |
+          mkdir -p live-queue-readiness-evidence
+          node scripts/general-ai-live-queue-readiness.mjs "$GITHUB_SHA" > live-queue-readiness-evidence/readiness.json
+          printf '%s\n' "$EVENT_NAME" > live-queue-readiness-evidence/EVENT.txt
+          printf '%s\n' "$SOURCE_REF" > live-queue-readiness-evidence/REF.txt
+          printf '%s\n' 'OFFLINE_ONLY: no live Queue delivery, acknowledgment, replay, or recovery was tested.' > live-queue-readiness-evidence/SCOPE.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: general-ai-live-queue-offline-readiness-${{ github.sha }}
+          path: live-queue-readiness-evidence/
+          retention-days: 14
+          if-no-files-found: error
