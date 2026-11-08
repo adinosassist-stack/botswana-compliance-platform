@@ -63,6 +63,7 @@ async function changeTask({env,id,actor,kind,action,note="",taskId,employeeId}){
 export async function handleStaffPublic({request,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id}){
  if(!url.pathname.startsWith("/public/employee/"))return null;
  if(!staffPortalEnabled(env)||!env.DB)return json({error:"not_found"},404);
+ if(!env.PUBLIC_RATE_LIMITER||!env.SESSION_SECRET)return json({error:"staff_security_configuration_incomplete"},503);
  if(!requestOriginAllowed(request,env))return json({error:"origin_failed"},403);
  const limit=await edgeScopedRateLimit(request,env,"staff-portal-public");
  if(!limit.ok)return rateLimitResponse(limit);
@@ -71,6 +72,8 @@ export async function handleStaffPublic({request,url,env,json,readJson,requestOr
   const body=await dataBody(readJson,request);
   const token=String(body?.token||""),password=body?.password;
   if(!/^[a-f0-9]{64}$/.test(token)||!staffPasswordValid(password))return json({error:"invalid_invitation"},400);
+  const acceptLimit=await edgeScopedRateLimit(request,env,"staff-portal-accept",token);
+  if(!acceptLimit.ok)return rateLimitResponse(acceptLimit);
   const tokenHash=await sha256(token),inv=await env.DB.prepare("SELECT i.id,i.tenant_id,i.employee_id,i.email FROM employee_portal_invites i JOIN employees e ON e.id=i.employee_id AND e.tenant_id=i.tenant_id AND lower(trim(coalesce(e.status,'')))='active' WHERE i.token_hash=? AND i.status='active' AND i.expires_at>CURRENT_TIMESTAMP LIMIT 1").bind(tokenHash).first();
   if(!inv)return json({error:"invalid_or_expired_invitation"},410);
   const ph=await passwordHash(password),nonce=id(),accountId=id();
@@ -122,6 +125,7 @@ export async function handleStaffPublic({request,url,env,json,readJson,requestOr
 export async function handleStaffManager({request,url,env,auth,json,readJson,id}){
  if(!url.pathname.startsWith("/api/employee-self-service"))return null;
  if(!staffPortalEnabled(env)||!env.DB)return json({error:"not_found"},404);
+ if(!env.PUBLIC_RATE_LIMITER||!env.SESSION_SECRET)return json({error:"staff_security_configuration_incomplete"},503);
  if(!auth||!["owner","manager"].includes(auth.role))return json({error:"forbidden"},403);
  const method=request.method,path=url.pathname,tenantId=auth.tenant_id;
  if(path==="/api/employee-self-service/tasks"&&method==="GET"){
@@ -152,6 +156,17 @@ export async function handleStaffManager({request,url,env,auth,json,readJson,id}
   if(Number(results?.[1]?.meta?.changes||0)!==1)return json({error:"active_employee_required"},404);
   const link=url.origin+"/staff/?tenant="+encodeURIComponent(tenantId)+"#invite="+encodeURIComponent(token);
   return json({ok:true,expiresInHours:48,link},201);
+ }
+ const revoke=path.match(/^\\/api\\/employee-self-service\\/employees\\/([a-f0-9-]{32,36})\\/revoke$/i);
+ if(revoke&&method==="POST"){
+  const employeeId=revoke[1];
+  const found=await env.DB.prepare("SELECT id FROM employee_portal_accounts WHERE tenant_id=? AND employee_id=? LIMIT 1").bind(tenantId,employeeId).first();
+  const rows=await env.DB.batch([
+   env.DB.prepare("UPDATE employee_portal_accounts SET status='revoked',updated_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND employee_id=?").bind(tenantId,employeeId),
+   env.DB.prepare("DELETE FROM employee_portal_sessions WHERE account_id IN (SELECT id FROM employee_portal_accounts WHERE tenant_id=? AND employee_id=?)").bind(tenantId,employeeId),
+   env.DB.prepare("UPDATE employee_portal_invites SET status='revoked' WHERE tenant_id=? AND employee_id=? AND status='active'").bind(tenantId,employeeId)
+  ]);
+  return json({ok:true,accountRevoked:!!found,sessionsDeleted:Number(rows?.[1]?.meta?.changes||0)});
  }
  const review=path.match(/^\/api\/employee-self-service\/tasks\/([a-f0-9-]{32,36})\/review$/i);
  if(review&&method==="POST"){
