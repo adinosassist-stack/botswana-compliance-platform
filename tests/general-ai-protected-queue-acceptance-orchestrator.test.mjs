@@ -19,7 +19,7 @@ function mock(failAt){
  {name:"STAGING_AI",type:"service",service:"bw-general-ai-staging",environment:"production"}]},
  d1:[{success:true,results:[{name:"ai_private_queue_nonce_claims",type:"table",sql:"CREATE TABLE ai_private_queue_nonce_claims (claim_hash TEXT PRIMARY KEY NOT NULL, source_sha TEXT NOT NULL)"}],meta:{changes:0,changed_db:false}}]
  };},
- attestServiceIsolation:fn("attestServiceIsolation",{stagingOnly:true,productionResourcesTouched:false}),
+ attestServiceIsolation:fn("attestServiceIsolation",{sourceSha:sha,accountId:"ddd23cab31928a4bb3d4998df9b26d1d",consumer:"bw-general-ai-private-queue-acceptance",service:"bw-general-ai-staging",queue:"bw-general-ai-private-acceptance-queue",nonceDb:"71e2d394-7dec-4878-bdc8-afe8f73cf541",stagingOnly:true,productionResourcesTouched:false,publicRoutes:0,productionAiEnabled:false,independentReviewer:"thusico",reviewerApproved:true,protectedRunUrl:runUrl}),
  enable:fn("enable"),publish:fn("publish"),verifyDelivery:fn("verifyDelivery"),verifyAck:fn("verifyAck"),verifyReplay:fn("verifyReplay"),verifyRecovery:fn("verifyRecovery"),verifyIsolation:fn("verifyIsolation"),
  disable:fn("disable"),verifyRollback:fn("verifyRollback",{consumerDisabled:true,publicRoutes:0,productionEnabled:false})
  };
@@ -65,7 +65,7 @@ test("wrong scope and reused evidence receipts fail closed with rollback",async(
 
 test("service binding isolation must be independently attested before enable",async()=>{
  const m=mock();m.adapter.attestServiceIsolation=async()=>{m.calls.push("attestServiceIsolation");return receipt("attestServiceIsolation",{stagingOnly:false,productionResourcesTouched:false})};
- await assert.rejects(run(options(m.adapter)),/service binding may reach production/);
+ await assert.rejects(run(options(m.adapter)),/staging-only proof required/);
  assert.equal(m.calls.includes("enable"),false);
 });
 test("read-only inventory mismatch stops before enable",async()=>{
