@@ -4,7 +4,7 @@ on:
     paths:
       - 'scripts/general-ai-live-queue-readiness.mjs'
       - 'tests/general-ai-live-queue-readiness.test.mjs'
-      - 'tests/general-ai-live-queue-acceptance-gate.test.mjs tests/general-ai-live-queue-execution-guardrails.test.mjs'
+      - 'tests/general-ai-live-queue-acceptance-gate.test.mjs tests/general-ai-live-queue-execution-guardrails.test.mjs tests/general-ai-queue-offline-execution-harness.test.mjs'
       - 'scripts/general-ai-live-queue-acceptance-gate.mjs'
       - '.github/workflows/general-ai-live-queue-readiness.yml'
   workflow_dispatch:
@@ -39,7 +39,7 @@ jobs:
           test "$GITHUB_SHA" = "$EXPECTED_MAIN_SHA"
           test "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" = "$EXPECTED_MAIN_SHA"
       - name: Run synthetic-only readiness regression
-        run: node --test tests/general-ai-live-queue-readiness.test.mjs tests/general-ai-live-queue-acceptance-gate.test.mjs tests/general-ai-live-queue-execution-guardrails.test.mjs
+        run: node --test tests/general-ai-live-queue-readiness.test.mjs tests/general-ai-live-queue-acceptance-gate.test.mjs tests/general-ai-live-queue-execution-guardrails.test.mjs tests/general-ai-queue-offline-execution-harness.test.mjs
       - name: Produce accurately scoped offline evidence
         env:
           EVENT_NAME: ${{ github.event_name }}
