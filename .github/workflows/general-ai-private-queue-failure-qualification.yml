@@ -1,0 +1,24 @@
+name: General AI private Queue failure qualification
+on:
+  pull_request:
+    paths:
+      - 'tests/general-ai-private-queue-failure-qualification.test.mjs'
+      - 'cloudflare/src/general-ai-private-queue-d1-entry.review.js'
+      - 'cloudflare/src/general-ai-queue-acceptance.js'
+      - '.github/workflows/general-ai-private-queue-failure-qualification.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-failure-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test Queue failure and replay safety against isolated local SQLite
+        run: node --test tests/general-ai-private-queue-failure-qualification.test.mjs
