@@ -73,7 +73,7 @@ ok(api.includes('referrerPolicy:"no-referrer"'),"presigned upload suppresses ref
 ok(api.includes('target.protocol!=="https:"&&!localHttp'),"presigned upload blocks insecure non-local destinations");
 
 ok(policy.preAuthRoutes.flatMap(r=>r.methods).length===33,"pre-auth method/route allowlist count includes the two read-only health methods");
-const staffPreAuth=policy.preAuthRoutes.filter(r=>r.pattern.startsWith("/public/employee/")&&r.feature==="employee_self_service");
+const staffPreAuth=policy.preAuthRoutes.filter(r=>r.pattern.includes("/public/employee/")&&r.feature==="employee_self_service");
 ok(staffPreAuth.length===6&&staffPreAuth.every(r=>r.security==="staff_only_cookie_csrf_origin_rate_limit_feature_flag"),"staff pre-auth inventory explicitly classifies six isolated, feature-flagged employee routes");
 const healthRoute=policy.preAuthRoutes.filter(r=>r.pattern==="/api/health");
 ok(healthRoute.length===1&&healthRoute[0].kind==="exact"&&healthRoute[0].security==="public_probe"&&healthRoute[0].feature==="health"&&JSON.stringify(healthRoute[0].methods)===JSON.stringify(["GET","HEAD"]),"public health inventory permits only GET and HEAD probes");
