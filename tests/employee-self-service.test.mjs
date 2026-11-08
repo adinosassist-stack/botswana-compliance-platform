@@ -79,6 +79,12 @@ test("employee portal renders text without injecting untrusted HTML",()=>{
  }
  assert.match(html,/id="staffInviteForm"/);
  assert.match(html,/id="staffDashboard"/);
+ assert.doesNotMatch(html,/\/js\/api-client\.js/,"employee page must not depend on the production workspace API client");
+ assert.match(portal,/STAFF_PATH=/);
+ assert.match(portal,/credentials:"same-origin"/);
+ assert.match(portal,/mode:"same-origin"/);
+ assert.match(portal,/redirect:"error"/);
+ assert.match(portal,/Sign-out could not be confirmed/);
  assert.match(portal,/refreshTasks\(/);
  assert.match(manager,/Create 48-hour invitation/);
  assert.match(manager,/Approve completed work/);
