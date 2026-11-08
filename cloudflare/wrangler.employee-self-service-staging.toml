@@ -1,0 +1,34 @@
+# Employee Self-Service staging proposal. Inert and route-free until protected review.
+# This is NOT the production Worker. Never bind production D1, R2, Queues or routes.
+# Source SHA intentionally unqualified until separate exact-SHA approval and setup.
+name = "bw-employee-self-service-staging"
+main = "src/employee-self-service-staging-entry.js"
+compatibility_date = "2026-09-03"
+workers_dev = false
+preview_urls = false
+keep_vars = false
+
+[vars]
+APP_ENV = "staging"
+DEPLOYMENT_PROFILE = "employee-self-service-isolated"
+STAFF_STAGING_SOURCE_SHA = "UNQUALIFIED"
+STAFF_STAGING_D1_ID = "adfa3871-5ecf-4672-8d2f-be9b142d5fc1"
+THEBE_STAFF_PORTAL_ENABLED = "false"
+STAFF_STAGING_WRITES_ENABLED = "false"
+REGISTRATION_MODE = "hold"
+PAYMENT_PROVIDER = "none"
+THEBE_GENERAL_AI_ENABLED = "false"
+THEBE_AI_EXPORTS_ENABLED = "false"
+THEBE_INTERNAL_AUTONOMY_ENABLED = "false"
+THEBE_LIVE_VOICE_ENABLED = "false"
+POP_UPLOAD_STAGING_ENABLED = "false"
+EVIDENCE_UPLOADS_ENABLED = "false"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bw-employee-self-service-staging"
+database_id = "adfa3871-5ecf-4672-8d2f-be9b142d5fc1"
+
+# No [[routes]], [assets], triggers, custom domains, public workers.dev or preview URLs.
+# This deliberately cannot serve employee login or manager APIs. Stage-only status
+# remains 503 until exact-SHA attestation and isolated database marker qualification.

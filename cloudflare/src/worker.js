@@ -13,6 +13,7 @@ import {subscriptionDashboard,setSubscriptionAccess} from "./platform-subscripti
 import {inspectFoundationSourceMetadata,publicFoundationSourcePreflight,updateUnreviewedFoundationSourceMetadata} from "./regulatory-foundation-source-reconciliation.js";
 import {inspectActiveLegacyVatRules,publicActiveLegacyVatRules,isLegacyVat25DayDefinition} from "./regulatory-foundation-legacy-vat.js";
 import {handleEmployeeWorkflowRequest} from "./employee-workflow-api.js";
+import {handleStaffPublic,handleStaffManager} from "./employee-self-service.js";
 import {handleEmployeeProposalReviewRequest} from "./employee-proposal-review-api.js";
 import {purgeDailyReportAttachments} from "./report-attachments-entry.js";
 import {handleFinanceRequest,financeSummary} from "./finance-core.js";
@@ -5527,6 +5528,13 @@ export default {
     }
 
 
+    // Explicit route branches preserve static pre-auth inventory classification; the delegated handler enforces feature, session and rate-limit controls.
+    if(url.pathname==="/public/employee/accept"&&req.method==="POST")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
+    if(url.pathname==="/public/employee/login"&&req.method==="POST")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
+    if(url.pathname==="/public/employee/logout"&&req.method==="POST")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
+    if(url.pathname==="/public/employee/me"&&req.method==="GET")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
+    if(url.pathname==="/public/employee/tasks"&&req.method==="GET")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
+    if(url.pathname.match(/^\/public\/employee\/tasks\/[a-f0-9-]{32,36}\/progress$/)&&req.method==="POST")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
     if(url.pathname==="/public/daily-reporting/access"&&req.method==="POST"){
       if(!requestOriginAllowed(req,env))return json({error:"origin_failed"},403,PASSPORT_PUBLIC_HEADERS);
       const preBodyLimit=await edgeScopedRateLimit(req,env,"daily-report-access-prebody");if(!preBodyLimit.ok)return rateLimitResponse(preBodyLimit);
@@ -5664,6 +5672,8 @@ export default {
       if(!mutationCsrfOk(req,a))return json({error:"csrf_failed"},403);
       if(!workspaceSessionRole(a)&&!selfServiceApi(url.pathname,req.method))return json({error:"workspace_role_forbidden"},403);
       if(req.method==="GET"&&!restrictedWorkspaceReadAllowed(url.pathname,a.role))return json({error:"workspace_role_read_forbidden"},403);
+      const staffManager=await handleStaffManager({request:req,url,env,auth:a,json,readJson,id});
+      if(staffManager)return staffManager;
       if(url.pathname==="/api/ai/operator/reliability")return handleReliabilityAdvisorRequest(req,{auth:a,env});
       if(url.pathname==="/api/auth/me"&&req.method==="GET")return json({user:{id:a.user_id,email:a.email,displayName:a.display_name,role:a.role,tenantId:a.tenant_id,tenantName:a.tenant_name,onboardingComplete:!!a.onboarding_complete,platformBillingAdmin:platformBillingAdmin(a,env)},csrfToken:a.csrf_token});
       if(!["GET","HEAD","OPTIONS"].includes(req.method)&&!restrictedWorkspaceMutationAllowed(url.pathname,req.method,a.role))return json({error:"workspace_role_mutation_forbidden"},403);
