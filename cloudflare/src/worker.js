@@ -5528,9 +5528,13 @@ export default {
     }
 
 
-    // Separate, default-off employee-only identity and task APIs; never grant workspace session rights.
-    const staffPublic=await handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
-    if(staffPublic)return staffPublic;
+    // Explicit route branches preserve static pre-auth inventory classification; the delegated handler enforces feature, session and rate-limit controls.
+    if(url.pathname==="/public/employee/accept"&&req.method==="POST")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
+    if(url.pathname==="/public/employee/login"&&req.method==="POST")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
+    if(url.pathname==="/public/employee/logout"&&req.method==="POST")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
+    if(url.pathname==="/public/employee/me"&&req.method==="GET")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
+    if(url.pathname==="/public/employee/tasks"&&req.method==="GET")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
+    if(url.pathname.match(/^\/public\/employee\/tasks\/[a-f0-9-]{32,36}\/progress$/)&&req.method==="POST")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
     if(url.pathname==="/public/daily-reporting/access"&&req.method==="POST"){
       if(!requestOriginAllowed(req,env))return json({error:"origin_failed"},403,PASSPORT_PUBLIC_HEADERS);
       const preBodyLimit=await edgeScopedRateLimit(req,env,"daily-report-access-prebody");if(!preBodyLimit.ok)return rateLimitResponse(preBodyLimit);
