@@ -21,6 +21,7 @@ function renderTask(item){
  const status=element("span","thebe-staff-pill",String(item.status||"assigned").replaceAll("_"," "));
  top.append(heading,status);task.append(top);
  if(item.detail)task.append(element("p",null,item.detail));
+ if(item.latest_note)task.append(element("p","thebe-staff-task__note",(item.latest_note_actor==="manager"?"Manager note: ":"Progress note: ")+String(item.latest_note)));
  const meta=element("div","thebe-staff-task__meta",(item.due_date?"Due "+item.due_date+" · ":"")+"Priority "+String(item.priority||2));
  task.append(meta);
  if(item.status==="assigned"||item.status==="in_progress"){
