@@ -42,6 +42,19 @@ export async function mountStaffManager(host,{client}={}){
   catch{inviteLink.focus();inviteLink.select();status.textContent="Copy the selected invitation link."}
  });
  inviteLink.hidden=true;copy.hidden=true;inviteForm.append(inviteLink,copy);
+ const revokeAccess=make(doc,"button","Revoke employee access","thebe-staff-secondary");
+ revokeAccess.type="button";
+ revokeAccess.addEventListener("click",async()=>{
+  if(!inviteEmployee.value||!globalThis.confirm("Revoke this employee's login sessions and unused invitations?"))return;
+  revokeAccess.disabled=true;status.textContent="";
+  try{
+   await client.request("/api/employee-self-service/employees/"+encodeURIComponent(inviteEmployee.value)+"/revoke",{method:"POST",body:"{}"});
+   inviteLink.value="";inviteLink.hidden=true;copy.hidden=true;
+   status.textContent="Employee portal access revoked and active sessions closed.";
+  }catch(error){status.textContent=errorText(error)}
+  finally{revokeAccess.disabled=false}
+ });
+ inviteForm.append(revokeAccess);
  const taskForm=make(doc,"form");taskForm.append(make(doc,"h4","2. Assign work"));
  const taskEmployee=createSelect(),title=make(doc,"input"),detail=make(doc,"textarea"),due=make(doc,"input");
  title.required=true;title.minLength=3;title.maxLength=160;title.placeholder="Task title";
