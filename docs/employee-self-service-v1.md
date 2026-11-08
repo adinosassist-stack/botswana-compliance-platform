@@ -15,6 +15,7 @@ When enabled, **both** `PUBLIC_RATE_LIMITER` and `SESSION_SECRET` are mandatory;
 
 ## Security / privacy
 - Staff credentials use a separate PBKDF2-SHA256 password hash and a separate HttpOnly, Secure, SameSite=Strict, 12-hour cookie. Session tokens and invitation tokens are random and stored as SHA-256 hashes, not in browser storage.
+- The staff page uses a limited, same-origin, HTTPS-only fetch client for the `/public/employee` API routes; it does not load the owner's production-canonical API client and therefore can run on an authorized isolated staging hostname. Request redirects are refused. A failed logout does not show a false success or clear the active view.
 - Invitations are single-use; resetting an account through a fresh manager invitation revokes old employee sessions. A manager can also revoke access immediately using People.
 - Employees must be active within the same tenant on every authenticated request. Inactive/deleted employees lose portal access.
 - No external messages, payroll transactions, employee scoring, disciplinary findings, pay calculation, company-wide reporting or automatic job execution.
