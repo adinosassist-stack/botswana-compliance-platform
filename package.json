@@ -318,7 +318,7 @@
     "test:workspace-deferred-extensions": "node --test tests/workspace-deferred-extension-loading.test.mjs",
     "test:workspace-churn-batch": "node --test tests/workspace-churn-and-retry-batch.test.mjs",
     "test:corporate-assets": "node --test tests/corporate-assets*.test.mjs",
-    "test:employee-self-service": "node --test tests/employee-self-service.test.mjs"
+    "test:employee-self-service": "node --test tests/employee-self-service.test.mjs tests/employee-self-service-runtime.test.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1126.0",
