@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS employee_portal_tasks(
  priority INTEGER NOT NULL DEFAULT 2 CHECK(priority BETWEEN 1 AND 3),
  status TEXT NOT NULL DEFAULT 'assigned' CHECK(status IN ('assigned','in_progress','submitted','completed')),
  version INTEGER NOT NULL DEFAULT 0,
+ last_transition_id TEXT,
  assigned_by_user_id TEXT NOT NULL REFERENCES users(id),
  reviewed_by_user_id TEXT REFERENCES users(id),
  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
