@@ -147,6 +147,10 @@ test("employee invitation, login and task lifecycle run on real SQLite D1",async
  assert.equal(cannotApprove.res.status,409);
  const submitted=await f.staff("/public/employee/tasks/"+task.body.id+"/progress","POST",{action:"submit",note:"Installed and checked"},signedHeaders);
  assert.equal(submitted.res.status,200);
+ const managerHandover=await f.manager(IDS.tenantA,"/api/employee-self-service/tasks");
+ const managerTask=managerHandover.body.items.find(x=>x.id===task.body.id);
+ assert.equal(managerTask.latest_note,"Installed and checked");
+ assert.equal(managerTask.latest_note_actor,"employee");
  const repeated=await f.staff("/public/employee/tasks/"+task.body.id+"/progress","POST",{action:"submit"},signedHeaders);
  assert.equal(repeated.res.status,409);
  const otherManager=await f.manager(IDS.tenantB,"/api/employee-self-service/tasks/"+task.body.id+"/review","POST",{decision:"approve"});
@@ -154,6 +158,10 @@ test("employee invitation, login and task lifecycle run on real SQLite D1",async
  const approved=await f.manager(IDS.tenantA,"/api/employee-self-service/tasks/"+task.body.id+"/review","POST",{decision:"approve",note:"Checked result"});
  assert.equal(approved.res.status,200);
  assert.equal(approved.body.task.status,"completed");
+ const reviewedStaffTasks=await f.staff("/public/employee/tasks","GET",undefined,{cookie});
+ const reviewedTask=reviewedStaffTasks.body.items.find(x=>x.id===task.body.id);
+ assert.equal(reviewedTask.latest_note,"Checked result");
+ assert.equal(reviewedTask.latest_note_actor,"manager");
  const events=f.sql.prepare("SELECT action,actor_kind,previous_status,next_status FROM employee_portal_task_events WHERE task_id=? ORDER BY created_at,id").all(task.body.id);
  assert.equal(events.length,4);
  assert.deepEqual(new Set(events.map(x=>x.action)),new Set(["assign","start","submit","approve"]));
@@ -173,6 +181,9 @@ test("manager may return submitted work; staff cannot read or mutate cross-tenan
  const returned=await f.manager(IDS.tenantA,"/api/employee-self-service/tasks/"+own.body.id+"/review","POST",{decision:"return",note:"More photographs needed"});
  assert.equal(returned.res.status,200);
  assert.equal(returned.body.task.status,"in_progress");
+ const returnedList=await f.staff("/public/employee/tasks","GET",undefined,{cookie});
+ assert.equal(returnedList.body.items.find(x=>x.id===own.body.id).latest_note,"More photographs needed");
+ assert.equal(returnedList.body.items.find(x=>x.id===own.body.id).latest_note_actor,"manager");
  assert.equal((await f.manager(IDS.tenantA,"/api/employee-self-service/tasks/"+own.body.id+"/review","POST",{decision:"return",note:"Try again"})).res.status,409);
 });
 test("revoking account and disabling employee immediately invalidates private tasks",async t=>{
