@@ -5,10 +5,12 @@ import {validateLiveQueueAcceptance,initialLiveQueueAcceptance} from "./general-
 const SHA=/^[a-f0-9]{40}$/;
 const REQUIRED=["inspect","enable","publish","verifyDelivery","verifyAck","verifyReplay","verifyRecovery","verifyIsolation","disable","verifyRollback"];
 const EVIDENCE=/^[a-zA-Z0-9_.:/-]{8,256}$/;
+const EVIDENCE_KEYS=["liveDeliveryVerified","liveAckVerified","liveReplayVerified","recoveryVerified","d1IsolationVerified","consumerRestoredDisabled"];
 function proof(value,label) {
  assert.ok(value && typeof value==="object",label+" evidence required");
  assert.equal(value.verified,true,label+" not verified");
  assert.match(value.reference??"",EVIDENCE,label+" redacted receipt required");
+ assert.equal(value.scope,"general-ai-private-staging",label+" wrong scope");
  return value.reference;
 }
 /**
@@ -27,9 +29,11 @@ export async function runProtectedPrivateQueueAcceptance({sourceSha,approvedSour
  const state=initialLiveQueueAcceptance(sourceSha);
  let enableAttempted=false,rollbackVerified=false,originalError=null;
  const receipts={};
+ const receiptReferences=new Set();
+ const collect=(value,label)=>{const ref=proof(value,label);assert.equal(receiptReferences.has(ref),false,label+" reused evidence reference");receiptReferences.add(ref);return ref;};
  try {
   const baseline=await adapter.inspect();
-  proof(baseline,"baseline");
+  collect(baseline,"baseline");
   assert.equal(baseline.consumerDisabled,true);
   assert.equal(baseline.publicRoutes,0);
   assert.equal(baseline.productionEnabled,false);
@@ -37,21 +41,21 @@ export async function runProtectedPrivateQueueAcceptance({sourceSha,approvedSour
   assert.equal(baseline.environment,"general-ai-private-staging");
   assert.equal(baseline.sourceSha,sourceSha);
   enableAttempted=true;
-  proof(await adapter.enable({sourceSha}),"enable");
+  collect(await adapter.enable({sourceSha}),"enable");
   const envelope=preparePrivateQueueTestEnvelope({sourceSha,approvedSourceSha,nonce,authorization,independentReview,environment:"general-ai-private-staging",queue:baseline.queue,consumerDisabled:false,productionEnabled:false});
-  receipts.publish=proof(await adapter.publish(envelope),"publish");
-  receipts.liveDeliveryVerified=proof(await adapter.verifyDelivery(),"delivery");
-  receipts.liveAckVerified=proof(await adapter.verifyAck(),"ack");
-  receipts.liveReplayVerified=proof(await adapter.verifyReplay(),"replay");
-  receipts.recoveryVerified=proof(await adapter.verifyRecovery(),"recovery");
-  receipts.d1IsolationVerified=proof(await adapter.verifyIsolation(),"isolation");
+  receipts.publish=collect(await adapter.publish(envelope),"publish");
+  receipts.liveDeliveryVerified=collect(await adapter.verifyDelivery(),"delivery");
+  receipts.liveAckVerified=collect(await adapter.verifyAck(),"ack");
+  receipts.liveReplayVerified=collect(await adapter.verifyReplay(),"replay");
+  receipts.recoveryVerified=collect(await adapter.verifyRecovery(),"recovery");
+  receipts.d1IsolationVerified=collect(await adapter.verifyIsolation(),"isolation");
  } catch(error){originalError=error}
  finally {
   if(enableAttempted){
    try {
-    proof(await adapter.disable(),"disable");
+    collect(await adapter.disable(),"disable");
     const rollback=await adapter.verifyRollback();
-    proof(rollback,"rollback");
+    collect(rollback,"rollback");
     prepareQueueRollbackCheck({consumerDisabled:rollback.consumerDisabled,publicRoutes:rollback.publicRoutes,productionEnabled:rollback.productionEnabled,sourceSha,approvedSourceSha});
     rollbackVerified=true;
     receipts.consumerRestoredDisabled=rollback.reference;
@@ -62,7 +66,8 @@ export async function runProtectedPrivateQueueAcceptance({sourceSha,approvedSour
  }
  if(originalError)throw originalError;
  assert.equal(rollbackVerified,true,"rollback not verified");
- const record={...state,runUrl,...Object.fromEntries(Object.keys(receipts).filter(k=>k!=="publish").map(k=>[k,true])),evidence:Object.fromEntries(Object.entries(receipts).filter(([k])=>k!=="publish"))};
+ assert.deepEqual(Object.keys(receipts).filter(k=>k!=="publish").sort(),[...EVIDENCE_KEYS].sort(),"all six independent receipts required");
+ const record={...state,runUrl,...Object.fromEntries(EVIDENCE_KEYS.map(k=>[k,true])),evidence:Object.fromEntries(EVIDENCE_KEYS.map(k=>[k,receipts[k]]))};
  validateLiveQueueAcceptance(record);
  return Object.freeze({accepted:true,sourceSha,runUrl,evidence:record.evidence});
 }
