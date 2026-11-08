@@ -76,6 +76,7 @@ export async function mountStaffManager(host,{client}={}){
    const state=make(doc,"small"," · "+String(item.status||"assigned").replaceAll("_"," "));
    row.append(name,state);
    if(item.due_date)row.append(make(doc,"div","Due "+item.due_date));
+   if(item.latest_note)row.append(make(doc,"p",(item.latest_note_actor==="employee"?"Employee note: ":"Manager note: ")+String(item.latest_note),"thebe-staff-task__note"));
    if(item.status==="submitted"){
     const note=make(doc,"textarea");note.maxLength=500;note.rows=2;note.placeholder="Review note (required when returning)";
     row.append(note);
