@@ -26,6 +26,7 @@
 .thebe-staff-task__top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
 .thebe-staff-pill{border-radius:999px;background:#eff4fc;padding:4px 10px;font-size:12px;color:#28537b;white-space:nowrap}
 .thebe-staff-task__meta{font-size:13px;color:var(--staff-grey)}
+.thebe-staff-task__note{margin:10px 0;padding:10px 12px;border-left:3px solid #1467df;background:#f2f6ff;color:#243c60!important;border-radius:0 8px 8px 0;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
 .thebe-staff-task__actions{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;margin-top:12px}.thebe-staff-task__actions textarea{flex:1;min-width:180px}
 .thebe-staff-message{border:1px solid #adbfda;border-radius:10px;background:#edf4ff;padding:12px;color:#1d4375!important}
 .thebe-staff-privacy{font-size:12px;margin-top:24px}
