@@ -38,7 +38,7 @@ test('scopes household records and limits results using bound parameters',async(
 test('fails closed for forged identities, limit overrun or bad stored data',async()=>{
   const db=mockDb({role:'owner'},[{id:'bad',type:'income',amount_minor:-1,currency:'BWP'}]);
   await assert.rejects(readHouseholdEntries({db,householdId:'h1',userId:'u1;DROP TABLE'}),/invalid_session_user_id/);
-  await assert.rejects(readHouseholdEntries({db,householdId:'h1',userId:'u1',limit:101})===undefined?Promise.resolve():readHouseholdEntries({db,householdId:'h1',userId:'u1',limit:1}),/invalid_ledger_row/);
+  await assert.rejects(readHouseholdEntries({db,householdId:'h1',userId:'u1',limit:1}),/invalid_ledger_row/);
   assert.equal((await readHouseholdEntries({db,householdId:'h1',userId:'u1',limit:101})).ok,false);
 });
 test('member lookup never exposes a household ledger',async()=>{
