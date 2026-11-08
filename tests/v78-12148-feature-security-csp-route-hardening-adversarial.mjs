@@ -72,7 +72,9 @@ ok(api.includes('credentials:"omit"'),"presigned upload omits application creden
 ok(api.includes('referrerPolicy:"no-referrer"'),"presigned upload suppresses referrer leakage");
 ok(api.includes('target.protocol!=="https:"&&!localHttp'),"presigned upload blocks insecure non-local destinations");
 
-ok(policy.preAuthRoutes.flatMap(r=>r.methods).length===27,"pre-auth method/route allowlist count includes the two read-only health methods");
+ok(policy.preAuthRoutes.flatMap(r=>r.methods).length===33,"pre-auth method/route allowlist count includes the two read-only health methods");
+const staffPreAuth=policy.preAuthRoutes.filter(r=>r.pattern.startsWith("/public/employee/")&&r.feature==="employee_self_service");
+ok(staffPreAuth.length===6&&staffPreAuth.every(r=>r.security==="staff_only_cookie_csrf_origin_rate_limit_feature_flag"),"staff pre-auth inventory explicitly classifies six isolated, feature-flagged employee routes");
 const healthRoute=policy.preAuthRoutes.filter(r=>r.pattern==="/api/health");
 ok(healthRoute.length===1&&healthRoute[0].kind==="exact"&&healthRoute[0].security==="public_probe"&&healthRoute[0].feature==="health"&&JSON.stringify(healthRoute[0].methods)===JSON.stringify(["GET","HEAD"]),"public health inventory permits only GET and HEAD probes");
 ok(Object.keys(policy.workspaceFeaturePrefixes).length===26,"authenticated feature-family inventory count is locked");
@@ -87,7 +89,7 @@ for(const [key,value] of Object.entries({
  route_security_inventory:true,
  route_security_feature_families:26,
  authenticated_route_branches:expectedAuthenticatedRoutes,
- preauth_route_allowlist:24,
+ preauth_route_allowlist:30,
  csp_inline_event_execution_disabled:true,
  delegated_ui_actions_allowlisted:true,
  preview_modules_not_loaded_in_production:true,
