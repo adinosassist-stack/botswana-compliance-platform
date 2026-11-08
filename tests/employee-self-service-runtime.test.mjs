@@ -214,3 +214,83 @@ test("failed task audit insert rolls back state change and keeps version",async 
  assert.equal(row.status,"assigned");
  assert.equal(row.version,0);
 });
+
+
+test("synthetic staging: expired, forged and revoked staff sessions never authorize access",async t=>{
+ const f=fixture(t);
+ const {cookie,csrf}=await inviteAndLogin(f);
+ assert.equal((await f.staff("/public/employee/me","GET",undefined,{cookie})).res.status,200);
+ const forged="__Host-thebe_staff_session="+"0".repeat(64);
+ assert.equal((await f.staff("/public/employee/me","GET",undefined,{cookie:forged})).res.status,401);
+ assert.equal((await f.staff("/public/employee/me","GET",undefined,{cookie:"__Host-thebe_staff_session=not-a-real-token"})).res.status,401);
+ assert.equal((await f.staff("/public/employee/tasks","GET",undefined,{cookie:forged})).res.status,401);
+ f.sql.exec("UPDATE employee_portal_sessions SET expires_at=datetime('now','-1 second')");
+ assert.equal((await f.staff("/public/employee/me","GET",undefined,{cookie})).res.status,401);
+ assert.equal((await f.staff("/public/employee/tasks","GET",undefined,{cookie})).res.status,401);
+ const task=await f.manager(IDS.tenantA,"/api/employee-self-service/tasks","POST",{employeeId:IDS.employeeA,title:"Expired session denial"});
+ assert.equal(task.res.status,201);
+ assert.equal((await f.staff("/public/employee/tasks/"+task.body.id+"/progress","POST",{action:"start"},{cookie,"x-staff-csrf":csrf})).res.status,401);
+ const state=f.sql.prepare("SELECT status,version FROM employee_portal_tasks WHERE id=?").get(task.body.id);
+ assert.equal(state.status,"assigned");
+ assert.equal(state.version,0);
+});
+test("synthetic staging: logout requires valid CSRF and destroys the server-side session",async t=>{
+ const f=fixture(t);
+ const {cookie,csrf}=await inviteAndLogin(f);
+ const denial=await f.staff("/public/employee/logout","POST",{}, {cookie,"x-staff-csrf":"f".repeat(64)});
+ assert.equal(denial.res.status,401);
+ assert.match(denial.res.headers.get("set-cookie")||"",/Max-Age=0/);
+ assert.equal((await f.staff("/public/employee/me","GET",undefined,{cookie})).res.status,200,"bad logout does not delete server session");
+ const loggedOut=await f.staff("/public/employee/logout","POST",{}, {cookie,"x-staff-csrf":csrf});
+ assert.equal(loggedOut.res.status,200);
+ assert.match(loggedOut.res.headers.get("set-cookie")||"",/Secure; HttpOnly; SameSite=Strict; Max-Age=0/);
+ assert.equal((await f.staff("/public/employee/me","GET",undefined,{cookie})).res.status,401);
+ assert.equal(f.sql.prepare("SELECT count(*) n FROM employee_portal_sessions").get().n,0);
+});
+test("synthetic staging: reissued staff invitation rotates password and invalidates old sessions",async t=>{
+ const f=fixture(t);
+ const previous=await inviteAndLogin(f);
+ const fresh=await f.manager(IDS.tenantA,"/api/employee-self-service/invitations","POST",{employeeId:IDS.employeeA,email:"alice@example.invalid"});
+ assert.equal(fresh.res.status,201);
+ const newToken=new URL(fresh.body.link).hash.slice("#invite=".length);
+ assert.match(newToken,/^[a-f0-9]{64}$/);
+ assert.notEqual(newToken,previous.token);
+ const newPassword="AnotherTemporaryPassword#456";
+ const accepted=await f.staff("/public/employee/accept","POST",{token:newToken,password:newPassword});
+ assert.equal(accepted.res.status,200);
+ assert.equal((await f.staff("/public/employee/accept","POST",{token:newToken,password:newPassword})).res.status,410);
+ assert.equal((await f.staff("/public/employee/me","GET",undefined,{cookie:previous.cookie})).res.status,401);
+ assert.equal((await f.staff("/public/employee/login","POST",{email:"alice@example.invalid",tenantId:IDS.tenantA,password})).res.status,401);
+ const login=await f.staff("/public/employee/login","POST",{email:"alice@example.invalid",tenantId:IDS.tenantA,password:newPassword});
+ assert.equal(login.res.status,200);
+ assert.match(login.res.headers.get("set-cookie")||"",/^__Host-thebe_staff_session=[0-9a-f]{64}; Path=\/; Secure; HttpOnly; SameSite=Strict;/);
+ const stored=f.sql.prepare("SELECT password_hash FROM employee_portal_accounts WHERE tenant_id=? AND employee_id=?").get(IDS.tenantA,IDS.employeeA);
+ assert.match(stored.password_hash,/^staff-pbkdf2\$240000\$[0-9a-f]{32}\$[0-9a-f]{64}$/);
+ assert.equal(stored.password_hash.includes(newPassword),false);
+ assert.equal(f.sql.prepare("SELECT count(*) n FROM employee_portal_sessions").get().n,1);
+});
+test("synthetic staging: cross-tenant assignments, invites and sign-in never cross boundary",async t=>{
+ const f=fixture(t);
+ const issued=await f.manager(IDS.tenantA,"/api/employee-self-service/invitations","POST",{employeeId:IDS.employeeB,email:"bob@example.invalid"});
+ assert.equal(issued.res.status,404);
+ const assignment=await f.manager(IDS.tenantA,"/api/employee-self-service/tasks","POST",{employeeId:IDS.employeeB,title:"Cross-tenant denial"});
+ assert.equal(assignment.res.status,404);
+ assert.equal(f.sql.prepare("SELECT count(*) n FROM employee_portal_invites").get().n,0);
+ assert.equal(f.sql.prepare("SELECT count(*) n FROM employee_portal_tasks").get().n,0);
+ const {cookie}=await inviteAndLogin(f);
+ assert.equal((await f.staff("/public/employee/login","POST",{email:"alice@example.invalid",password,tenantId:IDS.tenantB})).res.status,401);
+ assert.equal((await f.staff("/public/employee/me","GET",undefined,{cookie})).res.status,200);
+ assert.equal((await f.manager(IDS.tenantA,"/api/employee-self-service/tasks","GET",undefined,"auditor")).res.status,403);
+});
+test("synthetic staging: origin and edge rate-limit denials happen before any database access",async()=>{
+ const url=new URL("https://staff-only.invalid/public/employee/login");
+ const request=new Request(url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email:"alice@example.invalid",tenantId:IDS.tenantA,password})});
+ const env={THEBE_STAFF_PORTAL_ENABLED:"true",SESSION_SECRET:"staging-only-fake-value",PUBLIC_RATE_LIMITER:{},DB:{prepare(){throw Error("database must not be reached")}}};
+ const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json"}});
+ const common={request,url,env,json,readJson:async req=>req.json(),id:randomUUID,rateLimitResponse:()=>json({error:"too_many_requests"},429)};
+ const badOrigin=await handleStaffPublic({...common,requestOriginAllowed:()=>false,edgeScopedRateLimit:async()=>{throw Error("rate limiter should not be called")}});
+ assert.equal(badOrigin.status,403);
+ const blocked=await handleStaffPublic({...common,requestOriginAllowed:()=>true,edgeScopedRateLimit:async()=>({ok:false})});
+ assert.equal(blocked.status,429);
+ assert.equal((await blocked.json()).error,"too_many_requests");
+});
