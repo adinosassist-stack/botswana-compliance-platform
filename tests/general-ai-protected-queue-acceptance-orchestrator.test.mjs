@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {runProtectedPrivateQueueAcceptance as run} from "../scripts/general-ai-protected-queue-acceptance-orchestrator.mjs";
 const sha="a".repeat(40),nonce="b".repeat(32),runUrl="https://github.com/adinosassist-stack/botswana-compliance-platform/actions/runs/42475715635";
-const receipt=(name,extra={})=>({verified:true,reference:"receipt."+name+".staging",...extra});
+const receipt=(name,extra={})=>({verified:true,scope:"general-ai-private-staging",reference:"receipt."+name+".staging",...extra});
 const options=(adapter)=>({sourceSha:sha,approvedSourceSha:sha,authorization:"AUTHORIZE_PRIVATE_STAGING_QUEUE_TEST",independentReview:true,nonce,runUrl,adapter});
 function mock(failAt){
  const calls=[];
@@ -34,7 +34,7 @@ test("rollback failure is surfaced as critical incident, not success",async()=>{
  for(const name of ["disable","verifyRollback"]){const m=mock(name);await assert.rejects(run(options(m.adapter)),/STAGING_ROLLBACK_NOT_VERIFIED/);}
 });
 test("unverified receipts cannot be counted as live acceptance",async()=>{
- const m=mock();m.adapter.verifyAck=async()=>{m.calls.push("verifyAck");return {verified:false,reference:"receipt.ack.staging"}};
+ const m=mock();m.adapter.verifyAck=async()=>{m.calls.push("verifyAck");return {verified:false,scope:"general-ai-private-staging",reference:"receipt.ack.staging"}};
  await assert.rejects(run(options(m.adapter)),/ack not verified/);assert.ok(m.calls.includes("verifyRollback"));
 });
 test("wrong baseline never enables consumer",async()=>{
@@ -43,4 +43,11 @@ test("wrong baseline never enables consumer",async()=>{
 });
 test("missing adapter operation fails before any side effects",async()=>{
  const m=mock();delete m.adapter.verifyIsolation;await assert.rejects(run(options(m.adapter)),/verifyIsolation adapter required/);assert.deepEqual(m.calls,[]);
+});
+
+test("wrong scope and reused evidence receipts fail closed with rollback",async()=>{
+ const m=mock();m.adapter.verifyDelivery=async()=>{m.calls.push("verifyDelivery");return receipt("delivery",{scope:"production"})};
+ await assert.rejects(run(options(m.adapter)),/wrong scope/);assert.ok(m.calls.includes("verifyRollback"));
+ const n=mock();n.adapter.verifyAck=async()=>{n.calls.push("verifyAck");return receipt("verifyDelivery")};
+ await assert.rejects(run(options(n.adapter)),/reused evidence reference/);assert.ok(n.calls.includes("verifyRollback"));
 });
