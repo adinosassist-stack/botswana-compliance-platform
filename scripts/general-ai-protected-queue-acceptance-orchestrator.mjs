@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
+import {verifyInertPrivateQueueInventory} from "./general-ai-cloudflare-inventory-guard.mjs";
 import {preparePrivateQueueTestEnvelope,prepareQueueRollbackCheck} from "./general-ai-live-queue-execution-guardrails.mjs";
 import {validateLiveQueueAcceptance,initialLiveQueueAcceptance} from "./general-ai-live-queue-acceptance-gate.mjs";
 
 const SHA=/^[a-f0-9]{40}$/;
-const REQUIRED=["inspect","enable","publish","verifyDelivery","verifyAck","verifyReplay","verifyRecovery","verifyIsolation","disable","verifyRollback"];
+const REQUIRED=["inspect","readInventory","enable","publish","verifyDelivery","verifyAck","verifyReplay","verifyRecovery","verifyIsolation","disable","verifyRollback"];
 const EVIDENCE=/^[a-zA-Z0-9_.:/-]{8,256}$/;
 const EVIDENCE_KEYS=["liveDeliveryVerified","liveAckVerified","liveReplayVerified","recoveryVerified","d1IsolationVerified","consumerRestoredDisabled"];
 function proof(value,label) {
@@ -40,6 +41,16 @@ export async function runProtectedPrivateQueueAcceptance({sourceSha,approvedSour
   assert.equal(baseline.queue,"bw-general-ai-private-acceptance-queue");
   assert.equal(baseline.environment,"general-ai-private-staging");
   assert.equal(baseline.sourceSha,sourceSha);
+  const inventory=verifyInertPrivateQueueInventory(await adapter.readInventory());
+  assert.equal(inventory.flagsDisabled,true);
+  assert.equal(inventory.serviceIsolationAttested,false);
+  // The live adapter must independently attest that the bound service is
+  // staging-only. An environment label is not sufficient proof.
+  assert.equal(typeof adapter.attestServiceIsolation,"function","independent service isolation attestation required");
+  const isolation=await adapter.attestServiceIsolation({sourceSha,service:"bw-general-ai-staging",bindingEnvironment:inventory.serviceBindingEnvironment});
+  collect(isolation,"service isolation");
+  assert.equal(isolation.stagingOnly,true,"service binding may reach production");
+  assert.equal(isolation.productionResourcesTouched,false);
   enableAttempted=true;
   collect(await adapter.enable({sourceSha}),"enable");
   const envelope=preparePrivateQueueTestEnvelope({sourceSha,approvedSourceSha,nonce,authorization,independentReview,environment:"general-ai-private-staging",queue:baseline.queue,consumerDisabled:false,productionEnabled:false});
