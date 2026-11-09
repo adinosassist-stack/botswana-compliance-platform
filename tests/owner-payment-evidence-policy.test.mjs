@@ -69,3 +69,34 @@ test("noncanonical prior bank IDs fail closed instead of allowing a reused credi
     assert.equal(outcome.reason,"invalid_bank_allocation_record");
   }
 });
+
+
+test("rejected customer's new attempt still requires independently settled bank evidence",()=>{
+  const customerReference={...bankEvidence,source:"customer_upload",status:"settled"};
+  const first=evaluate(input({bankEvidence:customerReference}));
+  assert.notEqual(first.decision,D.VERIFIED);
+  const resubmission=evaluate(input({bankEvidence:{...bankEvidence,status:"pending"}}));
+  assert.notEqual(resubmission.decision,D.VERIFIED);
+  const independentlySettled=evaluate(input({bankEvidence:{...bankEvidence,bankTransactionId:"bank-new-456"}}));
+  assert.equal(independentlySettled.decision,D.VERIFIED);
+});
+test("resubmission cannot allocate a previously consumed bank transaction",()=>{
+  const allocations=[{bankTransactionId:"bank-123",invoiceId:"inv-rejected",tenantId:"tenant-a"}];
+  const reused=evaluate(input({priorBankAllocations:allocations}));
+  assert.notEqual(reused.decision,D.VERIFIED);
+  assert.equal(reused.reason,"bank_transaction_already_allocated");
+  const fresh=evaluate(input({bankEvidence:{...bankEvidence,bankTransactionId:"bank-new-456"},priorBankAllocations:allocations}));
+  assert.equal(fresh.decision,D.VERIFIED);
+});
+test("administrator review requires trusted bank evidence even when customer supplies exact amount and transaction",()=>{
+  for(const source of ["customer_upload","customer_reference","admin_form",null]){
+    const result=evaluate(input({bankEvidence:{...bankEvidence,source}}));
+    assert.notEqual(result.decision,D.VERIFIED);
+  }
+});
+test("bank reversal or failed settlement cannot qualify a resubmission",()=>{
+  for(const status of ["reversed","failed","processing","pending","rejected"]){
+    const result=evaluate(input({bankEvidence:{...bankEvidence,status}}));
+    assert.notEqual(result.decision,D.VERIFIED);
+  }
+});
