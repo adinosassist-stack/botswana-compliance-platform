@@ -32,11 +32,12 @@ export function minimalWranglerEnvironment(token,processEnv={}){
  }
  return Object.freeze(e);
 }
-export function requireVersionOnlyContext({mode,authorization,repo,ref,sha,expectedSha,githubReadToken,cloudflareToken}={}){
+export function requireVersionOnlyContext({mode,authorization,repo,ref,sha,expectedSha,actor,githubReadToken,cloudflareToken}={}){
  if(mode!=='create-version-only'||authorization!=='CREATE_ISOLATED_ASSETS_SOURCE_VERSION')
   throw Error('independent_version_only_owner_authorization_required');
  if(repo!==REPO||ref!=='refs/heads/main'||!SHA.test(expectedSha||'')||sha!==expectedSha)
   throw Error('exact_current_main_required');
+ if(!actor||actor.toLowerCase()==='thusico')throw Error('independent_reviewer_must_not_initiate');
  if(!githubReadToken||!cloudflareToken)throw Error('dedicated_protected_credentials_required');
  return true;
 }
@@ -152,7 +153,8 @@ export async function createProtectedVersionOnly({
  requireVersionOnlyContext({mode:process.env.ASSETS_SOURCE_VERSION_MODE,
   authorization:process.env.ASSETS_SOURCE_VERSION_AUTHORIZATION,
   repo:process.env.GITHUB_REPOSITORY,ref:process.env.GITHUB_REF,
-  sha:process.env.GITHUB_SHA,expectedSha,githubReadToken,cloudflareToken});
+  sha:process.env.GITHUB_SHA,expectedSha,actor:process.env.GITHUB_ACTOR,
+  githubReadToken,cloudflareToken});
  const context={expectedSha,repository:REPO,ref:'refs/heads/main',githubSha:expectedSha,
   githubToken:githubReadToken,cloudflareToken};
  const preflight=await inspectProtectedProvenance(context);
