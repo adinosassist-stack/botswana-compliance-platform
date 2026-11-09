@@ -30,7 +30,10 @@ export async function createGuestHouseReservation({db,authorizedScope,booking}={
  if(!inserted)return Object.freeze({ok:false,reason:"room_unavailable"});
  if(inserted.tenant_id!==authorizedScope.tenantId||
     inserted.property_id!==authorizedScope.propertyId||
-    inserted.id!==booking.id||inserted.room_id!==booking.roomId)
+    inserted.id!==booking.id||inserted.room_id!==booking.roomId||
+    inserted.check_in!==booking.checkIn||inserted.check_out!==booking.checkOut||
+    inserted.status!==booking.status||
+    !Number.isSafeInteger(inserted.nightly_rate_minor)||inserted.nightly_rate_minor<0)
    throw new Error("reservation_result_scope_mismatch");
  return Object.freeze({ok:true,reservationId:inserted.id,roomId:inserted.room_id,
   checkIn:inserted.check_in,checkOut:inserted.check_out,status:inserted.status});
