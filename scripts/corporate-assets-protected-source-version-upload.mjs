@@ -23,6 +23,15 @@ const prefix='/accounts/'+ACCOUNT+'/workers/scripts/'+WORKER;
 const off=['EVIDENCE_UPLOADS_ENABLED','POP_UPLOAD_STAGING_ENABLED','THEBE_AI_EXPORTS_ENABLED',
  'THEBE_GENERAL_AI_ENABLED','THEBE_INTERNAL_AUTONOMY_ENABLED','THEBE_LIVE_VOICE_ENABLED'];
 const envSecrets=['SESSION_SECRET','AUDIT_INTEGRITY_SECRET'];
+export function minimalWranglerEnvironment(token,processEnv={}){
+ if(typeof token!=='string'||!token.trim())throw Error('dedicated_cloudflare_token_required');
+ const e={CLOUDFLARE_API_TOKEN:token,CLOUDFLARE_ACCOUNT_ID:ACCOUNT,
+  WRANGLER_SEND_METRICS:'false'};
+ for(const n of ['PATH','HOME','TMPDIR','SYSTEMROOT','WINDIR']){
+  if(typeof processEnv[n]==='string'&&processEnv[n])e[n]=processEnv[n];
+ }
+ return Object.freeze(e);
+}
 export function requireVersionOnlyContext({mode,authorization,repo,ref,sha,expectedSha,githubReadToken,cloudflareToken}={}){
  if(mode!=='create-version-only'||authorization!=='CREATE_ISOLATED_ASSETS_SOURCE_VERSION')
   throw Error('independent_version_only_owner_authorization_required');
@@ -127,8 +136,7 @@ function uploadWithWrangler(expectedSha,token){
  try{
   const path=join(folder,'wrangler.json');
   writeFileSync(path,JSON.stringify(config),{mode:0o600});
-  const env={...process.env,CLOUDFLARE_API_TOKEN:token,CLOUDFLARE_ACCOUNT_ID:ACCOUNT,
-   WRANGLER_SEND_METRICS:'false'};
+  const env=minimalWranglerEnvironment(token,process.env);
   // No .env files, no telemetry, no credentials in logs.
   const result=spawnSync(process.execPath,['node_modules/wrangler/bin/wrangler.js',
    'versions','upload','--config',path,'--strict','--message',
