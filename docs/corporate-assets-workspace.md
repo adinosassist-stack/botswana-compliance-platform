@@ -20,6 +20,7 @@ AI dock. Asset records are never copied from the earlier browser-local demo.
 - Each successful mutation is in the same D1 transaction as a sealed audit entry
   and chain update. Missing audit integrity or failed audit writes deny mutation.
   History is available per asset (latest 100 entries).
+- The browser requires an explicit successful mutation acknowledgement before reporting a save. If a post-save register refresh fails, it says the save was accepted but readback is unverified. Invalid register payloads fail closed, and CSV export is unavailable while the register is not ready.
 - No client-selected tenant/actor, external messages, payment actions, journal
   postings, document uploads, production migration or automatic AI execution.
 
@@ -37,6 +38,12 @@ schema through the repository's protected migration process, then explicitly
 activate the flag only after authenticated acceptance checks. Existing release
 readiness/migration-tip requirements are unchanged. Node/Postgres fallback does
 not implement these endpoints in this phase; it must not advertise this module.
+
+## Authenticated isolated staging acceptance gates
+
+The optional authenticated staging entry is **not the deployed status-only staging Worker**. It requires three independently configured opt-ins: `ASSETS_STAGING_AUTH_ACCEPTANCE_ENABLED=true`, `ASSETS_STAGING_WRITES_ENABLED=true`, and `THEBE_CORPORATE_ASSETS_ENABLED=true`, in addition to exact-source, isolated D1 marker/schema, HTTPS origin, session, CSRF and sealed-audit prerequisites. The status-only scaffold remains read-only with both asset and write flags false.
+
+For staging, verify that both `SESSION_SECRET` and `AUDIT_INTEGRITY_SECRET` are **Worker `secret_text` bindings** (not plain-text variables) using Cloudflare metadata, never by revealing their values. Previously plain-text staging values must be rotated to fresh, unrelated values in the Secret type before acceptance. A nonempty runtime value or a dashboard-listed variable name is not proof of secure binding. This code-only gate does not replace protected deployment review or a real authenticated login → CSRF → create/edit → audit → readback test.
 
 ## Validation
 

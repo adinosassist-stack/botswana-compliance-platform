@@ -34,15 +34,18 @@
   }
  }
  async function load({reset=false}={}){
-  if(!allowed()||!root?.classList.contains('active'))return;
+  if(!allowed()||!root?.classList.contains('active'))return false;
   if(reset){page=0;cursors=['']}
   const token=++epoch,who=key();rows=[];renderRows();metrics();disableWrites(true);root.querySelector('.asset-schedule').replaceChildren();status('Loading assets…');
   try{
-   const result=await api(ROOT+'?after='+encodeURIComponent(cursors[page]||''));if(!current(token,who))return;
+   const result=await api(ROOT+'?after='+encodeURIComponent(cursors[page]||''));if(!current(token,who))return false;
+   if(!result||!Array.isArray(result.items)||result.items.length>100||!result.summary||typeof result.summary!=='object'||
+      (result.nextCursor!=null&&typeof result.nextCursor!=='string'))throw Error('invalid_asset_register_response');
    rows=result.items;cursor=result.nextCursor;metrics(result.summary);renderRows();
    root.querySelector('[data-next]').disabled=!cursor;root.querySelector('[data-back]').disabled=page===0;disableWrites(false);status('');
-   try{const schedule=await api(ROOT+'/schedule');if(!current(token,who))return;renderSchedule(schedule)}catch{if(current(token,who))root.querySelector('.asset-schedule').replaceChildren(make('p','muted','Maintenance schedule unavailable. Asset register remains available.'))}
-  }catch(error){if(!current(token,who))return;status(['assets_unavailable','assets_not_ready'].includes(error.code||error.data?.error)?'Asset registration is unavailable in this workspace. No records can be saved.':'Could not load asset registration. Use Refresh to retry; no records can be saved.');root.querySelector('[data-next]').disabled=true;root.querySelector('[data-back]').disabled=true;}
+   try{const schedule=await api(ROOT+'/schedule');if(!current(token,who))return false;renderSchedule(schedule)}catch{if(current(token,who))root.querySelector('.asset-schedule').replaceChildren(make('p','muted','Maintenance schedule unavailable. Asset register remains available.'))}
+   return true;
+  }catch(error){if(!current(token,who))return false;status(['assets_unavailable','assets_not_ready'].includes(error.code||error.data?.error)?'Asset registration is unavailable in this workspace. No records can be saved.':'Could not load asset registration. Use Refresh to retry; no records can be saved.');root.querySelector('[data-next]').disabled=true;root.querySelector('[data-back]').disabled=true;return false;}
  }
  function renderSchedule(data){
   const box=root.querySelector('.asset-schedule');box.replaceChildren();
@@ -66,7 +69,11 @@
  function minor(value){if(!/^\d+(?:\.\d{1,2})?$/.test(value))throw Error('Enter a nonnegative BWP amount with at most two decimal places.');const [whole,part='']=value.split('.');const n=Number(whole)*100+Number(part.padEnd(2,'0'));if(!Number.isSafeInteger(n)||n>999999999999)throw Error('Amount exceeds the supported range.');return n}
  async function commit(dialogInfo,path,method,body,who){
   if(busy)return;busy=true;dialogInfo.submit.disabled=true;dialogInfo.message.textContent='Saving…';
-  try{if(who!==key()||!allowed())throw Error('Your workspace session changed. Close this form and reload.');await api(path,{method,body:JSON.stringify(body)});if(who!==key())return;dialogInfo.d.close();await load({reset:true});status('Saved to your company register.');}
+  try{if(who!==key()||!allowed())throw Error('Your workspace session changed. Close this form and reload.');
+   const acknowledgement=await api(path,{method,body:JSON.stringify(body)});
+   if(acknowledgement?.ok!==true)throw Error('The server did not confirm this save. Refresh before trying again.');
+   if(who!==key()||!allowed())return;dialogInfo.d.close();const refreshed=await load({reset:true});
+   if(who===key()&&root?.classList.contains('active'))status(!refreshed?'Save accepted, but the register could not be refreshed. Use Refresh to verify your record.':rows.some(asset=>asset.id===body.id)?'Saved and verified in your company register.':'Save accepted, but the saved asset was not found on the refreshed page. Search or refresh to verify the record.');}
   catch(e){dialogInfo.message.textContent=e.code==='asset_conflict'?'This asset changed in another session. Close this form and refresh before editing again.':e.message||'Save failed. Refresh before trying again.'}
   finally{busy=false;dialogInfo.submit.disabled=false}
  }
@@ -92,6 +99,7 @@
   try{const result=await api(ROOT+'/'+a.id+'/history');if(who!==key()||!ui.d.isConnected)return;ui.message.textContent=result.items.length?'':'No history recorded.';for(const e of result.items){const row=make('div','asset-event');row.append(make('strong','',e.event_type.replaceAll('_',' ').toLowerCase()),make('span','muted small',e.occurred_at));ui.form.insertBefore(row,ui.actions)}}catch{ui.message.textContent='Could not load history.'}
  }
  function exportView(){
+  if(!registerReady){status('Export is unavailable until the asset register loads. Use Refresh to retry.');return}
   const escape=v=>'"'+(/^[\s]*[=+@-]/.test(String(v??''))?"'":'')+String(v??'').replaceAll('"','""')+'"';
   const fields=['name','category','branch','serial','custodian','acquisition_date','acquisition_cost_minor','book_value_minor','status'];
   const content=[fields.join(','),...visibleRows().map(a=>fields.map(k=>escape(a[k])).join(','))].join('\r\n');
