@@ -11,7 +11,7 @@
     if(!(root instanceof Element))throw new TypeError('root element required');
     if(root.dataset.thebeLifeMounted==='true') return {destroy:()=>{}};
     root.dataset.thebeLifeMounted='true'; root.classList.add('thebe-life-view');
-    const state={tab:'overview',transactions:[{name:'Groceries',category:'Food',amount:850},{name:'Electricity',category:'Utilities',amount:400}],goals:[{name:'School Fees',saved:3200,target:6000}]};
+    const state={tab:'overview',transactions:[{name:'Groceries',category:'Food',amount:850},{name:'Electricity',category:'Utilities',amount:400}],goals:[{name:'School Fees',saved:3200,target:6000}],motsheloReports:[{member:'Member 1',amount:1000},{member:'Member 2',amount:1000},{member:'Member 3',amount:1000},{member:'Member 4',amount:1000},{member:'Member 5',amount:1000},{member:'Member 6',amount:1000},{member:'Member 7',amount:1000},{member:'Member 8',amount:1000},{member:'Member 9',amount:1000},{member:'Member 10',amount:1000}]};
     // Demo-only derived totals; separate from persisted household finance and verified cash.
     const budget=()=>{
       const addedMinor=state.transactions.reduce((sum,item)=>sum+Math.round(item.amount*100),0);
@@ -47,8 +47,20 @@
         section.append(form);body.append(section);body.append(node('div','tl-note','All budget figures are illustrative. Demo entries affect this preview only; changes are not saved and do not verify funds or initiate payments.'));
       }
       if(state.tab==='motshelo'){
-        grid.append(card('Group members','12','Example group'),card('Expected monthly',format(12000),'12 × P 1,000'),card('Reported contributions',format(10000),'Not settled or available'),card('Still expected',format(2000),'Reconciliation pending'));body.append(grid);
-        body.append(node('div','tl-note','Motshelo committee approvals and bank-cleared receipts are required for financial decisions. No payouts can be initiated here.'));
+        const expected=12000;
+        const reported=state.motsheloReports.reduce((sum,item)=>sum+item.amount,0);
+        grid.append(card('Group members','12','Illustrative group'),card('Expected monthly',format(expected),'12 × P 1,000'),card('Reported contributions',format(reported),'Unverified member reports'),card('Reporting difference',format(Math.abs(expected-reported)),reported>expected?'Reported above expected':'Not yet reported'));body.append(grid);
+        const panel=node('div','tl-panel');panel.append(node('h2','','Member contribution reports'));
+        const list=node('ul','tl-list');
+        for(const item of state.motsheloReports)list.append(node('li','',item.member+' · '+format(item.amount)+' · Unverified'));
+        panel.append(list);
+        const form=node('form','tl-form');
+        const member=node('input','');member.placeholder='Member name';member.maxLength=60;member.required=true;member.setAttribute('aria-label','Demo member name');
+        const amount=node('input','');amount.type='number';amount.min='1';amount.max='100000';amount.step='1';amount.required=true;amount.placeholder='Reported amount (P)';amount.setAttribute('aria-label','Demo reported amount in pula');
+        const button=node('button','tl-primary','Record demo report');button.type='submit';form.append(member,amount,button);
+        form.addEventListener('submit',e=>{e.preventDefault();const v=Number(amount.value);const name=member.value.trim();if(!name||!Number.isSafeInteger(v)||v<1||v>100000||state.motsheloReports.length>=50)return;state.motsheloReports.push({member:name.slice(0,60),amount:v});render();});
+        panel.append(form);body.append(panel);
+        body.append(node('div','tl-note','Demo reports are NOT bank-cleared contributions, wallet balances or proof of payment. Only independent settlement verification and committee approval can qualify a disbursement. No payouts or bank operations are available.'));
       }
       if(state.tab==='insurance'){
         grid.append(card('Marketplace','Not activated','Insurer partnerships pending'),card('Commission tracking','Not activated','Agreements and approvals required'),card('Policy organizer','Planned','Personal policies are separate from corporate assets'));body.append(grid);
