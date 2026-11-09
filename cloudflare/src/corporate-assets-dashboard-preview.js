@@ -36,7 +36,10 @@ export function previewAssetDashboard({ tenantId, assets, asOfDate } = {}) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(asset.next_due_on) ||
           Number.isNaN(Date.parse(asset.next_due_on + "T00:00:00Z")) ||
           new Date(asset.next_due_on + "T00:00:00Z").toISOString().slice(0,10) !== asset.next_due_on) throw new TypeError("invalid_due_date");
-      if (asset.next_due_on <= asOfDate) maintenanceDue++;
+      // Retired assets are not actionable maintenance work. Keep the date
+      // validated above even for retired records, so malformed data fails closed.
+      if ((asset.status === "active" || asset.status === "maintenance") &&
+          asset.next_due_on <= asOfDate) maintenanceDue++;
     }
     byCategory[asset.category]++;
     byStatus[asset.status]++;
