@@ -9,6 +9,8 @@ const receipt=()=>({reviewedCommit:sha,compiler:'wrangler@4.135.0',dryRun:true,
 test('two matching independent offline bundles give reproducibility only, not cloud upload',()=>{
  const x=compareIndependentDryRuns({expectedSha:sha,first:receipt(),second:receipt()});
  assert.equal(x.reproducible,true);
+ assert.equal(x.executableModuleReproducible,true);
+ assert.equal(x.fullArtifactProvenanceReady,false);
  assert.equal(x.sourceToCloudflareUploadVerified,false);
  assert.equal(x.versionCreationAuthorized,false);
  assert.equal(x.deploymentAuthorized,false);
@@ -17,11 +19,15 @@ test('altered compiled Worker detects changed JavaScript',()=>{
  const b=receipt();b.bundleFiles['index.js']='f'.repeat(64);
  const x=compareIndependentDryRuns({expectedSha:sha,first:receipt(),second:b});
  assert.equal(x.reproducible,false);
- assert.ok(x.errors.includes('compiled_file_changed:index.js'));
+ assert.ok(x.errors.includes('compiled_module_changed:index.js'));
 });
 test('changed source map and missing output also fail',()=>{
  const a=receipt(),b=receipt();b.bundleFiles['index.js.map']='f'.repeat(64);
- assert.equal(compareIndependentDryRuns({expectedSha:sha,first:a,second:b}).reproducible,false);
+ const partial=compareIndependentDryRuns({expectedSha:sha,first:a,second:b});
+ assert.equal(partial.reproducible,false);
+ assert.equal(partial.executableModuleReproducible,true);
+ assert.equal(partial.fullArtifactProvenanceReady,false);
+ assert.ok(partial.auxiliaryDifferences.includes('auxiliary_artifact_changed:index.js.map'));
  const c=receipt();delete c.bundleFiles['index.js.map'];
  assert.ok(compareIndependentDryRuns({expectedSha:sha,first:a,second:c}).errors.includes('compiled_file_set_changed'));
 });
@@ -44,7 +50,7 @@ test('source input mismatch and forged bundle digest rejected',()=>{
 test('two compiler invocations execute independently and mismatch fails closed',()=>{
  let n=0;
  const compile=()=>{n++;const b=receipt();if(n===2)b.bundleFiles['index.js']='f'.repeat(64);return b};
- assert.throws(()=>runIndependentDryRuns({expectedSha:sha,compile}),/worker_bundle_not_reproducible/);
+ assert.throws(()=>runIndependentDryRuns({expectedSha:sha,compile}),/worker_executable_not_reproducible/);
  assert.equal(n,2);
 });
 test('invalid expected source SHA fails before compilation',()=>{
