@@ -27,6 +27,12 @@ try{
  await page.getByRole('button',{name:'Register asset',exact:true}).click();
  await page.getByLabel('Asset name',{exact:true}).fill('Office laptop');await page.getByLabel('Branch / location',{exact:true}).fill('Palapye');await page.getByLabel('Acquisition date',{exact:true}).fill('2026-10-01');await page.getByLabel('Acquisition cost (BWP)',{exact:true}).fill('15000.25');await page.getByLabel('Recorded book value (BWP)',{exact:true}).fill('14000');
  await page.getByRole('button',{name:'Save',exact:true}).click();await page.locator('dialog').waitFor({state:'detached'});assert.ok(await page.evaluate(()=>calls.some(c=>c.method==='POST')));
+ // A generic 200 OK followed by a page without the new ID cannot prove a saved record exists.
+ await page.getByText('Save accepted, but the saved asset was not found on the refreshed page. Search or refresh to verify the record.').waitFor();
+ // Editing an existing ID confirms the positive readback path when the exact ID is present.
+ await page.getByRole('button',{name:'Edit',exact:true}).click();
+ await page.getByRole('button',{name:'Save',exact:true}).click();
+ await page.getByText('Saved and verified in your company register.').waitFor();
  await page.getByRole('button',{name:'History',exact:true}).click();await page.getByText('corporate asset created',{exact:true}).waitFor();await page.getByRole('button',{name:'Close',exact:true}).click();
  await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'mobile viewport must not overflow');
  await page.screenshot({path:'test-results/corporate-assets-mobile.png',fullPage:true,animations:'disabled'});
