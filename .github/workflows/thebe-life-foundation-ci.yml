@@ -11,6 +11,7 @@ on:
       - 'public/assets/thebe-life-*.css'
       - 'tests/thebe-life-*.test.mjs'
       - 'docs/sql/thebe-life-d1-proposal.sql'
+      - 'cloudflare/migrations/life-staging/**'
       - '.github/workflows/thebe-life-foundation-ci.yml'
   workflow_dispatch:
 
@@ -53,4 +54,6 @@ jobs:
             tests/thebe-life-workspace-adapter-static.test.mjs \
             tests/thebe-life-staging-preflight.test.mjs \
             tests/thebe-life-family-budget-summary.test.mjs \
-            tests/thebe-life-family-members-goals.test.mjs
+            tests/thebe-life-family-members-goals.test.mjs \
+            tests/thebe-life-synthetic-sqlite-integration.test.mjs \
+            tests/thebe-life-migration-contract.test.mjs
