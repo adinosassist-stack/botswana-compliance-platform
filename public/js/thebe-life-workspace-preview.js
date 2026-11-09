@@ -12,6 +12,14 @@
     if(root.dataset.thebeLifeMounted==='true') return {destroy:()=>{}};
     root.dataset.thebeLifeMounted='true'; root.classList.add('thebe-life-view');
     const state={tab:'overview',transactions:[{name:'Groceries',category:'Food',amount:850},{name:'Electricity',category:'Utilities',amount:400}],goals:[{name:'School Fees',saved:3200,target:6000}]};
+    // Demo-only derived totals; separate from persisted household finance and verified cash.
+    const budget=()=>{
+      const addedMinor=state.transactions.reduce((sum,item)=>sum+Math.round(item.amount*100),0);
+      const incomeMinor=2000000,baselineExpenseMinor=1180000,commitmentMinor=100000;
+      const spentMinor=baselineExpenseMinor+addedMinor;
+      return {incomeMinor,spentMinor,commitmentMinor,
+        remainingMinor:incomeMinor-spentMinor-commitmentMinor};
+    };
     const render=()=>{
       root.replaceChildren();
       const heading=node('div','tl-head');
@@ -24,11 +32,11 @@
       const card=(name,value,description)=>{const c=node('div','tl-card');c.append(node('span','tl-muted',name),node('strong','tl-number',value),node('small','tl-muted',description));return c;};
       const grid=node('div','tl-grid');
       if(state.tab==='overview'){
-        grid.append(card('Household remaining',format(7200),'Illustrative monthly budget'),card('Motshelo contribution',format(1000),'Planned; not verified cash'),card('Insurance','Explore partners','Regulated partner setup required'),card('Savings goals',String(state.goals.length),'Household priorities'));
+        grid.append(card('Household remaining',format(budget().remainingMinor/100),'Illustrative after expenses and commitments'),card('Motshelo contribution',format(1000),'Planned; not verified cash'),card('Insurance','Explore partners','Regulated partner setup required'),card('Savings goals',String(state.goals.length),'Household priorities'));
         body.append(grid);body.append(node('div','tl-note','Demo only. Thebe Life uses the existing Workspace sidebar, top bar and Thebe AI dock. No real financial data is loaded.'));
       }
       if(state.tab==='household'){
-        grid.append(card('Income',format(20000),'Sample'),card('Expenses',format(11800+state.transactions.reduce((n,x)=>n+x.amount,0)),'Includes demo additions'),card('Motshelo commitment',format(1000),'Tracked separately from expenses'));body.append(grid);
+        grid.append(card('Income',format(budget().incomeMinor/100),'Sample'),card('Expenses',format(budget().spentMinor/100),'Baseline and demo transactions'),card('Motshelo commitment',format(budget().commitmentMinor/100),'Tracked separately from expenses'),card('Budget remaining',format(budget().remainingMinor/100),'Planning estimate, not bank balance'));body.append(grid);
         const section=node('div','tl-panel');section.append(node('h2','','Recent household transactions'));
         const list=node('ul','tl-list');for(const x of state.transactions)list.append(node('li','',x.name+' · '+x.category+' · '+format(x.amount)));
         section.append(list);
@@ -36,7 +44,7 @@
         const amount=node('input','');amount.type='number';amount.min='1';amount.max='1000000';amount.step='1';amount.placeholder='Amount (P)';amount.required=true;amount.setAttribute('aria-label','Expense amount in pula');
         const button=node('button','tl-primary','Add demo expense');button.type='submit';form.append(name,amount,button);
         form.addEventListener('submit',e=>{e.preventDefault();const v=Number(amount.value);if(!Number.isSafeInteger(v)||v<1||v>1000000)return;state.transactions.push({name:name.value.trim().slice(0,80),category:'Other',amount:v});render();});
-        section.append(form);body.append(section);
+        section.append(form);body.append(section);body.append(node('div','tl-note','All budget figures are illustrative. Demo entries affect this preview only; changes are not saved and do not verify funds or initiate payments.'));
       }
       if(state.tab==='motshelo'){
         grid.append(card('Group members','12','Example group'),card('Expected monthly',format(12000),'12 × P 1,000'),card('Reported contributions',format(10000),'Not settled or available'),card('Still expected',format(2000),'Reconciliation pending'));body.append(grid);
