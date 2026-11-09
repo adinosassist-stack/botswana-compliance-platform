@@ -108,6 +108,20 @@ test('actual manual-review SQL rolls back completion failures and resumes a paid
    assert.equal((await run('reject')).status,200);assert.equal((await review()).status,'rejected');
    assert.equal(settlements,0);assert.equal(await count('manual_payment_events'),1);await checkChain();
   }
+  // A rejected review is terminal: neither action may alter its sealed decision.
+  await reset();
+  const rejected=await run('reject');
+  assert.equal(rejected.status,200);
+  assert.equal((await review()).status,'rejected');
+  const sealedEvents=await count('manual_payment_events');
+  const sealedAudits=await count('audit_events');
+  const attempts=await Promise.all([run('approve'),run('reject')]);
+  assert.deepEqual(attempts.map(r=>r.status).sort(),[409,409]);
+  assert.equal((await review()).status,'rejected');
+  assert.equal(settlements,0);
+  assert.equal(await count('manual_payment_events'),sealedEvents);
+  assert.equal(await count('audit_events'),sealedAudits);
+  await checkChain();
   await assert.rejects(appendSealedAuditEvent(env,{tenantId:'client',eventType:'INVALID',completionReceipt:DB.prepare('SELECT 1')}),/audit_receipt_requires_mutation/);
  }finally{await mf.dispose()}
 });
