@@ -41,3 +41,13 @@ test("owner POP download rejects malformed IDs before staging/database access",a
 test("owner POP retrieval still checks actor identity before IDs",async()=>{
  await assert.rejects(readCleanPopForOwner({},{actor:{platformOwner:true},documentId:"bad",orderId:"bad",tenantId:"bad"}),/pop_owner_forbidden/);
 });
+
+
+test("POP owner identity must be a canonical non-empty string",async()=>{
+ const env={DB:{prepare(){throw Error("database_should_not_be_queried")}},POP_OWNER_RETRIEVAL_STAGING_ENABLED:"true"};
+ for(const userId of [undefined,null,""," "," owner","owner ","owner\u200b","owner\u0000",123,{}, "x".repeat(129)]){
+  const actor={platformOwner:true,userId};
+  await assert.rejects(listPopForPlatformOwner(env,{actor,orderId:id}),/pop_owner_forbidden/);
+  await assert.rejects(readCleanPopForOwner(env,{actor,documentId:id,orderId:id,tenantId:id}),/pop_owner_forbidden/);
+ }
+});
