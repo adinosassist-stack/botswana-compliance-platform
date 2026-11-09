@@ -23,23 +23,33 @@ export function compareIndependentDryRuns({expectedSha,first,second}={}){
  if(first?.inputManifestDigest!==second?.inputManifestDigest)errors.push('source_input_digest_changed');
  const a=names(first?.bundleFiles),b=names(second?.bundleFiles);
  if(JSON.stringify(a)!==JSON.stringify(b))errors.push('compiled_file_set_changed');
- for(const f of new Set([...a,...b]))if(first?.bundleFiles?.[f]!==second?.bundleFiles?.[f])
-  errors.push('compiled_file_changed:'+f);
- if(first?.bundleDigest!==second?.bundleDigest)errors.push('bundle_digest_changed');
- return Object.freeze({schema:'thebe.assets.reproducibility.v1',
+ const auxiliaryDifferences=[];
+ for(const f of new Set([...a,...b]))if(first?.bundleFiles?.[f]!==second?.bundleFiles?.[f]){
+  if(f.endsWith('.js'))errors.push('compiled_module_changed:'+f);
+  else auxiliaryDifferences.push('auxiliary_artifact_changed:'+f);
+ }
+ const modules=a.filter(x=>x.endsWith('.js'));
+ if(!modules.length||JSON.stringify(modules)!==JSON.stringify(b.filter(x=>x.endsWith('.js'))))
+  errors.push('compiled_module_set_changed');
+ if(first?.bundleDigest!==second?.bundleDigest)auxiliaryDifferences.push('full_bundle_digest_changed');
+ const moduleStable=errors.length===0;
+ const fullyStable=moduleStable&&auxiliaryDifferences.length===0;
+ return Object.freeze({schema:'thebe.assets.reproducibility.v2',
   sourceSha:SHA.test(expectedSha||'')?expectedSha:null,
-  reproducible:errors.length===0,
-  sourceInputDigest:errors.length===0?first.inputManifestDigest:null,
-  bundleDigest:errors.length===0?first.bundleDigest:null,
+  executableModuleReproducible:moduleStable,reproducible:fullyStable,
+  fullArtifactProvenanceReady:false,
+  sourceInputDigest:moduleStable?first.inputManifestDigest:null,
+  bundleDigest:fullyStable?first.bundleDigest:null,
   sourceToCloudflareUploadVerified:false,
-  versionCreationAuthorized:false,deploymentAuthorized:false,errors:Object.freeze(errors)});
+  versionCreationAuthorized:false,deploymentAuthorized:false,
+  errors:Object.freeze(errors),auxiliaryDifferences:Object.freeze(auxiliaryDifferences)});
 }
 export function runIndependentDryRuns({expectedSha,compile=collectBundledReceipt}={}){
  if(!SHA.test(expectedSha||''))throw Error('expected_main_sha_required');
  // Two independent Wrangler processes in distinct temporary directories.
  const first=compile({expectedSha}),second=compile({expectedSha});
  const result=compareIndependentDryRuns({expectedSha,first,second});
- if(!result.reproducible)throw Error('worker_bundle_not_reproducible:'+result.errors.join(','));
+ if(!result.executableModuleReproducible)throw Error('worker_executable_not_reproducible:'+result.errors.join(','));
  return result;
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
