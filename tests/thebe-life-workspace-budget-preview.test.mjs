@@ -15,3 +15,11 @@ test('overview and household display the same derived demo budget, not a hardcod
   assert.match(code,/format\(budget\(\)\.remainingMinor\/100\)/);
   assert.match(code,/not bank balance/);
 });
+
+test('Motshelo demo reports remain explicitly unverified and never enable payments',()=>{
+  assert.match(code,/motsheloReports:/);
+  assert.match(code,/Record demo report/);
+  assert.match(code,/Unverified member reports/);
+  assert.match(code,/NOT bank-cleared contributions/);
+  assert.doesNotMatch(code,/paymentProvider|initiateTransfer|sendPayment|makePayout/);
+});
