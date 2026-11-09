@@ -38,3 +38,8 @@ jobs:
           node --check scripts/corporate-assets-build-input-receipt.mjs
           node --test tests/corporate-assets-build-input-receipt.test.mjs
           node --test tests/corporate-assets-protected-secret-candidate.test.mjs
+
+      - name: Emit checkout-bound offline build-input manifest (not a release receipt)
+        env:
+          EXPECTED_MAIN_SHA: ${{ github.sha }}
+        run: node scripts/corporate-assets-build-input-receipt.mjs
