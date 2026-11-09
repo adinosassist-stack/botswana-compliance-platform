@@ -1,0 +1,84 @@
+name: Thebe Life protected private Worker deployment
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: 'Exact reviewed main commit SHA (40 hexadecimal characters)'
+        required: true
+        type: string
+      approval_phrase:
+        description: 'Enter DEPLOY_INERT_THEBE_LIFE_PRIVATE_STAGING'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: thebe-life-inert-private-staging
+  cancel-in-progress: false
+jobs:
+  verify-existing-environment:
+    if: github.ref == 'refs/heads/main' && inputs.approval_phrase == 'DEPLOY_INERT_THEBE_LIFE_PRIVATE_STAGING'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+      - name: Confirm exact reviewed main SHA
+        env:
+          APPROVED_SOURCE_SHA: ${{ inputs.source_sha }}
+          EXACT_MAIN_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$APPROVED_SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$APPROVED_SOURCE_SHA" = "$EXACT_MAIN_SHA"
+      - name: Confirm actual pre-existing protected GitHub environment
+        env:
+          LIFE_STAGING_GITHUB_ENV_READ_TOKEN: ${{ secrets.LIFE_STAGING_GITHUB_ENV_READ_TOKEN }}
+        run: |
+          test -n "$LIFE_STAGING_GITHUB_ENV_READ_TOKEN"
+          node scripts/verify-thebe-life-private-environment.mjs
+      - name: Confirm inert entrypoint and deny public routes
+        run: |
+          node --test tests/thebe-life-private-worker.test.mjs tests/thebe-life-environment-protection.test.mjs
+      - name: Verify bundling, without deployment
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx wrangler deploy --dry-run --config cloudflare/wrangler.life-staging.toml --outdir /tmp/thebe-life-inert-staging
+  deploy-inert-private-worker:
+    needs: verify-existing-environment
+    if: github.ref == 'refs/heads/main' && inputs.approval_phrase == 'DEPLOY_INERT_THEBE_LIFE_PRIVATE_STAGING'
+    environment: thebe-life-private-staging
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+      - name: Confirm exact checked out source and isolated binding
+        env:
+          APPROVED_SOURCE_SHA: ${{ inputs.source_sha }}
+          EXACT_MAIN_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "$APPROVED_SOURCE_SHA" = "$EXACT_MAIN_SHA"
+          test "$(git rev-parse HEAD)" = "$EXACT_MAIN_SHA"
+          node --test tests/thebe-life-private-worker.test.mjs
+      - name: Deploy inert Worker to isolated Life staging only
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.LIFE_STAGING_CLOUDFLARE_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.LIFE_STAGING_CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test "$CLOUDFLARE_ACCOUNT_ID" = "ddd23cab31928a4bb3d4998df9b26d1d"
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx wrangler deploy --config cloudflare/wrangler.life-staging.toml
