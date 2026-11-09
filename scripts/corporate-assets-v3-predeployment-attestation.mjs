@@ -11,7 +11,7 @@ export const CANDIDATE='983daaea-1e6b-4359-9994-0b792578008b';
 export const ROLLBACK='5497120e-4ae6-4665-b96f-4b040d32a249';
 const SHA=/^[0-9a-f]{40}$/;
 const fail=(errors,condition,code)=>{if(!condition)errors.push(code)};
-export function qualifyAssetV3({candidate,deployments,reviewedMainSha,sourceReceipt,exposureReceipt}={}){
+export function qualifyAssetV3({candidate,deployments,reviewedMainSha}={}){
  const errors=[];
  fail(errors,SHA.test(reviewedMainSha||''),'invalid_reviewed_main_sha');
  fail(errors,candidate?.id===CANDIDATE&&candidate?.number===3,'candidate_identity_mismatch');
@@ -24,21 +24,26 @@ export function qualifyAssetV3({candidate,deployments,reviewedMainSha,sourceRece
  }
  fail(errors,val('PAYMENT_PROVIDER').length===1&&val('PAYMENT_PROVIDER')[0]==='none','payment_provider_must_be_none');
  fail(errors,val('REGISTRATION_MODE').length===1&&val('REGISTRATION_MODE')[0]==='hold','registration_hold_required');
- const entries=deployments?.deployments||deployments?.items;
- const newest=Array.isArray(entries)?entries[0]:null;
+ const entries=deployments?.deployments;
+ const page=deployments?.result_info;
+ // No authoritative assertion from a partial listing or unparseable timestamps.
+ fail(errors,Number.isSafeInteger(page?.total_pages)&&page.total_pages===1&&
+  page.page===1&&Array.isArray(entries)&&page.count===entries.length,'complete_deployment_listing_required');
+ const dates=Array.isArray(entries)?entries.map(d=>Date.parse(d?.created_on||'')):[];
+ fail(errors,dates.length>0&&dates.every(Number.isFinite)&&new Set(dates).size===dates.length,
+  'deployment_timestamps_required');
+ const newest=dates.length&&dates.every(Number.isFinite)?
+  entries[dates.indexOf(Math.max(...dates))]:null;
  fail(errors,!!newest?.id&&Array.isArray(newest?.versions)&&newest.versions.length===1&&
   newest.versions[0]?.version_id===ROLLBACK&&newest.versions[0]?.percentage===100,
   'rollback_version_must_serve_all_traffic');
  fail(errors,Array.isArray(entries)&&!entries.some(d=>(d?.versions||[]).some(v=>v.version_id===CANDIDATE)),
   'candidate_must_remain_undeployed');
- // Metadata source label alone is NOT proof of compiled bundle provenance.
- fail(errors,sourceReceipt?.verified===true&&sourceReceipt?.candidateVersion===CANDIDATE&&
-  sourceReceipt?.reviewedSha===reviewedMainSha&&sourceReceipt?.bundleDigestVerified===true,
-  'exact_bundle_source_receipt_required');
- // Preview may exist even when workers_dev is false. Explicit independent route/preview evidence required.
- fail(errors,exposureReceipt?.verified===true&&exposureReceipt?.candidateVersion===CANDIDATE&&
-  exposureReceipt?.publicRoutes===0&&exposureReceipt?.workersDev===false&&
-  exposureReceipt?.previewPubliclyReachable===false,'private_exposure_receipt_required');
+ // This read-only tool does NOT have an authenticated artifact provenance verifier
+ // or a release-authoritative exposure verifier. Never trust caller-supplied booleans.
+ // It is intentionally incapable of issuing a final release-ready receipt.
+ errors.push('independent_bundle_provenance_verifier_required');
+ errors.push('independent_private_exposure_verifier_required');
  return Object.freeze({ready:errors.length===0,worker:WORKER,candidate:CANDIDATE,rollback:ROLLBACK,
   reviewedMainSha:SHA.test(reviewedMainSha||'')?reviewedMainSha:null,errors:Object.freeze(errors)});
 }
@@ -47,15 +52,15 @@ async function getJson(path,token,request){
  if(!res.ok)throw Error('metadata_request_failed_'+res.status);
  const data=await res.json();
  if(data.success!==true||!data.result)throw Error('metadata_response_invalid');
- return data.result;
+ return data;
 }
-export async function inspectAssetV3({token,reviewedMainSha,sourceReceipt,exposureReceipt,request=fetch}={}){
+export async function inspectAssetV3({token,reviewedMainSha,request=fetch}={}){
  if(!token||!SHA.test(reviewedMainSha||''))throw Error('read_token_and_sha_required');
  const prefix='/accounts/'+ACCOUNT+'/workers/scripts/'+WORKER;
- const [candidate,deployments]=await Promise.all([
+ const [candidateEnvelope,deploymentsEnvelope]=await Promise.all([
   getJson(prefix+'/versions/'+CANDIDATE,token,request),getJson(prefix+'/deployments',token,request)
  ]);
- return qualifyAssetV3({candidate,deployments,reviewedMainSha,sourceReceipt,exposureReceipt});
+ return qualifyAssetV3({candidate:candidateEnvelope.result,deployments:{...deploymentsEnvelope.result,result_info:deploymentsEnvelope.result_info},reviewedMainSha});
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
  try{
