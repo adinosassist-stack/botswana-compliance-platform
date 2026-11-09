@@ -220,6 +220,60 @@
       "pattern": "^/public/passport/receipt/[A-Za-z0-9]+$",
       "security": "signed_receipt_verification",
       "feature": "passport"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "kind": "exact",
+      "pattern": "/public/employee/accept",
+      "security": "staff_only_cookie_csrf_origin_rate_limit_feature_flag",
+      "feature": "employee_self_service"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "kind": "exact",
+      "pattern": "/public/employee/login",
+      "security": "staff_only_cookie_csrf_origin_rate_limit_feature_flag",
+      "feature": "employee_self_service"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "kind": "exact",
+      "pattern": "/public/employee/logout",
+      "security": "staff_only_cookie_csrf_origin_rate_limit_feature_flag",
+      "feature": "employee_self_service"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "kind": "exact",
+      "pattern": "/public/employee/me",
+      "security": "staff_only_cookie_csrf_origin_rate_limit_feature_flag",
+      "feature": "employee_self_service"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "kind": "exact",
+      "pattern": "/public/employee/tasks",
+      "security": "staff_only_cookie_csrf_origin_rate_limit_feature_flag",
+      "feature": "employee_self_service"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "kind": "regex",
+      "pattern": "^/public/employee/tasks/[a-f0-9-]{32,36}/progress$",
+      "security": "staff_only_cookie_csrf_origin_rate_limit_feature_flag",
+      "feature": "employee_self_service"
     }
   ],
   "workspaceFeaturePrefixes": {
@@ -246,7 +300,8 @@
       "/api/employee-workflows",
       "/api/hr/",
       "/api/employer-risk",
-      "/api/employee-workflow-reviews"
+      "/api/employee-workflow-reviews",
+      "/api/employee-self-service"
     ],
     "tenders": [
       "/api/tenders"

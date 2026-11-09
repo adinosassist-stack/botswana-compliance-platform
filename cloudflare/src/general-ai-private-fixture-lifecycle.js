@@ -32,6 +32,9 @@ export async function withPrivateSyntheticFixture({scope, fixtureId, adapter, ex
   assert(typeof fixtureId === "string" && idPattern.test(fixtureId), "fixture_synthetic_id_required");
   assert(adapter && ["create", "remove", "assertAbsent"].every(k => typeof adapter[k] === "function"), "fixture_adapter_required");
   assert(typeof exercise === "function", "fixture_exercise_required");
+  // Collision guard: check before any create/cleanup bookkeeping. If a synthetic
+  // identity already exists, fail without attempting deletion of those records.
+  await adapter.assertAbsent(fixtureId);
   const created = [];
   let operationError;
   let result;

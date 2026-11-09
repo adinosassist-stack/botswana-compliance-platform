@@ -7,7 +7,12 @@ export const PAYMENT_DECISIONS = Object.freeze({
 });
 
 const validId = value => typeof value === "string" && value.trim().length > 0 && value.length <= 128;
-const validBankTransactionId = value => validId(value) && value === value.trim();
+// Bank identifiers are equality keys across invoices and tenants. Reject invisible
+// characters, control codes and noncanonical Unicode before allocation checks.
+const validBankTransactionId = value => validId(value) &&
+  value === value.trim() &&
+  value.normalize("NFC") === value &&
+  !/[\p{Cc}\p{Cf}]/u.test(value);
 const validMoney = value => Number.isSafeInteger(value) && value > 0;
 const validCurrency = value => typeof value === "string" && /^[A-Z]{3}$/.test(value);
 

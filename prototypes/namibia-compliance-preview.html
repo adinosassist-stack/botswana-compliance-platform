@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en-NA"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Thebe Desk • Namibia compliance internal preview</title>
+<style>
+:root{color-scheme:light;--blue:#1768cf;--ink:#182335;--line:#dce4ef}
+*{box-sizing:border-box}body{margin:0;background:#f6f8fb;color:var(--ink);font:15px/1.5 system-ui,Arial,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:32px 18px 70px}header{display:flex;justify-content:space-between;gap:12px;align-items:start;flex-wrap:wrap}
+.brand{font-weight:800;color:var(--blue)}h1{font-size:clamp(26px,4vw,42px);line-height:1.12;margin:10px 0}
+p{color:#536276}small{color:#536276}.tag{border:1px solid #b7c9e8;padding:6px 12px;border-radius:99px;color:#1e4f95;background:#f0f6ff;font-weight:700}
+.grid{display:grid;grid-template-columns:minmax(260px,350px) 1fr;gap:18px;margin-top:26px}
+.card{background:white;border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 6px 22px #14294b08}
+form{display:grid;gap:12px}label{display:grid;gap:6px;font-weight:650;font-size:13px}
+input,select{padding:10px 11px;border:1px solid #bac8da;border-radius:9px;background:white;color:var(--ink);font:inherit;width:100%}
+button{border:0;border-radius:10px;background:var(--blue);color:white;padding:12px 14px;font-weight:750;cursor:pointer}
+button:focus-visible,a:focus-visible{outline:3px solid #d09513;outline-offset:3px}
+.cards{display:grid;gap:12px}.task{border:1px solid var(--line);border-radius:13px;padding:15px}
+.task h3{margin:0 0 6px;font-size:17px}.task p{margin:4px 0}
+.pill{display:inline-block;background:#f0f4fa;color:#455b75;padding:3px 9px;border-radius:99px;font-size:12px}
+a{color:var(--blue)}.error{color:#a31515;font-weight:650}.muted{font-size:13px}
+@media(max-width:700px){.grid{grid-template-columns:1fr}}
+</style></head>
+<body><main><header><div><div class="brand">THEBE DESK / INTERNAL DESIGN PREVIEW</div>
+<h1>Namibia compliance workspace</h1>
+<p>Draft company obligations, evidence checklists, and review-only VAT guidance for Namibian businesses.</p></div>
+<div class="tag">Not live · no filings</div></header>
+<section class="grid"><aside class="card"><h2>Business details</h2><form id="profile">
+<label>Entity reference<input name="entityRef" maxlength="64" value="NA-DEMO-01" required></label>
+<label>Entity type<select name="entityType"><option value="company">Company</option><option value="close_corporation">Close corporation</option><option value="section21_company">Section 21 company</option></select></label>
+<label>Financial year end<input name="financialYearEnd" type="date" value="2026-12-31" required></label>
+<label>Ownership information<select name="ownershipChange"><option value="unknown">Not reviewed</option><option value="changed">Material changes</option><option value="no_change">No changes (review BO2 eligibility)</option></select></label>
+<label>Annual taxable turnover · N$<input name="annualTaxableTurnoverNAD" type="number" min="0" step="0.01" value="550000" required></label>
+<label>Business activity<input name="activityDescription" value="General retail"></label>
+<label>Optional planning date (not a legal due date)<input name="planningDate" type="date" value="2027-01-15"></label>
+<button type="submit">Prepare draft checklist</button></form><p class="muted">All data stays in this browser view. No API, submission, storage or reminder is triggered.</p></aside>
+<div class="card"><h2>Compliance drafts</h2><p class="muted">Official applicability, due dates and final obligations require independent review.</p>
+<div id="notice" role="status" aria-live="polite"></div><div id="tasks" class="cards"></div><section aria-labelledby="calendarHeading"><h2 id="calendarHeading">Planning calendar</h2><p class="muted">Planning dates are manual suggestions, not legal filing deadlines. No notifications or filings are enabled.</p><div id="calendarPreview" class="cards" role="list"></div></section></div></section></main>
+<script type="module">
+import { namibiaDraftQueue,evidenceChecklist,reminderPreview } from "../cloudflare/src/namibia-compliance-workflows.js";
+const form=document.querySelector("#profile"), tasks=document.querySelector("#tasks"),notice=document.querySelector("#notice"),calendar=document.querySelector("#calendarPreview");
+function add(parent,tag,value,css){const e=document.createElement(tag);if(css)e.className=css;e.textContent=value;parent.append(e);return e;}
+function render(){
+  const data=Object.fromEntries(new FormData(form).entries());
+  const queue=namibiaDraftQueue(data,{ownershipChange:data.ownershipChange,annualTaxableTurnoverNAD:Number(data.annualTaxableTurnoverNAD),activityDescription:data.activityDescription});
+  tasks.replaceChildren();calendar.replaceChildren();notice.textContent="";
+  if(!queue.valid){add(notice,"p","Input issue: "+queue.reason,"error");return;}
+  add(notice,"p",queue.value.tasks.length+" review-only tasks generated. None approved or submitted.");
+  for(const task of queue.value.tasks){
+    const card=add(tasks,"article","","task");
+    add(card,"h3",task.title);
+    add(card,"span","DRAFT • NOT FILED • DATE UNCONFIRMED","pill");
+    if(task.form)add(card,"p","Form: "+task.form);
+    if(task.suggestedForm)add(card,"p","Suggested BO form: "+task.suggestedForm+" (verify eligibility)");
+    if(task.indicator)add(card,"p","VAT indication: "+task.indicator.replaceAll("_"," "));
+    const c=evidenceChecklist(task,[]);
+    add(card,"p","Evidence checklist: "+c.value.missing.join(", "),"muted");
+    if(data.planningDate){
+      const reminder=reminderPreview(task,data.planningDate);
+      if(reminder.valid){
+        add(card,"p","Planning calendar draft: "+reminder.value.date+" · NOT an official deadline · notifications off","muted");
+        const entry=add(calendar,"div","","task");entry.setAttribute("role","listitem");
+        add(entry,"strong",reminder.value.date+" · "+reminder.value.title);
+        add(entry,"p","Unverified planning date · No reminder scheduled · Review official source","muted");
+      }
+    }
+    const link=add(card,"a","Official source");link.href=task.sourceUrl;link.target="_blank";link.rel="noopener noreferrer";
+  }
+}
+form.addEventListener("submit",e=>{e.preventDefault();render();});
+render();
+</script></body></html>

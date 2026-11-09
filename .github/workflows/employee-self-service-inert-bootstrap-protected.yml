@@ -1,0 +1,157 @@
+name: Protected employee self-service inert staging bootstrap
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/employee-self-service-inert-bootstrap-protected.yml'
+      - 'scripts/employee-self-service-protected-bootstrap-guard.mjs'
+      - 'tests/employee-self-service-protected-bootstrap-guard.test.mjs'
+      - 'cloudflare/wrangler.employee-self-service-staging.toml'
+      - 'cloudflare/src/employee-self-service-staging-entry.js'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Offline preflight or separately approved one-time inert Worker bootstrap
+        type: choice
+        required: true
+        default: preflight
+        options:
+          - preflight
+          - bootstrap-inert
+      expected_main_sha:
+        description: Exact current protected main SHA (40 lowercase hex)
+        type: string
+        required: true
+      authorization:
+        description: Enter PREFLIGHT_ONLY for read-only preflight, or BOOTSTRAP_INERT_EMPLOYEE_STAGING for protected bootstrap
+        type: string
+        required: true
+        default: PREFLIGHT_ONLY
+permissions:
+  contents: read
+concurrency:
+  group: employee-self-service-inert-bootstrap
+  cancel-in-progress: false
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Qualify employee Worker, staging D1 and protected approval logic offline
+        run: |
+          node scripts/employee-self-service-staging-preflight.mjs
+          node --test tests/employee-self-service-staging-boundary.test.mjs tests/employee-self-service-protected-bootstrap-guard.test.mjs
+          npm run test:employee-self-service
+      - name: Compile dedicated inert Worker without deploying
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx wrangler deploy --dry-run --config cloudflare/wrangler.employee-self-service-staging.toml --outdir /tmp/employee-staging-bundle
+          test -n "$(find /tmp/employee-staging-bundle -type f -print -quit)"
+  protected-preflight:
+    needs: offline
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'preflight' && inputs.authorization == 'PREFLIGHT_ONLY'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: employee-self-service-staging-protected
+    env:
+      EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+      DEPLOY_MODE: ${{ inputs.mode }}
+      AUTHORIZATION: ${{ inputs.authorization }}
+      CLOUDFLARE_ACCOUNT_ID: ddd23cab31928a4bb3d4998df9b26d1d
+      STAFF_STAGING_GITHUB_READ_TOKEN: ${{ secrets.STAFF_STAGING_GITHUB_READ_TOKEN }}
+      STAFF_STAGING_CLOUDFLARE_TOKEN: ${{ secrets.STAFF_STAGING_CLOUDFLARE_TOKEN }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - name: Confirm exact main SHA and preflight-only scope before credential use
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_MAIN_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_SHA" = "$EXPECTED_MAIN_SHA"
+          test "$DEPLOY_MODE" = "preflight"
+          test "$AUTHORIZATION" = "PREFLIGHT_ONLY"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.expected_main_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Recheck exact checkout and offline staging config
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN_SHA"
+          node scripts/employee-self-service-staging-preflight.mjs
+      - name: Read-only protected GitHub policy and Cloudflare staging qualification
+        run: node scripts/employee-self-service-protected-bootstrap-guard.mjs verify-remote
+  bootstrap-inert:
+    needs: offline
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'bootstrap-inert' && inputs.authorization == 'BOOTSTRAP_INERT_EMPLOYEE_STAGING'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    environment: employee-self-service-staging-protected
+    env:
+      EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+      DEPLOY_MODE: ${{ inputs.mode }}
+      AUTHORIZATION: ${{ inputs.authorization }}
+      CLOUDFLARE_ACCOUNT_ID: ddd23cab31928a4bb3d4998df9b26d1d
+      STAFF_STAGING_GITHUB_READ_TOKEN: ${{ secrets.STAFF_STAGING_GITHUB_READ_TOKEN }}
+      STAFF_STAGING_CLOUDFLARE_TOKEN: ${{ secrets.STAFF_STAGING_CLOUDFLARE_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.STAFF_STAGING_CLOUDFLARE_TOKEN }}
+      GITHUB_TOKEN: ${{ github.token }}
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - name: Deny stale branch, missing exact SHA, and unauthorized mode before checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_MAIN_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_SHA" = "$EXPECTED_MAIN_SHA"
+          test "$AUTHORIZATION" = "BOOTSTRAP_INERT_EMPLOYEE_STAGING"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.expected_main_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Prove checkout and offline deny-by-default staging boundary
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN_SHA"
+          node scripts/employee-self-service-staging-preflight.mjs
+          node --test tests/employee-self-service-staging-boundary.test.mjs tests/employee-self-service-protected-bootstrap-guard.test.mjs
+          npm run test:employee-self-service
+      - name: Compile exact source before accessing any Cloudflare deployment token
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx wrangler deploy --dry-run --config cloudflare/wrangler.employee-self-service-staging.toml --outdir /tmp/employee-staging-bootstrap-bundle
+          test -n "$(find /tmp/employee-staging-bootstrap-bundle -type f -print -quit)"
+      - name: Verify protected thusico review, selected-main policy, empty staging D1 and Worker absence
+        run: node scripts/employee-self-service-protected-bootstrap-guard.mjs verify-remote
+      - name: Repeat exact SHA and all remote guards immediately before first Worker creation
+        run: node scripts/employee-self-service-protected-bootstrap-guard.mjs verify-remote
+      - name: Bootstrap route-free inert employee staging Worker only
+        run: npx wrangler deploy --config cloudflare/wrangler.employee-self-service-staging.toml
+      - name: Verify newly created private script exists (no public URL claimed)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const account='ddd23cab31928a4bb3d4998df9b26d1d';
+          const url='https://api.cloudflare.com/client/v4/accounts/'+account+'/workers/scripts/bw-employee-self-service-staging/settings';
+          const response=await fetch(url,{headers:{Authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN},redirect:'error',signal:AbortSignal.timeout(15000)});
+          const body=await response.json().catch(()=>({}));
+          if(response.status!==200||body.success!==true)throw Error('employee_inert_worker_receipt_missing');
+          console.log('Verified isolated inert Worker script exists; no public route or staff activation claimed.');
+          NODE

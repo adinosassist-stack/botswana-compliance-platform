@@ -27,6 +27,12 @@ try{
  await page.getByRole('button',{name:'Register asset',exact:true}).click();
  await page.getByLabel('Asset name',{exact:true}).fill('Office laptop');await page.getByLabel('Branch / location',{exact:true}).fill('Palapye');await page.getByLabel('Acquisition date',{exact:true}).fill('2026-10-01');await page.getByLabel('Acquisition cost (BWP)',{exact:true}).fill('15000.25');await page.getByLabel('Recorded book value (BWP)',{exact:true}).fill('14000');
  await page.getByRole('button',{name:'Save',exact:true}).click();await page.locator('dialog').waitFor({state:'detached'});assert.ok(await page.evaluate(()=>calls.some(c=>c.method==='POST')));
+ // A generic 200 OK followed by a page without the new ID cannot prove a saved record exists.
+ await page.getByText('Save accepted, but the saved asset was not found on the refreshed page. Search or refresh to verify the record.').waitFor();
+ // Editing an existing ID confirms the positive readback path when the exact ID is present.
+ await page.getByRole('button',{name:'Edit',exact:true}).click();
+ await page.getByRole('button',{name:'Save',exact:true}).click();
+ await page.getByText('Saved and verified in your company register.').waitFor();
  await page.getByRole('button',{name:'History',exact:true}).click();await page.getByText('corporate asset created',{exact:true}).waitFor();await page.getByRole('button',{name:'Close',exact:true}).click();
  await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'mobile viewport must not overflow');
  await page.screenshot({path:'test-results/corporate-assets-mobile.png',fullPage:true,animations:'disabled'});
@@ -57,6 +63,39 @@ try{
  await page.getByRole('button',{name:'Cancel',exact:true}).click();
  await page.locator('.corporate-asset-dialog').waitFor({state:'detached'});
  assert.equal(await page.locator('.corporate-asset-dialog').count(),0);
+ // A response without an explicit save acknowledgement must not be shown as a successful write.
+ await page.evaluate(()=>{window.apiJson=(path,opts={})=>opts.method==='POST'?Promise.resolve({ok:false}):window.savedAssetsApi(path,opts)});
+ await page.getByRole('button',{name:'Register asset',exact:true}).click();
+ await page.getByLabel('Asset name',{exact:true}).fill('Office laptop');
+ await page.getByLabel('Branch / location',{exact:true}).fill('Palapye');
+ await page.getByLabel('Acquisition date',{exact:true}).fill('2026-10-01');
+ await page.getByLabel('Acquisition cost (BWP)',{exact:true}).fill('15000');
+ await page.getByLabel('Recorded book value (BWP)',{exact:true}).fill('14000');
+ await page.getByRole('button',{name:'Save',exact:true}).click();
+ await page.getByText('The server did not confirm this save. Refresh before trying again.').waitFor();
+ assert.equal(await page.locator('.corporate-asset-dialog').count(),1,'unconfirmed save must keep form open');
+ await page.getByRole('button',{name:'Cancel',exact:true}).click();
+ await page.locator('.corporate-asset-dialog').waitFor({state:'detached'});
+ // An acknowledged save followed by a failed list refresh is not a verified readback.
+ await page.evaluate(()=>{window.apiJson=(path,opts={})=>opts.method==='POST'?Promise.resolve({ok:true}):path.startsWith('/api/corporate-assets?')?Promise.reject(Object.assign(Error('assets_unavailable'),{code:'assets_unavailable'})):window.savedAssetsApi(path,opts)});
+ await page.getByRole('button',{name:'Register asset',exact:true}).click();
+ await page.getByLabel('Asset name',{exact:true}).fill('Company printer');
+ await page.getByLabel('Branch / location',{exact:true}).fill('Gaborone');
+ await page.getByLabel('Acquisition date',{exact:true}).fill('2026-10-01');
+ await page.getByLabel('Acquisition cost (BWP)',{exact:true}).fill('1200');
+ await page.getByLabel('Recorded book value (BWP)',{exact:true}).fill('1100');
+ await page.getByRole('button',{name:'Save',exact:true}).click();
+ await page.locator('.corporate-asset-dialog').waitFor({state:'detached'});
+ await page.getByText('Save accepted, but the register could not be refreshed. Use Refresh to verify your record.').waitFor();
+ await page.getByRole('button',{name:'Export view',exact:true}).click();
+ await page.getByText('Export is unavailable until the asset register loads. Use Refresh to retry.').waitFor();
+ // Malformed list payload fails closed without making the register writable.
+ await page.evaluate(()=>{window.apiJson=async()=>({items:null,summary:{},nextCursor:null})});
+ await page.getByRole('button',{name:'Refresh',exact:true}).click();
+ await page.getByText('Could not load asset registration. Use Refresh to retry; no records can be saved.').waitFor();
+ await page.evaluate(()=>{window.apiJson=window.savedAssetsApi});
+ await page.getByRole('button',{name:'Refresh',exact:true}).click();
+ await page.getByText('TR-001',{exact:true}).waitFor();
  assert.deepEqual(errors,[]);
  console.log('PASS Asset API unavailable click feedback and independent schedule failure handling');
 }finally{await browser.close()}
