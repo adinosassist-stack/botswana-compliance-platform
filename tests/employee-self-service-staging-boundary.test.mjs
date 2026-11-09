@@ -114,7 +114,7 @@ test("production and employee staging stay isolated across customer-facing featu
   THEBE_LIVE_VOICE_ENABLED:"false",POP_UPLOAD_STAGING_ENABLED:"false",
   PAYMENT_PROVIDER:"none"
  })){
-  assert.match(staging,new RegExp("^"+key+" = \\""+value+"\\"$","m"),key+" must remain isolated");
+  assert.ok(staging.split("\n").includes(key+' = "'+value+'"'),key+" must remain isolated");
  }
  assert.match(prod,/^name = "bw-compliance-os"$/m);
  assert.match(staging,/^name = "bw-employee-self-service-staging"$/m);
