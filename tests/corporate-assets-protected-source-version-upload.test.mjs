@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {requireVersionOnlyContext,checkVersionInventory,verifyStableDeployment,
- assertInertVersionBindings,assertVersionOnlyResult} from '../scripts/corporate-assets-protected-source-version-upload.mjs';
+ assertInertVersionBindings,assertVersionOnlyResult,minimalWranglerEnvironment} from '../scripts/corporate-assets-protected-source-version-upload.mjs';
 import {DB,ROLLBACK,CANDIDATE} from '../scripts/corporate-assets-v3-predeployment-attestation.mjs';
 const sha='a'.repeat(40),newId='11111111-2222-4333-8444-555555555555';
 const text=(name,value)=>({name,type:'plain_text',text:value});
@@ -81,4 +81,18 @@ test('detects post-upload traffic shift, public exposure, wrong candidate or for
   a=>a.reproducibility.sourceSha='b'.repeat(40),
   a=>a.reproducibility.sourceToCloudflareUploadVerified=true
  ]){const a=result();mutation(a);assert.throws(()=>assertVersionOnlyResult(a))}
+});
+
+test('Wrangler subprocess cannot inherit GitHub, staging tokens or unrelated secrets',()=>{
+ const e=minimalWranglerEnvironment('fake-cloudflare-token',{
+  PATH:'/usr/bin',HOME:'/home/runner',GITHUB_TOKEN:'danger',
+  ASSETS_STAGING_GITHUB_READ_TOKEN:'danger2',SESSION_SECRET:'danger3',
+  NODE_OPTIONS:'--require injected.js',CLOUDFLARE_API_TOKEN:'old'});
+ assert.equal(e.CLOUDFLARE_API_TOKEN,'fake-cloudflare-token');
+ assert.equal(e.CLOUDFLARE_ACCOUNT_ID,'ddd23cab31928a4bb3d4998df9b26d1d');
+ assert.equal(e.WRANGLER_SEND_METRICS,'false');
+ assert.equal(e.PATH,'/usr/bin');
+ for(const name of ['GITHUB_TOKEN','ASSETS_STAGING_GITHUB_READ_TOKEN','SESSION_SECRET','NODE_OPTIONS'])
+  assert.equal(e[name],undefined);
+ assert.throws(()=>minimalWranglerEnvironment(''));
 });
