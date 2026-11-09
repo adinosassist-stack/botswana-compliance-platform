@@ -45,7 +45,7 @@ test('source input mismatch and forged bundle digest rejected',()=>{
  const b=receipt();b.inputManifestDigest='f'.repeat(64);
  assert.ok(compareIndependentDryRuns({expectedSha:sha,first:receipt(),second:b}).errors.includes('source_input_digest_changed'));
  const c=receipt();c.bundleDigest='f'.repeat(64);
- assert.ok(compareIndependentDryRuns({expectedSha:sha,first:receipt(),second:c}).errors.includes('bundle_digest_changed'));
+ assert.ok(compareIndependentDryRuns({expectedSha:sha,first:receipt(),second:c}).auxiliaryDifferences.includes('full_bundle_digest_changed'));
 });
 test('two compiler invocations execute independently and mismatch fails closed',()=>{
  let n=0;
