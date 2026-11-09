@@ -35,3 +35,15 @@ test("fails closed on unexpected cross-scope database result",async()=>{
  const db=fakeDb({id:booking.id,tenant_id:"other",property_id:"property",room_id:"room-1"});
  await assert.rejects(createGuestHouseReservation({db,authorizedScope:scope,booking}),/scope_mismatch/);
 });
+
+test("rejects inconsistent dates or status in inserted reservation result",async()=>{
+ const valid={id:booking.id,tenant_id:"tenant",property_id:"property",room_id:booking.roomId,
+   check_in:booking.checkIn,check_out:booking.checkOut,status:booking.status,nightly_rate_minor:40000};
+ for(const changed of [
+  {check_in:"2026-11-11"},{check_out:"2026-11-13"},{status:"cancelled"},
+  {nightly_rate_minor:-1},{nightly_rate_minor:1.5},{nightly_rate_minor:null}
+ ]){
+  const db=fakeDb({...valid,...changed});
+  await assert.rejects(createGuestHouseReservation({db,authorizedScope:scope,booking}),/scope_mismatch/);
+ }
+});
