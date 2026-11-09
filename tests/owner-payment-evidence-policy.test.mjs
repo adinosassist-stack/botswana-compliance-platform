@@ -100,3 +100,25 @@ test("bank reversal or failed settlement cannot qualify a resubmission",()=>{
     assert.notEqual(result.decision,D.VERIFIED);
   }
 });
+
+
+test("a fresh bank transaction cannot rescue mismatched invoice or tenant on resubmission",()=>{
+ const fresh={...bankEvidence,bankTransactionId:"bank-new-789"};
+ for(const patch of [{invoiceId:"inv-previous"},{tenantId:"tenant-other"},{amountMinor:149999},{currency:"USD"}]){
+  const result=evaluate(input({bankEvidence:{...fresh,...patch}}));
+  assert.notEqual(result.decision,D.VERIFIED);
+ }
+});
+test("an administrator cannot turn missing reconciliation history into an approved resubmission",()=>{
+ for(const priorBankAllocations of [undefined,null,[null],[{bankTransactionId:" bank-123",invoiceId:"inv-old",tenantId:"tenant-a"}]]){
+  const result=evaluate(input({priorBankAllocations}));
+  assert.notEqual(result.decision,D.VERIFIED);
+ }
+});
+test("a valid bank credit cannot bypass reviewer identity or tenant authorization",()=>{
+ const fresh={...bankEvidence,bankTransactionId:"bank-new-789"};
+ for(const patch of [{authenticated:false},{role:"staff"},{tenantId:"tenant-other"},{actorId:""}]){
+  const result=evaluate(input({bankEvidence:fresh,reviewer:{...reviewer,...patch}}));
+  assert.notEqual(result.decision,D.VERIFIED);
+ }
+});
