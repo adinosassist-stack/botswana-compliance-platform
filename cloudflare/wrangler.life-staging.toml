@@ -1,0 +1,24 @@
+# Thebe Life: dedicated private Worker; no worker.dev, preview URL, route or custom domain.
+# Must remain inert until an independently reviewed authenticated staging release.
+name = "bw-life-staging"
+main = "src/thebe-life-private-staging-entry.js"
+compatibility_date = "2026-09-03"
+workers_dev = false
+preview_urls = false
+
+[vars]
+APP_ENV = "staging"
+DEPLOYMENT_PROFILE = "thebe-life-private-staging"
+THEBE_LIFE_HOUSEHOLD_ENABLED = "false"
+THEBE_LIFE_INSURANCE_ENABLED = "false"
+THEBE_LIFE_MOTSHELO_PAYMENTS_ENABLED = "false"
+LIFE_STAGING_PUBLIC_ROUTES_ENABLED = "false"
+LIFE_STAGING_DATA_CLASS = "synthetic-only"
+LIFE_D1_DATABASE_ID = "fa58bcb8-5871-4272-b3e8-c8cc2548dcd2"
+PAYMENT_PROVIDER = "none"
+AI_FEATURES_DEFAULT = "off"
+
+[[d1_databases]]
+binding = "LIFE_DB"
+database_name = "bw-life-staging"
+database_id = "fa58bcb8-5871-4272-b3e8-c8cc2548dcd2"
