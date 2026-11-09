@@ -69,6 +69,7 @@ jobs:
           [[ "$EXPECTED_MAIN_SHA" =~ ^[a-f0-9]{40}$ ]]
           test "$GITHUB_REF" = refs/heads/main
           test "$GITHUB_SHA" = "$EXPECTED_MAIN_SHA"
+          test "${GITHUB_ACTOR,,}" != thusico
           test "$ASSETS_SOURCE_VERSION_MODE" = create-version-only
           test "$ASSETS_SOURCE_VERSION_AUTHORIZATION" = CREATE_ISOLATED_ASSETS_SOURCE_VERSION
           test -n "$ASSETS_STAGING_GITHUB_READ_TOKEN"
