@@ -56,6 +56,7 @@ jobs:
             tests/thebe-life-d1-writer.test.mjs \
             tests/thebe-life-household-route.test.mjs \
             tests/thebe-life-workspace-adapter-static.test.mjs \
+            tests/thebe-life-workspace-budget-preview.test.mjs \
             tests/thebe-life-staging-preflight.test.mjs \
             tests/thebe-life-family-budget-summary.test.mjs \
             tests/thebe-life-family-members-goals.test.mjs \
