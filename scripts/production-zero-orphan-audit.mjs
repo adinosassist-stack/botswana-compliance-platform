@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import {qualifyProductionTenantDependencyTables} from './production-core-tenant-dependency-scope.mjs';
+import {buildDanglingTenantReferenceCountSql} from './production-tenant-reference-scope.mjs';
 
 const CF_API='https://api.cloudflare.com/client/v4';
 const token=String(process.env.CLOUDFLARE_API_TOKEN||'').trim();
@@ -79,7 +80,7 @@ for(const match of schema.matchAll(tableRe)){
 assert(danglingChecks.length>0,'tenant-reference inventory is empty');
 let danglingRows=0;
 for(const [table,column] of danglingChecks){
-  danglingRows+=await d1Count(`${table}.${column} dangling tenant reference`,`SELECT COUNT(*) AS count FROM ${table} r WHERE r.${column} IS NOT NULL AND NOT EXISTS (SELECT 1 FROM tenants t WHERE t.id=r.${column})`);
+  danglingRows+=await d1Count(`${table}.${column} dangling tenant reference`,buildDanglingTenantReferenceCountSql(table,column));
 }
 assert(danglingRows===0,`dangling tenant-reference rows detected: ${danglingRows}`);
 mark('zero-orphan production baseline',`orphanTenants=0 orphanUsers=0 danglingTenantReferences=0 checkedColumns=${danglingChecks.length}`);
