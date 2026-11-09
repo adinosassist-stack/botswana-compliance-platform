@@ -5,6 +5,8 @@ on:
       - '.github/workflows/corporate-assets-protected-provenance-preflight.yml'
       - 'scripts/corporate-assets-protected-provenance-preflight.mjs'
       - 'tests/corporate-assets-protected-provenance-preflight.test.mjs'
+      - 'scripts/corporate-assets-complete-readonly-evidence.mjs'
+      - 'tests/corporate-assets-complete-readonly-evidence.test.mjs'
   workflow_dispatch:
     inputs:
       mode:
@@ -44,6 +46,8 @@ jobs:
         run: |
           node --check scripts/corporate-assets-protected-provenance-preflight.mjs
           node --test tests/corporate-assets-protected-provenance-preflight.test.mjs
+          node --check scripts/corporate-assets-complete-readonly-evidence.mjs
+          node --test tests/corporate-assets-complete-readonly-evidence.test.mjs
   protected-readonly:
     needs: offline
     if: >-
@@ -84,3 +88,6 @@ jobs:
           node --test tests/corporate-assets-protected-provenance-preflight.test.mjs
       - name: Read-only GitHub policy, source inputs and Cloudflare metadata
         run: node scripts/corporate-assets-protected-provenance-preflight.mjs
+
+      - name: Verify account-wide private exposure with source hold (GET only)
+        run: node scripts/corporate-assets-complete-readonly-evidence.mjs
