@@ -37,6 +37,9 @@ jobs:
           node --check cloudflare/src/thebe-life-staging-preflight.js
           node --check server/thebe-life/d1-household-reader.mjs
           node --check server/thebe-life/d1-household-writer.mjs
+          node --check server/thebe-life/d1-family-budget-summary.mjs
+          node --check server/thebe-life/d1-family-members.mjs
+          node --check server/thebe-life/family-goal-planner.mjs
           node --check public/js/thebe-life-workspace-preview.js
           node --check public/js/thebe-life-workspace-adapter.js
       - name: Offline Life tests — no credentials or customer data
@@ -48,4 +51,6 @@ jobs:
             tests/thebe-life-d1-writer.test.mjs \
             tests/thebe-life-household-route.test.mjs \
             tests/thebe-life-workspace-adapter-static.test.mjs \
-            tests/thebe-life-staging-preflight.test.mjs
+            tests/thebe-life-staging-preflight.test.mjs \
+            tests/thebe-life-family-budget-summary.test.mjs \
+            tests/thebe-life-family-members-goals.test.mjs
