@@ -11,7 +11,7 @@ This is a **planning and evidence checklist**, not a claim that production is qu
 ## Non-negotiable controls
 - A customer-submitted reference, screenshot or proof of payment is **not** evidence of cleared bank funds.
 - Rejected submissions remain immutable; replacement checkout must use a new order and must not activate the rejected order.
-- No production database writes, feature flag activation, token rotation or deployment from this documentation-only PR.
+- No production database writes, feature flag activation, token rotation or deployment from this consolidated test-and-documentation PR.
 - Keep independent `thusico` approval, protected environments, branch restrictions, SHA-bound evidence and no self-review.
 - Mark each acceptance row PASS / FAIL / BLOCKED with exact SHA, run URL, timestamp, environment and sanitized evidence.
 
@@ -23,3 +23,9 @@ This is a **planning and evidence checklist**, not a claim that production is qu
 5. Run postdeploy smoke checks, rollback verification and audit record reconciliation.
 
 Related issues: #1874 #1886 #2291 #1950 #2102 #1934 #2187 #474 #1868 #2271 #2204 #2157.
+
+## Evidence snapshot (offline only)
+- Source commit `31359ad6f9c895dc1f5441e49c45b1e9588b1f0f`: owner payment evidence policy, manual-bank offline qualification, POP isolated SQLite rehearsal, Batch A customer launch acceptance, employee staging gates, Corporate Assets V1 CI, General AI production-readiness offline gate, General AI research CI, and independent review regressions completed successfully in GitHub Actions.
+- Client runtime identity, audit remediation and recovery CI were still in progress at the time of this snapshot. Recheck the exact final PR head before approval.
+- No authenticated live bank settlement, D1 concurrency, staging assets mutation, live paid AI/voice provider, or isolated restore acceptance is asserted by these offline results.
+- Independent reviewer `thusico` has been requested on PR #2303; request is not approval.
