@@ -28,7 +28,7 @@ test('fails closed for negative, fractional, unsafe or duplicate values',()=>{
   assert.throws(()=>planHouseholdBudget({incomeMinor:2.5}),/invalid_income/);
   assert.throws(()=>planHouseholdBudget({incomeMinor:100,envelopes:[{id:'food',plannedMinor:2},{id:'food',plannedMinor:3}]}),/duplicate/);
   assert.throws(()=>planHouseholdBudget({incomeMinor:100,envelopes:[{id:'x',plannedMinor:-1}]}),/invalid_planned/);
-  assert.throws(()=>planHouseholdBudget({incomeMinor:Number.MAX_SAFE_INTEGER,commitmentsMinor:1}),/overflow/);
+  assert.throws(()=>planHouseholdBudget({incomeMinor:100,envelopes:[{id:'x',plannedMinor:Number.MAX_SAFE_INTEGER},{id:'y',plannedMinor:1}]}),/overflow/);
   assert.throws(()=>planHouseholdBudget({incomeMinor:10,envelopes:[{id:'x',plannedMinor:10,spentMinor:11.1}]}),/invalid_spent/);
 });
 
