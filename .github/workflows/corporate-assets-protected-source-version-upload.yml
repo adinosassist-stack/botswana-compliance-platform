@@ -1,0 +1,94 @@
+name: Corporate Assets protected VERSION ONLY source upload
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/corporate-assets-protected-source-version-upload.yml'
+      - 'scripts/corporate-assets-protected-source-version-upload.mjs'
+      - 'tests/corporate-assets-protected-source-version-upload.test.mjs'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Exact version-only creation operation; NEVER deploy
+        type: choice
+        required: true
+        default: preflight-only
+        options:
+          - preflight-only
+          - create-version-only
+      expected_main_sha:
+        description: Exact current main SHA, independently reviewed
+        type: string
+        required: true
+      authorization:
+        description: Explicit separate owner authorization; do not reuse read-only approval
+        type: string
+        required: true
+        default: PREFLIGHT_ONLY
+permissions:
+  contents: read
+concurrency:
+  group: corporate-assets-protected-source-version-creation
+  cancel-in-progress: false
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Offline source version-upload adversarial qualification
+        run: |
+          node --check scripts/corporate-assets-protected-source-version-upload.mjs
+          node --test tests/corporate-assets-protected-source-version-upload.test.mjs
+  protected-version-only:
+    needs: offline
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.mode == 'create-version-only' &&
+      inputs.authorization == 'CREATE_ISOLATED_ASSETS_SOURCE_VERSION'
+    environment: corporate-assets-staging-protected
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+      ASSETS_SOURCE_VERSION_MODE: ${{ inputs.mode }}
+      ASSETS_SOURCE_VERSION_AUTHORIZATION: ${{ inputs.authorization }}
+      ASSETS_STAGING_GITHUB_READ_TOKEN: ${{ secrets.ASSETS_STAGING_GITHUB_READ_TOKEN }}
+      ASSETS_STAGING_CLOUDFLARE_TOKEN: ${{ secrets.ASSETS_STAGING_CLOUDFLARE_TOKEN }}
+    steps:
+      - name: Reject stale, unapproved or invalid write request before checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_MAIN_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_SHA" = "$EXPECTED_MAIN_SHA"
+          test "${GITHUB_ACTOR,,}" != thusico
+          test "$ASSETS_SOURCE_VERSION_MODE" = create-version-only
+          test "$ASSETS_SOURCE_VERSION_AUTHORIZATION" = CREATE_ISOLATED_ASSETS_SOURCE_VERSION
+          test -n "$ASSETS_STAGING_GITHUB_READ_TOKEN"
+          test -n "$ASSETS_STAGING_CLOUDFLARE_TOKEN"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.expected_main_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Install lockfile dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Validate exact checkout and source upload controls offline
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN_SHA"
+          node --test tests/corporate-assets-protected-source-version-upload.test.mjs
+      - name: Create one private undeployed Worker version, audit before and after
+        run: node scripts/corporate-assets-protected-source-version-upload.mjs
