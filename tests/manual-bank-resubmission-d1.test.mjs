@@ -28,7 +28,7 @@ test('rejected manual-bank attempt remains sealed while a new order accepts a fr
   await DB.prepare("INSERT INTO tenants(id) VALUES('client')").run();
   const migration=fs.readFileSync(new URL('../cloudflare/migrations/050_v115_manual_bank_subscriptions.sql',import.meta.url),'utf8');
   // The migration contains only schema statements and indexes.
-  await DB.exec(migration.replaceAll('\n',' '));
+  for(const sql of migration.match(/CREATE TABLE IF NOT EXISTS \\w+\\([\\s\\S]*?\\);|CREATE INDEX IF NOT EXISTS [^;]+;/g)||[])await DB.prepare(sql).run();
   let audits=0;
   const actor={role:'owner',tenant_id:'client',user_id:'customer-owner'};
   const insertOrder=async(id,metadata={plan:'business',billingCycle:'monthly'})=>{
