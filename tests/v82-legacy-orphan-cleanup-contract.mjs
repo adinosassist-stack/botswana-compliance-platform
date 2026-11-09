@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import {DatabaseSync} from 'node:sqlite';
+import {buildDanglingTenantReferenceCountSql, PUBLIC_MARKETING_EVENTS} from '../scripts/production-tenant-reference-scope.mjs';
 
 const cleanup=fs.readFileSync('scripts/production-legacy-orphan-cleanup.mjs','utf8');
 const zeroAudit=fs.readFileSync('scripts/production-zero-orphan-audit.mjs','utf8');
@@ -55,4 +57,42 @@ ok(zeroAudit.includes("assert(/^SELECT\\b/i.test(statement)")&&zeroAudit.include
 ok(zeroAudit.includes('assert(orphanTenants===0')&&zeroAudit.includes('assert(orphanUsers===0'),'permanent baseline rejects orphan tenants and orphan users');
 ok(zeroAudit.includes('dangling tenant-reference rows detected')&&zeroAudit.includes('body.matchAll(/\\b([A-Za-z0-9_]*tenant_id)\\b/gi)'),'permanent baseline dynamically rejects dangling tenant references');
 
-console.log(`Legacy orphan cleanup and zero-baseline contract: ${pass}/19 PASS`);
+
+const db=new DatabaseSync(':memory:');
+try{
+  db.exec(`CREATE TABLE tenants(id TEXT PRIMARY KEY);
+    CREATE TABLE audit_events(tenant_id TEXT NOT NULL,actor_user_id TEXT,entity_type TEXT,entity_id TEXT,event_type TEXT NOT NULL);
+    CREATE TABLE payment_orders(tenant_id TEXT NOT NULL);
+    INSERT INTO tenants(id) VALUES ('live-tenant');`);
+  const add=db.prepare('INSERT INTO audit_events(tenant_id,actor_user_id,entity_type,entity_id,event_type) VALUES(?,?,?,?,?)');
+  const query=buildDanglingTenantReferenceCountSql('audit_events','tenant_id');
+  const count=()=>Number(db.prepare(query).get().count);
+  const goodConversion='conversion-id-1234567890';
+  for(const type of PUBLIC_MARKETING_EVENTS)add.run('public-market',null,'conversion',goodConversion,type);
+  add.run('live-tenant','live-owner','customer','abc','CUSTOMER_EVENT');
+  ok(count()===0,'exact public conversion partition and real-tenant audits are not false-positive orphans');
+
+  add.run('public-market',null,'conversion',goodConversion,'BILLING_PAID');
+  ok(count()===1,'unrecognized public-market event remains a genuine dangling reference');
+
+  add.run('public-market','actor-id','conversion',goodConversion,'MARKETING_MARKET_VIEW');
+  ok(count()===2,'authenticated public-market event cannot exploit the anonymous exemption');
+
+  add.run('public-market',null,'customer',goodConversion,'MARKETING_MARKET_VIEW');
+  ok(count()===3,'non-conversion event cannot exploit public marketing scope');
+
+  add.run('public-market',null,'conversion','short','MARKETING_MARKET_VIEW');
+  ok(count()===4,'invalid conversion identity cannot exploit public marketing scope');
+
+  add.run('missing-real-customer',null,'conversion',goodConversion,'MARKETING_MARKET_VIEW');
+  ok(count()===5,'missing customer tenant is still rejected even for known marketing event names');
+
+  db.prepare('INSERT INTO payment_orders(tenant_id) VALUES(?)').run('public-market');
+  ok(Number(db.prepare(buildDanglingTenantReferenceCountSql('payment_orders','tenant_id')).get().count)===1,'marketing sentinel is never exempted in customer payment tables');
+
+  let rejected=0;
+  for(const name of ['audit_events;DROP TABLE tenants','tenant_id OR 1=1',''])try{buildDanglingTenantReferenceCountSql(name,'tenant_id')}catch{rejected++}
+  ok(rejected===3&&query.startsWith('SELECT COUNT(*) AS count'),'query builder rejects identifiers that could escape the read-only count');
+}finally{db.close()}
+
+console.log(`Legacy orphan cleanup and zero-baseline contract: ${pass}/${pass} PASS`);
