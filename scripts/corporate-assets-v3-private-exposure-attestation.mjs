@@ -35,26 +35,26 @@ export function checkAssetStagingExposure({subdomain,domains,zones,zoneRoutes}={
 }
 export async function inspectAssetStagingExposure({token,request=fetch}={}){
  if(typeof token!=='string'||!token.trim())error('dedicated_cloudflare_read_token_required');
- const get=async path=>{
+ const get=async (path,scope)=>{
   const response=await request('https://api.cloudflare.com/client/v4'+path,{
    method:'GET',headers:{authorization:'Bearer '+token,accept:'application/json'},
    redirect:'error',signal:AbortSignal.timeout(15000)});
-  if(!response.ok)error('cloudflare_exposure_read_failed_'+response.status);
+  if(!response.ok)error('cloudflare_exposure_read_failed_'+scope+'_'+response.status);
   const data=await response.json();
-  if(data?.success!==true||data.result==null)error('cloudflare_exposure_invalid_response');
+  if(data?.success!==true||data.result==null)error('cloudflare_exposure_invalid_response_'+scope);
   return data;
  };
  const prefix='/accounts/'+ACCOUNT;
- const sub=(await get(prefix+'/workers/scripts/'+WORKER+'/subdomain')).result;
- const domainsPayload=await get(prefix+'/workers/domains');
+ const sub=(await get(prefix+'/workers/scripts/'+WORKER+'/subdomain','worker_subdomain')).result;
+ const domainsPayload=await get(prefix+'/workers/domains','worker_domains');
  if(!Array.isArray(domainsPayload.result))error('domains_inventory_invalid');
  const domains=complete(domainsPayload,'domains_inventory');
- const zonesPayload=await get('/zones?per_page=100');
+ const zonesPayload=await get('/zones?per_page=100','zone_inventory');
  if(!Array.isArray(zonesPayload.result))error('zones_inventory_invalid');
  const zones=complete(zonesPayload,'zones_inventory');
  // No assumption that missing zone routes can be ignored.
  const zoneRoutes=await Promise.all(EXPECTED_ZONES.map(async zone=>{
-  const payload=await get('/zones/'+zone+'/workers/routes');
+  const payload=await get('/zones/'+zone+'/workers/routes','zone_worker_routes');
   if(!Array.isArray(payload.result))error('zone_routes_invalid');
   return {zone,routes:complete(payload,'zone_routes')};
  }));
