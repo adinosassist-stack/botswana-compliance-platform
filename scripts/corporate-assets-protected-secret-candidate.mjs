@@ -12,11 +12,13 @@ export function validateEnvironmentPolicy(info,branches) {
  const reviewer=rules.find(x=>x.type==='required_reviewers');
  const reviewers=reviewer?.reviewers||info?.reviewers||[];
  if(!reviewer||reviewer.prevent_self_review!==true||
+ info?.can_admins_bypass!==false||
  !reviewers.some(x=>x.type==='User'&&x.reviewer?.login==='thusico'))
   throw Error('independent_thusico_environment_gate_required');
  if(info?.deployment_branch_policy?.custom_branch_policies!==true||
  info?.deployment_branch_policy?.protected_branches!==false||
- !Array.isArray(branches)||branches.length!==1||branches[0].name!=='main')
+ !Array.isArray(branches)||branches.length!==1||
+ branches[0].name!=='main'||branches[0].type==='tag')
   throw Error('main_only_environment_policy_required');
  return true;
 }
