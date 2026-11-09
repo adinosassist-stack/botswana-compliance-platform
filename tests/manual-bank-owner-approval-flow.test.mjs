@@ -140,7 +140,12 @@ test('final approval and failed-settlement reset use reviewer-fenced compare-and
  const successful=fixture();await successful.run();
  const final=successful.state.writes.find(w=>w.sql.includes("status='approved'"));
  assert.ok(final);assert.match(final.sql,/reviewed_by_user_id=\\?/);
- assert.equal(final.args[4],'admin');
+ assert.equal(final.args[4],'BANK-123','completion must compare reviewed bank reference');
+ assert.equal(final.args[5],'admin','reviewer identity must still be fenced');
+ assert.match(final.sql,/bank_reference=/);
+ const claim=successful.state.writes.find(w=>w.sql.includes("SET status='reviewing'"));
+ assert.ok(claim);assert.match(claim.sql,/bank_reference=/);
+ assert.equal(claim.args.at(-1),'BANK-123');
  const failing=fixture({settles:false});await failing.run();
  const reset=failing.state.writes.find(w=>w.sql.includes("status='submitted',reviewed_by_user_id=NULL"));
  assert.ok(reset);assert.match(reset.sql,/reviewed_by_user_id=\\?/);
@@ -160,4 +165,41 @@ test('audit refusal cannot leave a newly approved payment review',async()=>{
  await assert.rejects(f.run(),/audit_write_failed/);
  assert.notEqual(f.state.status,'approved');
  assert.equal(f.state.settlements,0,'audit unavailability must be detected before settlement');
+});
+
+
+test('rejected review cannot be approved by resubmitting the same payment',async()=>{
+ const f=fixture({reviewStatus:'rejected'});
+ const first=await f.run();
+ assert.equal(first.status,409);
+ assert.notEqual(first.body.activated,true);
+ assert.equal(f.state.settlements,0);
+ assert.equal(f.state.audits,0);
+ assert.equal(f.state.writes.length,0);
+ const again=await f.run();
+ assert.equal(again.status,409);
+ assert.equal(f.state.settlements,0);
+ assert.equal(f.state.status,'rejected');
+});
+test('rejected review cannot be rejected twice to overwrite the administrator decision',async()=>{
+ const f=fixture({action:'reject',reviewStatus:'rejected'});
+ const response=await f.run();
+ assert.equal(response.status,409);
+ assert.equal(f.state.status,'rejected');
+ assert.equal(f.state.writes.length,0);
+ assert.equal(f.state.audits,0);
+});
+test('rejected payment cannot be revived even with all bank confirmation flags',async()=>{
+ const f=fixture({reviewStatus:'rejected',confirmed:true,amountMatched:true,transactionMatched:true});
+ const response=await f.run();
+ assert.notEqual(response.body.activated,true);
+ assert.equal(f.state.settlements,0);
+ assert.equal(f.state.audits,0);
+});
+test('administrator cannot bypass rejected review with another review owner',async()=>{
+ const f=fixture({reviewStatus:'rejected',reviewOwner:'other-admin'});
+ const response=await f.run();
+ assert.equal(response.status,409);
+ assert.equal(f.state.settlements,0);
+ assert.equal(f.state.writes.length,0);
 });

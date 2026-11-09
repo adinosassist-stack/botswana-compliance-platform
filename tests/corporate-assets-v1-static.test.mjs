@@ -19,3 +19,15 @@ test("money, depreciation and tenancy integrity constraints exist",()=>{
  assert.match(sql,/coverage_end\s*>=\s*coverage_start/);
  assert.match(sql,/next_due_date\s*>=\s*service_date/);
 });
+
+test("production corporate assets remain default-off pending separate database qualification",()=>{
+ const config=readFileSync(new URL("../cloudflare/wrangler.toml",import.meta.url),"utf8");
+ const matching=config.split("\n").filter(line=>line.startsWith("THEBE_CORPORATE_ASSETS_ENABLED = "));
+ assert.deepEqual(matching,['THEBE_CORPORATE_ASSETS_ENABLED = "false"']);
+});
+test("assets PostgreSQL proposal cannot be mistaken for the Cloudflare D1 migration chain",()=>{
+ const proposal=readFileSync(new URL("../docs/corporate-assets-v1-acceptance.md",import.meta.url),"utf8");
+ assert.match(proposal,/PostgreSQL staging database/);
+ assert.match(proposal,/never apply PostgreSQL SQL to Cloudflare D1/);
+ assert.match(proposal,/No production database writes or feature activation/);
+});

@@ -1,0 +1,63 @@
+name: General AI private Queue acceptance evidence
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Exact reviewed main SHA (40 lowercase hex)
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: general-ai-private-queue-acceptance-evidence
+  cancel-in-progress: false
+jobs:
+  offline-evidence:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require exact current main
+        env:
+          EXPECTED: ${{ inputs.expected_main_sha }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED" =~ ^[a-f0-9]{40}$ ]] || exit 1
+          test "$GITHUB_SHA" = "$EXPECTED"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" = "$EXPECTED"
+      - run: npm ci --ignore-scripts
+      - name: Verify disabled configuration and no public route
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/general-ai-private-consumer-config-preflight.mjs
+          node scripts/general-ai-private-rollout-preflight.mjs
+          grep -Fx 'workers_dev = false' cloudflare/wrangler.general-ai-private-consumer.toml
+          grep -Fx 'preview_urls = false' cloudflare/wrangler.general-ai-private-consumer.toml
+          grep -Fx 'PRIVATE_AI_QUEUE_ACCEPTANCE_ENABLED = "false"' cloudflare/wrangler.general-ai-private-consumer.toml
+          grep -Fx 'PRIVATE_AI_LEDGER_ISOLATION_VERIFIED = "false"' cloudflare/wrangler.general-ai-private-consumer.toml
+          grep -Fx 'PRIVATE_AI_LEDGER_SCHEMA_QUALIFIED = "false"' cloudflare/wrangler.general-ai-private-consumer.toml
+      - name: Run replay and ledger regression suite
+        run: node --test tests/general-ai-queue-acceptance.test.mjs tests/general-ai-private-queue-d1-ledger.test.mjs tests/general-ai-private-queue-d1-entry.test.mjs
+      - name: Write accurately scoped evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p private-queue-acceptance-evidence
+          printf '%s\n' "$GITHUB_SHA" > private-queue-acceptance-evidence/SOURCE_SHA.txt
+          printf '%s\n' 'OFFLINE_ONLY: SQLite replay/duplicate claims and fail-closed checks passed in CI.' 'NOT_PROVEN: live Cloudflare D1 replay behavior, independent D1 isolation acceptance, live Queue delivery, and customer AI activation.' 'NO_WRITES: this workflow does not access remote D1, publish Queue messages, modify Cloudflare resources, or activate the consumer.' > private-queue-acceptance-evidence/SCOPE.txt
+          sha256sum cloudflare/wrangler.general-ai-private-consumer.toml cloudflare/schema/general-ai-private-queue-ledger-candidate.sql > private-queue-acceptance-evidence/CONFIG_SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: private-queue-offline-acceptance-${{ github.sha }}
+          path: private-queue-acceptance-evidence/
+          retention-days: 14
+          if-no-files-found: error

@@ -69,3 +69,80 @@ test("noncanonical prior bank IDs fail closed instead of allowing a reused credi
     assert.equal(outcome.reason,"invalid_bank_allocation_record");
   }
 });
+
+
+test("rejected customer's new attempt still requires independently settled bank evidence",()=>{
+  const customerReference={...bankEvidence,source:"customer_upload",status:"settled"};
+  const first=evaluate(input({bankEvidence:customerReference}));
+  assert.notEqual(first.decision,D.VERIFIED);
+  const resubmission=evaluate(input({bankEvidence:{...bankEvidence,status:"pending"}}));
+  assert.notEqual(resubmission.decision,D.VERIFIED);
+  const independentlySettled=evaluate(input({bankEvidence:{...bankEvidence,bankTransactionId:"bank-new-456"}}));
+  assert.equal(independentlySettled.decision,D.VERIFIED);
+});
+test("resubmission cannot allocate a previously consumed bank transaction",()=>{
+  const allocations=[{bankTransactionId:"bank-123",invoiceId:"inv-rejected",tenantId:"tenant-a"}];
+  const reused=evaluate(input({priorBankAllocations:allocations}));
+  assert.notEqual(reused.decision,D.VERIFIED);
+  assert.equal(reused.reason,"bank_transaction_already_allocated");
+  const fresh=evaluate(input({bankEvidence:{...bankEvidence,bankTransactionId:"bank-new-456"},priorBankAllocations:allocations}));
+  assert.equal(fresh.decision,D.VERIFIED);
+});
+test("administrator review requires trusted bank evidence even when customer supplies exact amount and transaction",()=>{
+  for(const source of ["customer_upload","customer_reference","admin_form",null]){
+    const result=evaluate(input({bankEvidence:{...bankEvidence,source}}));
+    assert.notEqual(result.decision,D.VERIFIED);
+  }
+});
+test("bank reversal or failed settlement cannot qualify a resubmission",()=>{
+  for(const status of ["reversed","failed","processing","pending","rejected"]){
+    const result=evaluate(input({bankEvidence:{...bankEvidence,status}}));
+    assert.notEqual(result.decision,D.VERIFIED);
+  }
+});
+
+
+test("a fresh bank transaction cannot rescue mismatched invoice or tenant on resubmission",()=>{
+ const fresh={...bankEvidence,bankTransactionId:"bank-new-789"};
+ for(const patch of [{invoiceId:"inv-previous"},{tenantId:"tenant-other"},{amountMinor:149999},{currency:"USD"}]){
+  const result=evaluate(input({bankEvidence:{...fresh,...patch}}));
+  assert.notEqual(result.decision,D.VERIFIED);
+ }
+});
+test("an administrator cannot turn missing reconciliation history into an approved resubmission",()=>{
+ for(const priorBankAllocations of [undefined,null,[null],[{bankTransactionId:" bank-123",invoiceId:"inv-old",tenantId:"tenant-a"}]]){
+  const result=evaluate(input({priorBankAllocations}));
+  assert.notEqual(result.decision,D.VERIFIED);
+ }
+});
+test("a valid bank credit cannot bypass reviewer identity or tenant authorization",()=>{
+ const fresh={...bankEvidence,bankTransactionId:"bank-new-789"};
+ for(const patch of [{authenticated:false},{role:"staff"},{tenantId:"tenant-other"},{actorId:""}]){
+  const result=evaluate(input({bankEvidence:fresh,reviewer:{...reviewer,...patch}}));
+  assert.notEqual(result.decision,D.VERIFIED);
+ }
+});
+
+test("resubmitted payment evidence never verifies a zero, fractional, negative or unsafe bank amount",()=>{
+ for(const amountMinor of [0,-1,149999.5,Number.MAX_SAFE_INTEGER+1,NaN,Infinity]){
+  const result=evaluate(input({bankEvidence:{...bankEvidence,bankTransactionId:"bank-new-789",amountMinor}}));
+  assert.notEqual(result.decision,D.VERIFIED);
+ }
+});
+test("resubmitted payment cannot be approved from non-settled bank status regardless of reviewer role",()=>{
+ for(const status of ["submitted","reviewing","authorized","reversed","chargeback","pending","failed",null]){
+  const result=evaluate(input({bankEvidence:{...bankEvidence,bankTransactionId:"bank-new-789",status}}));
+  assert.equal(result.decision,D.REVIEW_REQUIRED);
+ }
+});
+test("a bank credit already allocated in another tenant remains unavailable for resubmission",()=>{
+ const allocations=[{bankTransactionId:"bank-123",invoiceId:"inv-other",tenantId:"tenant-b"}];
+ const result=evaluate(input({priorBankAllocations:allocations}));
+ assert.equal(result.decision,D.REVIEW_REQUIRED);
+ assert.equal(result.reason,"bank_transaction_already_allocated");
+});
+test("resubmission verification has no customer-side activation side effects",()=>{
+ const result=evaluate(input({bankEvidence:{...bankEvidence,bankTransactionId:"bank-fresh-123"}}));
+ assert.equal(result.decision,D.VERIFIED);
+ assert.deepEqual(Object.keys(result).sort(),["bankTransactionId","decision","invoiceId","reason"]);
+});

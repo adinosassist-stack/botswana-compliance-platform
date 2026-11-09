@@ -96,6 +96,69 @@ test('actual manual-review SQL rolls back completion failures and resumes a paid
   assert.equal(settlements,1);assert.equal(await count('manual_payment_events'),1);
   assert.equal(await count('audit_events',"event_type='MANUAL_PAYMENT_APPROVED'"),1);await checkChain();
 
+
+  // Inject a customer reference edit between an administrator's read and
+  // the claim; stale evidence may not settle the newer bank reference.
+  await reset();
+  let claimRaces=0;
+  env.DB={
+   prepare(sql){
+    if(sql.includes("SET status='reviewing',reviewed_by_user_id=?"))
+     return {bind(...args){return {run:async()=>{
+      claimRaces++;
+      await DB.prepare("UPDATE manual_payment_submissions SET bank_reference='BANK-CHANGED' WHERE id=?").bind(sid).run();
+      return DB.prepare(sql).bind(...args).run();
+     }}}};
+    return DB.prepare(sql);
+   },batch:statements=>DB.batch(statements)
+  };
+  const staleClaim=await run();env.DB=DB;
+  assert.equal(staleClaim.status,409);
+  assert.equal(staleClaim.body.error,'manual_payment_review_conflict');
+  assert.equal(claimRaces,1);assert.equal((await review()).status,'submitted');
+  assert.equal((await DB.prepare('SELECT bank_reference FROM manual_payment_submissions WHERE id=?').bind(sid).first()).bank_reference,'BANK-CHANGED');
+  assert.equal(settlements,0);assert.equal(await count('manual_payment_events'),0);
+  await checkChain();
+
+  // A rejection based on a stale customer reference must not be recorded.
+  await reset();
+  let rejectRaces=0;
+  env.DB={prepare:sql=>DB.prepare(sql),batch:async statements=>{
+   if(statements.length===4&&rejectRaces++===0)
+    await DB.prepare("UPDATE manual_payment_submissions SET bank_reference='BANK-CHANGED' WHERE id=?").bind(sid).run();
+   return DB.batch(statements);
+  }};
+  const staleReject=await run('reject');env.DB=DB;
+  assert.equal(staleReject.status,409);
+  assert.equal(staleReject.body.error,'manual_payment_review_conflict');
+  assert.equal(rejectRaces,1);assert.equal((await review()).status,'submitted');
+  assert.equal(await count('manual_payment_events'),0);
+  assert.equal(await count('audit_events',"event_type='MANUAL_PAYMENT_REJECTED'"),0);
+  await checkChain();
+
+  // An already-paid interrupted approval cannot mark a different reference
+  // approved after read, without settling again or forging an audit receipt.
+  await reset();
+  await DB.batch([
+   DB.prepare("UPDATE payment_orders SET status='paid',provider_payment_id='BANK-123' WHERE id='order'"),
+   DB.prepare("UPDATE subscriptions SET status='active' WHERE tenant_id='client'"),
+   DB.prepare("INSERT INTO payment_fulfillments VALUES('order','client','subscription','applied')")
+  ]);
+  let recoverRaces=0;
+  env.DB={prepare:sql=>DB.prepare(sql),batch:async statements=>{
+   if(statements.length===4&&recoverRaces++===0)
+    await DB.prepare("UPDATE manual_payment_submissions SET bank_reference='BANK-CHANGED' WHERE id=?").bind(sid).run();
+   return DB.batch(statements);
+  }};
+  const staleRecovered=await run();env.DB=DB;
+  assert.equal(staleRecovered.status,409);
+  assert.equal(staleRecovered.body.error,'manual_payment_review_conflict');
+  assert.equal(recoverRaces,1);assert.equal(settlements,0);
+  assert.equal((await review()).status,'submitted');
+  assert.equal(await count('manual_payment_events'),0);
+  assert.equal(await count('audit_events',"event_type='MANUAL_PAYMENT_APPROVED'"),0);
+  await checkChain();
+
   for(const trigger of [
    "CREATE TRIGGER refuse_completion BEFORE INSERT ON manual_payment_events BEGIN SELECT RAISE(ABORT,'receipt failure'); END",
    "CREATE TRIGGER refuse_completion BEFORE INSERT ON audit_events WHEN NEW.event_type='MANUAL_PAYMENT_REJECTED' BEGIN SELECT RAISE(ABORT,'audit failure'); END",
@@ -108,6 +171,20 @@ test('actual manual-review SQL rolls back completion failures and resumes a paid
    assert.equal((await run('reject')).status,200);assert.equal((await review()).status,'rejected');
    assert.equal(settlements,0);assert.equal(await count('manual_payment_events'),1);await checkChain();
   }
+  // A rejected review is terminal: neither action may alter its sealed decision.
+  await reset();
+  const rejected=await run('reject');
+  assert.equal(rejected.status,200);
+  assert.equal((await review()).status,'rejected');
+  const sealedEvents=await count('manual_payment_events');
+  const sealedAudits=await count('audit_events');
+  const attempts=await Promise.all([run('approve'),run('reject')]);
+  assert.deepEqual(attempts.map(r=>r.status).sort(),[409,409]);
+  assert.equal((await review()).status,'rejected');
+  assert.equal(settlements,0);
+  assert.equal(await count('manual_payment_events'),sealedEvents);
+  assert.equal(await count('audit_events'),sealedAudits);
+  await checkChain();
   await assert.rejects(appendSealedAuditEvent(env,{tenantId:'client',eventType:'INVALID',completionReceipt:DB.prepare('SELECT 1')}),/audit_receipt_requires_mutation/);
  }finally{await mf.dispose()}
 });

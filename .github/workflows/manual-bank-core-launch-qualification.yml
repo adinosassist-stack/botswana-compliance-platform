@@ -43,7 +43,7 @@ jobs:
           node --test tests/core-only-launch-freeze.test.mjs tests/verify-live-core-only-bindings.test.mjs
       - name: Verify owner bank evidence, audit, duplicates and settlement rollback
         run: |
-          node --test             tests/owner-payment-evidence-policy.test.mjs             tests/owner-bank-allocation-contract.test.mjs             tests/owner-bank-allocation-sqlite.test.mjs             tests/d1-bank-allocation-adapter-reference.test.mjs             tests/owner-bank-d1-staging-fixture.test.mjs             tests/manual-bank-owner-approval-flow.test.mjs tests/manual-bank-settlement-retry.test.mjs             tests/manual-bank-review-audit-d1.test.mjs
+          node --test             tests/owner-payment-evidence-policy.test.mjs             tests/owner-bank-allocation-contract.test.mjs             tests/owner-bank-allocation-sqlite.test.mjs             tests/d1-bank-allocation-adapter-reference.test.mjs             tests/owner-bank-d1-staging-fixture.test.mjs             tests/manual-bank-owner-approval-flow.test.mjs tests/manual-bank-payment-queue-scope.test.mjs tests/manual-bank-settlement-retry.test.mjs             tests/manual-bank-review-audit-d1.test.mjs tests/manual-bank-resubmission-d1.test.mjs
       - name: Verify platform owner controls, tenancy and paid-period enforcement
         run: |
           node --test             tests/owner-payment-dashboard.test.mjs             tests/platform-billing-controls.test.mjs             tests/subscription-access-audit-d1.test.mjs             tests/owner-dashboard-audit.test.mjs

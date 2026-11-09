@@ -80,7 +80,7 @@ jobs:
 
       - name: Subscription audit rollback and POP isolation
         shell: bash
-        run: node --test tests/advisor-provider-contract.test.mjs tests/owner-payment-dashboard.test.mjs tests/platform-billing-controls.test.mjs tests/owner-renewal-filter.test.mjs tests/subscription-access-audit-d1.test.mjs tests/manual-bank-owner-approval-flow.test.mjs tests/manual-bank-settlement-retry.test.mjs tests/manual-bank-review-audit-d1.test.mjs tests/payment-pop-*.test.mjs tests/pop-intake-metadata-contract.test.mjs tests/pop-whatsapp-*.test.mjs
+        run: node --test tests/advisor-provider-contract.test.mjs tests/owner-payment-dashboard.test.mjs tests/platform-billing-controls.test.mjs tests/owner-renewal-filter.test.mjs tests/subscription-access-audit-d1.test.mjs tests/manual-bank-owner-approval-flow.test.mjs tests/manual-bank-payment-queue-scope.test.mjs tests/manual-bank-settlement-retry.test.mjs tests/manual-bank-review-audit-d1.test.mjs tests/manual-bank-resubmission-d1.test.mjs tests/payment-pop-*.test.mjs tests/pop-intake-metadata-contract.test.mjs tests/pop-whatsapp-*.test.mjs
 
       - name: Disabled conversation staging contracts and isolated SQLite
         shell: bash
@@ -210,7 +210,7 @@ jobs:
 
       - name: Platform billing controls and approval loading
         shell: bash
-        run: node --test tests/platform-billing-controls.test.mjs tests/owner-payment-dashboard.test.mjs tests/platform-billing-analytics.test.mjs tests/billing-dashboard-read-failures.test.mjs tests/owner-dashboard-audit.test.mjs tests/manual-bank-owner-approval-flow.test.mjs tests/manual-bank-settlement-retry.test.mjs
+        run: node --test tests/platform-billing-controls.test.mjs tests/owner-payment-dashboard.test.mjs tests/platform-billing-analytics.test.mjs tests/billing-dashboard-read-failures.test.mjs tests/owner-dashboard-audit.test.mjs tests/manual-bank-owner-approval-flow.test.mjs tests/manual-bank-payment-queue-scope.test.mjs tests/manual-bank-settlement-retry.test.mjs
 
       - name: Install pinned isolated browser test driver
         shell: bash

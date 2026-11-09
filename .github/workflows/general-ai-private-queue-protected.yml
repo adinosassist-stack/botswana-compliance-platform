@@ -51,12 +51,14 @@ jobs:
       - name: Review-only static safety preflight
         run: node scripts/general-ai-private-rollout-preflight.mjs
       - name: Run private Queue and durable D1 offline regressions
-        run: node --test tests/general-ai-queue-acceptance.test.mjs tests/general-ai-private-queue-d1-ledger.test.mjs tests/general-ai-private-queue-d1-entry.test.mjs
+        run: node --test tests/general-ai-queue-acceptance.test.mjs tests/general-ai-private-queue-d1-ledger.test.mjs tests/general-ai-private-queue-d1-entry.test.mjs tests/general-ai-private-queue-failure-qualification.test.mjs tests/general-ai-live-queue-readiness.test.mjs
       - name: Verify locked private consumer deployment config
         shell: bash
         run: |
           set -euo pipefail
           node scripts/general-ai-private-consumer-config-preflight.mjs
+          node scripts/general-ai-live-queue-readonly-preflight.mjs
+          node scripts/general-ai-live-queue-readiness.mjs "$GITHUB_SHA"
       - name: Dry-run the private Worker bundle only
         run: npx wrangler deploy --dry-run --config cloudflare/wrangler.general-ai-private-consumer.toml --outdir /tmp/general-ai-private-queue
       - name: Archive deployment provenance and bundle checksum
@@ -67,6 +69,8 @@ jobs:
           mkdir -p general-ai-private-queue-evidence
           printf '%s\n' "$GITHUB_SHA" > general-ai-private-queue-evidence/COMMIT_SHA.txt
           printf '%s\n' "bw-general-ai-private-queue-acceptance" > general-ai-private-queue-evidence/WORKER_NAME.txt
+          node scripts/general-ai-live-queue-readiness.mjs "$GITHUB_SHA" > general-ai-private-queue-evidence/OFFLINE_READINESS.json
+          printf '%s\n' 'OFFLINE_ONLY: no live Queue messages, ack, replay, recovery, or production activation.' > general-ai-private-queue-evidence/SCOPE.txt
           (cd /tmp/general-ai-private-queue && find . -type f -print0 | sort -z | xargs -0 sha256sum) > general-ai-private-queue-evidence/BUNDLE_SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
@@ -111,7 +115,9 @@ jobs:
         run: |
           node scripts/general-ai-private-rollout-preflight.mjs
           node scripts/general-ai-private-consumer-config-preflight.mjs
-          node --test tests/general-ai-queue-acceptance.test.mjs tests/general-ai-private-queue-d1-ledger.test.mjs tests/general-ai-private-queue-d1-entry.test.mjs
+          node scripts/general-ai-live-queue-readonly-preflight.mjs
+          node scripts/general-ai-live-queue-readiness.mjs "$GITHUB_SHA"
+          node --test tests/general-ai-queue-acceptance.test.mjs tests/general-ai-private-queue-d1-ledger.test.mjs tests/general-ai-private-queue-d1-entry.test.mjs tests/general-ai-private-queue-failure-qualification.test.mjs tests/general-ai-live-queue-readiness.test.mjs
       - name: Publish DISABLED private Queue consumer (separate authorization required)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.GENERAL_AI_QUEUE_STAGING_CLOUDFLARE_TOKEN }}
