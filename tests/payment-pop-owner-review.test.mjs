@@ -17,3 +17,37 @@ test('a plain scannerAuthenticated boolean cannot bless a receipt',async()=>{
  const DB={prepare(){return {bind(){return {run:async()=>({meta:{changes:1}})}}}}};
  await assert.rejects(markPopScanResult({DB,APP_ENV:'staging',DEPLOYMENT_PROFILE:'billing-staging-readonly',POP_SCAN_STAGING_ENABLED:'true',POP_SCAN_SECRET:'scan-fixture-secret-'.repeat(3),POP_SCANNER_ID:'local-scanner'},{documentId:id,scanStatus:'clean',scannerAuthenticated:true}),/pop_scanner_forbidden/);
 });
+
+
+test("owner POP queue requires authenticated actor ID before any query",async()=>{
+ const env={DB:{prepare(){throw Error("database_should_not_be_queried")}}};
+ await assert.rejects(listPopForPlatformOwner(env,{actor:{platformOwner:true},orderId:id}),/pop_owner_forbidden/);
+});
+test("owner POP queue rejects invalid order IDs before database access",async()=>{
+ const env={DB:{prepare(){throw Error("database_should_not_be_queried")}}};
+ for(const orderId of [undefined,null,"",id+"/.."," "+id,id+" ","not-a-uuid",123]){
+  await assert.rejects(listPopForPlatformOwner(env,{actor:{platformOwner:true,userId:id},orderId}),/pop_invalid_scope/);
+ }
+});
+test("owner POP download rejects malformed IDs before staging/database access",async()=>{
+ const env={POP_OWNER_RETRIEVAL_STAGING_ENABLED:"true",DB:{prepare(){throw Error("database_should_not_be_queried")}}};
+ for(const invalid of ["not-a-uuid",id+"/.."," "+id,id+" ",undefined,null,123]){
+  for(const field of ["documentId","orderId","tenantId"]){
+   const args={actor:{platformOwner:true,userId:id},documentId:id,orderId:id,tenantId:id,[field]:invalid};
+   await assert.rejects(readCleanPopForOwner(env,args),/pop_invalid_scope/);
+  }
+ }
+});
+test("owner POP retrieval still checks actor identity before IDs",async()=>{
+ await assert.rejects(readCleanPopForOwner({},{actor:{platformOwner:true},documentId:"bad",orderId:"bad",tenantId:"bad"}),/pop_owner_forbidden/);
+});
+
+
+test("POP owner identity must be a canonical non-empty string",async()=>{
+ const env={DB:{prepare(){throw Error("database_should_not_be_queried")}},POP_OWNER_RETRIEVAL_STAGING_ENABLED:"true"};
+ for(const userId of [undefined,null,""," "," owner","owner ","owner\u200b","owner\u0000",123,{}, "x".repeat(129)]){
+  const actor={platformOwner:true,userId};
+  await assert.rejects(listPopForPlatformOwner(env,{actor,orderId:id}),/pop_owner_forbidden/);
+  await assert.rejects(readCleanPopForOwner(env,{actor,documentId:id,orderId:id,tenantId:id}),/pop_owner_forbidden/);
+ }
+});
