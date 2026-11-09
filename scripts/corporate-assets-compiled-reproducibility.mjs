@@ -2,9 +2,18 @@
  * Does not upload Worker versions, deploy traffic or authorize any write.
  */
 import {pathToFileURL} from 'node:url';
+import {createHash} from 'node:crypto';
 import {collectBundledReceipt} from './corporate-assets-compiled-artifact-dryrun.mjs';
 const SHA=/^[a-f0-9]{40}$/;
 const HEX=/^[a-f0-9]{64}$/;
+const sha256=x=>createHash('sha256').update(x).digest('hex');
+export function recomputeDryRunDigest(receipt){
+ if(!receipt||!receipt.bundleFiles||typeof receipt.bundleFiles!=='object')return null;
+ const evidence={schema:'thebe.assets.compiled-artifact-dryrun.v1',reviewedCommit:receipt.reviewedCommit,
+  inputManifestDigest:receipt.inputManifestDigest,compiler:receipt.compiler,dryRun:receipt.dryRun,
+  bundleFiles:Object.fromEntries(Object.entries(receipt.bundleFiles).sort(([a],[b])=>a.localeCompare(b,'en')))};
+ return sha256(JSON.stringify(evidence));
+}
 const names=x=>x&&typeof x==='object'&&!Array.isArray(x)?Object.keys(x).sort():[];
 export function compareIndependentDryRuns({expectedSha,first,second}={}){
  const errors=[];
@@ -19,6 +28,7 @@ export function compareIndependentDryRuns({expectedSha,first,second}={}){
    names(b?.bundleFiles).length===0||
    !names(b?.bundleFiles).some(x=>x.endsWith('.js'))||
    names(b?.bundleFiles).some(x=>!HEX.test(b.bundleFiles[x]||'')))errors.push(n+'_invalid_offline_receipt');
+  if(recomputeDryRunDigest(b)!==b?.bundleDigest)errors.push(n+'_bundle_receipt_tampered');
  }
  if(first?.inputManifestDigest!==second?.inputManifestDigest)errors.push('source_input_digest_changed');
  const a=names(first?.bundleFiles),b=names(second?.bundleFiles);
@@ -33,12 +43,15 @@ export function compareIndependentDryRuns({expectedSha,first,second}={}){
   errors.push('compiled_module_set_changed');
  if(first?.bundleDigest!==second?.bundleDigest)auxiliaryDifferences.push('full_bundle_digest_changed');
  const moduleStable=errors.length===0;
+ const executableModuleDigest=moduleStable?sha256(JSON.stringify(Object.fromEntries(
+  modules.map(name=>[name,first.bundleFiles[name]])))):null;
  const fullyStable=moduleStable&&auxiliaryDifferences.length===0;
  return Object.freeze({schema:'thebe.assets.reproducibility.v2',
   sourceSha:SHA.test(expectedSha||'')?expectedSha:null,
   executableModuleReproducible:moduleStable,reproducible:fullyStable,
   fullArtifactProvenanceReady:false,
   sourceInputDigest:moduleStable?first.inputManifestDigest:null,
+  executableModuleDigest,
   bundleDigest:fullyStable?first.bundleDigest:null,
   sourceToCloudflareUploadVerified:false,
   versionCreationAuthorized:false,deploymentAuthorized:false,
