@@ -47,10 +47,34 @@ test('mocked Cloudflare read-only envelope and request coverage',async()=>{
 });
 test('API error, malformed response and partial inventory must fail',async()=>{
  const request=async()=>({ok:false,status:403});
- await assert.rejects(inspectAssetStagingExposure({token:'synthetic',request}),/cloudflare_exposure_read_failed_403/);
+ await assert.rejects(inspectAssetStagingExposure({token:'synthetic',request}),/cloudflare_exposure_read_failed_worker_subdomain_403/);
  const bad=async()=>({ok:true,json:async()=>({success:false,result:null})});
- await assert.rejects(inspectAssetStagingExposure({token:'synthetic',request:bad}),/cloudflare_exposure_invalid_response/);
+ await assert.rejects(inspectAssetStagingExposure({token:'synthetic',request:bad}),/cloudflare_exposure_invalid_response_worker_subdomain/);
  const partial=async url=>({ok:true,json:async()=>({success:true,result:url.endsWith('/subdomain')?{enabled:false,previews_enabled:false}:[],
   result_info:url.endsWith('/subdomain')?undefined:{page:1,total_pages:2,count:0}})});
  await assert.rejects(inspectAssetStagingExposure({token:'synthetic',request:partial}),/domains_inventory_incomplete/);
+});
+
+test('HTTP 403 diagnostics classify each read scope without leaking credentials',async()=>{
+ for(const [ending,scope] of [
+  ['/subdomain','worker_subdomain'],['/domains','worker_domains'],
+  ['/zones?per_page=100','zone_inventory'],['/workers/routes','zone_worker_routes']
+ ]){
+  const x=base();
+  const request=async(url,options)=>{
+   assert.equal(options.method,'GET');
+   if(url.endsWith(ending))return {ok:false,status:403};
+   let result;
+   if(url.endsWith('/subdomain'))result=x.subdomain;
+   else if(url.endsWith('/domains'))result=x.domains;
+   else if(url.includes('/zones?'))result=x.zones;
+   else result=[];
+   return {ok:true,json:async()=>({success:true,result,...(Array.isArray(result)?{result_info:{page:1,total_pages:1,count:result.length}}:{})})};
+  };
+  await assert.rejects(inspectAssetStagingExposure({token:'synthetic-secret',request}),e=>{
+   assert.equal(e.message,'cloudflare_exposure_read_failed_'+scope+'_403');
+   assert.ok(!e.message.includes('synthetic-secret'));
+   return true;
+  });
+ }
 });
