@@ -7416,8 +7416,10 @@ export default {
           const bank=manualBankConfig(env);if(!bank.configured)return {status:503,body:{error:"manual_bank_transfer_not_configured"}};
           const popPhone=String(env.THEBE_POP_WHATSAPP_NUMBER||"").replace(/[^0-9]/g,"");
           const popWhatsappNumber=/^[1-9][0-9]{7,14}$/.test(popPhone)?popPhone:null;
-          const pending=await env.DB.prepare(`SELECT id,amount_bwp,metadata_json FROM payment_orders
-            WHERE tenant_id=? AND order_type='subscription' AND provider='manual_bank' AND status IN ('pending','processing') ORDER BY created_at DESC LIMIT 20`).bind(a.tenant_id).all();
+          const pending=await env.DB.prepare(`SELECT o.id,o.amount_bwp,o.metadata_json FROM payment_orders o
+            WHERE o.tenant_id=? AND o.order_type='subscription' AND o.provider='manual_bank' AND o.status IN ('pending','processing')
+              AND NOT EXISTS(SELECT 1 FROM manual_payment_submissions m WHERE m.payment_order_id=o.id AND m.status IN ('rejected','cancelled','approved'))
+            ORDER BY o.created_at DESC LIMIT 20`).bind(a.tenant_id).all();
           const reusable=(pending.results||[]).find(x=>{const m=safeJson(x.metadata_json,{});return m.plan===plan&&m.billingCycle===billingCycle&&Number(x.amount_bwp)===amount});
           if(reusable)return {status:200,body:{ok:true,reused:true,paymentOrder:{id:reusable.id,amountBwp:amount,reference:manualPaymentReference(reusable.id)},checkoutMode:"manual_bank_transfer",bankTransfer:{...bank,reference:manualPaymentReference(reusable.id),amountBwp:amount,popWhatsappNumber},message:"Use this existing pending bank-transfer reference, then submit the bank transaction reference for verification."}};
           const po=await createPaymentOrder(env,{tenantId:a.tenant_id,orderType:"subscription",amountBwp:amount,metadata:{plan,billingCycle,periodMonths:months,paymentMode:"manual_bank"}});
@@ -7481,10 +7483,14 @@ export default {
           if(!["pending","processing","failed"].includes(order.status))return {status:409,body:{error:"payment_order_not_submittable",status:order.status}};
           const sid=id();
           try{
-            await env.DB.prepare(`INSERT INTO manual_payment_submissions(id,payment_order_id,tenant_id,bank_reference,status,submitted_at)
+            const saved=await env.DB.prepare(`INSERT INTO manual_payment_submissions(id,payment_order_id,tenant_id,bank_reference,status,submitted_at)
               VALUES(?,?,?,?,'submitted',CURRENT_TIMESTAMP)
-              ON CONFLICT(payment_order_id) DO UPDATE SET bank_reference=excluded.bank_reference,status='submitted',submitted_at=CURRENT_TIMESTAMP,reviewed_at=NULL,reviewed_by_user_id=NULL,rejection_reason=NULL`)
+              ON CONFLICT(payment_order_id) DO UPDATE SET bank_reference=excluded.bank_reference,submitted_at=CURRENT_TIMESTAMP
+              WHERE manual_payment_submissions.status='submitted'`)
               .bind(sid,orderId,a.tenant_id,bankReference).run();
+            // A completed or claimed review must never be reopened or stripped of its reviewer.
+            // A rejected transfer can be attempted again only through a fresh payment order.
+            if(Number(saved?.meta?.changes||0)!==1)return {status:409,body:{error:"manual_payment_review_closed",message:"This payment review is closed. Start a new payment order to submit again."}};
           }catch(e){if(String(e).includes("UNIQUE"))return {status:409,body:{error:"bank_reference_already_used"}};throw e}
           const row=await env.DB.prepare("SELECT id FROM manual_payment_submissions WHERE payment_order_id=? LIMIT 1").bind(orderId).first();
           await env.DB.prepare("INSERT INTO manual_payment_events(id,submission_id,payment_order_id,tenant_id,event_type,actor_user_id,event_data) VALUES(?,?,?,?,?,?,?)")
