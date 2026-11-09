@@ -5,6 +5,8 @@ on:
       - 'scripts/corporate-assets-v3-predeployment-attestation.mjs'
       - 'tests/corporate-assets-v3-predeployment-attestation.test.mjs'
       - 'scripts/corporate-assets-staging-binding-preflight.mjs'
+      - 'scripts/corporate-assets-v3-private-exposure-attestation.mjs'
+      - 'tests/corporate-assets-v3-private-exposure-attestation.test.mjs'
       - '.github/workflows/corporate-assets-v3-predeployment-qualification.yml'
   workflow_dispatch:
 permissions:
@@ -25,4 +27,6 @@ jobs:
         run: |
           node --check scripts/corporate-assets-v3-predeployment-attestation.mjs
           node --test tests/corporate-assets-v3-predeployment-attestation.test.mjs
+          node --check scripts/corporate-assets-v3-private-exposure-attestation.mjs
+          node --test tests/corporate-assets-v3-private-exposure-attestation.test.mjs
           node --test tests/corporate-assets-protected-secret-candidate.test.mjs
