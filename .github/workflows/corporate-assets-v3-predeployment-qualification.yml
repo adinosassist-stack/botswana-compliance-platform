@@ -12,6 +12,8 @@ on:
       - 'tests/corporate-assets-build-input-receipt.test.mjs'
       - 'scripts/corporate-assets-next-version-source-plan.mjs'
       - 'tests/corporate-assets-next-version-source-plan.test.mjs'
+      - 'scripts/corporate-assets-compiled-artifact-dryrun.mjs'
+      - 'tests/corporate-assets-compiled-artifact-dryrun.test.mjs'
       - 'tests/corporate-assets-v3-private-exposure-attestation.test.mjs'
       - '.github/workflows/corporate-assets-v3-predeployment-qualification.yml'
   workflow_dispatch:
@@ -41,9 +43,18 @@ jobs:
           node --test tests/corporate-assets-build-input-receipt.test.mjs
           node --check scripts/corporate-assets-next-version-source-plan.mjs
           node --test tests/corporate-assets-next-version-source-plan.test.mjs
+          node --check scripts/corporate-assets-compiled-artifact-dryrun.mjs
+          node --test tests/corporate-assets-compiled-artifact-dryrun.test.mjs
           node --test tests/corporate-assets-protected-secret-candidate.test.mjs
 
       - name: Emit checkout-bound offline build-input manifest (not a release receipt)
         env:
           EXPECTED_MAIN_SHA: ${{ github.sha }}
         run: node scripts/corporate-assets-build-input-receipt.mjs
+
+      - name: Install locked Wrangler for OFFLINE bundling
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Hash compiled Worker dry-run files (never upload or deploy)
+        env:
+          EXPECTED_MAIN_SHA: ${{ github.sha }}
+        run: node scripts/corporate-assets-compiled-artifact-dryrun.mjs
