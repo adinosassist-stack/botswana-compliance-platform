@@ -6,6 +6,8 @@ on:
       - 'cloudflare/src/thebe-life-private-staging-entry.js'
       - 'cloudflare/wrangler.life-staging.toml'
       - 'tests/thebe-life-private-worker.test.mjs'
+      - 'tests/thebe-life-protected-worker-deploy.test.mjs'
+      - '.github/workflows/thebe-life-protected-private-worker-deploy.yml'
       - '.github/workflows/thebe-life-private-staging-preflight.yml'
   workflow_dispatch:
 permissions:
@@ -25,7 +27,7 @@ jobs:
       - name: Validate private Worker route and binding contract
         run: |
           node --check cloudflare/src/thebe-life-private-staging-entry.js
-          node --test tests/thebe-life-private-worker.test.mjs
+          node --test tests/thebe-life-private-worker.test.mjs tests/thebe-life-protected-worker-deploy.test.mjs
       - name: Cloudflare Worker dry run — no deployment
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
