@@ -104,3 +104,21 @@ test("no production delegated runtime is imported or configured",()=>{
  assert.doesNotMatch(worker,/THEBE_STAFF_PORTAL_ENABLED!=="true"/);
  assert.match(worker,/employee_staging_route_disabled/);
 });
+
+test("production and employee staging stay isolated across customer-facing feature switches",()=>{
+ const prod=readFileSync(new URL("../cloudflare/wrangler.toml",import.meta.url),"utf8");
+ const staging=readFileSync(new URL("../cloudflare/wrangler.employee-self-service-staging.toml",import.meta.url),"utf8");
+ for(const [key,value] of Object.entries({
+  THEBE_STAFF_PORTAL_ENABLED:"false",STAFF_STAGING_WRITES_ENABLED:"false",
+  THEBE_GENERAL_AI_ENABLED:"false",THEBE_AI_EXPORTS_ENABLED:"false",
+  THEBE_LIVE_VOICE_ENABLED:"false",POP_UPLOAD_STAGING_ENABLED:"false",
+  PAYMENT_PROVIDER:"none"
+ })){
+  assert.match(staging,new RegExp("^"+key+" = \\""+value+"\\"$","m"),key+" must remain isolated");
+ }
+ assert.match(prod,/^name = "bw-compliance-os"$/m);
+ assert.match(staging,/^name = "bw-employee-self-service-staging"$/m);
+ assert.match(staging,/^STAFF_STAGING_SOURCE_SHA = "UNQUALIFIED"$/m);
+ assert.doesNotMatch(staging,/^\[\[routes\]\]|^\[assets\]|^\[triggers\]/m);
+ assert.doesNotMatch(staging,/^database_name = "bw-compliance-os"$/m);
+});
