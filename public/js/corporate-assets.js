@@ -73,7 +73,7 @@
    const acknowledgement=await api(path,{method,body:JSON.stringify(body)});
    if(acknowledgement?.ok!==true)throw Error('The server did not confirm this save. Refresh before trying again.');
    if(who!==key()||!allowed())return;dialogInfo.d.close();const refreshed=await load({reset:true});
-   if(who===key()&&root?.classList.contains('active'))status(refreshed?'Saved to your company register.':'Save accepted, but the register could not be refreshed. Use Refresh to verify your record.');}
+   if(who===key()&&root?.classList.contains('active'))status(!refreshed?'Save accepted, but the register could not be refreshed. Use Refresh to verify your record.':rows.some(asset=>asset.id===body.id)?'Saved and verified in your company register.':'Save accepted, but the saved asset was not found on the refreshed page. Search or refresh to verify the record.');}
   catch(e){dialogInfo.message.textContent=e.code==='asset_conflict'?'This asset changed in another session. Close this form and refresh before editing again.':e.message||'Save failed. Refresh before trying again.'}
   finally{busy=false;dialogInfo.submit.disabled=false}
  }
