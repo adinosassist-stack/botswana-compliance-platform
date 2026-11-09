@@ -146,3 +146,30 @@ test("resubmission verification has no customer-side activation side effects",()
  assert.equal(result.decision,D.VERIFIED);
  assert.deepEqual(Object.keys(result).sort(),["bankTransactionId","decision","invoiceId","reason"]);
 });
+
+
+test("invisible bank transaction characters cannot qualify as new bank credits",()=>{
+  for(const bankTransactionId of ["bank-\u200b123","bank-\u200d123","bank-\ufeff123","bank-\u2060123","bank-\u0000123","bank-\u007f123"]){
+    const outcome=evaluate(input({bankEvidence:{...bankEvidence,bankTransactionId}}));
+    assert.equal(outcome.decision,D.REVIEW_REQUIRED);
+    assert.equal(outcome.reason,"untrusted_or_incomplete_evidence");
+  }
+});
+test("non-NFC bank transaction IDs cannot bypass allocation lookup",()=>{
+  const noncanonical="bank-cafe\u0301";
+  assert.notEqual(noncanonical.normalize("NFC"),noncanonical);
+  assert.equal(evaluate(input({bankEvidence:{...bankEvidence,bankTransactionId:noncanonical}})).decision,D.REVIEW_REQUIRED);
+});
+test("invisible or noncanonical previously allocated IDs fail closed",()=>{
+  for(const bankTransactionId of ["bank-\u200b123","bank-\u2060123","bank-cafe\u0301"]){
+    const priorBankAllocations=[{bankTransactionId,invoiceId:"inv-older",tenantId:"tenant-a"}];
+    const result=evaluate(input({priorBankAllocations}));
+    assert.equal(result.decision,D.REVIEW_REQUIRED);
+    assert.equal(result.reason,"invalid_bank_allocation_record");
+  }
+});
+test("canonical visible unicode bank IDs remain eligible if genuinely distinct",()=>{
+  const bankTransactionId="bank-caf\u00e9";
+  const result=evaluate(input({bankEvidence:{...bankEvidence,bankTransactionId}}));
+  assert.equal(result.decision,D.VERIFIED);
+});
