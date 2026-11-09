@@ -122,3 +122,27 @@ test("a valid bank credit cannot bypass reviewer identity or tenant authorizatio
   assert.notEqual(result.decision,D.VERIFIED);
  }
 });
+
+test("resubmitted payment evidence never verifies a zero, fractional, negative or unsafe bank amount",()=>{
+ for(const amountMinor of [0,-1,149999.5,Number.MAX_SAFE_INTEGER+1,NaN,Infinity]){
+  const result=evaluate(input({bankEvidence:{...bankEvidence,bankTransactionId:"bank-new-789",amountMinor}}));
+  assert.notEqual(result.decision,D.VERIFIED);
+ }
+});
+test("resubmitted payment cannot be approved from non-settled bank status regardless of reviewer role",()=>{
+ for(const status of ["submitted","reviewing","authorized","reversed","chargeback","pending","failed",null]){
+  const result=evaluate(input({bankEvidence:{...bankEvidence,bankTransactionId:"bank-new-789",status}}));
+  assert.equal(result.decision,D.REVIEW_REQUIRED);
+ }
+});
+test("a bank credit already allocated in another tenant remains unavailable for resubmission",()=>{
+ const allocations=[{bankTransactionId:"bank-123",invoiceId:"inv-other",tenantId:"tenant-b"}];
+ const result=evaluate(input({priorBankAllocations:allocations}));
+ assert.equal(result.decision,D.REVIEW_REQUIRED);
+ assert.equal(result.reason,"bank_transaction_already_allocated");
+});
+test("resubmission verification has no customer-side activation side effects",()=>{
+ const result=evaluate(input({bankEvidence:{...bankEvidence,bankTransactionId:"bank-fresh-123"}}));
+ assert.equal(result.decision,D.VERIFIED);
+ assert.deepEqual(Object.keys(result).sort(),["bankTransactionId","decision","invoiceId","reason"]);
+});
