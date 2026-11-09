@@ -140,7 +140,12 @@ test('final approval and failed-settlement reset use reviewer-fenced compare-and
  const successful=fixture();await successful.run();
  const final=successful.state.writes.find(w=>w.sql.includes("status='approved'"));
  assert.ok(final);assert.match(final.sql,/reviewed_by_user_id=\\?/);
- assert.equal(final.args[4],'admin');
+ assert.equal(final.args[4],'BANK-123','completion must compare reviewed bank reference');
+ assert.equal(final.args[5],'admin','reviewer identity must still be fenced');
+ assert.match(final.sql,/bank_reference=/);
+ const claim=successful.state.writes.find(w=>w.sql.includes("SET status='reviewing'"));
+ assert.ok(claim);assert.match(claim.sql,/bank_reference=/);
+ assert.equal(claim.args.at(-1),'BANK-123');
  const failing=fixture({settles:false});await failing.run();
  const reset=failing.state.writes.find(w=>w.sql.includes("status='submitted',reviewed_by_user_id=NULL"));
  assert.ok(reset);assert.match(reset.sql,/reviewed_by_user_id=\\?/);
