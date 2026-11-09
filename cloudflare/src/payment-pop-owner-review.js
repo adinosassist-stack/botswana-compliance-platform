@@ -2,8 +2,12 @@ import {applyPopScanResult,assertPopScanQualification,popStoredDocument,verified
 import {appendSealedAuditEvent} from './audit-lineage-writer.js';
 import {popOwnerReadAllowed} from "./payment-pop-storage-boundary.js";
 // Server-only POP review functions. Caller identity must come from verified session.
+const popId=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+const validPopId=value=>typeof value==='string'&&popId.test(value);
+const assertPopIds=(...ids)=>{if(!ids.every(validPopId))throw Error('pop_invalid_scope');};
 export async function listPopForPlatformOwner(env,{actor,orderId}={}){
- if(actor?.platformOwner!==true)throw Error("pop_owner_forbidden");
+ if(actor?.platformOwner!==true||!actor?.userId)throw Error("pop_owner_forbidden");
+ assertPopIds(orderId);
  if(!env?.DB?.prepare)throw Error("pop_db_unavailable");
  const result=await env.DB.prepare("SELECT id,tenant_id,payment_order_id,display_name,content_type,bytes,scan_status,uploaded_at,content_sha256,object_etag FROM payment_pop_documents WHERE payment_order_id=? AND deleted_at IS NULL ORDER BY uploaded_at DESC LIMIT 50").bind(orderId).all();
  return {items:result.results||[],bankFundsConfirmed:false};
@@ -11,6 +15,7 @@ export async function listPopForPlatformOwner(env,{actor,orderId}={}){
 export async function markPopScanResult(env,args={}){return applyPopScanResult(env,args)}
 export async function readCleanPopForOwner(env,{actor,documentId,orderId,tenantId}={}){
  if(actor?.platformOwner!==true||!actor?.userId)throw Error("pop_owner_forbidden");
+ assertPopIds(documentId,orderId,tenantId);
  if(env.POP_OWNER_RETRIEVAL_STAGING_ENABLED!=='true')throw Error('pop_owner_review_disabled');
  const {provider}=assertPopScanQualification(env);
  const row=await popStoredDocument(env,{documentId,orderId,tenantId});
