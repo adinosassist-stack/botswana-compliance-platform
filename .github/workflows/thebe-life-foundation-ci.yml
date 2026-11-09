@@ -53,4 +53,5 @@ jobs:
             tests/thebe-life-workspace-adapter-static.test.mjs \
             tests/thebe-life-staging-preflight.test.mjs \
             tests/thebe-life-family-budget-summary.test.mjs \
-            tests/thebe-life-family-members-goals.test.mjs
+            tests/thebe-life-family-members-goals.test.mjs \
+            tests/thebe-life-synthetic-sqlite-integration.test.mjs
