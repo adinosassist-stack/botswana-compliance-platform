@@ -45,6 +45,7 @@ jobs:
           node --check server/thebe-life/motshelo-governance.mjs
           node --check server/thebe-life/motshelo-reconciliation.mjs
           node --check server/thebe-life/d1-motshelo-reader.mjs
+          node --check server/thebe-life/d1-motshelo-group-summary.mjs
           node --check public/js/thebe-life-workspace-preview.js
           node --check public/js/thebe-life-workspace-adapter.js
       - name: Offline Life tests — no credentials or customer data
@@ -56,6 +57,7 @@ jobs:
             tests/thebe-life-motshelo-veto.test.mjs \
             tests/thebe-life-motshelo-reconciliation.test.mjs \
             tests/thebe-life-d1-motshelo-reader.test.mjs \
+            tests/thebe-life-d1-motshelo-group-summary.test.mjs \
             tests/thebe-life-d1-reader.test.mjs \
             tests/thebe-life-d1-writer.test.mjs \
             tests/thebe-life-household-route.test.mjs \
