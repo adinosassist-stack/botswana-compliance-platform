@@ -33,16 +33,16 @@ export function checkFullReadOnlyEvidence({expectedMainSha,preflight,exposure}={
   createVersionAuthorized:false,deploymentAuthorized:false,
   errors:Object.freeze(errors)});
 }
-export async function inspectFullReadOnlyEvidence({expectedMainSha,githubToken,cloudflareToken,
+export async function inspectFullReadOnlyEvidence({expectedMainSha,githubToken,cloudflareToken,cloudflareAccountToken,
  repository,ref,githubSha,readPreflight=inspectProtectedProvenance,readExposure=inspectAssetStagingExposure}={}){
  if(!SHA.test(expectedMainSha||'')||githubSha!==expectedMainSha||
   repository!=='adinosassist-stack/botswana-compliance-platform'||ref!=='refs/heads/main')
   throw Error('protected_main_context_required');
- if(!githubToken||!cloudflareToken)throw Error('protected_read_credentials_required');
+ if(!githubToken||!cloudflareToken||!cloudflareAccountToken)throw Error('protected_read_credentials_required');
  // Preflight verifies LIVE GitHub main and protected environment policy.
  const preflight=await readPreflight({expectedSha:expectedMainSha,repository,ref,githubSha,
   githubToken,cloudflareToken});
- const exposure=await readExposure({token:cloudflareToken});
+ const exposure=await readExposure({token:cloudflareToken,accountToken:cloudflareAccountToken});
  const result=checkFullReadOnlyEvidence({expectedMainSha,preflight,exposure});
  if(result.errors.length)throw Error('read_only_evidence_failed:'+result.errors.join(','));
  return result;
@@ -53,6 +53,7 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
    expectedMainSha:process.env.EXPECTED_MAIN_SHA,
    githubToken:process.env.ASSETS_STAGING_GITHUB_READ_TOKEN,
    cloudflareToken:process.env.ASSETS_STAGING_CLOUDFLARE_TOKEN,
+   cloudflareAccountToken:process.env.ASSETS_STAGING_CLOUDFLARE_ACCOUNT_READ_TOKEN,
    repository:process.env.GITHUB_REPOSITORY,ref:process.env.GITHUB_REF,
    githubSha:process.env.GITHUB_SHA
   })));

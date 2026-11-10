@@ -66,3 +66,24 @@ Source: https://developers.cloudflare.com/workers/configuration/secrets/
 **Updated metadata guard:** `scripts/corporate-assets-staging-remote-preflight.mjs` now reads the active deployment, each positive-traffic Worker version's actual bindings, and the deployment once again to reject drift. It requires `secret_text` for each credential, exact reviewed source SHA, correct isolated D1 and both feature/write flags OFF on active versions as well as latest settings. This is **read-only**, fails closed, emits only sanitized reason codes and cannot authorize deployment or attest compiled source bytes.
 
 **Next separate operational actions (not performed here):** Independently confirm that exposed old values have been invalidated and replaced by fresh unrelated staging-only secrets; qualify an exact-current-main private Worker version with authenticated bundle/provenance hashes, protected source upload and independent `thusico` approval. Only after version-level and route/account-wide exposure checks pass may an owner initiate a **separately approved protected staging deployment**. Keep the staging flags OFF until isolated authenticated write/E2E acceptance is separately approved. No production database migration, deployment, payment approval, feature activation or traffic shift is authorized by these notes.
+
+## Separate account-wide read-only exposure credential (10 November 2026)
+
+The protected remote preflight keeps `ASSETS_STAGING_CLOUDFLARE_TOKEN` scoped to the
+staging Worker and the two known zones. Its existing `Individual Workers Editor`
+policy must not be broadened to pass the Worker Domains inventory audit.
+
+The account-wide Worker Domains GET requires `Workers Scripts Read` at account scope.
+The protected environment must receive a **separate**, owner-provisioned,
+least-privilege credential named `ASSETS_STAGING_CLOUDFLARE_ACCOUNT_READ_TOKEN`.
+Use this only for GET `/accounts/{account}/workers/domains` and read-only
+GET `/zones?per_page=100`, with `Zone Read` restricted to the two known zones;
+the original token continues to read the Worker subdomain and the two zone routes.
+Both secrets must be nonempty and are never echoed. If account-read authorization
+is absent or fails, qualification **fails closed**; do not substitute account
+Scripts Write or disable the required inventory check.
+
+Owner provision/secure GitHub environment-secret update and `thusico` review are
+still required before dispatch from freshly verified exact main. This code does
+not create a token, upload a version, repair old staging credentials, activate
+assets, change traffic, or authorize deployment.

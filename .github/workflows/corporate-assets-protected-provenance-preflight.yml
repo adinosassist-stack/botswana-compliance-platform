@@ -62,6 +62,7 @@ jobs:
       EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
       ASSETS_STAGING_GITHUB_READ_TOKEN: ${{ secrets.ASSETS_STAGING_GITHUB_READ_TOKEN }}
       ASSETS_STAGING_CLOUDFLARE_TOKEN: ${{ secrets.ASSETS_STAGING_CLOUDFLARE_TOKEN }}
+      ASSETS_STAGING_CLOUDFLARE_ACCOUNT_READ_TOKEN: ${{ secrets.ASSETS_STAGING_CLOUDFLARE_ACCOUNT_READ_TOKEN }}
     steps:
       - name: Refuse wrong branch, stale commit and missing read credentials
         shell: bash
@@ -72,6 +73,7 @@ jobs:
           test "$GITHUB_SHA" = "$EXPECTED_MAIN_SHA"
           test -n "$ASSETS_STAGING_GITHUB_READ_TOKEN"
           test -n "$ASSETS_STAGING_CLOUDFLARE_TOKEN"
+          test -n "$ASSETS_STAGING_CLOUDFLARE_ACCOUNT_READ_TOKEN"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ inputs.expected_main_sha }}
