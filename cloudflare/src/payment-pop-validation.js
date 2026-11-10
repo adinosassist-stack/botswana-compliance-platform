@@ -7,7 +7,7 @@ export function validatePopUpload(bytes, name, contentType) {
   // Reject invisible Unicode format characters (including bidi overrides),
   // noncanonical spelling and padded names before checking extensions.
   if (typeof name !== "string" || !name || name !== name.trim() ||
-      name.normalize("NFC") !== name || /[\\p{Cc}\\p{Cf}]/u.test(name))
+      name.normalize("NFC") !== name || /[\p{Cc}\p{Cf}]/u.test(name))
     throw new Error("invalid_pop_name");
   if (typeof contentType !== "string" || !contentType ||
       contentType !== contentType.trim())
