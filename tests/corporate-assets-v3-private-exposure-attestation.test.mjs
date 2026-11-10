@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {checkAssetStagingExposure,inspectAssetStagingExposure,assertOpaqueReadToken,sanitizedCloudflareError,EXPECTED_ZONES,WORKER} from '../scripts/corporate-assets-v3-private-exposure-attestation.mjs';
+import {checkAssetStagingExposure,inspectAssetStagingExposure,assertOpaqueReadToken,sanitizedCloudflareError,safeReadOnlyDiagnostic,EXPECTED_ZONES,WORKER} from '../scripts/corporate-assets-v3-private-exposure-attestation.mjs';
 const base=()=>({subdomain:{enabled:false,previews_enabled:false},domains:[],
  zones:EXPECTED_ZONES.map(id=>({id})),zoneRoutes:EXPECTED_ZONES.map(zone=>({zone,routes:[]}))});
 const denied=(change,reason)=>{
@@ -163,4 +163,28 @@ test('pagination fails closed on incomplete or unprovable result_info',async()=>
    /domains_inventory_incomplete/
   );
  }
+});
+
+test('CLI diagnostic allowlist suppresses unexpected errors containing opaque credentials',()=>{
+ const secret='SENSITIVEopaqueToken123456789';
+ const bad=[
+  new Error(secret),
+  new Error('Cloudflare failed: '+secret),
+  new Error('read_only_evidence_failed:'+secret),
+  new Error('cloudflare_exposure_read_failed_worker_domains_400_cfcode_'+secret),
+  {message:secret}, secret, null
+ ];
+ for(const error of bad){
+  const result=safeReadOnlyDiagnostic(error);
+  assert.equal(result,'assets_read_only_unexpected_failure');
+  assert.ok(!result.includes(secret));
+ }
+ assert.equal(safeReadOnlyDiagnostic(new Error('dedicated_account_inventory_read_token_required')),
+  'dedicated_account_inventory_read_token_required');
+ assert.equal(safeReadOnlyDiagnostic(new Error('cloudflare_exposure_read_failed_worker_domains_400_cfcode_10000')),
+  'cloudflare_exposure_read_failed_worker_domains_400_cfcode_10000');
+ assert.equal(safeReadOnlyDiagnostic(new Error('read_only_evidence_failed:source_input_manifest_required')),
+  'read_only_evidence_failed:source_input_manifest_required');
+ assert.equal(safeReadOnlyDiagnostic(new Error('cloudflare_exposure_read_failed_worker_domains_400_cfcode_1000000')),
+  'assets_read_only_unexpected_failure');
 });
