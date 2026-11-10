@@ -1,13 +1,15 @@
+import { employeeDispatchIntentIdentity } from "../server/employee-workflow-dispatch-intent.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {evaluateEmployeeDispatchAdmission as evaluate} from "../server/employee-workflow-dispatch-admission.js";
-const valid=()=>({featureEnabled:true,killSwitch:false,auditAvailable:true,
+const validFields=()=>({featureEnabled:true,killSwitch:false,auditAvailable:true,
  tenantId:"tenantA",actorId:"actorA",proposalId:"proposalA",reviewId:"reviewA",
- reviewerId:"reviewerB",idempotencyKey:"keyA",proposalRevision:"rev2",reviewedProposalRevision:"rev2",proposalTenantId:"tenantA",reviewTenantId:"tenantA",
+ reviewerId:"reviewerB",proposalRevision:"rev2",reviewedProposalRevision:"rev2",proposalTenantId:"tenantA",reviewTenantId:"tenantA",
  proposalStatus:"approved",reviewStatus:"approved",reviewerAuthorized:true,
  currentApprovedReview:true,currentProposalRevision:true,actorAuthorized:true,
  budgetAvailable:true,action:"create_internal_task",reviewedAction:"create_internal_task",
  reviewedProposalId:"proposalA",reviewedActorId:"actorA",reviewedTenantId:"tenantA"});
+const valid=()=>{const fields=validFields();return {...fields,idempotencyKey:employeeDispatchIntentIdentity(fields)};};
 test("eligible admission is a pure decision and does not execute",()=>{
  assert.deepEqual(evaluate(valid()),{allowed:true,reason:"eligible_for_atomic_admission"});
  assert.equal(evaluate({...valid(),action:"prepare_report_draft",reviewedAction:"prepare_report_draft"}).allowed,true);
@@ -46,4 +48,13 @@ test("review cannot be reused for a different action, proposal, actor or tenant"
   {proposalId:"proposalB"},{reviewedProposalId:"proposalB"},{actorId:"actorB"},
   {reviewedActorId:"actorB"},{reviewedTenantId:"tenantB"}])
   assert.equal(evaluate({...valid(),...change}).allowed,false);
+});
+
+test("idempotency key must exactly bind to canonical tenant, proposal, revision, action and actor",()=>{
+ const original=valid();
+ for(const change of [{idempotencyKey:"arbitrary"},{tenantId:"tenantB",proposalTenantId:"tenantB",reviewTenantId:"tenantB",reviewedTenantId:"tenantB"},
+ {proposalId:"proposalB",reviewedProposalId:"proposalB"},{proposalRevision:"rev3",reviewedProposalRevision:"rev3"},
+ {actorId:"actorB",reviewedActorId:"actorB",reviewerId:"reviewerC"},
+ {action:"prepare_report_draft",reviewedAction:"prepare_report_draft"}])
+  assert.equal(evaluate({...original,...change}).allowed,false);
 });
