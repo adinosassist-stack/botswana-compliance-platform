@@ -33,11 +33,12 @@ export function checkAssetStagingExposure({subdomain,domains,zones,zoneRoutes}={
   inspectedZoneCount:Array.isArray(zoneRoutes)?zoneRoutes.length:0,errors:Object.freeze([...new Set(errors)]),
   deploymentAuthorized:false,sourceProvenanceVerified:false});
 }
-export async function inspectAssetStagingExposure({token,request=fetch}={}){
+export async function inspectAssetStagingExposure({token,accountToken,request=fetch}={}){
+ if(typeof accountToken!=='string'||!accountToken.trim())error('dedicated_account_inventory_read_token_required');
  if(typeof token!=='string'||!token.trim())error('dedicated_cloudflare_read_token_required');
- const get=async (path,scope)=>{
+ const get=async (path,scope,readToken=token)=>{
   const response=await request('https://api.cloudflare.com/client/v4'+path,{
-   method:'GET',headers:{authorization:'Bearer '+token,accept:'application/json'},
+   method:'GET',headers:{authorization:'Bearer '+readToken,accept:'application/json'},
    redirect:'error',signal:AbortSignal.timeout(15000)});
   if(!response.ok)error('cloudflare_exposure_read_failed_'+scope+'_'+response.status);
   const data=await response.json();
@@ -46,7 +47,7 @@ export async function inspectAssetStagingExposure({token,request=fetch}={}){
  };
  const prefix='/accounts/'+ACCOUNT;
  const sub=(await get(prefix+'/workers/scripts/'+WORKER+'/subdomain','worker_subdomain')).result;
- const domainsPayload=await get(prefix+'/workers/domains','worker_domains');
+ const domainsPayload=await get(prefix+'/workers/domains','worker_domains',accountToken);
  if(!Array.isArray(domainsPayload.result))error('domains_inventory_invalid');
  const domains=complete(domainsPayload,'domains_inventory');
  const zonesPayload=await get('/zones?per_page=100','zone_inventory');
@@ -62,7 +63,8 @@ export async function inspectAssetStagingExposure({token,request=fetch}={}){
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
  try{
-  const result=await inspectAssetStagingExposure({token:process.env.ASSETS_STAGING_CLOUDFLARE_READ_TOKEN});
+  const result=await inspectAssetStagingExposure({token:process.env.ASSETS_STAGING_CLOUDFLARE_READ_TOKEN,
+   accountToken:process.env.ASSETS_STAGING_CLOUDFLARE_ACCOUNT_READ_TOKEN});
   console.log(JSON.stringify(result));
   if(!result.privateExposureVerified)process.exitCode=1;
  }catch(e){console.error(String(e.message).replace(/[^a-zA-Z0-9_]/g,'_'));process.exitCode=1}
