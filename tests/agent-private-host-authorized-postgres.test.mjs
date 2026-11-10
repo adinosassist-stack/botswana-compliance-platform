@@ -74,6 +74,24 @@ test("private host authorizes real DB-backed tenant membership and denies cross-
    });
    assert.equal(deniedRevoked.status,401,"revoked cookie must be rejected at HTTP session boundary");
    await pool.query("update sessions set revoked_at=null where id=$1",[session]);
+   // Verify each lifecycle failure through real HTTP cookie authorization, not only direct route invocation.
+   const cookieHeaders={origin:"https://thebedesk.com","sec-fetch-site":"same-origin",cookie:"bwcos_session="+encodeURIComponent(cookieToken)};
+   const assertHttpDenied=async reason=>{
+    const denied=await fetch("http://127.0.0.1:"+address.port+"/api/agent/approval-history",{headers:cookieHeaders});
+    assert.equal(denied.status,401,reason);
+    assert.equal(denied.headers.get("cache-control"),"no-store",reason+" must not be cached");
+    assert.equal((await denied.json()).error,"unauthenticated",reason);
+   };
+   await pool.query("update sessions set expires_at=now()-interval '1 minute' where id=$1",[session]);
+   await assertHttpDenied("expired cookie session");
+   await pool.query("update sessions set expires_at=now()+interval '1 hour',session_generation=0 where id=$1",[session]);
+   await assertHttpDenied("outdated session generation");
+   await pool.query("update sessions set session_generation=1 where id=$1",[session]);
+   await pool.query("update memberships set status='inactive' where user_id=$1",[user]);
+   await assertHttpDenied("inactive tenant membership");
+   await pool.query("update memberships set status='active' where user_id=$1",[user]);
+   const forged=await fetch("http://127.0.0.1:"+address.port+"/api/agent/approval-history",{headers:{...cookieHeaders,cookie:"bwcos_session="+randomUUID()}});
+   assert.equal(forged.status,401,"unknown cookie token must be rejected");
    assert.equal(response.headers.get("cache-control"),"no-store");
    const body=await response.json();
    assert.equal(body.error,"unauthenticated");
