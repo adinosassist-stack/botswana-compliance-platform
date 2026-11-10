@@ -12,6 +12,7 @@ on:
       - "tests/agent-history-rate-limit-postgres-integration.test.mjs"
       - "tests/agent-private-host-postgres-integration.test.mjs"
       - "tests/agent-private-host-authorized-postgres.test.mjs"
+      - "tests/agent-private-route-production-inert.test.mjs"
       - "server/sql/agent-history-rate-limits.sql"
       - "server/agent-*.js"
       - ".github/workflows/agent-governance-postgres.yml"
@@ -59,4 +60,4 @@ jobs:
           PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261018_agent_outbox_draft_guard.sql
           PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261019_agent_outbox_lease_integrity.sql
       - name: Run real PostgreSQL tests
-        run: node --test tests/agent-postgres-integration.test.mjs tests/agent-approval-history-postgres-integration.test.mjs tests/agent-history-rate-limit-postgres-integration.test.mjs tests/agent-private-host-postgres-integration.test.mjs tests/agent-private-host-authorized-postgres.test.mjs
+        run: node --test tests/agent-postgres-integration.test.mjs tests/agent-approval-history-postgres-integration.test.mjs tests/agent-history-rate-limit-postgres-integration.test.mjs tests/agent-private-host-postgres-integration.test.mjs tests/agent-private-host-authorized-postgres.test.mjs tests/agent-private-route-production-inert.test.mjs
