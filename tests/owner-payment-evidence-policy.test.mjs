@@ -173,3 +173,32 @@ test("canonical visible unicode bank IDs remain eligible if genuinely distinct",
   const result=evaluate(input({bankEvidence:{...bankEvidence,bankTransactionId}}));
   assert.equal(result.decision,D.VERIFIED);
 });
+
+
+test("fresh bank credit cannot reallocate an invoice already fully funded",()=>{
+  const priorBankAllocations=[{bankTransactionId:"bank-older",invoiceId:"inv-1",tenantId:"tenant-a"}];
+  const outcome=evaluate(input({bankEvidence:{...bankEvidence,bankTransactionId:"bank-new"},priorBankAllocations}));
+  assert.equal(outcome.decision,D.REVIEW_REQUIRED);
+  assert.equal(outcome.reason,"invoice_already_allocated");
+});
+test("a second invoice can still use a genuinely distinct verified bank credit",()=>{
+  const priorBankAllocations=[{bankTransactionId:"bank-older",invoiceId:"inv-older",tenantId:"tenant-a"}];
+  const outcome=evaluate(input({bankEvidence:{...bankEvidence,bankTransactionId:"bank-new"},priorBankAllocations}));
+  assert.equal(outcome.decision,D.VERIFIED);
+});
+test("an invoice ID collision in another tenant does not claim this tenant's invoice",()=>{
+  const priorBankAllocations=[{bankTransactionId:"bank-elsewhere",invoiceId:"inv-1",tenantId:"tenant-b"}];
+  const outcome=evaluate(input({bankEvidence:{...bankEvidence,bankTransactionId:"bank-new"},priorBankAllocations}));
+  assert.equal(outcome.decision,D.VERIFIED);
+});
+test("bank-credit reuse remains the primary denial when both IDs are already consumed",()=>{
+  const priorBankAllocations=[{bankTransactionId:"bank-123",invoiceId:"inv-1",tenantId:"tenant-a"}];
+  const outcome=evaluate(input({priorBankAllocations}));
+  assert.equal(outcome.decision,D.REVIEW_REQUIRED);
+  assert.equal(outcome.reason,"bank_transaction_already_allocated");
+});
+test("invoice reallocation cannot succeed through unauthenticated reviewer",()=>{
+  const priorBankAllocations=[{bankTransactionId:"bank-old",invoiceId:"inv-1",tenantId:"tenant-a"}];
+  const outcome=evaluate(input({bankEvidence:{...bankEvidence,bankTransactionId:"bank-fresh"},reviewer:{...reviewer,authenticated:false},priorBankAllocations}));
+  assert.notEqual(outcome.decision,D.VERIFIED);
+});
