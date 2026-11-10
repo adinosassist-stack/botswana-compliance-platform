@@ -6,10 +6,11 @@ const valid=()=>({featureEnabled:true,killSwitch:false,auditAvailable:true,
  reviewerId:"reviewerB",idempotencyKey:"keyA",proposalRevision:"rev2",reviewedProposalRevision:"rev2",proposalTenantId:"tenantA",reviewTenantId:"tenantA",
  proposalStatus:"approved",reviewStatus:"approved",reviewerAuthorized:true,
  currentApprovedReview:true,currentProposalRevision:true,actorAuthorized:true,
- budgetAvailable:true,action:"create_internal_task"});
+ budgetAvailable:true,action:"create_internal_task",reviewedAction:"create_internal_task",
+ reviewedProposalId:"proposalA",reviewedActorId:"actorA",reviewedTenantId:"tenantA"});
 test("eligible admission is a pure decision and does not execute",()=>{
  assert.deepEqual(evaluate(valid()),{allowed:true,reason:"eligible_for_atomic_admission"});
- assert.equal(evaluate({...valid(),action:"prepare_report_draft"}).allowed,true);
+ assert.equal(evaluate({...valid(),action:"prepare_report_draft",reviewedAction:"prepare_report_draft"}).allowed,true);
 });
 test("all governance controls require exact typed booleans",()=>{
  for(const [field,allowed] of [["featureEnabled",true],["killSwitch",false],["auditAvailable",true]]){
@@ -37,5 +38,12 @@ test("dispatch admission rejects stale, missing or mismatched reviewed proposal 
  for(const change of [{proposalRevision:"rev3"},{reviewedProposalRevision:"rev1"},
   {proposalRevision:undefined},{reviewedProposalRevision:null},
   {proposalRevision:""},{reviewedProposalRevision:"rev 2"}])
+  assert.equal(evaluate({...valid(),...change}).allowed,false);
+});
+
+test("review cannot be reused for a different action, proposal, actor or tenant",()=>{
+ for(const change of [{action:"prepare_report_draft"},{reviewedAction:"prepare_report_draft"},
+  {proposalId:"proposalB"},{reviewedProposalId:"proposalB"},{actorId:"actorB"},
+  {reviewedActorId:"actorB"},{reviewedTenantId:"tenantB"}])
   assert.equal(evaluate({...valid(),...change}).allowed,false);
 });
