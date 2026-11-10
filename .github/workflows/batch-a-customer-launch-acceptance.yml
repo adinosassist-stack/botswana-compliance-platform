@@ -26,6 +26,8 @@ jobs:
           package-manager-cache: false
       - name: Workspace navigation and freeze budgets
         run: node --test tests/workspace-navigation-freeze-budget.test.mjs tests/workspace-navigation-render-budget.test.mjs tests/workspace-navigation-performance-evidence.test.mjs tests/workspace-route-recovery-navigation.test.mjs tests/v551-workspace-navigation-speed.mjs
+      - name: AI dock response integrity (offline)
+        run: node --test tests/ai-dock-empty-advisor-response.test.mjs tests/ai-dock-advisor-deadline.test.mjs tests/ai-dock-network-diagnostics-1934.test.mjs
       - name: Owner payments and subscription activation contracts
         run: node --test tests/owner-dashboard-audit.test.mjs tests/owner-payment-dashboard.test.mjs tests/manual-bank-owner-approval-flow.test.mjs tests/payment-verification-static.mjs tests/v115-manual-bank-subscriptions-adversarial.mjs
       - name: Require human authenticated production evidence before launch
