@@ -26,6 +26,6 @@ test("keeps parameter values outside SQL text",()=>{
 
 test("guards duplicate reservation IDs without reusing a cancelled record",()=>{
  const result=prepareReservationInsert(base);
- assert.match(result.sql,/duplicate\\.id = \\?/);
+ assert.ok(result.sql.includes('duplicate.id = ?'));
  assert.equal(result.bindings[10],base.id);
 });
