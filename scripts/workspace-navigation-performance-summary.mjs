@@ -29,7 +29,14 @@ export function summarizeWorkspaceNavigationPerformance(samples){
 export function assertWorkspaceNavigationResponsiveness(samples){
  if(!Array.isArray(samples)||!samples.length||summarizeWorkspaceNavigationPerformance(samples).views!==samples.length)throw new Error('Navigation responsiveness evidence missing or invalid');
  for(const sample of samples){
-  if(sample.longTaskSupported!==true||!Number.isFinite(sample.worstLongTaskMs)||sample.worstLongTaskMs<0)throw new Error('Navigation blocking-task evidence unavailable');
+  if(sample.longTaskSupported!==true||
+     !Number.isSafeInteger(sample.longTaskCount)||sample.longTaskCount<0||
+     !Number.isFinite(sample.longTaskTotalMs)||sample.longTaskTotalMs<0||
+     !Number.isFinite(sample.worstLongTaskMs)||sample.worstLongTaskMs<0||
+     (sample.longTaskCount===0&&(sample.longTaskTotalMs!==0||sample.worstLongTaskMs!==0))||
+     (sample.longTaskCount>0&&(sample.worstLongTaskMs<50||sample.longTaskTotalMs<sample.worstLongTaskMs||
+       sample.longTaskTotalMs<sample.longTaskCount*50)))
+      throw new Error('Navigation blocking-task evidence unavailable');
   if(sample.activateMs>200)throw new Error(`Navigation activation freeze: ${sample.view} exceeded 200ms`);
   if(sample.worstLongTaskMs>200)throw new Error(`Navigation blocking freeze: ${sample.view} exceeded 200ms`);
  }
