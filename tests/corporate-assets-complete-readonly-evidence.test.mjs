@@ -62,7 +62,7 @@ test('protected orchestration sequences both independently verified reads withou
 test('wrong ref, missing tokens, forged exposure fail before any release',async()=>{
  const info={expectedMainSha:sha,githubSha:sha,
   repository:'adinosassist-stack/botswana-compliance-platform',ref:'refs/heads/main',
-  githubToken:'synthetic',cloudflareToken:'synthetic',
+  githubToken:'synthetic',cloudflareToken:'synthetic',cloudflareAccountToken:'synthetic-account',
   readPreflight:async()=>preflight(),readExposure:async()=>exposure()};
  await assert.rejects(inspectFullReadOnlyEvidence({...info,ref:'refs/heads/feature'}),/protected_main_context_required/);
  await assert.rejects(inspectFullReadOnlyEvidence({...info,githubToken:''}),/protected_read_credentials_required/);
