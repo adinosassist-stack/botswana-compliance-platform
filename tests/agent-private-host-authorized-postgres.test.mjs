@@ -25,7 +25,7 @@ test("private host authorizes real DB-backed tenant membership and denies cross-
   await pool.query("create table if not exists sessions (id uuid primary key,user_id text,tenant_id text,revoked_at timestamptz,expires_at timestamptz,session_generation integer)");
   await pool.query("create table if not exists users (id text primary key,session_generation integer)");
   await pool.query("create table if not exists memberships (user_id text,tenant_id text,status text)");
-  await pool.query("create table if not exists audit_events (id bigserial primary key)");
+  await pool.query("create table if not exists audit_events (id bigserial primary key,tenant_id text,actor_user_id text,event_type text,entity_type text,entity_id_text text,request_id text,event_data jsonb)");
   await pool.query("insert into users(id,session_generation) values($1,1)",[user]);
   await pool.query("insert into memberships(user_id,tenant_id,status) values($1,$2,'active')",[user,tenant]);
   await pool.query("insert into sessions(id,user_id,tenant_id,expires_at,session_generation) values($1,$2,$3,now()+interval '1 hour',1)",[session,user,tenant]);
