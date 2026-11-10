@@ -14,6 +14,7 @@ import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, Head
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { normalizeHttpsOrigin, requestOriginAllowed as nodeRequestOriginAllowed, fetchMetadataAllowsBrowserMutation as nodeFetchMetadataAllowsBrowserMutation } from "./origin-policy.js";
 import { safeNextPath as nodeSafeNextPath } from "./oauth-navigation.js";
+import { registerPrivateAgentHistory } from "./agent-approval-history-private-host.js";
 import { publicUrlConfig, buildPasswordResetUrl } from "./public-app-url.js";
 import { proxyTrustPolicy } from "./proxy-trust.js";
 import { nodePreBodyAbuseRule } from "./prebody-abuse.js";
@@ -192,6 +193,16 @@ function preAuthOrigin(req,res,next){return nodeFetchMetadataAllowsBrowserMutati
 function requireRole(...allowed){return [auth,roles(...allowed)]}
 function projectWorkspaceStateForRole(input,role){const state=input&&typeof input==="object"?input:{};if(role==="owner")return state;if(role==="manager"){const companies=Array.isArray(state.companies)?state.companies.map(c=>{const p={...(c?.profile||{})};delete p.annualTaxableSupplies;delete p.highestMonthlyEmployeePay;return {...c,profile:p}}):[];return {...state,activeRole:"manager",companies,audit:[]}}if(role!=="reviewer"&&role!=="auditor")return {activeCompanyId:null,activeRole:role||null,companies:[],audit:[]};const companies=Array.isArray(state.companies)?state.companies.map(c=>{const p={...(c?.profile||{})};delete p.turnover;delete p.annualTaxableSupplies;delete p.highestMonthlyEmployeePay;const evidence=Array.isArray(c?.evidence)?c.evidence.map(e=>({id:e?.id||null,name:e?.name||"",cat:e?.cat||"",date:e?.date||"",verified:!!e?.verified,fileUploaded:!!e?.fileUploaded,serverEvidenceId:e?.serverEvidenceId||null})):[];const reviews=role==="reviewer"&&Array.isArray(c?.reviews)?c.reviews.map(r=>({id:r?.id||null,type:r?.type||"",issue:r?.issue||"",risk:r?.risk||"",status:r?.status||"",note:r?.note||"",createdAt:r?.createdAt||null,autoKey:r?.autoKey||null})):[];return {id:c?.id||null,profile:p,evidence,completed:c?.completed||{},reviews,cases:[],employees:[],fixedTerms:[],privacy:{controls:{},activities:[]},bwReadiness:{}}}):[];return {activeCompanyId:state.activeCompanyId||companies[0]?.id||null,activeRole:role,companies,audit:[]}}
 async function requireEntitlement(req,res,next){try{const q=await pool.query("select status,trial_ends_at,current_period_ends_at,plan from subscriptions where tenant_id=$1",[req.auth.tenant_id]);const row=q.rows[0];const now=Date.now(),trialOk=row?.status==="trialing"&&new Date(row.trial_ends_at).getTime()>now,active=row?.status==="active"&&(row.current_period_ends_at===null||new Date(row.current_period_ends_at).getTime()>now);if(active||trialOk)return next();metrics.subscriptionBlocks++;return res.status(402).json({error:"subscription_required",status:row?.status||"missing"})}catch(e){next(e)}}
+
+// Private-only Agent approval history: real server session middleware, disabled in production.
+// Requires an isolated DB migration and explicit test-environment enablement.
+registerPrivateAgentHistory({
+ app,
+ enabled:config.APP_ENV==="test" && process.env.AGENT_HISTORY_PRIVATE_TEST_ENABLED==="true",
+ killSwitch:process.env.AGENT_HISTORY_PRIVATE_TEST_KILL_SWITCH!=="false",
+ sessionAuth:auth,pool,publicOrigin:config.PUBLIC_ORIGIN||"http://localhost:3000",
+ requestOriginAllowed:nodeRequestOriginAllowed
+});
 
 app.get("/api/live",(req,res)=>res.json({ok:true,service:"bw-compliance-os",version:APP_VERSION,uptimeSec:Math.floor(process.uptime()),requestId:req.requestId}));
 
