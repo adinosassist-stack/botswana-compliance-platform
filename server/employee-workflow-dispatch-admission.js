@@ -22,6 +22,9 @@ export function evaluateEmployeeDispatchAdmission(input = {}) {
      input.reviewerId === input.actorId || input.reviewerAuthorized !== true ||
      input.currentApprovedReview !== true || input.currentProposalRevision !== true)
   return deny("approval_denied");
+ if (input.reviewedAction !== input.action || input.reviewedProposalId !== input.proposalId ||
+     input.reviewedActorId !== input.actorId || input.reviewedTenantId !== input.tenantId)
+  return deny("review_scope_mismatch");
  if (input.actorAuthorized !== true || input.budgetAvailable !== true)
   return deny("authorization_denied");
  if (!INTERNAL_ACTIONS.has(input.action))
