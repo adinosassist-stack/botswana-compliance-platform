@@ -76,7 +76,7 @@ test("private host authorizes real DB-backed tenant membership and denies cross-
    await pool.query("update sessions set revoked_at=null where id=$1",[session]);
    assert.equal(response.headers.get("cache-control"),"no-store");
    const body=await response.json();
-   assert.equal(body.ok,false);
+   assert.equal(body.error,"unauthenticated");
   }finally{await new Promise((resolve,reject)=>httpServer.close(err=>err?reject(err):resolve()))}
   const principal={id:session,tenant_id:tenant,user_id:user,role:"owner"};
   const ok=await invoke(principal);
