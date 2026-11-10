@@ -78,7 +78,10 @@ export async function mountStaffManager(host,{client}={}){
   const items=Array.isArray(data?.items)?data.items:[];
   try {
    if(typeof data?.tenantId!=="string"||!data.tenantId.trim())throw new TypeError("missing_authorized_tenant");
-   const today=new Date().toISOString().slice(0,10);
+   const now=new Date();
+   const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Africa/Gaborone",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(now);
+   const datePart=type=>parts.find(part=>part.type===type)?.value;
+   const today=`${datePart("year")}-${datePart("month")}-${datePart("day")}`;
    renderWorkBoard(boardHost,managerTasksToWorkBoard({response:data,tenantId:data.tenantId,today}));
   } catch { boardHost.replaceChildren(make(doc,"p","Work overview unavailable. Task actions remain separate.")); }
   list.replaceChildren();
