@@ -29,4 +29,4 @@ jobs:
           node --check public/js/employee-self-service-manager.js
           node --check cloudflare/src/employee-self-service.js
       - name: Work contract tests
-        run: node --test tests/work-page-preview-contract.test.mjs tests/work-board-readonly.test.mjs tests/work-board-manager-adapter.test.mjs
+        run: node --test tests/work-page-preview-contract.test.mjs tests/work-board-readonly.test.mjs tests/work-board-manager-adapter.test.mjs tests/work-board-manager-integration.test.mjs
