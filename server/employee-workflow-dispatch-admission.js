@@ -1,3 +1,4 @@
+import { employeeDispatchIntentIdentity } from "./employee-workflow-dispatch-intent.js";
 /**
  * Pure, default-deny admission guard for a future employee workflow dispatcher.
  * No database, queue, scheduler, external effects or activation path is provided.
@@ -29,5 +30,10 @@ export function evaluateEmployeeDispatchAdmission(input = {}) {
   return deny("authorization_denied");
  if (!INTERNAL_ACTIONS.has(input.action))
   return deny("action_denied");
+ let canonicalIntent;
+ try { canonicalIntent = employeeDispatchIntentIdentity(input); }
+ catch { return deny("invalid_intent"); }
+ if (input.idempotencyKey !== canonicalIntent)
+  return deny("idempotency_key_mismatch");
  return Object.freeze({allowed:true,reason:"eligible_for_atomic_admission"});
 }
