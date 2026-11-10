@@ -16,10 +16,10 @@ export function registerAgentApprovalHistoryExpress({
   };
   const guards={
    verifySession:async()=>Boolean(a?.id&&a?.tenant_id&&a?.user_id),
-   verifyTenantMembership:async()=>tenantMembership(req,a)===true,
-   verifyOrigin:async()=>originCheck(req)===true,
-   checkRateLimit:async()=>rateLimit(req,a)===true,
-   verifyAuditAvailability:async()=>auditAvailable(req,a)===true
+   verifyTenantMembership:async()=>(await tenantMembership(req,a))===true,
+   verifyOrigin:async()=>(await originCheck(req))===true,
+   checkRateLimit:async()=>(await rateLimit(req,a))===true,
+   verifyAuditAvailability:async()=>(await auditAvailable(req,a))===true
   };
   try{
    const result=await handleAgentApprovalHistoryHttp({
