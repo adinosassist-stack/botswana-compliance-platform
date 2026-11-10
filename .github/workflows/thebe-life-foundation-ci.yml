@@ -50,6 +50,7 @@ jobs:
           node --check server/thebe-life/d1-motshelo-group-summary.mjs
           node --check public/js/thebe-life-workspace-preview.js
           node --check public/js/thebe-life-workspace-adapter.js
+          node --check public/js/thebe-life-private-read-client.js
       - name: Offline Life tests — no credentials or customer data
         run: |
           node --test \
@@ -66,6 +67,7 @@ jobs:
             tests/thebe-life-motshelo-read-route.test.mjs \
             tests/thebe-life-workspace-adapter-static.test.mjs \
             tests/thebe-life-workspace-budget-preview.test.mjs \
+            tests/thebe-life-private-read-client.test.mjs \
             tests/thebe-life-staging-preflight.test.mjs \
             tests/thebe-life-family-budget-summary.test.mjs \
             tests/thebe-life-family-members-goals.test.mjs \
