@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {checkAssetStagingExposure,inspectAssetStagingExposure,EXPECTED_ZONES,WORKER} from '../scripts/corporate-assets-v3-private-exposure-attestation.mjs';
+import {checkAssetStagingExposure,inspectAssetStagingExposure,assertOpaqueReadToken,sanitizedCloudflareError,EXPECTED_ZONES,WORKER} from '../scripts/corporate-assets-v3-private-exposure-attestation.mjs';
 const base=()=>({subdomain:{enabled:false,previews_enabled:false},domains:[],
  zones:EXPECTED_ZONES.map(id=>({id})),zoneRoutes:EXPECTED_ZONES.map(zone=>({zone,routes:[]}))});
 const denied=(change,reason)=>{
@@ -85,4 +85,42 @@ test('missing separate account audit credential fails closed before network',asy
  let calls=0;
  await assert.rejects(inspectAssetStagingExposure({token:'synthetic-zone',request:async()=>{calls++;throw Error('unexpected_network')}}),/dedicated_account_inventory_read_token_required/);
  assert.equal(calls,0);
+});
+
+
+test('Cloudflare 400 reports only bounded numeric provider code, never message or token',async()=>{
+ const bearer='a-secret-that-must-never-appear';
+ const response={ok:false,status:400,json:async()=>({errors:[{code:10001,message:'secret '+bearer,other:{authorization:bearer}}]})};
+ const msg=await sanitizedCloudflareError(response,'worker_domains');
+ assert.equal(msg,'cloudflare_exposure_read_failed_worker_domains_400_cfcode_10001');
+ assert.ok(!msg.includes(bearer));
+ assert.ok(!msg.includes('secret'));
+ assert.equal(await sanitizedCloudflareError({status:400,json:async()=>{throw Error(bearer)}},'worker_domains'),
+   'cloudflare_exposure_read_failed_worker_domains_400');
+ assert.equal(await sanitizedCloudflareError({status:400,json:async()=>({errors:[{code:bearer}]})},'worker_domains'),
+   'cloudflare_exposure_read_failed_worker_domains_400');
+});
+
+test('rejects malformed account credential before any request or secret disclosure',async()=>{
+ const invalid=[' Bearer abc','Bearer abc','abc def','abc\\ndef','"abc"',"'abc'",'abc '];
+ for(const secret of invalid){
+  let calls=0;
+  await assert.rejects(inspectAssetStagingExposure({token:'synthetic-worker-token',accountToken:secret,
+   request:async()=>{calls++;throw Error('unexpected network')}}),e=>{
+    assert.equal(e.message,'cloudflare_account_inventory_credential_format_invalid');
+    assert.ok(!e.message.includes(secret));return true;
+  });
+  assert.equal(calls,0);
+ }
+ assert.doesNotThrow(()=>assertOpaqueReadToken('opaque-token_123456','account_inventory'));
+});
+
+test('HTTP 400 error code is preserved safely at exact failing endpoint',async()=>{
+ const x=base();
+ const req=async url=>{
+  if(url.endsWith('/domains'))return {ok:false,status:400,json:async()=>({errors:[{code:10000,message:'private credential must never appear'}]})};
+  return {ok:true,json:async()=>({success:true,result:x.subdomain})};
+ };
+ await assert.rejects(inspectAssetStagingExposure({token:'synthetic-worker-token',accountToken:'synthetic-account-token',request:req}),
+  /cloudflare_exposure_read_failed_worker_domains_400_cfcode_10000/);
 });

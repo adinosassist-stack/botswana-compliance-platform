@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import pg from "pg";
 import express from "express";
-import {randomUUID} from "node:crypto";
+import {randomUUID,createHmac} from "node:crypto";
 import {registerPrivateAgentHistory} from "../server/agent-approval-history-private-host.js";
 
 // Isolated CI schema mimics the session/membership contract used by server.js.
@@ -14,6 +14,9 @@ test("private host authorizes real DB-backed tenant membership and denies cross-
  const tenant="host-"+randomUUID(),other="host-"+randomUUID();
  const user="user-"+randomUUID(),session=randomUUID(),approval=randomUUID(),foreign=randomUUID();
  const routes=[];
+ const cookieSecret="isolated-agent-ci-cookie-secret-not-production";
+ const cookieToken=randomUUID();
+ const cookieHash=createHmac("sha256",cookieSecret).update(cookieToken).digest("hex");
  const httpApp=express();
  const invoke=async(auth,headers={origin:"https://thebedesk.com","sec-fetch-site":"same-origin"})=>{
   let output={};
@@ -28,17 +31,29 @@ test("private host authorizes real DB-backed tenant membership and denies cross-
   await pool.query("create table if not exists users (id text primary key,session_generation integer)");
   await pool.query("create table if not exists memberships (user_id text,tenant_id text,status text)");
   await pool.query("create table if not exists audit_events (id bigserial primary key,tenant_id text,actor_user_id text,event_type text,entity_type text,entity_id_text text,request_id text,event_data jsonb)");
+  await pool.query("alter table sessions add column if not exists token_hash text");
   await pool.query("insert into users(id,session_generation) values($1,1)",[user]);
   await pool.query("insert into memberships(user_id,tenant_id,status) values($1,$2,'active')",[user,tenant]);
-  await pool.query("insert into sessions(id,user_id,tenant_id,expires_at,session_generation) values($1,$2,$3,now()+interval '1 hour',1)",[session,user,tenant]);
+  await pool.query("insert into sessions(id,user_id,tenant_id,expires_at,session_generation,token_hash) values($1,$2,$3,now()+interval '1 hour',1,$4)",[session,user,tenant,cookieHash]);
   const insert="insert into agent_action_approvals(id,tenant_id,actor_id,action,argument_digest,nonce,status,expires_at) values($1,$2,$3,'draft_internal_task',$4,$5,'pending',now()+interval '1 hour')";
   await pool.query(insert,[approval,tenant,user,"a".repeat(64),randomUUID()]);
   await pool.query(insert,[foreign,other,user,"b".repeat(64),randomUUID()]);
   assert.equal(registerPrivateAgentHistory({app:{get(...a){routes.push(a);httpApp.get(...a)}},enabled:true,killSwitch:false,
-   sessionAuth:(_req,_res,next)=>next(),pool,publicOrigin:"https://thebedesk.com",
+   sessionAuth:async(req,res,next)=>{
+    if(req.auth)return next();
+    try{
+     const raw=(req.headers.cookie||"").split(";").map(x=>x.trim()).find(x=>x.startsWith("bwcos_session="));
+     if(!raw)return res.status(401).set({"Cache-Control":"no-store"}).json({error:"unauthenticated"});
+     const token=decodeURIComponent(raw.slice("bwcos_session=".length));
+     const hash=createHmac("sha256",cookieSecret).update(token).digest("hex");
+     const q=await pool.query("select s.id,s.user_id,s.tenant_id,m.status,'owner'::text as role,u.session_generation from sessions s join users u on u.id=s.user_id join memberships m on m.user_id=s.user_id and m.tenant_id=s.tenant_id where s.token_hash=$1 and s.revoked_at is null and s.expires_at>now() and s.session_generation=u.session_generation and m.status='active'",[hash]);
+     if(q.rows.length!==1)return res.status(401).set({"Cache-Control":"no-store"}).json({error:"unauthenticated"});
+     req.auth=q.rows[0];next();
+    }catch(e){next(e)}
+   },pool,publicOrigin:"https://thebedesk.com",
    requestOriginAllowed:(origin,expected)=>origin===expected}),true);
   // Real loopback HTTP request exercises Express routing and response headers.
-  // The existing fixture supplies req.auth; server.js cookie decoding is NOT covered here.
+  // Uses an isolated test-only cookie/HMAC middleware mirroring server.js; not the production server.js instance.
   const httpServer=httpApp.listen(0,"127.0.0.1");
   try{
    await new Promise(resolve=>httpServer.once("listening",resolve));
@@ -47,16 +62,28 @@ test("private host authorizes real DB-backed tenant membership and denies cross-
     headers:{origin:"https://thebedesk.com","sec-fetch-site":"same-origin"}
    });
    assert.equal(response.status,401,"HTTP request without a verified session must return unauthorized");
+   const authorized=await fetch("http://127.0.0.1:"+address.port+"/api/agent/approval-history",{
+    headers:{origin:"https://thebedesk.com","sec-fetch-site":"same-origin",cookie:"bwcos_session="+encodeURIComponent(cookieToken)}
+   });
+   assert.equal(authorized.status,200,"valid hashed session cookie must authorize isolated HTTP history read");
+   const authorizedBody=await authorized.json();
+   assert.deepEqual(authorizedBody.items.map(x=>x.id),[approval]);
+   await pool.query("update sessions set revoked_at=now() where id=$1",[session]);
+   const deniedRevoked=await fetch("http://127.0.0.1:"+address.port+"/api/agent/approval-history",{
+    headers:{origin:"https://thebedesk.com","sec-fetch-site":"same-origin",cookie:"bwcos_session="+encodeURIComponent(cookieToken)}
+   });
+   assert.equal(deniedRevoked.status,401,"revoked cookie must be rejected at HTTP session boundary");
+   await pool.query("update sessions set revoked_at=null where id=$1",[session]);
    assert.equal(response.headers.get("cache-control"),"no-store");
    const body=await response.json();
-   assert.equal(body.ok,false);
+   assert.equal(body.error,"unauthenticated");
   }finally{await new Promise((resolve,reject)=>httpServer.close(err=>err?reject(err):resolve()))}
   const principal={id:session,tenant_id:tenant,user_id:user,role:"owner"};
   const ok=await invoke(principal);
   assert.equal(ok.status,200);
   assert.deepEqual(ok.body.items.map(x=>x.id),[approval]);
   const audit=await pool.query("select tenant_id,actor_user_id,event_type from audit_events where tenant_id=$1 and actor_user_id=$2 and event_type=$3",[tenant,user,"agent.approval_history.read"]);
-  assert.equal(audit.rows.length,1,"successful read must persist an audit event");
+  assert.equal(audit.rows.length,2,"both successful HTTP and direct reads must persist audit events");
   await pool.query("create or replace function agent_history_test_deny_audit() returns trigger language plpgsql as $audit$ begin if new.event_type='agent.approval_history.read' then raise exception 'test_audit_write_blocked'; end if; return new; end $audit$");
   await pool.query("create trigger agent_history_test_deny_audit before insert on audit_events for each row execute function agent_history_test_deny_audit()");
   const blocked=await invoke(principal);
