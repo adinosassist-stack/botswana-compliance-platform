@@ -11,7 +11,7 @@ const to=worker.indexOf('if(url.pathname==="/api/payments/ai-credit-checkout"',f
 assert.ok(from>0&&to>from,'manual-bank approval handler still exists');
 const route='(async()=>{'+worker.slice(from,to)+'return {status:404,body:{error:"unmatched_route"}};})()';
 const sid='11111111-1111-4111-8111-111111111111';
-function fixture({action='approve',confirmed=true,amountMatched=true,transactionMatched=true,role='owner',orderStatus='pending',reviewStatus='submitted',reviewOwner=null,matchingFulfillment=true,settles=true,auditFails=false}={}){
+function fixture({action='approve',confirmed=true,amountMatched=true,transactionMatched=true,role='owner',orderStatus='pending',reviewStatus='submitted',reviewOwner=null,matchingFulfillment=true,settles=true,auditFails=false,rejectionReason='Not visible in company account'}={}){
   const state={writes:[],settlements:0,audits:0,status:reviewStatus,orderStatus,providerPaymentId:orderStatus==='paid'?'BANK-123':null,matchingFulfillment,settles};
   const db={async batch(statements){const results=[];for(const statement of statements)results.push(await statement.run());return results},prepare(sql){
     let args=[];
@@ -44,7 +44,7 @@ function fixture({action='approve',confirmed=true,amountMatched=true,transaction
     env:{DB:db},
     roleAllowed:(actor,expected)=>actor.role===expected,
     platformBillingAdmin:()=>true,
-    readJson:async()=>({reason:'Not visible in company account',bankFundsConfirmed:confirmed,bankAmountMatched:amountMatched,bankTransactionMatched:transactionMatched}),
+    readJson:async()=>({reason:rejectionReason,bankFundsConfirmed:confirmed,bankAmountMatched:amountMatched,bankTransactionMatched:transactionMatched}),
     json:(body,status=200)=>({status,body}),
     boundedReportText:(value,max)=>String(value).slice(0,max),
     safeJson:(value,fallback)=>{try{return JSON.parse(value)}catch{return fallback}},
@@ -201,5 +201,49 @@ test('administrator cannot bypass rejected review with another review owner',asy
  const response=await f.run();
  assert.equal(response.status,409);
  assert.equal(f.state.settlements,0);
+ assert.equal(f.state.writes.length,0);
+});
+
+test('rejecting a manual payment requires a meaningful reason and creates no settlement',async()=>{
+ const f=fixture({action:'reject',rejectionReason:'No'});
+ const result=await f.run();
+ assert.equal(result.status,400);
+ assert.equal(result.body.error,'rejection_reason_required');
+ assert.equal(f.state.status,'submitted');
+ assert.equal(f.state.settlements,0);
+ assert.equal(f.state.audits,0);
+ assert.equal(f.state.writes.length,0);
+});
+
+test('non-platform owner cannot reject a submitted company-bank review',async()=>{
+ const f=fixture({action:'reject',role:'manager'});
+ const result=await f.run();
+ assert.equal(result.status,403);
+ assert.equal(result.body.error,'platform_billing_forbidden');
+ assert.equal(f.state.status,'submitted');
+ assert.equal(f.state.writes.length,0);
+ assert.equal(f.state.audits,0);
+});
+
+test('approved review cannot be rejected or approved again',async()=>{
+ for(const action of ['reject','approve']){
+  const f=fixture({action,reviewStatus:'approved',orderStatus:'paid'});
+  const result=await f.run();
+  assert.equal(result.status,409);
+  assert.equal(result.body.error,'manual_payment_already_reviewed');
+  assert.equal(f.state.status,'approved');
+  assert.equal(f.state.settlements,0);
+  assert.equal(f.state.writes.length,0);
+ }
+});
+
+test('cancelled review cannot be approved using old settlement attestations',async()=>{
+ const f=fixture({reviewStatus:'cancelled'});
+ const result=await f.run();
+ assert.equal(result.status,409);
+ assert.equal(result.body.error,'manual_payment_already_reviewed');
+ assert.equal(f.state.status,'cancelled');
+ assert.equal(f.state.settlements,0);
+ assert.equal(f.state.audits,0);
  assert.equal(f.state.writes.length,0);
 });
