@@ -10,6 +10,7 @@ SELECT ?, ?, ?, ?, ?, ?, ?, room.nightly_rate_minor
 FROM guest_house_rooms room
 WHERE room.tenant_id = ? AND room.property_id = ?
   AND room.id = ? AND room.status = 'available'
+  AND NOT EXISTS (SELECT 1 FROM guest_house_reservations duplicate WHERE duplicate.id = ?)
   AND NOT EXISTS (
     SELECT 1 FROM guest_house_reservations booking
     WHERE booking.tenant_id = ? AND booking.property_id = ?
@@ -36,5 +37,5 @@ export function prepareReservationInsert(input){
  if(!["held","confirmed"].includes(status))throw new TypeError("invalid_initial_status");
  return Object.freeze({sql:INSERT_RESERVATION_IF_FREE,
   bindings:Object.freeze([id,tenantId,propertyId,roomId,checkIn,checkOut,status,
-   tenantId,propertyId,roomId,tenantId,propertyId,roomId,checkOut,checkIn])});
+   tenantId,propertyId,roomId,id,tenantId,propertyId,roomId,checkOut,checkIn])});
 }
