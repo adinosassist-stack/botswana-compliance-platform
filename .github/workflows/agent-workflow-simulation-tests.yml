@@ -13,6 +13,8 @@ on:
       - 'tests/agent-approval-history-postgres.test.mjs'
       - 'server/agent-approval-history-controller.js'
       - 'tests/agent-approval-history-controller.test.mjs'
+      - 'server/agent-approval-history-http-adapter.js'
+      - 'tests/agent-approval-history-http-adapter.test.mjs'
       - 'tests/agent-approval-history-view.test.mjs'
       - 'public/js/agent-approval-history.js'
       - 'tests/agent-approval-history-ui.test.mjs'
@@ -36,4 +38,4 @@ jobs:
         with:
           node-version: '24'
       - name: Verify deterministic simulation contract
-        run: node --test tests/agent-workflow-simulation.test.mjs tests/agent-simulation-preview.test.mjs tests/agent-approval-preview-boundary.test.mjs tests/agent-approval-preview-ui.test.mjs tests/agent-approval-preview-handler.test.mjs tests/agent-approval-preview-ui-dom.test.mjs tests/agent-approval-history-view.test.mjs tests/agent-approval-history-ui.test.mjs tests/agent-approval-history-service.test.mjs tests/agent-approval-history-postgres.test.mjs tests/agent-approval-history-controller.test.mjs
+        run: node --test tests/agent-workflow-simulation.test.mjs tests/agent-simulation-preview.test.mjs tests/agent-approval-preview-boundary.test.mjs tests/agent-approval-preview-ui.test.mjs tests/agent-approval-preview-handler.test.mjs tests/agent-approval-preview-ui-dom.test.mjs tests/agent-approval-history-view.test.mjs tests/agent-approval-history-ui.test.mjs tests/agent-approval-history-service.test.mjs tests/agent-approval-history-postgres.test.mjs tests/agent-approval-history-controller.test.mjs tests/agent-approval-history-http-adapter.test.mjs
