@@ -76,8 +76,9 @@ policy must not be broadened to pass the Worker Domains inventory audit.
 The account-wide Worker Domains GET requires `Workers Scripts Read` at account scope.
 The protected environment must receive a **separate**, owner-provisioned,
 least-privilege credential named `ASSETS_STAGING_CLOUDFLARE_ACCOUNT_READ_TOKEN`.
-Use this only for GET `/accounts/{account}/workers/domains`; the original token
-continues to read the Worker subdomain and the two zone inventories/routes.
+Use this only for GET `/accounts/{account}/workers/domains` and read-only
+GET `/zones?per_page=100`, with `Zone Read` restricted to the two known zones;
+the original token continues to read the Worker subdomain and the two zone routes.
 Both secrets must be nonempty and are never echoed. If account-read authorization
 is absent or fails, qualification **fails closed**; do not substitute account
 Scripts Write or disable the required inventory check.
