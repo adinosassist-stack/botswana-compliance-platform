@@ -124,3 +124,43 @@ test('HTTP 400 error code is preserved safely at exact failing endpoint',async()
  await assert.rejects(inspectAssetStagingExposure({token:'synthetic-worker-token',accountToken:'synthetic-account-token',request:req}),
   /cloudflare_exposure_read_failed_worker_domains_400_cfcode_10000/);
 });
+
+test('accepts Cloudflare total_count-only pagination when exactly complete',async()=>{
+ const x=base();
+ const request=async url=>{
+  let result;
+  if(url.endsWith('/subdomain'))result=x.subdomain;
+  else if(url.endsWith('/domains'))result=x.domains;
+  else if(url.includes('/zones?'))result=x.zones;
+  else result=[];
+  return {ok:true,json:async()=>({success:true,result,
+   ...(Array.isArray(result)?{result_info:{page:1,per_page:100,count:result.length,total_count:result.length}}:{})})};
+ };
+ const evidence=await inspectAssetStagingExposure({token:'synthetic-zone-token',accountToken:'synthetic-account-token',request});
+ assert.equal(evidence.privateExposureVerified,true);
+ assert.equal(evidence.inspectedZoneCount,2);
+});
+
+test('pagination fails closed on incomplete or unprovable result_info',async()=>{
+ const x=base();
+ const cases=[
+  {page:1,count:0,total_count:1},
+  {page:2,count:0,total_count:0},
+  {page:1,count:0},
+  {page:1,count:0,total_pages:2,total_count:0},
+  {page:1,count:0,total_pages:1,total_count:1},
+  {page:1,count:1,total_count:0}
+ ];
+ for(const badPage of cases){
+  const request=async url=>{
+   const isDomains=url.endsWith('/domains');
+   const result=url.endsWith('/subdomain')?x.subdomain:isDomains?x.domains:[];
+   return {ok:true,json:async()=>({success:true,result,
+    ...(Array.isArray(result)?{result_info:isDomains?badPage:{page:1,count:result.length,total_count:result.length}}:{})})};
+  };
+  await assert.rejects(
+   inspectAssetStagingExposure({token:'synthetic-zone',accountToken:'synthetic-account',request}),
+   /domains_inventory_incomplete/
+  );
+ }
+});
