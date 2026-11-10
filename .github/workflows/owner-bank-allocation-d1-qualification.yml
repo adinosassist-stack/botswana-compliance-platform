@@ -6,11 +6,13 @@ on:
       - 'server/payments/d1-bank-allocation-adapter-reference.mjs'
       - 'server/payments/bank-allocation-input-validation.mjs'
       - 'server/payments/owner-payment-evidence-policy.mjs'
+      - 'server/payments/trusted-bank-settlement-gate.mjs'
       - 'tests/owner-bank-allocation-real-d1.test.mjs'
       - 'tests/owner-bank-d1-staging-fixture.test.mjs'
       - 'tests/d1-bank-allocation-adapter-reference.test.mjs'
       - 'tests/owner-bank-allocation-contract.test.mjs'
       - 'tests/owner-payment-evidence-policy.test.mjs'
+      - 'tests/trusted-bank-settlement-gate.test.mjs'
       - 'docs/owner-payment-release-qualification.md'
       - '.github/workflows/owner-bank-allocation-d1-qualification.yml'
 permissions:
@@ -34,6 +36,8 @@ jobs:
           node --check server/payments/d1-bank-allocation-adapter-reference.mjs
           node --check server/payments/owner-bank-allocation-contract.mjs
           node --check tests/owner-bank-allocation-real-d1.test.mjs
+          node --check server/payments/trusted-bank-settlement-gate.mjs
+          node --check tests/trusted-bank-settlement-gate.test.mjs
       - name: Run isolated D1 and owner payment evidence regressions
         run: |
           node --test \
@@ -41,4 +45,5 @@ jobs:
             tests/owner-bank-d1-staging-fixture.test.mjs \
             tests/d1-bank-allocation-adapter-reference.test.mjs \
             tests/owner-bank-allocation-contract.test.mjs \
-            tests/owner-payment-evidence-policy.test.mjs
+            tests/owner-payment-evidence-policy.test.mjs \
+            tests/trusted-bank-settlement-gate.test.mjs
