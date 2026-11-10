@@ -15,6 +15,9 @@ export function evaluateEmployeeDispatchAdmission(input = {}) {
   return deny("invalid_identity");
  if (input.proposalTenantId !== input.tenantId || input.reviewTenantId !== input.tenantId)
   return deny("tenant_mismatch");
+ if (!validId(input.proposalRevision) || !validId(input.reviewedProposalRevision) ||
+     input.proposalRevision !== input.reviewedProposalRevision)
+  return deny("revision_mismatch");
  if (input.proposalStatus !== "approved" || input.reviewStatus !== "approved" ||
      input.reviewerId === input.actorId || input.reviewerAuthorized !== true ||
      input.currentApprovedReview !== true || input.currentProposalRevision !== true)
