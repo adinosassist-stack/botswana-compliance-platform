@@ -5,6 +5,8 @@ on:
       - 'cloudflare/src/agent-workflow-simulation.js'
       - 'tests/agent-workflow-simulation.test.mjs'
       - 'cloudflare/src/agent-approval-preview-boundary.js'
+      - 'cloudflare/src/agent-approval-preview-handler.js'
+      - 'tests/agent-approval-preview-handler.test.mjs'
       - 'tests/agent-approval-preview-boundary.test.mjs'
       - 'public/js/agent-approval-preview.js'
       - 'tests/agent-approval-preview-ui.test.mjs'
@@ -23,4 +25,4 @@ jobs:
         with:
           node-version: '24'
       - name: Verify deterministic simulation contract
-        run: node --test tests/agent-workflow-simulation.test.mjs tests/agent-simulation-preview.test.mjs tests/agent-approval-preview-boundary.test.mjs tests/agent-approval-preview-ui.test.mjs
+        run: node --test tests/agent-workflow-simulation.test.mjs tests/agent-simulation-preview.test.mjs tests/agent-approval-preview-boundary.test.mjs tests/agent-approval-preview-ui.test.mjs tests/agent-approval-preview-handler.test.mjs
