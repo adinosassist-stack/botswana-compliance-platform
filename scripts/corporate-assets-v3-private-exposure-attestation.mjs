@@ -43,13 +43,13 @@ const SAFE_DIAGNOSTICS=new Set([
  'cloudflare_exposure_invalid_response_zone_inventory',
  'cloudflare_exposure_invalid_response_zone_worker_routes',
  'protected_main_context_required','protected_read_credentials_required',
- 'read_only_evidence_failed'
+ 'read_only_evidence_failed','active_version_evidence_incomplete'
 ]);
 export function safeReadOnlyDiagnostic(err){
  const msg=err instanceof Error?err.message:'';
  if(SAFE_DIAGNOSTICS.has(msg))return msg;
- if(/^cloudflare_exposure_read_failed_(worker_subdomain|worker_domains|zone_inventory|zone_worker_routes)_(400|401|403|404|408|429|500|502|503|504)(?:_cfcode_[0-9]{1,6})?$/.test(msg))return msg;
- if(/^read_only_evidence_failed:(?:exact_main_context_required|source_input_manifest_required|known_candidate_and_rollback_required|unsafe_source_or_release_claim|legacy_source_mismatch_unacknowledged|independent_private_exposure_not_verified)(?:,(?:exact_main_context_required|source_input_manifest_required|known_candidate_and_rollback_required|unsafe_source_or_release_claim|legacy_source_mismatch_unacknowledged|independent_private_exposure_not_verified))*$/.test(msg))return msg;
+ if(/^cloudflare_exposure_read_failed_(worker_subdomain|worker_domains|zone_inventory|zone_worker_routes|active_deployments|active_version)_(400|401|403|404|408|429|500|502|503|504)(?:_cfcode_[0-9]{1,6})?$/.test(msg))return msg;
+ if(/^read_only_evidence_failed:(?:exact_main_context_required|source_input_manifest_required|known_candidate_and_rollback_required|unsafe_source_or_release_claim|legacy_source_mismatch_unacknowledged|independent_private_exposure_not_verified|active_version_credential_safety_not_verified)(?:,(?:exact_main_context_required|source_input_manifest_required|known_candidate_and_rollback_required|unsafe_source_or_release_claim|legacy_source_mismatch_unacknowledged|independent_private_exposure_not_verified|active_version_credential_safety_not_verified))*$/.test(msg))return msg;
  return 'assets_read_only_unexpected_failure';
 }
 const complete=(data,code)=>{
