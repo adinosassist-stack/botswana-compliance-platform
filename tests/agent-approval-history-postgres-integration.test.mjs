@@ -4,6 +4,7 @@ import {randomUUID} from "node:crypto";
 import {createRequire} from "node:module";
 import {createPostgresAgentApprovalHistoryReader} from "../server/agent-approval-history-postgres.js";
 import {getAgentApprovalHistoryForPrincipal} from "../server/agent-approval-history-controller.js";
+import {registerAgentApprovalHistoryExpress} from "../server/agent-approval-history-express.js";
 
 // Opt-in integration test: requires a disposable database with the verified
 // 20261015 and 20261016 governance migrations already applied.
@@ -31,6 +32,26 @@ test("real PostgreSQL history is tenant- and actor-isolated", {skip:!process.env
   });
   assert.equal(result.ok,true);assert.deepEqual(result.items.map(x=>x.id),[ids[1]]);
   assert.equal(result.items[0].status,"requested");
+  const routes=[];
+  registerAgentApprovalHistoryExpress({app:{get(...args){routes.push(args)}},enabled:true,
+   sessionAuth:(_req,_res,next)=>next(),tenantMembership:async()=>true,
+   originCheck:async()=>true,rateLimit:async()=>true,auditAvailable:async()=>true,
+   getDatabase:()=>pool});
+  const invoke=async(auth)=>{
+   let output;
+   const res={status(status){output={status};return this},set(){return this},
+    json(body){output.body=body;return this}};
+   await routes[0][2]({method:"GET",auth},res);
+   return output;
+  };
+  assert.equal(routes.length,1);
+  const a=await invoke({id:"session-a",tenant_id:tenantA,user_id:"manager-a",role:"manager"});
+  assert.equal(a.status,200);assert.deepEqual(a.body.items.map(x=>x.id),[ids[1]]);
+  const b=await invoke({id:"session-b",tenant_id:tenantB,user_id:"owner-b",role:"owner"});
+  assert.equal(b.status,200);assert.deepEqual(b.body.items.map(x=>x.id),[ids[2]]);
+  const missing=await invoke(null);
+  assert.equal(missing.status,401);assert.deepEqual(missing.body.items,[]);
+
  }finally{
   await pool.query("delete from agent_action_approvals where id = any($1::uuid[])",[ids]).catch(()=>{});
   await pool.end();
