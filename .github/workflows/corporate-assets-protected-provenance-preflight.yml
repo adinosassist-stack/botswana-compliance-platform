@@ -5,6 +5,7 @@ on:
       - '.github/workflows/corporate-assets-protected-provenance-preflight.yml'
       - 'scripts/corporate-assets-protected-provenance-preflight.mjs'
       - 'tests/corporate-assets-protected-provenance-preflight.test.mjs'
+      - 'scripts/corporate-assets-early-main-guard.mjs'
       - 'scripts/corporate-assets-complete-readonly-evidence.mjs'
       - 'tests/corporate-assets-complete-readonly-evidence.test.mjs'
       - 'scripts/corporate-assets-active-credential-types.mjs'
@@ -46,12 +47,19 @@ jobs:
           package-manager-cache: false
       - name: Source syntax and adversarial regressions, no tokens
         run: |
+          node --check scripts/corporate-assets-early-main-guard.mjs
           node --check scripts/corporate-assets-protected-provenance-preflight.mjs
           node --test tests/corporate-assets-protected-provenance-preflight.test.mjs
           node --check scripts/corporate-assets-complete-readonly-evidence.mjs
           node --test tests/corporate-assets-complete-readonly-evidence.test.mjs
           node --check scripts/corporate-assets-active-credential-types.mjs
           node --test tests/corporate-assets-active-credential-types.test.mjs
+      - name: Fail stale main early before independent protected review (GET only)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/corporate-assets-early-main-guard.mjs
   protected-readonly:
     needs: offline
     if: >-
