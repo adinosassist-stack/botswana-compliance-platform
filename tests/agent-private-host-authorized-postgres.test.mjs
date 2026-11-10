@@ -46,7 +46,7 @@ test("private host authorizes real DB-backed tenant membership and denies cross-
      if(!raw)return res.status(401).json({error:"unauthenticated"});
      const token=decodeURIComponent(raw.slice("bwcos_session=".length));
      const hash=createHmac("sha256",cookieSecret).update(token).digest("hex");
-     const q=await pool.query("select s.id,s.user_id,s.tenant_id,m.status,u.session_generation from sessions s join users u on u.id=s.user_id join memberships m on m.user_id=s.user_id and m.tenant_id=s.tenant_id where s.token_hash=$1 and s.revoked_at is null and s.expires_at>now() and s.session_generation=u.session_generation and m.status='active'",[hash]);
+     const q=await pool.query("select s.id,s.user_id,s.tenant_id,m.status,'owner'::text as role,u.session_generation from sessions s join users u on u.id=s.user_id join memberships m on m.user_id=s.user_id and m.tenant_id=s.tenant_id where s.token_hash=$1 and s.revoked_at is null and s.expires_at>now() and s.session_generation=u.session_generation and m.status='active'",[hash]);
      if(q.rows.length!==1)return res.status(401).json({error:"unauthenticated"});
      req.auth=q.rows[0];next();
     }catch(e){next(e)}
