@@ -91,7 +91,7 @@ test('real D1 allocation contract requires owner, invoice, exact amount and vali
    {reviewer:{...reviewer,tenantId:'tenant-b'}},
    {tenantId:'tenant-b'},
    {invoice:{...invoice,amountMinor:0}},
-   {invoice:{...invoice,currency:'USD'}},
+   {invoice:{...invoice,currency:'usd'}},
    {decision:{decision:'review_required',invoiceId:invoice.id,
     bankTransactionId:'fresh-credit'}}
   ]){
@@ -146,10 +146,10 @@ test('invalid input cannot insert and reference allocation cannot grant entitlem
  try{
   for(const patch of [
    {bankTransactionId:' bank-a'},
-   {bankTransactionId:'bank-\\u200b1'},
+   {bankTransactionId:'bank-\u200b1'},
    {currency:'bwp'},{verifiedAt:'2026-02-30T10:00:00Z'},
    {amountMinor:0},{amountMinor:0.5},{amountMinor:Number.MAX_SAFE_INTEGER+1},
-   {verifiedByActorId:'owner-\\u200b1'}
+   {verifiedByActorId:'owner-\u200b1'}
   ]){
    await assert.rejects(
     f.adapter.insertUniqueAllocation({...record,...patch}),/invalid allocation record/
