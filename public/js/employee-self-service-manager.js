@@ -74,7 +74,9 @@ export async function mountStaffManager(host,{client}={}){
  section.append(boardHost);
  const list=make(doc,"div");section.append(list);
  const refresh=async()=>{
-  const data=await client.request("/api/employee-self-service/tasks");
+  let data;
+  try { data=await client.request("/api/employee-self-service/tasks"); }
+  catch(error) { boardHost.replaceChildren(); list.replaceChildren(); throw error; }
   const items=Array.isArray(data?.items)?data.items:[];
   try {
    if(typeof data?.tenantId!=="string"||!data.tenantId.trim())throw new TypeError("missing_authorized_tenant");
