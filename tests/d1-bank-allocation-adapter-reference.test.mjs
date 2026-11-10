@@ -33,3 +33,23 @@ test("D1 binding and execution exceptions are not interpreted as allocation succ
  const db={prepare(){return {bind(){return {run:async()=>{throw Error("D1 unavailable");}}}}}};
  await assert.rejects(()=>createD1BankAllocationAdapter(db).insertUniqueAllocation(record));
 });
+
+
+test("D1 adapter rejects malformed identity, timestamp and currency before preparing SQL",async()=>{
+ let preparations=0;
+ const db={prepare(){preparations++;throw Error("should_not_prepare")}};
+ const adapter=createD1BankAllocationAdapter(db);
+ for(const bankTransactionId of [" bank-1","bank-1 ","bank-\u200b1","bank-cafe\u0301",12]){
+  await assert.rejects(()=>adapter.insertUniqueAllocation({...record,bankTransactionId}),/invalid allocation record/);
+ }
+ for(const verifiedByActorId of [" owner-1","owner-\u200b1",123]){
+  await assert.rejects(()=>adapter.insertUniqueAllocation({...record,verifiedByActorId}),/invalid allocation record/);
+ }
+ for(const verifiedAt of ["2026-02-30T12:00:00Z","2026-10-29T14:00:00+02:00","2026-10-29","not-a-date"]){
+  await assert.rejects(()=>adapter.insertUniqueAllocation({...record,verifiedAt}),/invalid allocation record/);
+ }
+ for(const currency of ["bwp","BWPP"," BWP",null]){
+  await assert.rejects(()=>adapter.insertUniqueAllocation({...record,currency}),/invalid allocation record/);
+ }
+ assert.equal(preparations,0);
+});
