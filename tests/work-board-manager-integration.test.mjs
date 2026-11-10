@@ -22,3 +22,10 @@ test('read-only board has no mutation controls and renders via textContent',()=>
  assert.doesNotMatch(renderer,/innerHTML|insertAdjacentHTML|addEventListener|\.fetch\(/);
  assert.doesNotMatch(renderer,/method:\s*["']POST/);
 });
+
+test('failed manager refresh clears previously displayed task data',()=>{
+ assert.match(manager,/catch\(error\) \{ boardHost\.replaceChildren\(\); list\.replaceChildren\(\); throw error; \}/);
+});
+test('overdue dates use Botswana calendar',()=>{
+ assert.match(manager,/timeZone:"Africa\/Gaborone"/);
+});
