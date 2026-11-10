@@ -1,4 +1,7 @@
 /** Manager-only People panel. Self-service remains hidden when server feature is off. */
+import { managerTasksToWorkBoard } from "./work-board-manager-adapter.js";
+import { renderWorkBoard } from "./work-board-renderer.js";
+
 const make=(doc,tag,content,cls)=>{
  const node=doc.createElement(tag);
  if(content!==undefined&&content!==null)node.textContent=String(content);
@@ -64,10 +67,20 @@ export async function mountStaffManager(host,{client}={}){
  const assignButton=make(doc,"button","Assign task");assignButton.type="submit";taskForm.append(assignButton);
  forms.append(inviteForm,taskForm);section.append(forms,status);
  const reviewHeading=make(doc,"h4","Assigned tasks");reviewHeading.style.marginTop="20px";section.append(reviewHeading);
+ const boardHost=make(doc,"div");
+ boardHost.setAttribute("aria-label","Employee work overview");
+ const boardCss=doc.createElement("link");boardCss.rel="stylesheet";boardCss.href="/assets/work-board-readonly.css";
+ if(!doc.querySelector('link[href="/assets/work-board-readonly.css"]'))doc.head.append(boardCss);
+ section.append(boardHost);
  const list=make(doc,"div");section.append(list);
  const refresh=async()=>{
   const data=await client.request("/api/employee-self-service/tasks");
   const items=Array.isArray(data?.items)?data.items:[];
+  try {
+   if(typeof data?.tenantId!=="string"||!data.tenantId.trim())throw new TypeError("missing_authorized_tenant");
+   const today=new Date().toISOString().slice(0,10);
+   renderWorkBoard(boardHost,managerTasksToWorkBoard({response:data,tenantId:data.tenantId,today}));
+  } catch { boardHost.replaceChildren(make(doc,"p","Work overview unavailable. Task actions remain separate.")); }
   list.replaceChildren();
   if(!items.length){list.append(make(doc,"p","No employee tasks yet."));return}
   for(const item of items){
