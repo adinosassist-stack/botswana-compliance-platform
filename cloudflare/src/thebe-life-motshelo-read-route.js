@@ -35,10 +35,11 @@ export async function handleThebeLifeMotsheloReadRoute({request,path,env,auth}={
   }catch{return response({error:'rate_limiter_unavailable'},503);}
   try{
     const args={db:env.LIFE_DB,groupId:match[1],sessionUserId:auth.user_id};
+    const summary=await readMotsheloGroupSummary(args);
+    if(summary.ok===false)return response({error:'not_authorized_or_not_found'},404);
     const result=match[2]==='summary'
-      ?await readMotsheloGroupSummary(args)
+      ?summary
       :await readMotsheloContributions({...args,limit:50});
-    if(result.ok===false)return response({error:'not_authorized_or_not_found'},404);
     // No ledger record may be presented as bank-confirmed funds.
     return response(result,200);
   }catch{return response({error:'life_read_unavailable'},503);}
