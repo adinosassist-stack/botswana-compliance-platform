@@ -53,3 +53,16 @@ passing receipt means **only** the metadata binding guard passed — not a
 staging functional or production qualification.
 
 Source: https://developers.cloudflare.com/workers/configuration/secrets/
+
+## 10 November 2026 — deployed version differs from latest settings
+
+**Verified read-only against Cloudflare account metadata; no secret values accessed:**
+
+- Current `bw-corporate-assets-staging/settings` and `/secrets` endpoints report `SESSION_SECRET` and `AUDIT_INTEGRITY_SECRET` as `secret_text`. These endpoints may report the **latest candidate settings** rather than the code and bindings receiving traffic.
+- Current **active 100%-traffic deployment** remains Worker version **2**, UUID `5497120e-4ae6-4665-b96f-4b040d32a249`, created 5 November 2026. Direct `/versions/{id}` readback reports both sensitive bindings as **`plain_text`**. Do not label active version secure or claim secret rotation completed just because generic settings are safe.
+- A separate, **undeployed** version **3**, UUID `983daaea-1e6b-4359-9994-0b792578008b`, holds both as `secret_text` and preserves staging database isolation and write flags OFF, but has stale embedded source marker `062ef3ea4c598d38a56e15dba1691c30aa4e5c72`. It cannot be accepted as an exact-current-main Worker build or deployed merely to remove the plaintext without fresh source/credential provenance and independent authorization.
+- Public `workers.dev` subdomain and preview URLs were disabled at readback. Both staging assets and writes are OFF, and no customer traffic is routed to this Worker. These guards limit exposure but **do not fix historical plaintext credential handling**.
+
+**Updated metadata guard:** `scripts/corporate-assets-staging-remote-preflight.mjs` now reads the active deployment, each positive-traffic Worker version's actual bindings, and the deployment once again to reject drift. It requires `secret_text` for each credential, exact reviewed source SHA, correct isolated D1 and both feature/write flags OFF on active versions as well as latest settings. This is **read-only**, fails closed, emits only sanitized reason codes and cannot authorize deployment or attest compiled source bytes.
+
+**Next separate operational actions (not performed here):** Independently confirm that exposed old values have been invalidated and replaced by fresh unrelated staging-only secrets; qualify an exact-current-main private Worker version with authenticated bundle/provenance hashes, protected source upload and independent `thusico` approval. Only after version-level and route/account-wide exposure checks pass may an owner initiate a **separately approved protected staging deployment**. Keep the staging flags OFF until isolated authenticated write/E2E acceptance is separately approved. No production database migration, deployment, payment approval, feature activation or traffic shift is authorized by these notes.
