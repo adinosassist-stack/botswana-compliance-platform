@@ -8,6 +8,7 @@ on:
       - "db/migrations/20261018_agent_outbox_draft_guard.sql"
       - "db/migrations/20261019_agent_outbox_lease_integrity.sql"
       - "tests/agent-postgres-integration.test.mjs"
+      - "tests/agent-approval-history-postgres-integration.test.mjs"
       - "server/agent-*.js"
       - ".github/workflows/agent-governance-postgres.yml"
   workflow_dispatch:
@@ -30,6 +31,7 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgresql://agent:agent_test_only@localhost:5432/governance
+      AGENT_HISTORY_TEST_DATABASE_URL: postgresql://agent:agent_test_only@localhost:5432/governance
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -51,4 +53,4 @@ jobs:
           PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261018_agent_outbox_draft_guard.sql
           PGPASSWORD=agent_test_only psql -h localhost -U agent -d governance -v ON_ERROR_STOP=1 -f db/migrations/20261019_agent_outbox_lease_integrity.sql
       - name: Run real PostgreSQL tests
-        run: node --test tests/agent-postgres-integration.test.mjs
+        run: node --test tests/agent-postgres-integration.test.mjs tests/agent-approval-history-postgres-integration.test.mjs
