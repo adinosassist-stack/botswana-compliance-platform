@@ -31,7 +31,7 @@ test('zone inventory must cover all known account zones, once each',()=>{
 test('mocked Cloudflare read-only envelope and request coverage',async()=>{
  const x=base(),calls=[];
  const request=async(url,opts)=>{
-  calls.push({url,method:opts.method});
+  calls.push({url,method:opts.method,authorization:opts.headers.authorization});
   let result;
   if(url.endsWith('/subdomain'))result=x.subdomain;
   else if(url.endsWith('/domains'))result=x.domains;
@@ -40,19 +40,21 @@ test('mocked Cloudflare read-only envelope and request coverage',async()=>{
   if(!result)throw Error('unknown_mock_url');
   return {ok:true,json:async()=>({success:true,result,...(Array.isArray(result)?{result_info:{page:1,total_pages:1,count:result.length}}:{})})};
  };
- const y=await inspectAssetStagingExposure({token:'synthetic-read-token',request});
+ const y=await inspectAssetStagingExposure({token:'synthetic-read-token',accountToken:'synthetic-account-token',request});
  assert.equal(y.privateExposureVerified,true);
  assert.equal(calls.length,5);
  assert.ok(calls.every(c=>c.method==='GET'));
+ assert.ok(calls.filter(c=>c.url.endsWith('/domains')||c.url.includes('/zones?')).every(c=>c.authorization==='Bearer synthetic-account-token'));
+ assert.ok(calls.filter(c=>!c.url.endsWith('/domains')&&!c.url.includes('/zones?')).every(c=>c.authorization==='Bearer synthetic-read-token'));
 });
 test('API error, malformed response and partial inventory must fail',async()=>{
  const request=async()=>({ok:false,status:403});
- await assert.rejects(inspectAssetStagingExposure({token:'synthetic',request}),/cloudflare_exposure_read_failed_worker_subdomain_403/);
+ await assert.rejects(inspectAssetStagingExposure({token:'synthetic',accountToken:'synthetic-account',request}),/cloudflare_exposure_read_failed_worker_subdomain_403/);
  const bad=async()=>({ok:true,json:async()=>({success:false,result:null})});
- await assert.rejects(inspectAssetStagingExposure({token:'synthetic',request:bad}),/cloudflare_exposure_invalid_response_worker_subdomain/);
+ await assert.rejects(inspectAssetStagingExposure({token:'synthetic',accountToken:'synthetic-account',request:bad}),/cloudflare_exposure_invalid_response_worker_subdomain/);
  const partial=async url=>({ok:true,json:async()=>({success:true,result:url.endsWith('/subdomain')?{enabled:false,previews_enabled:false}:[],
   result_info:url.endsWith('/subdomain')?undefined:{page:1,total_pages:2,count:0}})});
- await assert.rejects(inspectAssetStagingExposure({token:'synthetic',request:partial}),/domains_inventory_incomplete/);
+ await assert.rejects(inspectAssetStagingExposure({token:'synthetic',accountToken:'synthetic-account',request:partial}),/domains_inventory_incomplete/);
 });
 
 test('HTTP 403 diagnostics classify each read scope without leaking credentials',async()=>{
@@ -71,10 +73,16 @@ test('HTTP 403 diagnostics classify each read scope without leaking credentials'
    else result=[];
    return {ok:true,json:async()=>({success:true,result,...(Array.isArray(result)?{result_info:{page:1,total_pages:1,count:result.length}}:{})})};
   };
-  await assert.rejects(inspectAssetStagingExposure({token:'synthetic-secret',request}),e=>{
+  await assert.rejects(inspectAssetStagingExposure({token:'synthetic-secret',accountToken:'synthetic-account-secret',request}),e=>{
    assert.equal(e.message,'cloudflare_exposure_read_failed_'+scope+'_403');
    assert.ok(!e.message.includes('synthetic-secret'));
    return true;
   });
  }
+});
+
+test('missing separate account audit credential fails closed before network',async()=>{
+ let calls=0;
+ await assert.rejects(inspectAssetStagingExposure({token:'synthetic-zone',request:async()=>{calls++;throw Error('unexpected_network')}}),/dedicated_account_inventory_read_token_required/);
+ assert.equal(calls,0);
 });

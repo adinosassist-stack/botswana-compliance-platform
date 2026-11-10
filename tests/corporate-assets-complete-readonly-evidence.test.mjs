@@ -52,9 +52,9 @@ test('protected orchestration sequences both independently verified reads withou
  const calls=[];
  const info={expectedMainSha:sha,githubSha:sha,
   repository:'adinosassist-stack/botswana-compliance-platform',ref:'refs/heads/main',
-  githubToken:'synthetic',cloudflareToken:'synthetic'};
+  githubToken:'synthetic',cloudflareToken:'synthetic',cloudflareAccountToken:'synthetic-account'};
  const readPreflight=async a=>{calls.push('preflight');assert.equal(a.expectedSha,sha);return preflight()};
- const readExposure=async a=>{calls.push('exposure');assert.equal(a.token,'synthetic');return exposure()};
+ const readExposure=async a=>{calls.push('exposure');assert.equal(a.token,'synthetic');assert.equal(a.accountToken,'synthetic-account');return exposure()};
  const r=await inspectFullReadOnlyEvidence({...info,readPreflight,readExposure});
  assert.deepEqual(calls,['preflight','exposure']);
  assert.equal(r.deploymentAuthorized,false);
@@ -62,10 +62,11 @@ test('protected orchestration sequences both independently verified reads withou
 test('wrong ref, missing tokens, forged exposure fail before any release',async()=>{
  const info={expectedMainSha:sha,githubSha:sha,
   repository:'adinosassist-stack/botswana-compliance-platform',ref:'refs/heads/main',
-  githubToken:'synthetic',cloudflareToken:'synthetic',
+  githubToken:'synthetic',cloudflareToken:'synthetic',cloudflareAccountToken:'synthetic-account',
   readPreflight:async()=>preflight(),readExposure:async()=>exposure()};
  await assert.rejects(inspectFullReadOnlyEvidence({...info,ref:'refs/heads/feature'}),/protected_main_context_required/);
  await assert.rejects(inspectFullReadOnlyEvidence({...info,githubToken:''}),/protected_read_credentials_required/);
+ await assert.rejects(inspectFullReadOnlyEvidence({...info,cloudflareAccountToken:''}),/protected_read_credentials_required/);
  await assert.rejects(inspectFullReadOnlyEvidence({...info,
   readExposure:async()=>({...exposure(),privateExposureVerified:false})}),/read_only_evidence_failed/);
 });
