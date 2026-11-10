@@ -46,7 +46,7 @@ test("private host authorizes real DB-backed tenant membership and denies cross-
    const response=await fetch("http://127.0.0.1:"+address.port+"/api/agent/approval-history",{
     headers:{origin:"https://thebedesk.com","sec-fetch-site":"same-origin"}
    });
-   assert.equal(response.status,503,"HTTP request without a verified session must fail closed");
+   assert.equal(response.status,401,"HTTP request without a verified session must return unauthorized");
    assert.equal(response.headers.get("cache-control"),"no-store");
    const body=await response.json();
    assert.equal(body.ok,false);
