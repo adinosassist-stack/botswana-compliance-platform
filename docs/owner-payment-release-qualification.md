@@ -130,3 +130,84 @@ Desk's bank is mandatory prior to any real approval.
 This is TEST/DOCUMENTATION ONLY. It does not modify live customer payments,
 bank credentials, Cloudflare configuration, production D1, routes, production
 deployments or customer entitlements.
+
+## 10 November 2026 — Trusted company-bank credit allocation rehearsal
+
+**Status: isolated library/reference code only. NOT a production payment integration.**
+The production manual-bank approval handler has not changed; Release 607
+remains the last verified live payment-handler release. None of the code below
+is imported by a live Cloudflare Worker billing route.
+
+New module: `server/payments/trusted-bank-credit-qualification.mjs`,
+`qualifyOwnerSettledBankCredit`. Its server-owned trusted bank source must
+look up the transaction from independently authenticated **company-bank
+reconciliation**, not the customer or owner UI. It only progresses when:
+
+- Reviewer has valid authenticated owner role and exact tenant/order scope.
+- Known canonical company-bank account identity and **server-derived** order
+  reference match the bank adapter's independently sourced credit.
+- Bank observation explicitly indicates a positive final **settled** credit,
+  in exact BWP amount, exact transaction ID, account, reference, currency,
+  and valid settled time at/before review.
+- D1 conflict lookup is successful, and the bank credit and tenant/order
+  pass existing `owner-payment-evidence-policy.mjs` validation.
+- A final atomic `INSERT OR IGNORE` into the isolated D1
+  `owner_bank_receipt_allocation` table succeeds with uniqueness on both
+  transaction ID and (tenant, invoice). Competing reviewers cannot allocate
+  the same credit twice.
+
+The reference D1 adapter now has
+`loadConflictingAllocations({bankTransactionId, tenantId, invoiceId})`,
+which reads only potentially matching transactions/invoices. This preflight
+is NOT a transaction lock; the independent database UNIQUE constraints are
+still the race-safety boundary. Missing bank adapter, errors, invalid data,
+failed conflict lookups, mismatches and reused credit all fail closed.
+
+**Trust boundary:** This module CANNOT establish that a deposit reached the
+bank from a string, uploaded receipt, owner checkbox, or CSV. Its
+`trustedBankSource` is an injection point for an independently authorized
+future bank/statement adapter that must verify origin/authenticity, freshness,
+settlement finality and the company-account identity. A mock adapter, even
+when it returns `trusted_bank_reconciliation`, proves ONLY local code
+behavior, NOT real bank settlement. Never expose a public API accepting a
+client-provided bankEvidence object as a substitute for the bank adapter.
+
+**Zero entitlement side effects:** A return of `status=allocated` is
+NOT `payment_order=paid`, settlement completion, or permission to grant
+customer subscription access. This reference module writes only the
+isolated allocation table when the caller provisions a reviewed disposable
+D1 database. Bank reversals, chargebacks, delayed clearing, reconciliation
+exceptions, source authentication, audit signatures, consent and owner
+identity need separately reviewed production design.
+
+**Qualification and launch gates still required:**
+1. Obtain a supported, authorized read-only bank data source for Thebe Desk's
+   actual company account, with a protected non-public access token and
+   independently checked settled-credit provenance.
+2. Implement and audit a real production-safe source adapter with replay
+   resistance, immutable source transaction identity, account ownership,
+   finality/reversal handling, redacted logs and tamper-evident evidence.
+3. Qualify schema and `INSERT OR IGNORE` concurrency in a **separate**
+   protected remote D1 staging database with an explicit rollback plan.
+4. Establish atomic coupling of a qualified allocation, durable bank/source
+   audit, payment order, exactly-once subscription fulfillment, and eventual
+   reversals. Do not grant entitlement from this rehearsal alone.
+5. Complete authenticated customer-and-owner payment tests with an actual
+   settled, independently observed BWP deposit and protected reviewer
+   approvals. Leave payment P0 issue #1874 open until verified.
+6. POP schema `071` remains separately unqualified in the verified
+   Release 607 deployment and receipt uploads remain disabled.
+
+Offline test suite `tests/trusted-bank-credit-qualification.test.mjs`
+uses disposable local Miniflare D1 and a **mock** server-side bank adapter.
+It tests paid/settled-only matching, cross-tenant replay, duplicate invoice,
+concurrent allocation, future/invalid settlement, wrong account/reference,
+debit/reversal/untrusted source, wrong role and unavailable bank/D1.
+The path-scoped `owner-bank-allocation-d1-qualification.yml` runs this suite
+and existing reference adapter/policy tests with no Cloudflare credentials,
+production migration, bank access or customer payment changes.
+
+This PR must not merge during the #2354 unrelated-main merge pause until
+the owner and independent reviewer `thusico` explicitly release it.
+No deployment, token, production D1 write, payment approval, entitlement
+activation or automatic checkout enablement is authorized.
