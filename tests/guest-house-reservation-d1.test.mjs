@@ -100,3 +100,90 @@ test('local D1 rejects spoofed price, foreign property and unauthorized manageme
   assert.equal((await count(f.db)).n,0);
  }finally{await f.close();}
 });
+
+test('proposed audit records creation, amendment and cancellation exactly once per change',async()=>{
+ const f=await fixture();
+ try{
+  const first=await book(f.db,'audit-booking');
+  assert.equal(first.ok,true);
+  assert.equal((await book(f.db,'audit-booking')).replayed,true);
+  let events=await f.db.prepare(
+   "SELECT event_type,previous_status,new_status,previous_check_in,new_check_in FROM guest_house_reservation_events WHERE reservation_id='audit-booking' ORDER BY rowid"
+  ).all();
+  assert.equal(events.results.length,1,'same-state replay does not create another audit event');
+  assert.equal(events.results[0].event_type,'created');
+  assert.equal(events.results[0].new_status,'confirmed');
+  await f.db.prepare("UPDATE guest_house_reservations SET check_out='2026-11-13' WHERE id='audit-booking'").run();
+  await f.db.prepare("UPDATE guest_house_reservations SET status='cancelled' WHERE id='audit-booking'").run();
+  events=await f.db.prepare(
+   "SELECT event_type,previous_status,new_status,previous_check_out,new_check_out FROM guest_house_reservation_events WHERE reservation_id='audit-booking' ORDER BY rowid"
+  ).all();
+  assert.deepEqual(events.results.map(e=>e.event_type),['created','amended','cancelled']);
+  assert.equal(events.results[1].previous_check_out,'2026-11-12');
+  assert.equal(events.results[1].new_check_out,'2026-11-13');
+  assert.equal(events.results[2].previous_status,'confirmed');
+  assert.equal(events.results[2].new_status,'cancelled');
+  await assert.rejects(f.db.prepare(
+   "UPDATE guest_house_reservation_events SET event_type='amended' WHERE reservation_id='audit-booking'"
+  ).run(),/reservation_audit_immutable/);
+  await assert.rejects(f.db.prepare(
+   "DELETE FROM guest_house_reservation_events WHERE reservation_id='audit-booking'"
+  ).run(),/reservation_audit_immutable/);
+ }finally{await f.close();}
+});
+
+test('a rejected audit insert atomically rolls back creation and cancellation',async()=>{
+ const f=await fixture();
+ try{
+  await f.db.prepare(`CREATE TRIGGER local_refuse_creation_audit BEFORE INSERT ON guest_house_reservation_events
+   WHEN NEW.event_type='created' BEGIN SELECT RAISE(ABORT,'audit_test_failure'); END`).run();
+  await assert.rejects(book(f.db,'audit-failure'),/audit_test_failure/);
+  assert.equal((await count(f.db)).n,0,'booking row cannot commit when audit is rejected');
+  await f.db.prepare('DROP TRIGGER local_refuse_creation_audit').run();
+  assert.equal((await book(f.db,'audit-failure')).ok,true);
+  await f.db.prepare(`CREATE TRIGGER local_refuse_cancel_audit BEFORE INSERT ON guest_house_reservation_events
+   WHEN NEW.event_type='cancelled' BEGIN SELECT RAISE(ABORT,'audit_test_failure'); END`).run();
+  await assert.rejects(f.db.prepare(
+   "UPDATE guest_house_reservations SET status='cancelled' WHERE id='audit-failure'"
+  ).run(),/audit_test_failure/);
+  const row=await f.db.prepare("SELECT status FROM guest_house_reservations WHERE id='audit-failure'").first();
+  assert.equal(row.status,'confirmed','cancellation did not commit when audit failed');
+  const n=await f.db.prepare("SELECT COUNT(*) AS n FROM guest_house_reservation_events WHERE reservation_id='audit-failure'").first();
+  assert.equal(n.n,1);
+ }finally{await f.close();}
+});
+
+test('reservation tenant, booking identity, nightly price and deletes fail closed',async()=>{
+ const f=await fixture();
+ try{
+  assert.equal((await book(f.db,'immutable-booking')).ok,true);
+  for(const sql of [
+   "UPDATE guest_house_reservations SET tenant_id='tenant-b' WHERE id='immutable-booking'",
+   "UPDATE guest_house_reservations SET property_id='property-b' WHERE id='immutable-booking'",
+   "UPDATE guest_house_reservations SET nightly_rate_minor=1 WHERE id='immutable-booking'",
+   "UPDATE guest_house_reservations SET id='different-id' WHERE id='immutable-booking'"
+  ])await assert.rejects(f.db.prepare(sql).run(),/reservation_identity_immutable/);
+  await assert.rejects(f.db.prepare(
+   "DELETE FROM guest_house_reservations WHERE id='immutable-booking'"
+  ).run(),/reservation_delete_requires_review/);
+  assert.equal((await count(f.db)).n,1);
+  const row=await f.db.prepare("SELECT tenant_id,property_id,nightly_rate_minor FROM guest_house_reservations WHERE id='immutable-booking'").first();
+  assert.equal(row.tenant_id,'tenant-a');
+  assert.equal(row.property_id,'property-a');
+  assert.equal(row.nightly_rate_minor,44000);
+ }finally{await f.close();}
+});
+
+test('audit events stay scoped to the originating tenant and property',async()=>{
+ const f=await fixture();
+ try{
+  assert.equal((await book(f.db,'tenant-a-booking')).ok,true);
+  assert.equal((await book(f.db,'tenant-b-booking',{roomId:'room-c'},{
+   ...scope,tenantId:'tenant-b',propertyId:'property-b'
+  })).ok,true);
+  const a=await f.db.prepare("SELECT reservation_id FROM guest_house_reservation_events WHERE tenant_id='tenant-a' AND property_id='property-a'").all();
+  const b=await f.db.prepare("SELECT reservation_id FROM guest_house_reservation_events WHERE tenant_id='tenant-b' AND property_id='property-b'").all();
+  assert.deepEqual(a.results.map(e=>e.reservation_id),['tenant-a-booking']);
+  assert.deepEqual(b.results.map(e=>e.reservation_id),['tenant-b-booking']);
+ }finally{await f.close();}
+});
