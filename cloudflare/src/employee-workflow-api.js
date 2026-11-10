@@ -23,7 +23,7 @@ export async function handleEmployeeWorkflowRequest({ req, env, session, readJso
     else if (method === "POST") {
     let body;
     try { body = await readJson(req); }
-    catch { return new Response(JSON.stringify({error:"invalid_json"}),{status:400,headers:{"content-type":"application/json"}}); }
+    catch { return new Response(JSON.stringify({error:"invalid_json"}),{status:400,headers:{"content-type":"application/json","cache-control":"no-store"}}); }
     response = await handlers.save({body});
     } else response = {status:405,body:{error:"method_not_allowed"}};
   } catch {
