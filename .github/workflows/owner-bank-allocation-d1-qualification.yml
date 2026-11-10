@@ -7,6 +7,8 @@ on:
       - 'server/payments/bank-allocation-input-validation.mjs'
       - 'server/payments/owner-payment-evidence-policy.mjs'
       - 'tests/owner-bank-allocation-real-d1.test.mjs'
+      - 'tests/trusted-bank-credit-qualification.test.mjs'
+      - 'server/payments/trusted-bank-credit-qualification.mjs'
       - 'tests/owner-bank-d1-staging-fixture.test.mjs'
       - 'tests/d1-bank-allocation-adapter-reference.test.mjs'
       - 'tests/owner-bank-allocation-contract.test.mjs'
@@ -34,10 +36,13 @@ jobs:
           node --check server/payments/d1-bank-allocation-adapter-reference.mjs
           node --check server/payments/owner-bank-allocation-contract.mjs
           node --check tests/owner-bank-allocation-real-d1.test.mjs
+          node --check server/payments/trusted-bank-credit-qualification.mjs
+          node --check tests/trusted-bank-credit-qualification.test.mjs
       - name: Run isolated D1 and owner payment evidence regressions
         run: |
           node --test \
             tests/owner-bank-allocation-real-d1.test.mjs \
+            tests/trusted-bank-credit-qualification.test.mjs \
             tests/owner-bank-d1-staging-fixture.test.mjs \
             tests/d1-bank-allocation-adapter-reference.test.mjs \
             tests/owner-bank-allocation-contract.test.mjs \
