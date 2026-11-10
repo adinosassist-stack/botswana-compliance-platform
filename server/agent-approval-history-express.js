@@ -3,11 +3,11 @@
 import {handleAgentApprovalHistoryHttp} from "./agent-approval-history-http-adapter.js";
 export function registerAgentApprovalHistoryExpress({
  app,enabled=false,killSwitch=false,sessionAuth,tenantMembership,originCheck,
- rateLimit,auditAvailable,getDatabase
+ rateLimit,auditAvailable,getDatabase,recordReadAudit
 }={}){
  if(enabled!==true||killSwitch===true)return false;
  if(!app||typeof app.get!=="function"||
- [sessionAuth,tenantMembership,originCheck,rateLimit,auditAvailable,getDatabase].some(fn=>typeof fn!=="function"))
+ [sessionAuth,tenantMembership,originCheck,rateLimit,auditAvailable,getDatabase].some(fn=>typeof fn!=="function")||typeof recordReadAudit!=="function")
   throw new TypeError("agent_history_security_dependencies_required");
  app.get("/api/agent/approval-history",sessionAuth,async(req,res)=>{
   const a=req.auth;
@@ -26,6 +26,9 @@ export function registerAgentApprovalHistoryExpress({
     request:{method:req.method},principal,pool:{query:async(...args)=>{const db=await getDatabase(req);if(!db||typeof db.query!=="function")throw new TypeError("agent_history_database_unavailable");return db.query(...args);}},guards,
     featureEnabled:true,killSwitch:false
    });
+   if(result.status===200){
+    try{if(await recordReadAudit(req,a,result.body)!==true)throw new Error("audit_write_failed")}catch{return res.status(503).set({"Cache-Control":"no-store"}).json({ok:false,code:"agent_history_audit_failed",items:[],readOnly:true})}
+   }
    return res.status(result.status).set({
     "Cache-Control":"no-store","X-Content-Type-Options":"nosniff"
    }).json(result.body);
