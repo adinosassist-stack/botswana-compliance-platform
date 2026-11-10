@@ -20,6 +20,8 @@ on:
       - 'server/agent-approval-history-readiness.js'
       - 'server/agent-approval-history-private-host.js'
       - 'tests/agent-approval-history-private-host.test.mjs'
+      - 'tests/agent-history-server-wiring.test.mjs'
+      - 'server/server.js'
       - 'server/agent-approval-history-postgres-rate-limit.js'
       - 'server/agent-approval-history-rate-limit-cleanup.js'
       - 'tests/agent-approval-history-rate-limit-cleanup.test.mjs'
