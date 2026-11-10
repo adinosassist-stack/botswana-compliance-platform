@@ -10,9 +10,9 @@ import pg from "pg";
 // Executes the exact session loader/auth functions from server.js over real
 // loopback HTTP and a disposable PostgreSQL schema. Never boots production.
 test("canonical server session middleware enforces PostgreSQL lifecycle over HTTP",{
- skip:!process.env.AGENT_HISTORY_TEST_DATABASE_URL
+ skip:!process.env.AGENT_HISTORY_TEST_DATABASE_URL,timeout:60000
 },async()=>{
- const pool=new pg.Pool({connectionString:process.env.AGENT_HISTORY_TEST_DATABASE_URL,max:3});
+ const pool=new pg.Pool({connectionString:process.env.AGENT_HISTORY_TEST_DATABASE_URL,max:3,connectionTimeoutMillis:5000,query_timeout:10000});
  const user="real-auth-"+randomUUID(),tenant="real-auth-"+randomUUID(),sid=randomUUID();
  const token=randomUUID(),secret="disposable-agent-real-auth-ci-secret",cookie="bwcos_session="+token;
  const source=readFileSync(new URL("../server/server.js",import.meta.url),"utf8");
@@ -45,7 +45,7 @@ test("canonical server session middleware enforces PostgreSQL lifecycle over HTT
   await pool.query("insert into sessions(id,user_id,tenant_id,expires_at,session_generation,token_hash,csrf_token,last_seen_at) values($1,$2,$3,now()+interval '1 hour',1,$4,'csrf',now())",[sid,user,tenant,createHmac("sha256",secret).update(token).digest("hex")]);
   await new Promise(resolve=>server.once("listening",resolve));
   const url="http://127.0.0.1:"+server.address().port+"/session-check";
-  const get=async value=>fetch(url,{headers:value?{cookie:value}:{}});
+  const get=async value=>fetch(url,{headers:value?{cookie:value}:{},signal:AbortSignal.timeout(10000)});
   assert.equal((await get(null)).status,401);
   const ok=await get(cookie);assert.equal(ok.status,200);assert.deepEqual(await ok.json(),{tenantId:tenant,role:"owner"});
   await pool.query("update sessions set revoked_at=now() where id=$1",[sid]);
@@ -60,6 +60,7 @@ test("canonical server session middleware enforces PostgreSQL lifecycle over HTT
   await pool.query("update memberships set status='active' where user_id=$1",[user]);
   assert.equal((await get("bwcos_session="+randomUUID())).status,401,"forged cookie");
  }finally{
+  server.closeAllConnections();
   await new Promise((resolve,reject)=>server.close(err=>err?reject(err):resolve()));
   await pool.query("delete from sessions where id=$1",[sid]).catch(()=>{});
   await pool.query("delete from memberships where user_id=$1",[user]).catch(()=>{});
