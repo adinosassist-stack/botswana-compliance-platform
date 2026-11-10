@@ -30,3 +30,15 @@ test('modified SQL bytes fail closed',()=>{
  assert.throws(()=>qualifyPhase(p070,()=>Buffer.from('changed SQL')),/sql_drift/);
  assert.throws(()=>qualifyPhase(p071,()=>Buffer.from('changed SQL')),/sql_drift/);
 });
+
+
+test('070 and 071 reject unexpected POP-prefixed tables and indexes before any write',()=>{
+ for(const name of ['payment_pop_shadow','payment_pop_documents_old','payment_pop_repair_tmp']){
+  assert.throws(()=>qualifyPhase({...p070,tableNames:[...base.tableNames,name]}),/070_partial_or_replayed/);
+  assert.throws(()=>qualifyPhase({...p070,indexNames:[name]}),/070_partial_or_replayed/);
+  assert.throws(()=>qualifyPhase({...p071,tableNames:[...p071.tableNames,name]}),/071_partial_or_replayed/);
+  assert.throws(()=>qualifyPhase({...p071,indexNames:[...p071.indexNames,name]}),/071_partial_or_replayed/);
+ }
+ assert.equal(qualifyPhase(p070).productionWriteAuthorized,false);
+ assert.equal(qualifyPhase(p071).productionWriteAuthorized,false);
+});
