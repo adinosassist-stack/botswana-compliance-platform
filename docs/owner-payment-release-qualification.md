@@ -7,6 +7,7 @@ Status: reference-only, default-off. No payment activation, migration, or bank i
 - Confirm settled funds directly through trusted bank reconciliation. Customer screenshots or references do not prove receipt.
 - Match invoice tenant, exact amount, currency, settlement and unique bank transaction ID.
 - Enforce uniqueness in the database. A previous-allocation lookup is advisory only.
+- As full invoice allocations are the only supported reference contract, reject another credit against an already allocated invoice in the same tenant; reject reused bank transactions globally. Both checks require complete authoritative server-side allocation history; SQL uniqueness and concurrency checks are still mandatory.
 - Subscription activation requires a separate reviewed workflow after allocation.
 
 ## Staging qualification gates
