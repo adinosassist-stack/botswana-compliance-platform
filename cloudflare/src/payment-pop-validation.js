@@ -3,8 +3,17 @@ export const MAX_POP_BYTES = 3670016;
 export function validatePopUpload(bytes, name, contentType) {
   if (!(bytes instanceof Uint8Array) || bytes.length < 8 || bytes.length > MAX_POP_BYTES) throw new Error("invalid_pop_size");
   const extensions = {"application/pdf":[".pdf"],"image/jpeg":[".jpg",".jpeg"],"image/png":[".png"]};
-  const type = String(contentType || "").toLowerCase();
-  const filename = String(name || "").toLowerCase();
+  // Do not coerce untrusted names or MIME values into review metadata.
+  // Reject invisible Unicode format characters (including bidi overrides),
+  // noncanonical spelling and padded names before checking extensions.
+  if (typeof name !== "string" || !name || name !== name.trim() ||
+      name.normalize("NFC") !== name || /[\\p{Cc}\\p{Cf}]/u.test(name))
+    throw new Error("invalid_pop_name");
+  if (typeof contentType !== "string" || !contentType ||
+      contentType !== contentType.trim())
+    throw new Error("invalid_pop_type");
+  const type = contentType.toLowerCase();
+  const filename = name.toLowerCase();
   if (!extensions[type] || filename.length > 120 || !extensions[type].some(ext => filename.endsWith(ext))) throw new Error("invalid_pop_type");
   if (filename.includes("/") || filename.includes("\\") || /[\u0000-\u001f\u007f]/.test(filename)) throw new Error("invalid_pop_name");
   const pdf = bytes[0] === 37 && bytes[1] === 80 && bytes[2] === 68 && bytes[3] === 70 && bytes[4] === 45;
