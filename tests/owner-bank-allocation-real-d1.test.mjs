@@ -158,7 +158,7 @@ test('invalid input cannot insert and reference allocation cannot grant entitlem
   assert.equal(await count(f.db),0);
   assert.equal(await f.adapter.insertUniqueAllocation(record),true);
   const objects=await f.db.prepare(
-   "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+   "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_cf_METADATA'"
   ).all();
   assert.deepEqual(objects.results.map(x=>x.name),
    ['owner_bank_receipt_allocation'],
