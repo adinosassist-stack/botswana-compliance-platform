@@ -18,16 +18,12 @@ promotion, R2 write, automatic retry, reset or cleanup of remote databases.
 The transport pins account `ddd23cab31928a4bb3d4998df9b26d1d`, isolated D1
 `be15acba-ba16-4704-9498-e296a164b3a2` and name
 `bw-compliance-os-ops-restore-candidate-20261103`. It reads only SQL candidate
-run 42828130101, attempt 1, exactly 3,393,714 bytes, SHA-256
+run 42828130101, attempt 1, exactly 3,537,011 bytes, SHA-256
 `de8507a6d550b20993ea07d5d70bf37795cc714f0460b9af44d4b58fa53d860f`.
 Its production export source commit is `092e65eaba9a1e5ac0001e2b85eaf11a9ca5f0ba`.
 The private object's 3,537,011 bytes and SHA-256 were independently verified using authenticated, read-only Cloudflare R2 GET and in-tool SHA-256; the preparation run [42828130101](https://github.com/adinosassist-stack/botswana-compliance-platform/actions/runs/42828130101) passed protected qualification and upload. Independently comparing the original sanitized GitHub step-summary receipt remains pending; a matching hash alone is not acceptance of retention, private access, or a live restore.
 The protected preparation script completed successfully and attests to private byte roundtrip. The new run's export bookmark and sanitized receipt have not yet been independently compared; do not carry over the older candidate bookmark.
-This is verified receipt and object-byte evidence; no remote D1 restore, Time Travel validation,
-object-level retention proof, sustained RPO, or tenant recovery has been established.
-The original export bookmark/provenance remains the independently reviewed
-receipt in #1950 and the immutable offline planner; importing SQL does not
-create or refresh a production Time Travel bookmark.
+This is independently verified private object-byte evidence, plus a successful protected preparation job, but the original sanitized receipt has not yet been independently compared. No remote D1 restore, Time Travel validation, object-level retention proof, sustained RPO, or tenant recovery has been established. The new candidate's export bookmark/provenance must be read from its original 42828130101 receipt; do not reuse a historical candidate's bookmark. Importing SQL does not create or refresh a production Time Travel bookmark.
 
 ## Separate approvals before dispatch
 
