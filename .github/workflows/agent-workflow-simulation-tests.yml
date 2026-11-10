@@ -10,6 +10,7 @@ on:
       - 'tests/agent-approval-preview-boundary.test.mjs'
       - 'public/js/agent-approval-preview.js'
       - 'tests/agent-approval-preview-ui.test.mjs'
+      - 'tests/agent-approval-preview-ui-dom.test.mjs'
       - 'public/js/agent-simulation-preview.js'
       - 'tests/agent-simulation-preview.test.mjs'
       - '.github/workflows/agent-workflow-simulation-tests.yml'
@@ -25,4 +26,4 @@ jobs:
         with:
           node-version: '24'
       - name: Verify deterministic simulation contract
-        run: node --test tests/agent-workflow-simulation.test.mjs tests/agent-simulation-preview.test.mjs tests/agent-approval-preview-boundary.test.mjs tests/agent-approval-preview-ui.test.mjs tests/agent-approval-preview-handler.test.mjs
+        run: node --test tests/agent-workflow-simulation.test.mjs tests/agent-simulation-preview.test.mjs tests/agent-approval-preview-boundary.test.mjs tests/agent-approval-preview-ui.test.mjs tests/agent-approval-preview-handler.test.mjs tests/agent-approval-preview-ui-dom.test.mjs
