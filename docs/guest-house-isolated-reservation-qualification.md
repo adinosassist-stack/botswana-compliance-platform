@@ -61,6 +61,34 @@ The primary writer and single-statement conditional INSERT are required.
 Local concurrent tests do **not** prove every distributed production concurrency
 case, credential freshness or remote D1 consistency.
 
+## Optional durable retry-key candidate (inert)
+
+`cloudflare/src/guest-house-reservation-idempotent-proposal.js` is a **new,
+unwired candidate command**; the existing runtime helper remains unchanged.
+The proposed reservation table has a nullable `idempotency_key` and a
+tenant/property-scoped partial unique index. A trusted server must generate
+or validate a high-entropy request key and bind it to the authenticated
+caller. The booking JSON cannot set, override or reveal the key.
+
+A conditional primary-writer insert atomically captures that key alongside
+the reservation and the existing local audit trigger. An identical retry
+that uses a **new server reservation ID** but the same key and booking fields
+returns the original reservation without adding another booking or event.
+A changed booking, cancelled reservation or changed status fails closed.
+A new key is an independent booking attempt, subject to normal availability.
+
+The key is immutable after reservation creation; a rollback caused by audit
+failure also rolls back the key claim. The tests exercise concurrent same-key
+attempts, different tenants, changed fields, cancellations, immutable keys
+and rejection before SQL for invalid or caller-controlled fields.
+
+**Limitations:** This does not authenticate HTTP requests, generate secure
+idempotency keys, prove owner membership from a live session, implement
+key expiry/retention or a distributed cross-service replay protocol.
+It is only locally qualified against a disposable D1 instance and must
+not be deployed without retention/legal review, remote isolated D1 rehearsal
+and independent approval. No guest personal identifiers are stored as keys.
+
 ## Outstanding mandatory acceptance before writes
 
 1. Resolve or explicitly retire older overlapping PRs and requalify this PR

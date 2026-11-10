@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS guest_house_reservations (
  check_out TEXT NOT NULL CHECK(length(check_out)=10 AND check_out>check_in),
  status TEXT NOT NULL CHECK(status IN ('held','confirmed','checked_in','checked_out','cancelled')),
  nightly_rate_minor INTEGER NOT NULL CHECK(nightly_rate_minor BETWEEN 0 AND 999999999999),
+ -- Key is scoped to the authenticated property and supplied by trusted middleware.
+ idempotency_key TEXT CHECK(idempotency_key IS NULL OR length(idempotency_key) BETWEEN 16 AND 128),
  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
  UNIQUE(tenant_id,property_id,id),
@@ -38,6 +40,9 @@ CREATE TABLE IF NOT EXISTS guest_house_reservations (
 );
 CREATE INDEX IF NOT EXISTS guest_house_reservation_overlap
  ON guest_house_reservations(tenant_id,property_id,room_id,check_in,check_out,status);
+CREATE UNIQUE INDEX IF NOT EXISTS guest_house_reservation_idempotency
+ ON guest_house_reservations(tenant_id,property_id,idempotency_key)
+ WHERE idempotency_key IS NOT NULL;
 -- Database-level overlap defence against any direct SQL path that bypasses
 -- the guarded reservation command. ACTIVE statuses only; checkout is exclusive.
 -- The proposal is NOT an authorized production migration.
@@ -119,11 +124,12 @@ END;
 -- Prevent a booking from moving tenants or silently changing its confirmed
 -- nightly-rate snapshot. Future rate corrections need a separately audited API.
 CREATE TRIGGER IF NOT EXISTS guest_house_reservation_identity_immutable
-BEFORE UPDATE OF id,tenant_id,property_id,nightly_rate_minor
+BEFORE UPDATE OF id,tenant_id,property_id,nightly_rate_minor,idempotency_key
 ON guest_house_reservations
 WHEN NEW.id<>OLD.id OR NEW.tenant_id<>OLD.tenant_id
  OR NEW.property_id<>OLD.property_id
  OR NEW.nightly_rate_minor<>OLD.nightly_rate_minor
+ OR NEW.idempotency_key IS NOT OLD.idempotency_key
 BEGIN
  SELECT RAISE(ABORT,'reservation_identity_immutable');
 END;
