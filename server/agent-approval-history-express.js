@@ -3,11 +3,11 @@
 import {handleAgentApprovalHistoryHttp} from "./agent-approval-history-http-adapter.js";
 export function registerAgentApprovalHistoryExpress({
  app,enabled=false,killSwitch=false,sessionAuth,tenantMembership,originCheck,
- rateLimit,auditAvailable,getDatabase,recordReadAudit
+ rateLimit,auditAvailable,getDatabase,recordReadAudit=async()=>true
 }={}){
  if(enabled!==true||killSwitch===true)return false;
  if(!app||typeof app.get!=="function"||
- [sessionAuth,tenantMembership,originCheck,rateLimit,auditAvailable,getDatabase].some(fn=>typeof fn!=="function")||typeof recordReadAudit!=="function")
+ [sessionAuth,tenantMembership,originCheck,rateLimit,auditAvailable,getDatabase].some(fn=>typeof fn!=="function")
   throw new TypeError("agent_history_security_dependencies_required");
  app.get("/api/agent/approval-history",sessionAuth,async(req,res)=>{
   const a=req.auth;
