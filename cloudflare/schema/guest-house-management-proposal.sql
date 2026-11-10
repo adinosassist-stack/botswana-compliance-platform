@@ -38,6 +38,35 @@ CREATE TABLE IF NOT EXISTS guest_house_reservations (
 );
 CREATE INDEX IF NOT EXISTS guest_house_reservation_overlap
  ON guest_house_reservations(tenant_id,property_id,room_id,check_in,check_out,status);
+-- Database-level overlap defence against any direct SQL path that bypasses
+-- the guarded reservation command. ACTIVE statuses only; checkout is exclusive.
+-- The proposal is NOT an authorized production migration.
+CREATE TRIGGER IF NOT EXISTS guest_house_reject_active_overlap_insert
+BEFORE INSERT ON guest_house_reservations
+WHEN NEW.status IN ('held','confirmed','checked_in')
+BEGIN
+ SELECT RAISE(ABORT,'reservation_overlap') WHERE EXISTS (
+  SELECT 1 FROM guest_house_reservations existing
+   WHERE existing.tenant_id=NEW.tenant_id AND existing.property_id=NEW.property_id
+     AND existing.room_id=NEW.room_id
+     AND existing.status IN ('held','confirmed','checked_in')
+     AND existing.check_in < NEW.check_out AND NEW.check_in < existing.check_out
+ );
+END;
+CREATE TRIGGER IF NOT EXISTS guest_house_reject_active_overlap_update
+BEFORE UPDATE OF tenant_id,property_id,room_id,check_in,check_out,status
+ON guest_house_reservations
+WHEN NEW.status IN ('held','confirmed','checked_in')
+BEGIN
+ SELECT RAISE(ABORT,'reservation_overlap') WHERE EXISTS (
+  SELECT 1 FROM guest_house_reservations existing
+   WHERE existing.id<>OLD.id
+     AND existing.tenant_id=NEW.tenant_id AND existing.property_id=NEW.property_id
+     AND existing.room_id=NEW.room_id
+     AND existing.status IN ('held','confirmed','checked_in')
+     AND existing.check_in < NEW.check_out AND NEW.check_in < existing.check_out
+ );
+END;
 CREATE TABLE IF NOT EXISTS guest_house_housekeeping (
  id TEXT PRIMARY KEY,
  tenant_id TEXT NOT NULL,
