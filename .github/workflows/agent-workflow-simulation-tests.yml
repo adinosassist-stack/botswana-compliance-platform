@@ -17,6 +17,8 @@ on:
       - 'server/agent-approval-history-express.js'
       - 'server/agent-approval-history-host-guards.js'
       - 'server/agent-approval-history-security-callbacks.js'
+      - 'server/agent-approval-history-readiness.js'
+      - 'tests/agent-approval-history-readiness.test.mjs'
       - 'tests/agent-approval-history-security-callbacks.test.mjs'
       - 'tests/agent-approval-history-host-guards.test.mjs'
       - 'tests/agent-approval-history-express.test.mjs'
@@ -46,4 +48,4 @@ jobs:
         with:
           node-version: '24'
       - name: Verify deterministic simulation contract
-        run: node --test tests/agent-workflow-simulation.test.mjs tests/agent-simulation-preview.test.mjs tests/agent-approval-preview-boundary.test.mjs tests/agent-approval-preview-ui.test.mjs tests/agent-approval-preview-handler.test.mjs tests/agent-approval-preview-ui-dom.test.mjs tests/agent-approval-history-view.test.mjs tests/agent-approval-history-ui.test.mjs tests/agent-approval-history-service.test.mjs tests/agent-approval-history-postgres.test.mjs tests/agent-approval-history-controller.test.mjs tests/agent-approval-history-http-adapter.test.mjs tests/agent-approval-history-postgres-integration.test.mjs tests/agent-approval-history-http-guard-order.test.mjs tests/agent-approval-history-express.test.mjs tests/agent-approval-history-host-guards.test.mjs tests/agent-approval-history-security-callbacks.test.mjs
+        run: node --test tests/agent-workflow-simulation.test.mjs tests/agent-simulation-preview.test.mjs tests/agent-approval-preview-boundary.test.mjs tests/agent-approval-preview-ui.test.mjs tests/agent-approval-preview-handler.test.mjs tests/agent-approval-preview-ui-dom.test.mjs tests/agent-approval-history-view.test.mjs tests/agent-approval-history-ui.test.mjs tests/agent-approval-history-service.test.mjs tests/agent-approval-history-postgres.test.mjs tests/agent-approval-history-controller.test.mjs tests/agent-approval-history-http-adapter.test.mjs tests/agent-approval-history-postgres-integration.test.mjs tests/agent-approval-history-http-guard-order.test.mjs tests/agent-approval-history-express.test.mjs tests/agent-approval-history-host-guards.test.mjs tests/agent-approval-history-security-callbacks.test.mjs tests/agent-approval-history-readiness.test.mjs
