@@ -35,6 +35,28 @@ foreign property/tenant do not produce a successful replay. The response
 must not imply payment success, confirmed external channel delivery or
 a committed durable audit entry.
 
+## Proposed atomic audit extension (code-only)
+
+The inert schema proposal now adds `guest_house_reservation_events`, an
+append-only tenant/property-scoped event table. SQLite INSERT and UPDATE
+triggers record creation, reservation amendment and cancellation in the
+**same statement transaction** as the booking change. If the audit event
+cannot be recorded, SQLite rolls back the booking write. Separate triggers
+reject editing/deleting audit events, changing tenant/property or the saved
+nightly-rate snapshot, and deleting reservations without a retention review.
+
+These audit events intentionally omit guest personal information. They are
+**not cryptographically sealed**, and privileged database administrators
+could still change the database schema. The design is an independently
+reviewed **proposal only** and does not activate any runtime endpoint,
+remote D1 migration or customer booking.
+
+The local D1 suite verifies event count on replay, cancellation and rate
+changes, atomic rollback on simulated audit failures, append-only controls
+and tenant isolation. It does not establish external payment settlement,
+remote D1 behavior, a server-to-database cryptographic audit chain or
+durable idempotency across newly minted reservation IDs.
+
 The primary writer and single-statement conditional INSERT are required.
 Local concurrent tests do **not** prove every distributed production concurrency
 case, credential freshness or remote D1 consistency.
@@ -48,9 +70,9 @@ case, credential freshness or remote D1 consistency.
    implicit automatic production migration. Rehearse rollback and recovery.
 4. Prove write-time authenticated property membership, server-issued stable IDs,
    tenant ownership and role checks at the eventual HTTP boundary.
-5. Add a durable, independently reviewed idempotency/audit protocol for retries
-   beyond the same-state same-ID case. Confirm audit failure recovery and
-   modification/cancellation event handling.
+5. Independently review the proposed append-only database audit and add a
+   durable, cryptographically verifiable audit and idempotency protocol for
+   retries beyond the same-state same-ID case; verify audit failure recovery.
 6. Exercise real isolated D1 concurrent requests, booking amendments, cancellations,
    out-of-service transitions, and financial reconciliation safely.
 7. Obtain separate owner release authorization and independent `thusico`
