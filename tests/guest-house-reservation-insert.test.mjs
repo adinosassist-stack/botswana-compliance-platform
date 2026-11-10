@@ -9,9 +9,9 @@ test("single statement checks room membership, conflict and database price",()=>
  assert.match(result.sql,/NOT EXISTS/);
  assert.match(result.sql,/booking\.check_in < \? AND \? < booking\.check_out/);
  assert.match(result.sql,/RETURNING id/);
- assert.equal(result.bindings.length,15);
+ assert.equal(result.bindings.length,16);
  assert.deepEqual(result.bindings.slice(-2),[base.checkOut,base.checkIn]);
- assert.equal((INSERT_RESERVATION_IF_FREE.match(/\?/g)||[]).length,15);
+ assert.equal((INSERT_RESERVATION_IF_FREE.match(/\?/g)||[]).length,16);
 });
 test("rejects malformed dates, identifiers, status and client price",()=>{
  for(const patch of [{checkIn:"2026-02-30"},{checkOut:"2026-11-10"},{roomId:""},{status:"checked_in"},{nightlyRateMinor:0},{nightlyRateThebe:45000}]){
@@ -22,4 +22,10 @@ test("keeps parameter values outside SQL text",()=>{
  const result=prepareReservationInsert({...base,id:"test' OR 1=1 --"});
  assert.equal(result.sql.includes("test'"),false);
  assert.equal(result.bindings[0],"test' OR 1=1 --");
+});
+
+test("guards duplicate reservation IDs without reusing a cancelled record",()=>{
+ const result=prepareReservationInsert(base);
+ assert.match(result.sql,/duplicate\\.id = \\?/);
+ assert.equal(result.bindings[10],base.id);
 });
