@@ -49,6 +49,17 @@ test("private host authorizes real DB-backed tenant membership and denies cross-
   assert.deepEqual(blocked.body.items,[]);
   await pool.query("drop trigger agent_history_test_deny_audit on audit_events");
   await pool.query("drop function agent_history_test_deny_audit()");
+  // Session lifecycle regressions: all deny access before any further audit writes.
+  const beforeDenials=await pool.query("select count(*)::int as n from audit_events where tenant_id=$1 and event_type=$2",[tenant,"agent.approval_history.read"]);
+  await pool.query("update sessions set revoked_at=now() where id=$1",[session]);
+  assert.notEqual((await invoke(principal)).status,200,"revoked session must not read history");
+  await pool.query("update sessions set revoked_at=null,expires_at=now()-interval '1 minute' where id=$1",[session]);
+  assert.notEqual((await invoke(principal)).status,200,"expired session must not read history");
+  await pool.query("update sessions set expires_at=now()+interval '1 hour',session_generation=0 where id=$1",[session]);
+  assert.notEqual((await invoke(principal)).status,200,"stale session generation must not read history");
+  await pool.query("update sessions set session_generation=1 where id=$1",[session]);
+  const afterDenials=await pool.query("select count(*)::int as n from audit_events where tenant_id=$1 and event_type=$2",[tenant,"agent.approval_history.read"]);
+  assert.equal(afterDenials.rows[0].n,beforeDenials.rows[0].n,"denied sessions must not emit successful-read audit events");
   const denied=await invoke({...principal,tenant_id:other});
   assert.notEqual(denied.status,200);
   await pool.query("update memberships set status='inactive' where user_id=$1",[user]);
