@@ -83,7 +83,7 @@ test("private host authorizes real DB-backed tenant membership and denies cross-
   assert.equal(ok.status,200);
   assert.deepEqual(ok.body.items.map(x=>x.id),[approval]);
   const audit=await pool.query("select tenant_id,actor_user_id,event_type from audit_events where tenant_id=$1 and actor_user_id=$2 and event_type=$3",[tenant,user,"agent.approval_history.read"]);
-  assert.equal(audit.rows.length,1,"successful read must persist an audit event");
+  assert.equal(audit.rows.length,2,"both successful HTTP and direct reads must persist audit events");
   await pool.query("create or replace function agent_history_test_deny_audit() returns trigger language plpgsql as $audit$ begin if new.event_type='agent.approval_history.read' then raise exception 'test_audit_write_blocked'; end if; return new; end $audit$");
   await pool.query("create trigger agent_history_test_deny_audit before insert on audit_events for each row execute function agent_history_test_deny_audit()");
   const blocked=await invoke(principal);
