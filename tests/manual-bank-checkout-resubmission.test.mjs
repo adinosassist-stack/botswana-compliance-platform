@@ -201,3 +201,49 @@ test('non-owner role cannot create checkout or submit reference',async()=>{
   assert.equal(f.state.submissions.length,0);
   assert.equal(f.state.entitlementGrants,0);
 });
+
+
+test('processing checkout remains reusable but cannot grant access',async()=>{
+  const f=fixture(),initial=await f.start();
+  f.state.orders[0].status='processing';
+  const second=await f.start();
+  assert.equal(second.status,200);
+  assert.equal(second.body.reused,true);
+  assert.equal(second.body.paymentOrder.id,initial.body.paymentOrder.id);
+  assert.equal(f.state.orders.length,1);
+  assert.equal(f.state.entitlementGrants,0);
+});
+
+test('cancelled manual review cannot be resubmitted on its original order',async()=>{
+  const f=fixture(),oid=(await f.start()).body.paymentOrder.id;
+  assert.equal((await f.submitReference(oid,'BANK-CANCEL-001')).status,201);
+  f.state.submissions[0].status='cancelled';
+  const response=await f.submitReference(oid,'BANK-CANCEL-RETRY');
+  assert.equal(response.status,409);
+  assert.equal(response.body.error,'manual_payment_review_closed');
+  assert.equal(f.state.submissions[0].bank_reference,'BANK-CANCEL-001');
+  const next=await f.start();
+  assert.equal(next.status,201);
+  assert.notEqual(next.body.paymentOrder.id,oid);
+  assert.equal(f.state.entitlementGrants,0);
+});
+
+test('failed bank order can accept a submitted reference without marking paid',async()=>{
+  const f=fixture(),oid=(await f.start()).body.paymentOrder.id;
+  f.state.orders[0].status='failed';
+  const response=await f.submitReference(oid,'BANK-FAIL-001');
+  assert.equal(response.status,201);
+  assert.equal(f.state.submissions[0].status,'submitted');
+  assert.equal(f.state.orders[0].status,'failed');
+  assert.equal(f.state.entitlementGrants,0);
+});
+
+test('separate tenant cannot reuse another tenant pending checkout',async()=>{
+  const f=fixture(),a=await f.start();
+  const b=await f.start({},{tenantId:'tenant-b'});
+  assert.equal(a.status,201);
+  assert.equal(b.status,201);
+  assert.notEqual(a.body.paymentOrder.id,b.body.paymentOrder.id);
+  assert.equal(f.state.orders.length,2);
+  assert.equal(f.state.entitlementGrants,0);
+});
