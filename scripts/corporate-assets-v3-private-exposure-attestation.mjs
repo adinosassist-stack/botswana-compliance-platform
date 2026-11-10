@@ -29,8 +29,15 @@ export async function sanitizedCloudflareError(response,scope){
   (code===null?'':'_cfcode_'+code);
 }
 const complete=(data,code)=>{
+ // Both documented result_info shapes can prove a single complete page.
+ // Fail closed if neither total_pages nor total_count proves completeness.
  const p=data?.result_info;
- if(p&&(p.total_pages!==1||p.page!==1||p.count!==data.result.length))error(code+'_incomplete');
+ const n=data?.result?.length;
+ if(!Array.isArray(data?.result)||!p||p.page!==1||p.count!==n||
+    !Number.isSafeInteger(n)||
+    (p.total_pages===undefined&&p.total_count===undefined)||
+    (p.total_pages!==undefined&&p.total_pages!==1)||
+    (p.total_count!==undefined&&p.total_count!==n))error(code+'_incomplete');
  return data.result;
 };
 export function checkAssetStagingExposure({subdomain,domains,zones,zoneRoutes}={}){
