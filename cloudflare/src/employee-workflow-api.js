@@ -7,7 +7,9 @@ import { createEmployeeWorkflowHandlers } from "../../server/employee-workflow-h
  */
 export async function handleEmployeeWorkflowRequest({ req, env, session, readJson, roleAllowed }) {
   if (!session?.tenant_id || !session?.user_id) return new Response(JSON.stringify({error:"unauthenticated"}),{status:401,headers:{"content-type":"application/json"}});
-  const rolePermitted = roleAllowed(session,"owner","manager");
+  let rolePermitted = false;
+  try { rolePermitted = roleAllowed(session,"owner","manager") === true; }
+  catch { rolePermitted = false; }
   if (!rolePermitted) return new Response(JSON.stringify({ok:false,reason:"forbidden"}),{status:403,headers:{"content-type":"application/json","cache-control":"no-store"}});
   const principal = { tenantId: session.tenant_id, actorId: session.user_id,
     permissions: rolePermitted ? ["people.workflow.manage"] : [] };
