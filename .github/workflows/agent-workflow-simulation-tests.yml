@@ -18,6 +18,8 @@ on:
       - 'server/agent-approval-history-host-guards.js'
       - 'server/agent-approval-history-security-callbacks.js'
       - 'server/agent-approval-history-readiness.js'
+      - 'server/agent-approval-history-private-host.js'
+      - 'tests/agent-approval-history-private-host.test.mjs'
       - 'server/agent-approval-history-postgres-rate-limit.js'
       - 'server/agent-approval-history-rate-limit-cleanup.js'
       - 'tests/agent-approval-history-rate-limit-cleanup.test.mjs'
