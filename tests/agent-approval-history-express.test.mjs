@@ -45,3 +45,24 @@ test("denied requests never acquire a database connection",async()=>{
  assert.equal(response.status,403);
  assert.equal(acquisitions,0);
 });
+
+test("all rejected security guards prevent database acquisition",async()=>{
+ const auth={id:"session",tenant_id:"tenant-a",user_id:"owner-a",role:"owner"};
+ for(const guard of ["tenantMembership","originCheck","rateLimit","auditAvailable"]){
+  let acquisitions=0;
+  const {routes,deps}=setup();
+  register({...deps,enabled:true,[guard]:async()=>false,
+   getDatabase:()=>{acquisitions++;throw new Error("database must remain untouched");}});
+  const response=await invoke(routes[0],auth);
+  assert.notEqual(response.status,200,guard);
+  assert.equal(acquisitions,0,guard);
+ }
+});
+test("rejected session metadata never acquires a database connection",async()=>{
+ let acquisitions=0;
+ const {routes,deps}=setup();
+ register({...deps,enabled:true,getDatabase:()=>{acquisitions++;throw new Error("unexpected database");}});
+ const response=await invoke(routes[0],{tenant_id:"tenant-a",user_id:"owner-a",role:"owner"});
+ assert.equal(response.status,401);
+ assert.equal(acquisitions,0);
+});
