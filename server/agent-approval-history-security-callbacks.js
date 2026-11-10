@@ -21,6 +21,7 @@ export function createAgentHistorySecurityCallbacks({
    if(!a?.tenant_id||!a?.user_id)return false;
    const key=JSON.stringify([a.tenant_id,a.user_id]);
    const time=now();if(!Number.isFinite(time))return false;
+   if(hits.size>10000)return false; // fail closed under excessive unique principals
    const old=hits.get(key),bucket=old&&time>=old.start&&time-old.start<windowMs?old:{start:time,count:0};
    if(bucket.count>=maxRequests)return false;
    bucket.count++;hits.set(key,bucket);return true;
