@@ -13,3 +13,11 @@ The new `cloudflare/src/agent-approval-history-service.js` deliberately accepts 
 6. Integrate through existing authenticated middleware with origin/CSRF/rate limiting and a default-off staging flag. Preserve independent `thusico` review.
 
 No schema migration, route, live DB read, deployment, or approval execution is included in this PR.
+
+## Verified repository schema and qualification status (2026-11-10)
+
+Repository migration `db/migrations/20261015_agent_action_governance.sql` confirms `created_at timestamptz`, the `pending`/`approved`/`rejected`/`expired` status constraint, and nullable `consumed_at`. The workflow/action identifiers were verified against `cloudflare/src/agent-workflow-simulation.js`. The read-only PostgreSQL adapter now uses those exact fields, maps `pending` to `requested`, and maps non-null `consumed_at` to `consumed`. This confirms repository schema compatibility, **not** that migrations have been applied in staging.
+
+The opt-in integration test `tests/agent-approval-history-postgres-integration.test.mjs` skips unless `AGENT_HISTORY_TEST_DATABASE_URL` points to an isolated disposable database. A successful GitHub Actions job alone is **not evidence** that this live database test ran. Before protected staging, inspect test skip counts, verify migrations on the isolated database, and run the test with its explicit environment variable. Never point this test at production: it inserts and deletes synthetic approval rows.
+
+The HTTP adapter is still deliberately unmounted; no existing authenticated route stack has been bound to its five mandatory guard callbacks. A green unit test cannot substitute for a verified production-grade authentication integration. Independent `thusico` review and protected release checks remain mandatory.
