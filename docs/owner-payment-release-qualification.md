@@ -68,3 +68,65 @@ no subscription is activated, and no migration is applied.
 **This document and the isolated tests neither authorize nor perform**
 production writes, payment-provider activation, POP upload enablement,
 traffic changes, token changes, or a live checkout.
+
+## 10 November 2026 — Release 607 postdeploy acceptance matrix
+
+**Verified live baseline** (supersedes the November 9 Worker snapshot above):
+- Release 607 reports sourceSha e365c678427c1b80efcf902bb6ee364f05d667c1 on /api/version, /api/live, and /api/ready.
+- Cloudflare Worker version 589 reached 100% traffic on 2026-11-10 13:13:30 UTC.
+- /api/ready reports healthy D1, R2, core schema and required configuration,
+  but popSchemaReady=false and popSchemaStatus=missing. POP is not qualified.
+- PAYMENT_PROVIDER=none; EVIDENCE_UPLOADS_ENABLED=false;
+  POP_UPLOAD_STAGING_ENABLED=false. Automated checkout/receipt upload are OFF.
+
+**Read-only production D1 consistency evidence:**
+- The one historical approved manual submission is linked to a matching
+  paid manual-bank order, applied fulfillment and active subscription.
+- The historical rejected submission is not paid.
+- No duplicate existing bank-reference groups were observed. These are
+  historical snapshots, not independent company-bank settlement evidence
+  or exhaustive concurrent-request proof.
+- Anonymous GET requests to platform billing queue, subscription dashboard
+  and analytics returned HTTP 401. Signed-in cross-tenant review is untested.
+
+**Offline acceptance regressions in this candidate:**
+- tests/manual-bank-checkout-resubmission.test.mjs executes the checked-in
+  checkout and manual-bank submission route bodies against an isolated fake
+  persistence layer. It tests pending reuse, rejection/new-order recovery,
+  claimed-review reference fencing, pending-reference correction, paid-order
+  refusal, wrong-tenant denial, invalid input and non-owner denial.
+- tests/manual-bank-owner-approval-flow.test.mjs covers the real owner-side
+  approve/reject route body, including attestation, reconciliation flags,
+  competing reviewer guards, duplicate approval and fulfillment evidence.
+- .github/workflows/manual-bank-checkout-acceptance.yml runs both offline.
+  These fixtures are neither remote D1 nor a trusted bank integration and
+  they never prove a live customer paid/settled bank transaction.
+
+**Critical outstanding bank-trust gap:** The deployed manual-bank owner
+approval route accepts three authenticated owner boolean attestations
+(bankFundsConfirmed, bankAmountMatched, bankTransactionMatched) but does not
+itself retrieve a trusted bank settlement record or atomically allocate a
+unique independently observed company-bank transaction before calling
+applyVerifiedPaymentOrder. Existing bank-allocation policy and local D1 tests
+are reference-only. Never accept a customer reference/screenshot, an
+unverified CSV, or a checkbox alone as proof of settled funds.
+Owner-side independent observation of exact settled funds credited to Thebe
+Desk's bank is mandatory prior to any real approval.
+
+**Remaining protected acceptance:**
+1. Trusted, independently sourced settled company-bank credit with unique
+   transaction ID, exact BWP amount and matching tenant/order.
+2. Authenticated owner/customer web and mobile manual transfer journeys:
+   pending, actual bank credit, rejection/new order, duplicate/replay,
+   competing administrator, subscription persistence after re-login.
+3. Reviewed trusted-bank reconciliation ingress, atomic unique allocation,
+   reversals/chargebacks and exception handling, qualified in isolated
+   remote D1 before any production migration.
+4. Protected owner-initiated production promotion with independent thusico
+   review, exact-source seal, postdeploy smoke and rollback evidence.
+5. POP migration and upload enablement remain separately gated.
+6. Keep payment P0 issue #1874 open until bank-backed E2E acceptance is proven.
+
+This is TEST/DOCUMENTATION ONLY. It does not modify live customer payments,
+bank credentials, Cloudflare configuration, production D1, routes, production
+deployments or customer entitlements.
