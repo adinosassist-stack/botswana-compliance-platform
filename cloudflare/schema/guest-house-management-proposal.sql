@@ -80,3 +80,81 @@ CREATE TABLE IF NOT EXISTS guest_house_housekeeping (
 );
 CREATE INDEX IF NOT EXISTS guest_house_housekeeping_board
  ON guest_house_housekeeping(tenant_id,property_id,status,room_id);
+
+-- Proposed append-only reservation audit. This schema is inert: no migration
+-- or HTTP route installs it. Audit records are created inside the *same* SQLite
+-- statement as reservation changes; a rejected audit write aborts the booking.
+-- This is an append-only operational ledger, NOT a cryptographic audit seal.
+CREATE TABLE IF NOT EXISTS guest_house_reservation_events (
+ id TEXT PRIMARY KEY,
+ tenant_id TEXT NOT NULL,
+ property_id TEXT NOT NULL,
+ reservation_id TEXT NOT NULL,
+ event_type TEXT NOT NULL CHECK(event_type IN ('created','amended','cancelled')),
+ previous_status TEXT,
+ new_status TEXT NOT NULL,
+ previous_room_id TEXT,
+ new_room_id TEXT NOT NULL,
+ previous_check_in TEXT,
+ new_check_in TEXT NOT NULL,
+ previous_check_out TEXT,
+ new_check_out TEXT NOT NULL,
+ nightly_rate_minor INTEGER NOT NULL CHECK(nightly_rate_minor BETWEEN 0 AND 999999999999),
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(tenant_id,property_id,reservation_id)
+  REFERENCES guest_house_reservations(tenant_id,property_id,id) ON DELETE RESTRICT
+);
+CREATE INDEX IF NOT EXISTS guest_house_reservation_event_scope
+ ON guest_house_reservation_events(tenant_id,property_id,reservation_id,created_at,id);
+CREATE TRIGGER IF NOT EXISTS guest_house_reservation_events_no_update
+BEFORE UPDATE ON guest_house_reservation_events
+BEGIN
+ SELECT RAISE(ABORT,'reservation_audit_immutable');
+END;
+CREATE TRIGGER IF NOT EXISTS guest_house_reservation_events_no_delete
+BEFORE DELETE ON guest_house_reservation_events
+BEGIN
+ SELECT RAISE(ABORT,'reservation_audit_immutable');
+END;
+-- Prevent a booking from moving tenants or silently changing its confirmed
+-- nightly-rate snapshot. Future rate corrections need a separately audited API.
+CREATE TRIGGER IF NOT EXISTS guest_house_reservation_identity_immutable
+BEFORE UPDATE OF id,tenant_id,property_id,nightly_rate_minor
+ON guest_house_reservations
+WHEN NEW.id<>OLD.id OR NEW.tenant_id<>OLD.tenant_id
+ OR NEW.property_id<>OLD.property_id
+ OR NEW.nightly_rate_minor<>OLD.nightly_rate_minor
+BEGIN
+ SELECT RAISE(ABORT,'reservation_identity_immutable');
+END;
+CREATE TRIGGER IF NOT EXISTS guest_house_reservation_no_delete
+BEFORE DELETE ON guest_house_reservations
+BEGIN
+ SELECT RAISE(ABORT,'reservation_delete_requires_review');
+END;
+CREATE TRIGGER IF NOT EXISTS guest_house_reservation_audit_insert
+AFTER INSERT ON guest_house_reservations
+BEGIN
+ INSERT INTO guest_house_reservation_events
+ (id,tenant_id,property_id,reservation_id,event_type,previous_status,new_status,
+  previous_room_id,new_room_id,previous_check_in,new_check_in,
+  previous_check_out,new_check_out,nightly_rate_minor)
+ VALUES
+ (lower(hex(randomblob(16))),NEW.tenant_id,NEW.property_id,NEW.id,'created',
+  NULL,NEW.status,NULL,NEW.room_id,NULL,NEW.check_in,NULL,NEW.check_out,NEW.nightly_rate_minor);
+END;
+CREATE TRIGGER IF NOT EXISTS guest_house_reservation_audit_update
+AFTER UPDATE OF room_id,check_in,check_out,status ON guest_house_reservations
+WHEN OLD.room_id<>NEW.room_id OR OLD.check_in<>NEW.check_in
+ OR OLD.check_out<>NEW.check_out OR OLD.status<>NEW.status
+BEGIN
+ INSERT INTO guest_house_reservation_events
+ (id,tenant_id,property_id,reservation_id,event_type,previous_status,new_status,
+  previous_room_id,new_room_id,previous_check_in,new_check_in,
+  previous_check_out,new_check_out,nightly_rate_minor)
+ VALUES
+ (lower(hex(randomblob(16))),NEW.tenant_id,NEW.property_id,NEW.id,
+  CASE WHEN NEW.status='cancelled' THEN 'cancelled' ELSE 'amended' END,
+  OLD.status,NEW.status,OLD.room_id,NEW.room_id,
+  OLD.check_in,NEW.check_in,OLD.check_out,NEW.check_out,NEW.nightly_rate_minor);
+END;

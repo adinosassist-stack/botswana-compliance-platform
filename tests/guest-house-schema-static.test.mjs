@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 const sql=readFileSync(new URL("../cloudflare/schema/guest-house-management-proposal.sql",import.meta.url),"utf8");
 test("all operational tables carry tenant identifiers",()=>{
- for(const table of ["guest_house_properties","guest_house_rooms","guest_house_reservations","guest_house_housekeeping"]){
+ for(const table of ["guest_house_properties","guest_house_rooms","guest_house_reservations","guest_house_housekeeping","guest_house_reservation_events"]){
   assert.match(sql,new RegExp("CREATE TABLE IF NOT EXISTS "+table+" \\("));
  }
- assert.equal((sql.match(/tenant_id TEXT NOT NULL/g)||[]).length,4);
+ assert.equal((sql.match(/tenant_id TEXT NOT NULL/g)||[]).length,5);
 });
 test("child records use composite tenant and property foreign keys",()=>{
  assert.match(sql,/FOREIGN KEY\(tenant_id,property_id,room_id\) REFERENCES guest_house_rooms\(tenant_id,property_id,id\)/);
