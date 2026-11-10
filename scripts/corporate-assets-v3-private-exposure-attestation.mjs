@@ -50,7 +50,7 @@ export async function inspectAssetStagingExposure({token,accountToken,request=fe
  const domainsPayload=await get(prefix+'/workers/domains','worker_domains',accountToken);
  if(!Array.isArray(domainsPayload.result))error('domains_inventory_invalid');
  const domains=complete(domainsPayload,'domains_inventory');
- const zonesPayload=await get('/zones?per_page=100','zone_inventory');
+ const zonesPayload=await get('/zones?per_page=100','zone_inventory',accountToken);
  if(!Array.isArray(zonesPayload.result))error('zones_inventory_invalid');
  const zones=complete(zonesPayload,'zones_inventory');
  // No assumption that missing zone routes can be ignored.
