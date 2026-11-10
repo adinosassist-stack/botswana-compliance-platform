@@ -28,6 +28,30 @@ export async function sanitizedCloudflareError(response,scope){
  return 'cloudflare_exposure_read_failed_'+scope+'_'+response.status+
   (code===null?'':'_cfcode_'+code);
 }
+// Never echo unexpected upstream error messages: alphanumeric secrets survive
+// character replacement. Only emit codes we create, not arbitrary Error.message.
+const SAFE_DIAGNOSTICS=new Set([
+ 'dedicated_account_inventory_read_token_required',
+ 'dedicated_cloudflare_read_token_required',
+ 'cloudflare_account_inventory_credential_format_invalid',
+ 'cloudflare_cloudflare_credential_format_invalid',
+ 'domains_inventory_invalid','domains_inventory_incomplete',
+ 'zones_inventory_invalid','zones_inventory_incomplete',
+ 'zone_routes_invalid','zone_routes_incomplete',
+ 'cloudflare_exposure_invalid_response_worker_subdomain',
+ 'cloudflare_exposure_invalid_response_worker_domains',
+ 'cloudflare_exposure_invalid_response_zone_inventory',
+ 'cloudflare_exposure_invalid_response_zone_worker_routes',
+ 'protected_main_context_required','protected_read_credentials_required',
+ 'read_only_evidence_failed'
+]);
+export function safeReadOnlyDiagnostic(err){
+ const msg=err instanceof Error?err.message:'';
+ if(SAFE_DIAGNOSTICS.has(msg))return msg;
+ if(/^cloudflare_exposure_read_failed_(worker_subdomain|worker_domains|zone_inventory|zone_worker_routes)_(400|401|403|404|408|429|500|502|503|504)(?:_cfcode_[0-9]{1,6})?$/.test(msg))return msg;
+ if(/^read_only_evidence_failed:(?:exact_main_context_required|source_input_manifest_required|known_candidate_and_rollback_required|unsafe_source_or_release_claim|legacy_source_mismatch_unacknowledged|independent_private_exposure_not_verified)(?:,(?:exact_main_context_required|source_input_manifest_required|known_candidate_and_rollback_required|unsafe_source_or_release_claim|legacy_source_mismatch_unacknowledged|independent_private_exposure_not_verified))*$/.test(msg))return msg;
+ return 'assets_read_only_unexpected_failure';
+}
 const complete=(data,code)=>{
  // Both documented result_info shapes can prove a single complete page.
  // Fail closed if neither total_pages nor total_count proves completeness.
@@ -93,5 +117,5 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
    accountToken:process.env.ASSETS_STAGING_CLOUDFLARE_ACCOUNT_READ_TOKEN});
   console.log(JSON.stringify(result));
   if(!result.privateExposureVerified)process.exitCode=1;
- }catch(e){console.error(String(e.message).replace(/[^a-zA-Z0-9_]/g,'_'));process.exitCode=1}
+ }catch(e){console.error(safeReadOnlyDiagnostic(e));process.exitCode=1}
 }
