@@ -4,6 +4,18 @@ import {canonicalAllocationId,validAllocationCurrency,validAllocationTimestamp} 
 export function createD1BankAllocationAdapter(db) {
   if (!db || typeof db.prepare !== "function") throw new TypeError("trusted D1 binding required");
   return Object.freeze({
+    // Server-side conflict read, global on transaction ID and scoped to
+    // tenant+invoice. Atomic INSERT uniqueness remains the final authority.
+    async loadConflictingAllocations({bankTransactionId,tenantId,invoiceId} = {}) {
+      if (![bankTransactionId,tenantId,invoiceId].every(canonicalAllocationId))
+        throw new TypeError("invalid allocation lookup");
+      const result=await db.prepare(
+        "SELECT bank_transaction_id AS bankTransactionId, tenant_id AS tenantId, invoice_id AS invoiceId FROM owner_bank_receipt_allocation WHERE bank_transaction_id=? OR (tenant_id=? AND invoice_id=?) LIMIT 2"
+      ).bind(bankTransactionId,tenantId,invoiceId).all();
+      if (!result || result.success!==true || !Array.isArray(result.results))
+        throw new Error("unconfirmed D1 allocation lookup");
+      return result.results;
+    },
     async insertUniqueAllocation(record) {
       if (!record || !["bankTransactionId","tenantId","invoiceId","verifiedByActorId"].every(k=>canonicalAllocationId(record[k])) ||
           !validAllocationCurrency(record.currency) || !validAllocationTimestamp(record.verifiedAt) ||
