@@ -44,8 +44,8 @@ test('mocked Cloudflare read-only envelope and request coverage',async()=>{
  assert.equal(y.privateExposureVerified,true);
  assert.equal(calls.length,5);
  assert.ok(calls.every(c=>c.method==='GET'));
- assert.equal(calls.find(c=>c.url.endsWith('/domains')).authorization,'Bearer synthetic-account-token');
- assert.ok(calls.filter(c=>!c.url.endsWith('/domains')).every(c=>c.authorization==='Bearer synthetic-read-token'));
+ assert.ok(calls.filter(c=>c.url.endsWith('/domains')||c.url.includes('/zones?')).every(c=>c.authorization==='Bearer synthetic-account-token'));
+ assert.ok(calls.filter(c=>!c.url.endsWith('/domains')&&!c.url.includes('/zones?')).every(c=>c.authorization==='Bearer synthetic-read-token'));
 });
 test('API error, malformed response and partial inventory must fail',async()=>{
  const request=async()=>({ok:false,status:403});
