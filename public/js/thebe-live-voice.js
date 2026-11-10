@@ -1385,6 +1385,15 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     if(state!=="ready")lastAnswer="";
     responseBox.replaceChildren(el("div","thebe-ai-response-title",state==="thinking"?"Thebe is working":"Thebe"),responseAnswer(message));
   }
+  function requireAdvisorAnswer(result){
+    // A successful transport response is not proof of an actual AI answer.
+    // Reject empty/malformed results without converting them into success UI.
+    if(!result||typeof result!=="object"||Array.isArray(result)||
+       typeof result.answer!=="string"||!result.answer.trim()){
+      throw new Error("Thebe did not return an answer. Please retry.");
+    }
+    return result;
+  }
   function renderResult(result){
     setMascotFocus("response");
     setMascotState("success");
@@ -1644,8 +1653,9 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
         signal:controller.signal
       });
       if(runId!==textRunId)return;
+      requireAdvisorAnswer(result);
       pendingFiles=pendingFiles.filter(file=>!files.includes(file));renderAttachmentTray();
-      renderResult(result||{});
+      renderResult(result);
     }catch(error){
       if(runId!==textRunId||error?.code==="aborted")return;
       if(input&&!input.value){input.value=q;syncComposerHeight()}
