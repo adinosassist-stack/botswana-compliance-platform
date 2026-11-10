@@ -26,3 +26,18 @@ test("guard errors and unauthenticated access fail closed",async()=>{
  assert.equal((await handle({...base,principal:{...principal,authenticated:false}})).status,401);
  assert.equal((await handle({...base,guards:{...guards,verifySession:async()=>{throw Error("offline");}}})).status,503);
 });
+
+test("kill switch and missing identity always prevent storage access",async()=>{
+ let queries=0;
+ const guardedPool={async query(){queries++;return {rows:[]};}};
+ const cases=[{killSwitch:true},{principal:null},{principal:{...principal,authenticated:false}},{featureEnabled:false},{request:{method:"DELETE"}}];
+ for(const overrides of cases){const result=await handle({...base,pool:guardedPool,...overrides});assert.notEqual(result.status,200);assert.equal(result.body.readOnly,true);assert.deepEqual(result.body.items,[]);}
+ assert.equal(queries,0);
+});
+test("missing any individual security callback blocks all reads",async()=>{
+ for(const name of Object.keys(guards)){
+  let queries=0;const incomplete={...guards};delete incomplete[name];
+  const result=await handle({...base,guards:incomplete,pool:{async query(){queries++;return {rows:[]};}}});
+  assert.equal(result.status,503);assert.equal(result.body.code,"security_guards_unavailable");assert.equal(queries,0);
+ }
+});
