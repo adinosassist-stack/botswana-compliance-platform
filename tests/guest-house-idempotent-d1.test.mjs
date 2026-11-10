@@ -35,10 +35,10 @@ const getCounts=async db=>{
 };
 
 test('candidate is a scoped single SQL INSERT with server-side room pricing',()=>{
- assert.match(INSERT_GUEST_HOUSE_IDEMPOTENT,/room\\.nightly_rate_minor/);
- assert.match(INSERT_GUEST_HOUSE_IDEMPOTENT,/prior\\.idempotency_key=\\?/);
+ assert.ok(INSERT_GUEST_HOUSE_IDEMPOTENT.includes("room.nightly_rate_minor"));
+ assert.ok(INSERT_GUEST_HOUSE_IDEMPOTENT.includes("prior.idempotency_key=?"));
  assert.match(INSERT_GUEST_HOUSE_IDEMPOTENT,/NOT EXISTS/);
- assert.equal((INSERT_GUEST_HOUSE_IDEMPOTENT.match(/\\?/g)||[]).length,20);
+ assert.equal(INSERT_GUEST_HOUSE_IDEMPOTENT.split("?").length-1,20);
 });
 
 test('concurrent same-key retries with different booking IDs write one audited reservation',async()=>{
