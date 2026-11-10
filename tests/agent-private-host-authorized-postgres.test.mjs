@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import pg from "pg";
+import express from "express";
 import {randomUUID} from "node:crypto";
 import {registerPrivateAgentHistory} from "../server/agent-approval-history-private-host.js";
 
@@ -13,6 +14,7 @@ test("private host authorizes real DB-backed tenant membership and denies cross-
  const tenant="host-"+randomUUID(),other="host-"+randomUUID();
  const user="user-"+randomUUID(),session=randomUUID(),approval=randomUUID(),foreign=randomUUID();
  const routes=[];
+ const httpApp=express();
  const invoke=async(auth,headers={origin:"https://thebedesk.com","sec-fetch-site":"same-origin"})=>{
   let output={};
   const res={status(v){output.status=v;return this},set(){return this},json(v){output.body=v;return this}};
@@ -32,9 +34,23 @@ test("private host authorizes real DB-backed tenant membership and denies cross-
   const insert="insert into agent_action_approvals(id,tenant_id,actor_id,action,argument_digest,nonce,status,expires_at) values($1,$2,$3,'draft_internal_task',$4,$5,'pending',now()+interval '1 hour')";
   await pool.query(insert,[approval,tenant,user,"a".repeat(64),randomUUID()]);
   await pool.query(insert,[foreign,other,user,"b".repeat(64),randomUUID()]);
-  assert.equal(registerPrivateAgentHistory({app:{get(...a){routes.push(a)}},enabled:true,killSwitch:false,
+  assert.equal(registerPrivateAgentHistory({app:{get(...a){routes.push(a);httpApp.get(...a)}},enabled:true,killSwitch:false,
    sessionAuth:(_req,_res,next)=>next(),pool,publicOrigin:"https://thebedesk.com",
    requestOriginAllowed:(origin,expected)=>origin===expected}),true);
+  // Real loopback HTTP request exercises Express routing and response headers.
+  // The existing fixture supplies req.auth; server.js cookie decoding is NOT covered here.
+  const httpServer=httpApp.listen(0,"127.0.0.1");
+  try{
+   await new Promise(resolve=>httpServer.once("listening",resolve));
+   const address=httpServer.address();
+   const response=await fetch("http://127.0.0.1:"+address.port+"/api/agent/approval-history",{
+    headers:{origin:"https://thebedesk.com","sec-fetch-site":"same-origin"}
+   });
+   assert.equal(response.status,503,"HTTP request without a verified session must fail closed");
+   assert.equal(response.headers.get("cache-control"),"no-store");
+   const body=await response.json();
+   assert.equal(body.ok,false);
+  }finally{await new Promise((resolve,reject)=>httpServer.close(err=>err?reject(err):resolve()))}
   const principal={id:session,tenant_id:tenant,user_id:user,role:"owner"};
   const ok=await invoke(principal);
   assert.equal(ok.status,200);
