@@ -33,8 +33,8 @@ export function assessTrustedBankSettlement({invoice,bankCredit,companyAccount,a
   if (!exactKeys(bankCredit.reference,invoice.reference))
     return deny("bank_reference_mismatch");
   if (bankCredit.direction !== "credit" || bankCredit.status !== "settled" ||
-      bankCredit.finality !== "confirmed" || bankCredit.reversed === true ||
-      bankCredit.chargeback === true || bankCredit.reversalPending === true) {
+      bankCredit.finality !== "confirmed" || bankCredit.reversed !== false ||
+      bankCredit.chargeback !== false || bankCredit.reversalPending !== false) {
     return deny("bank_credit_not_final");
   }
   if (!validMoney(bankCredit.amountMinor) || bankCredit.currency !== "BWP" ||
