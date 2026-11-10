@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {evaluateEmployeeDispatchAdmission as evaluate} from "../server/employee-workflow-dispatch-admission.js";
 const valid=()=>({featureEnabled:true,killSwitch:false,auditAvailable:true,
  tenantId:"tenantA",actorId:"actorA",proposalId:"proposalA",reviewId:"reviewA",
- reviewerId:"reviewerB",idempotencyKey:"keyA",proposalTenantId:"tenantA",reviewTenantId:"tenantA",
+ reviewerId:"reviewerB",idempotencyKey:"keyA",proposalRevision:"rev2",reviewedProposalRevision:"rev2",proposalTenantId:"tenantA",reviewTenantId:"tenantA",
  proposalStatus:"approved",reviewStatus:"approved",reviewerAuthorized:true,
  currentApprovedReview:true,currentProposalRevision:true,actorAuthorized:true,
  budgetAvailable:true,action:"create_internal_task"});
@@ -31,4 +31,11 @@ test("stale or unauthorized approvals and revoked budget deny",()=>{
 test("financial and external effects are categorically denied",()=>{
  for(const action of ["payroll","approve_payment","financial_posting","send_email","delete_record","grant_permission","file_regulatory_return",undefined])
   assert.equal(evaluate({...valid(),action}).allowed,false);
+});
+
+test("dispatch admission rejects stale, missing or mismatched reviewed proposal revision",()=>{
+ for(const change of [{proposalRevision:"rev3"},{reviewedProposalRevision:"rev1"},
+  {proposalRevision:undefined},{reviewedProposalRevision:null},
+  {proposalRevision:""},{reviewedProposalRevision:"rev 2"}])
+  assert.equal(evaluate({...valid(),...change}).allowed,false);
 });
