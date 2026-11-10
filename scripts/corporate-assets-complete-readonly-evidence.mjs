@@ -4,7 +4,7 @@
  */
 import {pathToFileURL} from 'node:url';
 import {inspectProtectedProvenance} from './corporate-assets-protected-provenance-preflight.mjs';
-import {inspectAssetStagingExposure} from './corporate-assets-v3-private-exposure-attestation.mjs';
+import {inspectAssetStagingExposure,safeReadOnlyDiagnostic} from './corporate-assets-v3-private-exposure-attestation.mjs';
 const SHA=/^[a-f0-9]{40}$/;
 const HEX=/^[a-f0-9]{64}$/;
 const V3='983daaea-1e6b-4359-9994-0b792578008b';
@@ -57,5 +57,5 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
    repository:process.env.GITHUB_REPOSITORY,ref:process.env.GITHUB_REF,
    githubSha:process.env.GITHUB_SHA
   })));
- }catch(e){console.error(String(e.message).replace(/[^a-zA-Z0-9_:,-]/g,'_'));process.exitCode=1}
+ }catch(e){console.error(safeReadOnlyDiagnostic(e));process.exitCode=1}
 }
