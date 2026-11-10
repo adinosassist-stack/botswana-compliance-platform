@@ -11,6 +11,23 @@ export const EXPECTED_ZONES=Object.freeze([
  '33e363d52b69c4a64dbb8a0891dbb3a9'
 ]);
 const error=(code)=>{throw Error(code)};
+// Fail closed on common copy/paste mistakes, without ever echoing credential bytes.
+export function assertOpaqueReadToken(value,scope){
+ if(typeof value!=='string'||!value.trim())error('dedicated_'+scope+'_read_token_required');
+ if(value!==value.trim()||/\s|["'<>]/.test(value)||/^Bearer/i.test(value))
+  error('cloudflare_'+scope+'_credential_format_invalid');
+}
+// Cloudflare errors may include user-controlled text. Log ONLY bounded numeric codes.
+export async function sanitizedCloudflareError(response,scope){
+ let code=null;
+ try {
+  const data=await response.json();
+  const n=data?.errors?.[0]?.code;
+  if(Number.isSafeInteger(n)&&n>=0&&n<=999999)code=n;
+ }catch { /* Response may be HTML, invalid JSON, or unreadable. */ }
+ return 'cloudflare_exposure_read_failed_'+scope+'_'+response.status+
+  (code===null?'':'_cfcode_'+code);
+}
 const complete=(data,code)=>{
  const p=data?.result_info;
  if(p&&(p.total_pages!==1||p.page!==1||p.count!==data.result.length))error(code+'_incomplete');
@@ -36,11 +53,13 @@ export function checkAssetStagingExposure({subdomain,domains,zones,zoneRoutes}={
 export async function inspectAssetStagingExposure({token,accountToken,request=fetch}={}){
  if(typeof accountToken!=='string'||!accountToken.trim())error('dedicated_account_inventory_read_token_required');
  if(typeof token!=='string'||!token.trim())error('dedicated_cloudflare_read_token_required');
+ assertOpaqueReadToken(accountToken,'account_inventory');
+ assertOpaqueReadToken(token,'cloudflare');
  const get=async (path,scope,readToken=token)=>{
   const response=await request('https://api.cloudflare.com/client/v4'+path,{
    method:'GET',headers:{authorization:'Bearer '+readToken,accept:'application/json'},
    redirect:'error',signal:AbortSignal.timeout(15000)});
-  if(!response.ok)error('cloudflare_exposure_read_failed_'+scope+'_'+response.status);
+  if(!response.ok)error(await sanitizedCloudflareError(response,scope));
   const data=await response.json();
   if(data?.success!==true||data.result==null)error('cloudflare_exposure_invalid_response_'+scope);
   return data;
