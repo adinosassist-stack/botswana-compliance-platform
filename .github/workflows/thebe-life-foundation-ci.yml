@@ -68,6 +68,7 @@ jobs:
             tests/thebe-life-workspace-adapter-static.test.mjs \
             tests/thebe-life-workspace-budget-preview.test.mjs \
             tests/thebe-life-private-read-client.test.mjs \
+            tests/thebe-life-private-beta-workspace.test.mjs \
             tests/thebe-life-staging-preflight.test.mjs \
             tests/thebe-life-family-budget-summary.test.mjs \
             tests/thebe-life-family-members-goals.test.mjs \
