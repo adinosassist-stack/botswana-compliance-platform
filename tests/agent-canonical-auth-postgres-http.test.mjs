@@ -43,7 +43,7 @@ test("canonical server session middleware enforces PostgreSQL lifecycle over HTT
   await pool.query("insert into users(id,session_generation,email) values($1,1,'ci@example.invalid')",[user]);
   await pool.query("insert into memberships(user_id,tenant_id,status,role) values($1,$2,'active','owner')",[user,tenant]);
   await pool.query("insert into sessions(id,user_id,tenant_id,expires_at,session_generation,token_hash,csrf_token,last_seen_at) values($1,$2,$3,now()+interval '1 hour',1,$4,'csrf',now())",[sid,user,tenant,createHmac("sha256",secret).update(token).digest("hex")]);
-  await new Promise(resolve=>server.once("listening",resolve));
+  if(!server.listening) await new Promise((resolve,reject)=>{server.once("listening",resolve);server.once("error",reject)});
   const url="http://127.0.0.1:"+server.address().port+"/session-check";
   const get=async value=>fetch(url,{headers:value?{cookie:value}:{},signal:AbortSignal.timeout(10000)});
   assert.equal((await get(null)).status,401);
