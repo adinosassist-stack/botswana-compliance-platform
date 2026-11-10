@@ -1,3 +1,4 @@
+import {canonicalAllocationId,validAllocationCurrency,validAllocationTimestamp} from "./bank-allocation-input-validation.mjs";
 // Reference SQL contract only. This module does not connect to or modify a database.
 // A unique bank transaction key must be enforced by the database, not a UI check.
 export const OWNER_BANK_ALLOCATION_SCHEMA = `
@@ -22,14 +23,14 @@ export async function allocateVerifiedBankReceipt({adapter, decision, tenantId, 
     return {status:"unavailable"};
   if (!decision || decision.decision !== "verified" ||
       decision.invoiceId !== invoice?.id ||
-      typeof decision.bankTransactionId !== "string" || !decision.bankTransactionId ||
-      typeof tenantId !== "string" || !tenantId ||
+      !canonicalAllocationId(decision.bankTransactionId) ||
+      !canonicalAllocationId(tenantId) || !canonicalAllocationId(invoice?.id) ||
       invoice?.tenantId !== tenantId ||
       !Number.isSafeInteger(invoice.amountMinor) || invoice.amountMinor <= 0 ||
-      !/^[A-Z]{3}$/.test(invoice.currency || "") ||
+      !validAllocationCurrency(invoice.currency) ||
       reviewer?.authenticated !== true || reviewer?.role !== "owner" ||
-      reviewer?.tenantId !== tenantId || !reviewer?.actorId ||
-      typeof verifiedAt !== "string" || !Number.isFinite(Date.parse(verifiedAt))) {
+      reviewer?.tenantId !== tenantId || !canonicalAllocationId(reviewer?.actorId) ||
+      !validAllocationTimestamp(verifiedAt)) {
     return {status:"denied"};
   }
   try {
