@@ -72,7 +72,7 @@ test('rejects missing pagination proof, unsorted records, duplicate timestamps, 
   [a,{page:2,count:1,total_count:1}],
   [a,{page:1,count:1,total_pages:2,total_count:1}],
   [[older,a],info([older,a])],
-  [[a,{...older,created_on:a[0].created_on}],info([a,older])],
+  [[a[0],{...older,created_on:a[0].created_on}],info([a[0],older])],
   [[{...a[0],created_on:'not-a-date'}],info(a)],
   [[{...a[0],id:'malformed'}],info(a)]
  ]){
