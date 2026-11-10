@@ -14,7 +14,7 @@ const error=(code)=>{throw Error(code)};
 // Fail closed on common copy/paste mistakes, without ever echoing credential bytes.
 export function assertOpaqueReadToken(value,scope){
  if(typeof value!=='string'||!value.trim())error('dedicated_'+scope+'_read_token_required');
- if(value!==value.trim()||/\s|["'<>]/.test(value)||/^Bearer/i.test(value))
+ if(value!==value.trim()||/\s|["'<>]/.test(value)||value.includes('\\')||/^Bearer/i.test(value))
   error('cloudflare_'+scope+'_credential_format_invalid');
 }
 // Cloudflare errors may include user-controlled text. Log ONLY bounded numeric codes.
