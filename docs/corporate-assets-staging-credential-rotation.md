@@ -87,3 +87,24 @@ Owner provision/secure GitHub environment-secret update and `thusico` review are
 still required before dispatch from freshly verified exact main. This code does
 not create a token, upload a version, repair old staging credentials, activate
 assets, change traffic, or authorize deployment.
+
+## 10 November 2026: Sanitized Cloudflare HTTP 400 classification
+
+Protected exact-main read-only run #42883777963 succeeded through six tests and
+source provenance metadata then received HTTP 400 from GET account Worker Domains,
+using the new protected account-read credential. The endpoint itself returns GET
+200 for the connected account, but that does **not** prove the GitHub secret holds
+the correct token bytes. Never print, echo, commit, upload, or paste token values.
+
+The diagnostic guard rejects common pasted `Bearer ` prefixes, whitespace, and
+quotes before any Cloudflare API request. For failed Cloudflare responses, logging
+is restricted to HTTP status, operation name, and a bounded integer Cloudflare
+error code (when supplied). Raw message text, HTTP headers, authorization value,
+and response payload are never emitted. Numeric codes are classification clues,
+not evidence of authorization or deploy readiness. Keep fail-closed controls.
+
+Do not retry a protected workflow solely to inspect the token until this code is
+reviewed/merged with fresh exact-head CI and independent `thusico` approval.
+Owner can independently verify token with Cloudflare's token Verify endpoint and
+correct the protected GitHub secret *directly* if the value was miscopied, without
+sharing its bytes in GitHub comments, Actions logs, or chat.
