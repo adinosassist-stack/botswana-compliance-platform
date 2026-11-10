@@ -1,0 +1,57 @@
+name: General AI isolated D1 live replay qualification
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Exact approved main SHA
+        required: true
+        type: string
+      authorization:
+        description: LIVE_STAGING_D1_REPLAY_TEST (writes one permanent isolated staging nonce claim)
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: general-ai-live-d1-replay-qualification
+  cancel-in-progress: false
+jobs:
+  qualify:
+    if: github.ref == 'refs/heads/main' && inputs.authorization == 'LIVE_STAGING_D1_REPLAY_TEST'
+    runs-on: ubuntu-latest
+    environment: general-ai-private-staging
+    timeout-minutes: 12
+    steps:
+      - name: Check exact current main after independent review
+        shell: bash
+        env:
+          EXPECTED: ${{ inputs.expected_main_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED" =~ ^[a-f0-9]{40}$ ]] || exit 1
+          test "$GITHUB_SHA" = "$EXPECTED"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" = "$EXPECTED"
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify consumer disabled and locked isolated DB binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/general-ai-private-consumer-config-preflight.mjs
+          grep -Fx 'PRIVATE_AI_QUEUE_ACCEPTANCE_ENABLED = "false"' cloudflare/wrangler.general-ai-private-consumer.toml
+          grep -Fx 'database_id = "71e2d394-7dec-4878-bdc8-afe8f73cf541"' cloudflare/wrangler.general-ai-private-consumer.toml
+      - name: Prove staging D1 nonce duplicate rejection
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.GENERAL_AI_STAGING_D1_QUALIFICATION_TOKEN }}
+        run: node scripts/general-ai-live-d1-replay-qualification.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: general-ai-staging-d1-live-replay-${{ github.sha }}
+          path: private-queue-live-evidence/result.json
+          retention-days: 14
+          if-no-files-found: error

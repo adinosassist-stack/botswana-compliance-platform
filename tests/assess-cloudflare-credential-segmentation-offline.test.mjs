@@ -49,3 +49,37 @@ test('zone-only permission does not imply same account-wide scope',()=>{
  assert.equal(a.broadAccountWritePrivilegesObserved,false);
  assert.equal(a.restoreTargetExclusiveWriteEstablished,false);
 });
+
+test('all-account wildcard on the selected token is observed as broad account write',()=>{
+ const v=valid();v.tokens[0].policies[0].resources=['com.cloudflare.api.account.*'];
+ const a=assessCredentialSegmentation(v);
+ assert.equal(a.broadAccountWritePrivilegesObserved,true);
+ assert.deepEqual(a.accountWriteCapabilities,['D1 Write','Workers R2 Storage Write','Workers Scripts Write']);
+});
+test('other active inventory tokens cannot hide broad wildcard writes behind the selected name',()=>{
+ const v=valid();v.tokens[0].policies[0].permissions=['Account Settings Read'];
+ v.tokens.push({name:'synthetic backup role',status:'active',policies:[
+  {effect:'allow',resources:['com.cloudflare.api.account.*'],permissions:['D1 Write','Workers R2 Storage Write']}
+ ]});
+ const a=assessCredentialSegmentation(v);
+ assert.equal(a.broadAccountWritePrivilegesObserved,false);
+ assert.equal(a.anyInventoryTokenBroadAccountWriteObserved,true);
+ assert.deepEqual(a.inventoryTokenExposures[1],{
+  name:'synthetic backup role',status:'active',allAccountsWriteCapabilities:['D1 Write','Workers R2 Storage Write'],
+  targetAccountWriteCapabilities:[],activeBroadAccountWriteObserved:true
+ });
+ assert.equal(a.restoreAuthorized,false);assert.equal(a.credentialRotationAuthorized,false);
+});
+test('inactive tokens and zone or foreign-account policies do not count as active target-account exposure',()=>{
+ const v=valid();v.tokens[0].status='expired';
+ for(const [name,resources,effect] of [
+  ['zone',['com.cloudflare.api.account.zone.*'],'allow'],
+  ['foreign',['com.cloudflare.api.account.'+'b'.repeat(32)],'allow'],
+  ['deny',['com.cloudflare.api.account.*'],'deny']
+ ])v.tokens.push({name,status:'active',policies:[{effect,resources,permissions:['D1 Write']}]});
+ const a=assessCredentialSegmentation(v);
+ assert.equal(a.anyInventoryTokenBroadAccountWriteObserved,false);
+ assert.equal(a.inventoryTokenExposures.length,4);
+ assert.equal(a.actualLeastPrivilegeEstablished,false);
+});
+

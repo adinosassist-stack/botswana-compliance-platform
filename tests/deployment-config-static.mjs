@@ -6,6 +6,7 @@ const deploy=fs.readFileSync(new URL("../cloudflare/deploy-free.sh",import.meta.
 const renderer=fs.readFileSync(new URL("../cloudflare/render-production-config.sh",import.meta.url),"utf8");
 const preflight=fs.readFileSync(new URL("../cloudflare/preflight-production.sh",import.meta.url),"utf8");
 const ignore=fs.readFileSync(new URL("../.gitignore",import.meta.url),"utf8");
+const productionWorkflow=fs.readFileSync(new URL("../.github/workflows/deploy-production.yml",import.meta.url),"utf8");
 const vars=(wr.match(/^\[vars\]$/gm)||[]).length;
 const d1Create=deploy.indexOf('d1 create bw-compliance-os');
 const r2Create=deploy.indexOf('r2 bucket create bw-compliance-evidence');
@@ -15,6 +16,10 @@ const preflightConfig=deploy.indexOf('./preflight-production.sh');
 const deployConfig=deploy.indexOf('deploy --config');
 const checks=[
  ["single vars table",vars===1],
+ ["protected production environment remains required",/^    environment: production$/m.test(productionWorkflow)],
+ ["production workflow keeps provider checkout disabled pending qualification",/^      PAYMENT_PROVIDER_OVERRIDE: none$/m.test(productionWorkflow)],
+ ["production workflow does not silently enable unqualified evidence scanning",/^      EVIDENCE_SCAN_API_URL: ''$/m.test(productionWorkflow)],
+ ["production workflow pins exact main SHA and requires governance recovery and BF-07",productionWorkflow.includes("Verify exact current main SHA")&&productionWorkflow.includes("Require successful Main Governance Guard, Recovery CI and BF-07 for exact SHA")],
  ["free-first deployment",wr.includes('DEPLOYMENT_PROFILE = "workers-free-first"')],
  ["safe launch disables paid checkout by default",wr.includes('PAYMENT_PROVIDER = "none"')&&!wr.includes('PAYMENT_PROVIDER = "dpo"')],
  ["production explicitly enables owner-authorized public registration",wr.includes('REGISTRATION_MODE = "open"')],

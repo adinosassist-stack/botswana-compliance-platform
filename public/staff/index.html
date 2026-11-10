@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en-BW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Cache-Control" content="no-store">
+<meta name="theme-color" content="#1467df">
+<meta name="bw-runtime-mode" content="staff">
+<title>My Work | Thebe Desk</title>
+<link rel="icon" href="/assets/thebe-desk-favicon-512.png">
+<link rel="stylesheet" href="/assets/employee-self-service.css?v=1">
+<script src="/js/api-client.js?v=20260920a" defer></script>
+<script src="/js/employee-self-service-portal.js?v=1" defer></script>
+</head>
+<body class="thebe-staff-page">
+<main class="thebe-staff-shell">
+<header class="thebe-staff-header">
+<img src="/assets/thebe-desk-logo-symbol.png" width="38" height="38" alt="">
+<div><strong>Thebe Desk</strong><span>My Work</span></div>
+</header>
+<p id="staffGlobalMessage" class="thebe-staff-message" role="status" aria-live="polite" hidden></p>
+<section id="staffInvite" class="thebe-staff-card" hidden>
+<h1>Activate your employee account</h1>
+<p>Your invitation expires after 48 hours. Set a strong private password. This account gives you access only to your own assigned work.</p>
+<form id="staffInviteForm">
+<label>Password <input id="staffInvitePassword" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></label>
+<label>Confirm password <input id="staffInviteConfirm" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></label>
+<button type="submit">Activate account</button>
+</form>
+</section>
+<section id="staffLogin" class="thebe-staff-card" hidden>
+<h1>Employee sign in</h1>
+<p>Use the workspace ID provided with your employee invitation. Your employee account is separate from the company management workspace.</p>
+<form id="staffLoginForm">
+<label>Workspace ID <input id="staffTenantId" type="text" autocomplete="organization" maxlength="36" required></label>
+<label>Email <input id="staffEmail" type="email" autocomplete="username" maxlength="254" required></label>
+<label>Password <input id="staffPassword" type="password" autocomplete="current-password" required></label>
+<button type="submit">Sign in</button>
+</form>
+</section>
+<section id="staffDashboard" hidden>
+<div class="thebe-staff-topline"><div><div class="thebe-staff-kicker">YOUR ASSIGNED WORK</div><h1 id="staffWelcome">My tasks</h1><p id="staffCompany"></p></div><button id="staffSignOut" type="button" class="thebe-staff-secondary">Sign out</button></div>
+<div class="thebe-staff-counts" aria-live="polite"><div><b id="staffOpenCount">0</b><small>Open</small></div><div><b id="staffPendingCount">0</b><small>Awaiting review</small></div><div><b id="staffCompletedCount">0</b><small>Completed</small></div></div>
+<p id="staffTasksStatus" role="status" aria-live="polite"></p>
+<div id="staffTasksList" class="thebe-staff-task-list"></div>
+<p class="thebe-staff-privacy">Only your assigned tasks are shown. Task submissions are reviewed by a manager; they do not automatically determine attendance, pay or disciplinary outcomes.</p>
+</section>
+</main>
+</body>
+</html>

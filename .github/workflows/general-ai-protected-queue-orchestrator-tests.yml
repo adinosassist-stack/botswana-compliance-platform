@@ -1,0 +1,41 @@
+name: General AI protected Queue acceptance orchestrator tests
+on:
+  pull_request:
+    paths:
+      - 'scripts/general-ai-protected-queue-acceptance-orchestrator.mjs'
+      - 'scripts/general-ai-cloudflare-inventory-guard.mjs'
+      - 'scripts/general-ai-staging-service-isolation-evidence.mjs'
+      - 'scripts/general-ai-staging-topology-guard.mjs'
+      - 'scripts/general-ai-topology-readonly-adapter.mjs'
+      - 'scripts/general-ai-topology-evidence-provenance.mjs'
+      - 'tests/general-ai-topology-evidence-provenance.test.mjs'
+      - 'tests/general-ai-topology-readonly-adapter.test.mjs'
+      - 'tests/general-ai-staging-topology-guard.test.mjs'
+      - 'tests/general-ai-staging-service-isolation-evidence.test.mjs'
+      - 'scripts/general-ai-cloudflare-readonly-adapter.mjs'
+      - 'tests/general-ai-cloudflare-readonly-adapter.test.mjs'
+      - 'tests/general-ai-cloudflare-inventory-guard.test.mjs'
+      - 'tests/general-ai-protected-queue-acceptance-orchestrator.test.mjs'
+      - 'scripts/general-ai-live-queue-execution-guardrails.mjs'
+      - 'scripts/general-ai-live-queue-acceptance-gate.mjs'
+      - '.github/workflows/general-ai-protected-queue-orchestrator-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-orchestrator-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run offline adapter-based protected Queue tests
+        run: |
+          node --test tests/general-ai-topology-evidence-provenance.test.mjs tests/general-ai-topology-readonly-adapter.test.mjs tests/general-ai-staging-topology-guard.test.mjs tests/general-ai-staging-service-isolation-evidence.test.mjs tests/general-ai-cloudflare-readonly-adapter.test.mjs tests/general-ai-cloudflare-inventory-guard.test.mjs tests/general-ai-protected-queue-acceptance-orchestrator.test.mjs
+          node --test tests/general-ai-live-queue-readiness.test.mjs
+      - name: Confirm no Cloudflare deployment or Queue publishing
+        run: echo 'OFFLINE ONLY — no live credentials, Cloudflare calls or Queue messages'
