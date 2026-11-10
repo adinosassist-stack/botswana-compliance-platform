@@ -4,7 +4,7 @@ import {listEmployeeWorkflows,saveEmployeeWorkflow} from "../server/employee-wor
 import {createEmployeeWorkflowD1Store} from "../cloudflare/src/employee-workflow-d1-store.js";
 
 const principal={tenantId:"tenant-A",actorId:"owner-A",permissions:["people.workflow.manage"]};
-const workflow={id:"wf",name:"Safe preview",routineType:"attendance",trigger:"manual",effect:"preview"};
+const workflow={id:"wf",name:"Safe preview",routineType:"onboarding_checklist",trigger:"manual",effect:"preview"};
 test("ownership service filters cross-tenant and cross-owner results from compromised adapter",async()=>{
  const store={async listOwned(){return [
   {tenantId:"tenant-B",ownerId:"owner-A",workflow},
