@@ -39,12 +39,25 @@ test("private host authorizes real DB-backed tenant membership and denies cross-
   const ok=await invoke(principal);
   assert.equal(ok.status,200);
   assert.deepEqual(ok.body.items.map(x=>x.id),[approval]);
+  const audit=await pool.query("select tenant_id,actor_user_id,event_type from audit_events where tenant_id=$1 and actor_user_id=$2 and event_type=$3",[tenant,user,"agent.approval_history.read"]);
+  assert.equal(audit.rows.length,1,"successful read must persist an audit event");
+  await pool.query("create or replace function agent_history_test_deny_audit() returns trigger language plpgsql as $ begin if new.event_type='agent.approval_history.read' then raise exception 'test_audit_write_blocked'; end if; return new; end $");
+  await pool.query("create trigger agent_history_test_deny_audit before insert on audit_events for each row execute function agent_history_test_deny_audit()");
+  const blocked=await invoke(principal);
+  assert.equal(blocked.status,503,"audit write failure must fail closed");
+  assert.equal(blocked.body.code,"agent_history_audit_failed");
+  assert.deepEqual(blocked.body.items,[]);
+  await pool.query("drop trigger agent_history_test_deny_audit on audit_events");
+  await pool.query("drop function agent_history_test_deny_audit()");
   const denied=await invoke({...principal,tenant_id:other});
   assert.notEqual(denied.status,200);
   await pool.query("update memberships set status='inactive' where user_id=$1",[user]);
   const revoked=await invoke(principal);
   assert.notEqual(revoked.status,200);
  }finally{
+  await pool.query("drop trigger if exists agent_history_test_deny_audit on audit_events").catch(()=>{});
+  await pool.query("drop function if exists agent_history_test_deny_audit()").catch(()=>{});
+  await pool.query("delete from audit_events where tenant_id=$1 and actor_user_id=$2 and event_type=$3",[tenant,user,"agent.approval_history.read"]).catch(()=>{});
   await pool.query("delete from agent_action_approvals where id in ($1,$2)",[approval,foreign]).catch(()=>{});
   await pool.query("delete from sessions where id=$1",[session]).catch(()=>{});
   await pool.query("delete from memberships where user_id=$1",[user]).catch(()=>{});
