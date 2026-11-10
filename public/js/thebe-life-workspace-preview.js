@@ -12,6 +12,13 @@
     if(root.dataset.thebeLifeMounted==='true') return {destroy:()=>{}};
     root.dataset.thebeLifeMounted='true'; root.classList.add('thebe-life-view');
     const state={tab:'overview',transactions:[{name:'Groceries',category:'Food',amount:850},{name:'Electricity',category:'Utilities',amount:400}],goals:[{name:'School Fees',saved:3200,target:6000}],motsheloReports:[{member:'Member 1',amount:1000},{member:'Member 2',amount:1000},{member:'Member 3',amount:1000},{member:'Member 4',amount:1000},{member:'Member 5',amount:1000},{member:'Member 6',amount:1000},{member:'Member 7',amount:1000},{member:'Member 8',amount:1000},{member:'Member 9',amount:1000},{member:'Member 10',amount:1000}]};
+    // This preview never initiates beta requests automatically. Only the
+    // authenticated host adapter may supply the synthetic staging opt-in.
+    const privateBeta=opts.privateBeta?.enabled===true &&
+      typeof opts.privateBeta?.groupId==='string' &&
+      /^[A-Za-z0-9_-]{1,80}$/.test(opts.privateBeta.groupId)?opts.privateBeta:null;
+    let alive=true,activeRead=null;
+    state.betaStatus='idle';state.betaSnapshot=null;
     // Demo-only derived totals; separate from persisted household finance and verified cash.
     const budget=()=>{
       const addedMinor=state.transactions.reduce((sum,item)=>sum+Math.round(item.amount*100),0);
@@ -60,6 +67,40 @@
         const button=node('button','tl-primary','Record demo report');button.type='submit';form.append(member,amount,button);
         form.addEventListener('submit',e=>{e.preventDefault();const v=Number(amount.value);const name=member.value.trim();if(!name||!Number.isSafeInteger(v)||v<1||v>100000||state.motsheloReports.length>=50)return;state.motsheloReports.push({member:name.slice(0,60),amount:v});render();});
         panel.append(form);body.append(panel);
+        if(privateBeta){
+          const betaPanel=node('div','tl-panel');
+          betaPanel.append(node('h2','','Private beta · read-only group records'));
+          betaPanel.append(node('p','tl-muted','Isolated synthetic staging data only. No payments, transfers or bank verification.'));
+          const refresh=node('button','tl-primary',state.betaStatus==='loading'?'Loading…':'Load private beta records');
+          refresh.type='button';refresh.disabled=state.betaStatus==='loading';
+          refresh.addEventListener('click',async()=>{
+            if(!alive||activeRead||typeof global.ThebeLifePrivateReadClient?.loadGroup!=='function'){
+              state.betaStatus='unavailable';render();return;
+            }
+            const abort=new AbortController();activeRead=abort;
+            state.betaStatus='loading';render();
+            const result=await global.ThebeLifePrivateReadClient.loadGroup({
+              enabled:true,groupId:privateBeta.groupId,signal:abort.signal
+            });
+            if(!alive||activeRead!==abort)return;
+            activeRead=null;
+            state.betaSnapshot=result?.ok===true?result:null;
+            state.betaStatus=result?.ok===true?'loaded':'unavailable';
+            render();
+          });
+          betaPanel.append(refresh);
+          if(state.betaStatus==='unavailable')betaPanel.append(node('p','tl-muted','Private beta records unavailable or access denied.'));
+          if(state.betaStatus==='loaded'&&state.betaSnapshot){
+            const snapshot=state.betaSnapshot;
+            betaPanel.append(node('p','tl-muted','Reported: '+format(snapshot.reportedMinor/100)+' · Matched: '+format(snapshot.matchedMinor/100)+' · Recorded as cleared: '+format(snapshot.clearedMinor/100)));
+            betaPanel.append(node('p','tl-muted','These are staging ledger figures, NOT independently verified bank funds.'));
+            const history=node('ul','tl-list');
+            for(const item of snapshot.contributions.slice(0,50))
+              history.append(node('li','',item.memberId+' · Reported '+format(item.reportedMinor/100)+' · Unverified bank status'));
+            betaPanel.append(history);
+          }
+          body.append(betaPanel);
+        }
         body.append(node('div','tl-note','Demo reports are NOT bank-cleared contributions, wallet balances or proof of payment. Only independent settlement verification and committee approval can qualify a disbursement. No payouts or bank operations are available.'));
       }
       if(state.tab==='insurance'){
@@ -73,7 +114,7 @@
       }
       root.append(body);
     };
-    render();return {destroy(){root.replaceChildren();root.classList.remove('thebe-life-view');delete root.dataset.thebeLifeMounted;}};
+    render();return {destroy(){alive=false;activeRead?.abort();activeRead=null;root.replaceChildren();root.classList.remove('thebe-life-view');delete root.dataset.thebeLifeMounted;}};
   }
   global.ThebeLifeWorkspacePreview=Object.freeze({mount});
 })(window);
