@@ -14,6 +14,9 @@ test("private host authorizes real DB-backed tenant membership and denies cross-
  const tenant="host-"+randomUUID(),other="host-"+randomUUID();
  const user="user-"+randomUUID(),session=randomUUID(),approval=randomUUID(),foreign=randomUUID();
  const routes=[];
+ const cookieSecret="isolated-agent-ci-cookie-secret-not-production";
+ const cookieToken=randomUUID();
+ const cookieHash=createHmac("sha256",cookieSecret).update(cookieToken).digest("hex");
  const httpApp=express();
  const invoke=async(auth,headers={origin:"https://thebedesk.com","sec-fetch-site":"same-origin"})=>{
   let output={};
