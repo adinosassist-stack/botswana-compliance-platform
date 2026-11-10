@@ -18,7 +18,7 @@ test('advisor results only show success for actual nonempty text',()=>{
 });
 
 test('empty and malformed responses cannot fabricate an AI answer',()=>{
-  for(const value of [undefined,null,false,[],{}, {answer:''}, {answer:'  \\n  '}, {answer:0}, {answer:{text:'private'}}, {error:'ai_unavailable'}, {answer:null}]){
+  for(const value of [undefined,null,false,[],{}, {answer:''}, {answer:'  '}, {answer:'\t'}, {answer:0}, {answer:{text:'private'}}, {error:'ai_unavailable'}, {answer:null}]){
     assert.throws(()=>validate(value),/Thebe did not return an answer/);
   }
 });
