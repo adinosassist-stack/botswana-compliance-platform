@@ -23,6 +23,10 @@ export function registerPrivateAgentHistory({
   auditAvailable:callbacks.auditAvailable
  });
  return registerAgentApprovalHistoryExpress({
-  app,enabled:true,killSwitch:false,sessionAuth,...guards
+  app,enabled:true,killSwitch:false,sessionAuth,...guards,
+  recordReadAudit:async(req,a)=>{
+   if(!a?.tenant_id||!a?.user_id)return false;
+   try{await pool.query("insert into audit_events(tenant_id,actor_user_id,event_type,entity_type,entity_id_text,request_id,event_data) values($1,$2,$3,$4,$5,$6,$7)",[a.tenant_id,a.user_id,"agent.approval_history.read","agent_approval_history",null,req.requestId||null,JSON.stringify({readOnly:true})]);return true}catch{return false}
+  }
  });
 }
