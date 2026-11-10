@@ -23,7 +23,7 @@ export function registerAgentApprovalHistoryExpress({
   };
   try{
    const result=await handleAgentApprovalHistoryHttp({
-    request:{method:req.method},principal,pool:getDatabase(req),guards,
+    request:{method:req.method},principal,pool:{query:async(...args)=>{const db=await getDatabase(req);if(!db||typeof db.query!=="function")throw new TypeError("agent_history_database_unavailable");return db.query(...args);}},guards,
     featureEnabled:true,killSwitch:false
    });
    return res.status(result.status).set({

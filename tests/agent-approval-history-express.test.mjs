@@ -34,3 +34,14 @@ test("real middleware principal is mandatory and async guards deny",async()=>{
  register({...deniedDeps,enabled:true,tenantMembership:async()=>false});
  assert.equal((await invoke(deniedRoutes[0],auth)).status,403);
 });
+
+test("denied requests never acquire a database connection",async()=>{
+ let acquisitions=0;
+ const {routes,deps}=setup();
+ register({...deps,enabled:true,tenantMembership:async()=>false,
+  getDatabase:()=>{acquisitions++;throw new Error("must not connect");}});
+ const auth={id:"session",tenant_id:"tenant-a",user_id:"owner-a",role:"owner"};
+ const response=await invoke(routes[0],auth);
+ assert.equal(response.status,403);
+ assert.equal(acquisitions,0);
+});
