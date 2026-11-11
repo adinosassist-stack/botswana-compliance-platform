@@ -2823,13 +2823,19 @@ async function reviewManualPayment(id,action){
    reason=await BW.dialog.prompt({title:"Reject payment",message:"Explain the rejection.",required:true,minLength:5,maxLength:500,confirmLabel:"Reject payment"});
    if(reason===null||!platformBillingSessionCurrent(user,true))return;
   }else if(action==="approve"){
-   // Owner confirmations are not bank-origin settlement proof.
-   bankFundsConfirmed=await BW.dialog.confirm({title:"1 of 3 — Cleared funds",message:"I checked Thebe Desk's bank account: funds are cleared. Screenshots, references and pending transfers are not proof.",confirmLabel:"Cleared funds confirmed"});
-   if(!bankFundsConfirmed||!platformBillingSessionCurrent(user,true))return;
-   bankAmountMatched=await BW.dialog.confirm({title:"2 of 3 — Exact amount",message:"I checked the cleared BWP credit exactly matches this order. Partial or pending transfers do not qualify.",confirmLabel:"Exact amount confirmed"});
-   if(!bankAmountMatched||!platformBillingSessionCurrent(user,true))return;
-   bankTransactionMatched=await BW.dialog.confirm({title:"3 of 3 — Transaction match",message:"I matched the settled bank transaction to this order and checked it was not reused. A customer reference is not a bank transaction ID.",confirmLabel:"Transaction checked"});
-   if(!bankTransactionMatched||!platformBillingSessionCurrent(user,true))return;
+   // Owner attestations are not bank-origin settlement proof.
+   const checks=[
+    ["1/3 Cleared funds","I saw cleared funds in Thebe Desk's bank account, not just a customer reference."],
+    ["2/3 Exact amount","The cleared BWP credit matches this order's exact amount."],
+    ["3/3 Transaction match","I matched the bank transaction to this order and checked that it was not reused."]
+   ];
+   const verified=[];
+   for(const [title,message] of checks){
+    const accepted=await BW.dialog.confirm({title,message,confirmLabel:"Confirm bank check"});
+    if(accepted!==true||!platformBillingSessionCurrent(user,true))return;
+    verified.push(accepted);
+   }
+   [bankFundsConfirmed,bankAmountMatched,bankTransactionMatched]=verified;
   }else return;
   const r=await apiJson(`/api/platform/billing/manual-payments/${encodeURIComponent(id)}/${action}`,{method:"POST",body:JSON.stringify({reason,bankFundsConfirmed,bankAmountMatched,bankTransactionMatched}),idempotencyKey:true});
   if(!platformBillingSessionCurrent(user))return;
