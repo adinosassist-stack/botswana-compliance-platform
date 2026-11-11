@@ -57,6 +57,7 @@ jobs:
             tests/manual-bank-owner-approval-flow.test.mjs \
             tests/manual-bank-payment-queue-scope.test.mjs \
             tests/manual-bank-settlement-retry.test.mjs \
+            tests/manual-bank-transaction-id-unique-d1.test.mjs \
             tests/manual-bank-review-audit-d1.test.mjs \
             tests/manual-bank-resubmission-d1.test.mjs
       - name: Verify platform owner controls, tenancy and paid-period enforcement
@@ -70,7 +71,7 @@ jobs:
           {
             echo "### Manual-bank core release — offline qualification"
             echo "- Exact tested SHA: \`$GITHUB_SHA\` (PR checkout is the candidate head)"
-            echo "- Tests: owner bank verification, settlement replay/rollback, tenancy, paid-period controls, core-only POP/AI freeze"
+            echo "- Tests: owner bank identity, local D1 global duplicate-credit denial, settlement rollback, tenancy, paid periods, POP/AI freeze"
             echo "- Provider credentials used: none"
             echo "- Bank reconciliation performed: no"
             echo "- Disposable local Miniflare D1 allocation and trusted-settlement structural gate tested: yes (no real bank evidence)"
