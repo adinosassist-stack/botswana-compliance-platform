@@ -2,12 +2,15 @@
 
 **Purpose:** Launch the existing Botswana core workspace with **manual bank payments only**. The owner has chosen **independently checked company-bank transfers for now; no FNB API, automatic bank feed or payment gateway is a prerequisite**. Unqualified General AI, POP uploads, evidence uploads and automatic checkout remain out of scope. This checklist records **acceptance criteria**, not a claim of completion.
 
-## Production/source truth at the 10 Nov 2026 audit
+## Production/source truth — verified Release 608 (11 Nov 2026)
 
-- The production manifest (`release/production.json`) remains sequence **607**, source `e365c678427c1b80efcf902bb6ee364f05d667c1`; `main` advanced beyond that source. A merged source or green pull request is **not** proof of deployment.
-- The Cloudflare production Worker `bw-compliance-os` has the 10 Nov 2026 deployment version `ba653e60-bc0f-4be3-b28a-1aa8d76551a4`; active bindings showed `PAYMENT_PROVIDER=none`, `REGISTRATION_MODE=open`, `POP_UPLOAD_STAGING_ENABLED=false`, `EVIDENCE_UPLOADS_ENABLED=false`, `THEBE_AI_EXPORTS_ENABLED=false`, `THEBE_GENERAL_AI_ENABLED=false`. These observations must be rechecked during release.
-- `server/payments/trusted-bank-settlement-gate.mjs` and `owner-bank-allocation-contract.mjs` are **reference-only**, not a verified authenticated bank feed, a DB-backed allocation transaction, or a production approval path.
-- Independent owner/reviewer release authority and exact-source BF-07, Recovery, and protected deployment gates remain mandatory. No freeze on unrelated `main` merges is currently agreed.
+- Release manifest sequence **608** at main merge SHA `04dc9b990561ac8cdc63e55949feea0b9db2f17d`, with reviewed source `ec02c9545571f8d4bc51cb83052c0155f3ea20e7`. Protected [deployment run #784](https://github.com/adinosassist-stack/botswana-compliance-platform/actions/runs/43019499708) finished **SUCCESS**, including exact-main qualification, BF-07 seal restore, dry-run, deployment and live readiness checks.
+- Read-only Cloudflare deployment inspection confirmed the production Worker `bw-compliance-os` version `24006f39-c377-41ae-a2ac-d4959ae54dbb` received **100% traffic** at `2026-11-11T13:54:17Z`, deployment `85597502-e709-4a94-8294-491e3d585f10`. These are point-in-time observations, not continuous monitoring.
+- Read-only inspection of that immutable Worker version verified `PAYMENT_PROVIDER=none`, `POP_UPLOAD_STAGING_ENABLED=false`, `THEBE_AI_EXPORTS_ENABLED=false`, `THEBE_GENERAL_AI_ENABLED=false`. This retains **manual bank-only payments**, not automatic checkout. Do not assume uninspected flags are enabled or disabled.
+- Production manual-review route `POST /api/platform/billing/manual-payments/:submissionId/(approve|reject)` in `cloudflare/src/worker.js` enforces platform owner access, three separate bank confirmations, a required bank-issued transaction ID distinct from the customer reference, audited review, D1 uniqueness and authoritative payment/fulfillment/subscription checks. The reviewer inputs the bank transaction identity and confirmations after **independently inspecting actual company-account credit**; this route is **not a direct authenticated bank feed**.
+- `server/payments/trusted-bank-settlement-gate.mjs` and `server/payments/owner-bank-allocation-contract.mjs` are explicitly **reference-only**. Passing their offline tests does not prove a real bank transfer, live owner approval, replay/reversal safety, customer re-login or entitlement persistence.
+- **Paid public-launch acceptance remains P0 HOLD:** no independently documented real, cleared and unreversed company-bank BWP credit through an authenticated owner/customer end-to-end transaction. Public Terms and Privacy still require verified contracting-entity/privacy disclosures (issue #2413). Do not mark P0-1/2/3/4/6/7 complete solely from Release 608 deployment.
+- Release source and immutable Worker must be reverified for future promotion. Independent owner/reviewer release authority, recovery and protected deployment gates remain mandatory. Unrelated main changes are not paused by this document.
 
 ## P0: minimum paid launch gates
 
