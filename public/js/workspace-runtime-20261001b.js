@@ -2823,19 +2823,13 @@ async function reviewManualPayment(id,action){
    reason=await BW.dialog.prompt({title:"Reject payment",message:"Explain the rejection.",required:true,minLength:5,maxLength:500,confirmLabel:"Reject payment"});
    if(reason===null||!platformBillingSessionCurrent(user,true))return;
   }else if(action==="approve"){
-   // Owner attestations are not bank-origin settlement proof.
-   const checks=[
-    ["1/3 Cleared funds","I saw cleared funds in Thebe Desk's bank account, not just a customer reference."],
-    ["2/3 Exact amount","The cleared BWP credit matches this order's exact amount."],
-    ["3/3 Transaction match","I matched the bank transaction to this order and checked that it was not reused."]
-   ];
-   const verified=[];
+   const checks=[["1/3 Cleared funds","Company bank credited; not customer proof."],["2/3 Exact amount","BWP amount matches order."],["3/3 Transaction match","Settled bank transaction matches and is unused."]],answers=[];
    for(const [title,message] of checks){
-    const accepted=await BW.dialog.confirm({title,message,confirmLabel:"Confirm bank check"});
-    if(accepted!==true||!platformBillingSessionCurrent(user,true))return;
-    verified.push(accepted);
+    const yes=await BW.dialog.confirm({title,message,confirmLabel:"Confirm"});
+    if(yes!==true||!platformBillingSessionCurrent(user,true))return;
+    answers.push(yes);
    }
-   [bankFundsConfirmed,bankAmountMatched,bankTransactionMatched]=verified;
+   [bankFundsConfirmed,bankAmountMatched,bankTransactionMatched]=answers;
   }else return;
   const r=await apiJson(`/api/platform/billing/manual-payments/${encodeURIComponent(id)}/${action}`,{method:"POST",body:JSON.stringify({reason,bankFundsConfirmed,bankAmountMatched,bankTransactionMatched}),idempotencyKey:true});
   if(!platformBillingSessionCurrent(user))return;
@@ -2844,10 +2838,10 @@ async function reviewManualPayment(id,action){
   await refreshPlatformBillingDashboard();
  }catch(e){
   if(platformBillingSessionCurrent(user)){
-   const errors={paid_order_reconciliation_required:"Paid order needs reconciliation; no second settlement was applied.",manual_payment_settlement_not_confirmed:"Activation unconfirmed; reconcile this order.",platform_billing_forbidden:"Only the platform owner may approve payments."};
+   const errors={paid_order_reconciliation_required:"Paid order needs reconciliation.",manual_payment_settlement_not_confirmed:"Activation unconfirmed; reconcile.",platform_billing_forbidden:"Only the platform owner may approve payments."};
    show(errors[e?.code]||String(e?.message||"Payment decision failed; refresh approvals."));
    try{await refreshPlatformBillingDashboard()}catch(refreshError){
-    show("Payment status could not be refreshed. Reload before retrying.");
+    show("Status refresh failed. Reload before retrying.");
    }
   }
  }finally{manualPaymentReviewsInFlight.delete(id)}
