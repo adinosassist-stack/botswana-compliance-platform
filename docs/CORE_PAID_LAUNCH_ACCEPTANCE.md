@@ -1,6 +1,6 @@
 # Core Paid Public Launch — Evidence-Gated Acceptance (Botswana)
 
-**Purpose:** Launch the existing Botswana core workspace with **manual bank payments only**, while keeping unqualified General AI, POP uploads, evidence uploads and automatic checkout out of scope. This checklist records **acceptance criteria**, not a claim of completion.
+**Purpose:** Launch the existing Botswana core workspace with **manual bank payments only**. The owner has chosen **independently checked company-bank transfers for now; no FNB API, automatic bank feed or payment gateway is a prerequisite**. Unqualified General AI, POP uploads, evidence uploads and automatic checkout remain out of scope. This checklist records **acceptance criteria**, not a claim of completion.
 
 ## Production/source truth at the 10 Nov 2026 audit
 
@@ -13,7 +13,7 @@
 
 | Gate | Required objective evidence | Failure action |
 | --- | --- | --- |
-| P0-1 Bank settlement truth | Authorized backend source or independent inspection of Thebe Desk's actual company bank account establishes **matching, cleared and unreversed BWP credit**; source, account, transaction unique ID, amount, reference, timestamp and finality recorded server-side | Keep payment pending; reject screenshots, customer refs, imported customer CSV and owner toggles as sole proof |
+| P0-1 Bank settlement truth | Authorized owner independently signs into Thebe Desk's **actual company bank account** and observes a **matching, cleared, unreversed BWP credit** before approval. Capture a minimal auditable server-side confirmation with actor, order, observed bank transaction identity, settled amount, finality and time; never publish account details. An optional future authenticated bank feed may automate this, but is **not** required for this manual launch. | Keep payment pending if funds cannot be independently seen, or if evidence is ambiguous; customer screenshots, POPs, references and owner booleans without actual inspection are not proof |
 | P0-2 Atomic allocation | One bank transaction can fund one invoice once, globally and transactionally; separate tenant and invoice constraints; concurrent duplicate/replay and reversal tests | No activation on conflicts, retries or uncertain state |
 | P0-3 Owner workflow | Signed-in, authorized owner reviews the server-owned evidence, approves or rejects with persistent audit; a rejection/resubmission never bypasses settlement and auth | Remain pending/rejected; no implicit activation |
 | P0-4 Subscription durability | **Actual** customer invoice is activated only after P0-1 through P0-3, appears accurately on owner dashboard, persists after refresh and customer logout/login; wrong-tenant and nonowner access denied | No public claim of paid subscriptions functioning |
@@ -21,20 +21,24 @@
 | P0-6 Live authenticated acceptance | Evidence links for registration, login, account workspace, manual invoice, owner payment view, real bank credit approval, entitlement persistence, mobile usability, and negative cases | Restrict launch to trial or controlled pilot until proven |
 | P0-7 Customer and operational disclosures | Confirm contracting entity/registration details, current terms and privacy, live manual bank instructions, verified customer support and incident ownership; test actual contact channels | Do not market unsupported legal, payment or support claims |
 
+## Manual-payment launch decision (11 November 2026)
+
+The initial commercial workflow is **customer bank transfer → submitted reference → pending review → authorized owner independently checks settled funds in the actual company bank account → server-side duplicate/allocation and audit checks → owner approval → subscription entitlement**. Bank APIs and automatic checkout are explicitly deferred; no customer-provided POP, screenshot or reference can independently change a paid-plan entitlement. Use the existing five website pricing tiers without introducing new pricing. Rejected, reversed, unmatched or uncertain credits remain pending/rejected until independently resolved. Disallow duplicate activation from the same credit. This is an operating-model decision, **not** acceptance evidence that live payment approval is safe or complete.
+
 ## Manual-payment E2E execution order
 
 1. Create a disposable test tenant and a unique BWP invoice under approved staging or an authorized production acceptance account. Record test IDs privately, **never credentials or account numbers in a public issue**.
-2. Capture a verifiable bank-origin settled credit to the real Thebe Desk company bank account (or a segregated authorized staging bank feed for staging tests). Confirm account ownership, finality, amount, reference, transaction identity and absence of reversal independently.
-3. Test the bank evidence adapter's provenance and immutable transaction ID, then commit bank-credit-to-invoice allocation atomically, with competing concurrent allocations. A structural predicate returning eligible is not proof of bank provenance.
+2. Authorized owner opens the **company bank's own authenticated account view or official statement independently** (not a customer-provided document) and checks that the BWP credit has cleared and is not reversed. Compare the bank's unique transaction identity, date/time, amount and payment/order reference. No FNB API integration is required for this manual process. Never paste bank credentials, statements or full bank details into GitHub or customer-facing logs.
+3. In the owner payment-review workflow, record and protect the independently inspected bank transaction identity through a **server-authoritative audit and unique invoice allocation**, with competing concurrent allocations, duplicate references and replays denied. Existing reference-only local D1 tests are not proof this is wired into production; **hold paid-launch acceptance until the real path is proven**. A structural predicate or three UI confirmations alone cannot prove bank provenance.
 4. Sign in as authorized owner. Verify one invoice once; confirm audit actor, event and activation persisted. Retry approval, replay the transfer ID, reject and resubmit, cross-tenant actor and concurrent request; all must fail closed without double allocation.
 5. Sign in as customer, refresh and log out/in. Confirm correct plan, expiry and invoice status from durable server records; verify mobile layout and owner dashboard.
-6. Collect **redacted** test evidence, exact release SHA, backend/provider traces, required reviewer approval and rollback path. Do not include transaction details, account numbers or secrets in public GitHub comments.
+6. Collect **redacted** test evidence, exact release SHA, owner-side bank-inspection acknowledgement, persistent allocation/audit results, required reviewer approval and rollback path. Do not include actual transaction IDs, account numbers, bank statements, credentials or secrets in public GitHub comments.
 
 ## Launch scope decisions
 
 **Eligible for controlled public paid release only after P0 gates pass:** Core Botswana workspace, 14-day trial, manual bank invoice, independently verified owner approval, activated subscription and support.
 
-**Explicitly out of first paid-release scope until separate review:** Automatic checkout; POP evidence upload and D1 migration 070/071; General AI, research and AI exports; automatic bank settlement acceptance; unreviewed production features. A feature flag being present or a staging Worker deployed does not mean the feature is production-ready.
+**Explicitly out of first paid-release scope until separate review:** Automatic checkout, FNB API/direct bank feeds, automated bank settlement acceptance; POP evidence upload and D1 migration 070/071; General AI, research and AI exports; unreviewed production features. A feature flag being present or a staging Worker deployed does not mean the feature is production-ready.
 
 ## Coordination / artifacts
 
