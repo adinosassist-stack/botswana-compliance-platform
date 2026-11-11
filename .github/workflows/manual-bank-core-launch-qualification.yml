@@ -13,6 +13,7 @@ on:
       - 'tests/manual-bank-*.test.mjs'
       - 'tests/owner-payment-*.test.mjs'
       - 'tests/owner-bank-*.test.mjs'
+      - 'tests/trusted-bank-settlement-gate.test.mjs'
       - 'tests/platform-billing-*.test.mjs'
       - 'tests/subscription-access-audit-d1.test.mjs'
       - 'tests/core-only-launch-freeze.test.mjs'
@@ -41,9 +42,23 @@ jobs:
         run: |
           node scripts/qualify-core-only-release.mjs
           node --test tests/core-only-launch-freeze.test.mjs tests/verify-live-core-only-bindings.test.mjs
-      - name: Verify owner bank evidence, audit, duplicates and settlement rollback
+      - name: Verify owner bank evidence, isolated D1 allocation, settlement finality and replay
         run: |
-          node --test             tests/owner-payment-evidence-policy.test.mjs             tests/owner-bank-allocation-contract.test.mjs             tests/owner-bank-allocation-sqlite.test.mjs             tests/d1-bank-allocation-adapter-reference.test.mjs             tests/owner-bank-d1-staging-fixture.test.mjs             tests/manual-bank-owner-approval-flow.test.mjs tests/manual-bank-payment-queue-scope.test.mjs tests/manual-bank-settlement-retry.test.mjs             tests/manual-bank-review-audit-d1.test.mjs tests/manual-bank-resubmission-d1.test.mjs
+          # All D1 instances in these tests are disposable local Miniflare fixtures.
+          # This cannot verify a customer bank transfer or activate a subscription.
+          node --test \
+            tests/trusted-bank-settlement-gate.test.mjs \
+            tests/owner-bank-allocation-real-d1.test.mjs \
+            tests/owner-payment-evidence-policy.test.mjs \
+            tests/owner-bank-allocation-contract.test.mjs \
+            tests/owner-bank-allocation-sqlite.test.mjs \
+            tests/d1-bank-allocation-adapter-reference.test.mjs \
+            tests/owner-bank-d1-staging-fixture.test.mjs \
+            tests/manual-bank-owner-approval-flow.test.mjs \
+            tests/manual-bank-payment-queue-scope.test.mjs \
+            tests/manual-bank-settlement-retry.test.mjs \
+            tests/manual-bank-review-audit-d1.test.mjs \
+            tests/manual-bank-resubmission-d1.test.mjs
       - name: Verify platform owner controls, tenancy and paid-period enforcement
         run: |
           node --test             tests/owner-payment-dashboard.test.mjs             tests/platform-billing-controls.test.mjs             tests/subscription-access-audit-d1.test.mjs             tests/owner-dashboard-audit.test.mjs
@@ -58,6 +73,7 @@ jobs:
             echo "- Tests: owner bank verification, settlement replay/rollback, tenancy, paid-period controls, core-only POP/AI freeze"
             echo "- Provider credentials used: none"
             echo "- Bank reconciliation performed: no"
+            echo "- Disposable local Miniflare D1 allocation and trusted-settlement structural gate tested: yes (no real bank evidence)"
             echo "- Production or staging D1 mutated: no"
             echo "- Customer payment/subscription activated: no"
             echo "- Live authenticated owner acceptance and independent exact-SHA release authorization: still required"
