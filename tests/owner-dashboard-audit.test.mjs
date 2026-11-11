@@ -47,19 +47,52 @@ test('account changes during reason entry cannot submit access or rejection chan
 });
 test('payment approval refreshes platform data without loading the admin workspace own billing',async()=>{const f=dashboard();let ownBillingReads=0;f.context.loadBilling=async()=>{ownBillingReads++};await f.run('reviewManualPayment("submission","approve")');assert.equal(ownBillingReads,0)});
 
-test('bank-receipt approval is sent only after explicit owner confirmation and requires activated acknowledgement',async()=>{
- const f=dashboard();
+test('bank receipt, BWP amount and unique transaction require three distinct owner affirmations',async()=>{
+ const f=dashboard(),titles=[];
+ f.context.BW.dialog.confirm=async options=>{titles.push(options.title);return true};
  await f.run('reviewManualPayment("submission","approve")');
  const posts=f.calls.filter(x=>x.options?.method==='POST');
  assert.equal(posts.length,1);
  assert.equal(posts[0].path,'/api/platform/billing/manual-payments/submission/approve');
- assert.equal(JSON.parse(posts[0].options.body).bankFundsConfirmed,true);
+ assert.equal(titles.length,3);
+ assert.match(titles[0],/Cleared funds/);
+ assert.match(titles[1],/Exact amount/);
+ assert.match(titles[2],/Transaction match/);
+ assert.equal(new Set(titles).size,3);
+ const body=JSON.parse(posts[0].options.body);
+ assert.equal(body.bankFundsConfirmed,true);
+ assert.equal(body.bankAmountMatched,true);
+ assert.equal(body.bankTransactionMatched,true);
  assert.match(f.notifications.join(' '),/verified and plan activated/i);
 });
-test('declining bank-receipt confirmation never sends a payment mutation',async()=>{
- const f=dashboard();f.context.BW.dialog.confirm=async()=>false;
- await f.run('reviewManualPayment("submission","approve")');
- assert.equal(f.calls.filter(x=>x.options?.method==='POST').length,0);
+test('declining any bank check fails closed without a payment POST',async()=>{
+ for(const denyAt of [1,2,3]){
+  const f=dashboard();let count=0;
+  f.context.BW.dialog.confirm=async()=>++count!==denyAt;
+  await f.run('reviewManualPayment("submission","approve")');
+  assert.equal(count,denyAt);
+  assert.equal(f.calls.filter(x=>x.options?.method==='POST').length,0);
+  assert.doesNotMatch(f.notifications.join(' '),/payment verified and plan activated/i);
+ }
+});
+test('account switch during any separate bank confirmation cannot approve',async()=>{
+ for(const switchAt of [1,2,3]){
+  const f=dashboard();let count=0;
+  f.context.BW.dialog.confirm=async()=>{
+   if(++count===switchAt)f.context.currentUser={platformBillingAdmin:true,role:'owner',tenantId:'other-owner'};
+   return true;
+  };
+  await f.run('reviewManualPayment("submission","approve")');
+  assert.equal(count,switchAt);
+  assert.equal(f.calls.filter(x=>x.options?.method==='POST').length,0);
+ }
+});
+test('payment approval is an action button, not a subscription on/off switch',async()=>{
+ const f=dashboard({paymentItems:[{id:'submission',tenant_name:'Client',tenant_id:'client',amount_bwp:149,bank_reference:'TEST-1',metadata:{plan:'starter'},submitted_at:'2026-10-25 12:00:00'}]});
+ await f.run('renderManualPaymentApprovals()');
+ const html=f.elements.get('manualPaymentAdminList').safeHTML;
+ assert.match(html,/type="button" class="btn" aria-label="Verify settled payment for Client"/);
+ assert.doesNotMatch(html,/class="billing-switch" role="switch" aria-checked="false" aria-label="Activate/);
 });
 test('HTTP success without explicit activation is NOT reported as a successful payment',async()=>{
  const f=dashboard({paymentReviewResult:{ok:true,status:'reviewing'}});
