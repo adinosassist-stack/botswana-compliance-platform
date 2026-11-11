@@ -2,6 +2,15 @@
 
 The **primary v78 public launch path is Cloudflare Worker + D1 + R2**. The separate Node/Express + PostgreSQL profile is optional and is not required for the free-first launch. Owner-bounded internal execution uses `owner_bounded`. Unattended exact-template tasks, report drafts and Thebe-managed operational summaries require an expiring, revocable tenant-owner standing policy. The full delegation/grant/approval/JIT/Runtime Guard/audit chain remains mandatory for tasks; no external or permanently human-only action is enabled. See `docs/AGENT_RUNTIME_GOVERNANCE.md` for the current boundary.
 
+## Current Botswana paid-launch scope — Release 608 (11 Nov 2026)
+
+This is a general, historical multi-feature runbook. **For the initial Botswana core paid launch**, the owner has selected **manual company-bank transfers and independent owner verification only**. Follow the current evidence-gated [core paid-launch acceptance checklist](CORE_PAID_LAUNCH_ACCEPTANCE.md) and [payment P0 issue #1874](https://github.com/adinosassist-stack/botswana-compliance-platform/issues/1874), rather than treating every historical/optional step below as an activation prerequisite.
+
+- The protected Release 608 rollout completed, but **paid-launch acceptance is still pending**: independently observed cleared and unreversed BWP credit in the real company bank account; recorded owner verification using the bank-issued unique transaction ID; no duplicate allocation; authenticated customer subscription durability and negative-case testing. A customer screenshot, reference or POP is never payment confirmation.
+- **Do not require DPO test credentials, FNB API, automatic checkout or an authenticated bank feed** for this manual-only launch. The DPO step below applies only to a future separately authorized payment-provider rollout.
+- **Do not activate POP uploads, evidence upload/scanning, General AI or AI exports** as part of this core paid-launch qualification. Upload/scanning tests below are applicable only when those capabilities are separately qualified and enabled. Migration listings below describe broader schema upgrade sequences; **they are not authorization to apply POP migrations 070/071 or perform production writes**. Any applicable migration requires its own protected qualification and approval.
+- Verify actual immutable production Worker bindings and release/source provenance rather than inferring live capability from a code merge or these runbook instructions. The published contracting-entity Terms and Privacy disclosures remain a separate P0 gate under [#2413](https://github.com/adinosassist-stack/botswana-compliance-platform/issues/2413).
+
 ## Required before public launch
 1. Create the production D1 database and R2 evidence bucket; keep the R2 bucket private.
 2. Set `PUBLIC_ORIGIN` / `PUBLIC_APP_URL` to the final HTTPS origin and replace every placeholder ID and example secret.
