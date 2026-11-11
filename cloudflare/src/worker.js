@@ -7546,6 +7546,13 @@ export default {
         if(action==="approve"&&body.bankFundsConfirmed!==true)return json({error:"bank_funds_confirmation_required"},400);
         if(action==="approve"&&body.bankAmountMatched!==true)return json({error:"bank_amount_match_required"},400);
         if(action==="approve"&&body.bankTransactionMatched!==true)return json({error:"bank_transaction_match_required"},400);
+        // This identity comes from the platform owner's direct bank inspection,
+        // NOT from the customer-supplied transfer reference. The existing
+        // payment_order_provider_payment_unique D1 index is the atomic replay fence.
+        if(action==="approve"&&(
+          typeof body.bankTransactionId!=="string"||
+          !/^[A-Z0-9][A-Z0-9._:/-]{5,127}$/.test(body.bankTransactionId)
+        ))return json({error:"bank_transaction_id_required"},400);
         const row=await env.DB.prepare(`SELECT m.*,o.amount_bwp,o.status order_status,o.order_type,o.provider,o.provider_payment_id,o.metadata_json
           FROM manual_payment_submissions m JOIN payment_orders o ON o.id=m.payment_order_id AND o.tenant_id=m.tenant_id WHERE m.id=? LIMIT 1`).bind(submissionId).first();
         if(!row)return json({error:"manual_payment_submission_not_found"},404);
@@ -7563,6 +7570,7 @@ export default {
           if(!changed.ok)return json({error:"manual_payment_review_conflict"},409);
           return json({ok:true,status:"rejected"});
         }
+        if(action==="approve"&&body.bankTransactionId===String(row.bank_reference||"").trim().toUpperCase())return json({error:"bank_transaction_must_be_bank_issued"},400);
         if(row.order_type!=="subscription"||String(row.provider||"")!=="manual_bank")return json({error:"manual_payment_order_invalid"},409);
         if(row.order_status==="refunded"||row.order_status==="canceled")return json({error:"payment_order_already_final",status:row.order_status},409);
         // A previous attempt may have already committed the paid order and
@@ -7579,7 +7587,7 @@ export default {
               AND f.fulfillment_status='applied' AND s.provider='manual_bank'
               AND s.plan=? AND s.status='active' AND datetime(s.current_period_ends_at)>datetime('now')
             LIMIT 1`).bind(row.payment_order_id,row.tenant_id,plan).first();
-          if(!applied||String(row.provider_payment_id||"")!==String(row.bank_reference||""))
+          if(!applied||String(row.provider_payment_id||"")!==body.bankTransactionId)
             return json({error:"paid_order_reconciliation_required"},409);
           settlement={ok:true,alreadySettled:true,recoveredExistingFulfillment:true};
         }else{
@@ -7587,7 +7595,7 @@ export default {
             WHERE id=? AND tenant_id=? AND payment_order_id=? AND status='submitted' AND bank_reference=?`)
             .bind(a.user_id,submissionId,row.tenant_id,row.payment_order_id,row.bank_reference).run();
           if(Number(claimed.meta?.changes||0)!==1&&row.status!=="reviewing")return json({error:"manual_payment_review_conflict"},409);
-          settlement=await applyVerifiedPaymentOrder(env,row.payment_order_id,{verified:true,status:"verified_paid",providerPaymentId:row.bank_reference,resultCode:"MANUAL_APPROVED"});
+          settlement=await applyVerifiedPaymentOrder(env,row.payment_order_id,{verified:true,status:"verified_paid",providerPaymentId:body.bankTransactionId,resultCode:"MANUAL_APPROVED"});
           if(!settlement.ok){
             await env.DB.prepare("UPDATE manual_payment_submissions SET status='submitted',reviewed_by_user_id=NULL WHERE id=? AND status='reviewing' AND reviewed_by_user_id=?").bind(submissionId,a.user_id).run();
             return json({error:"manual_payment_activation_failed",settlement},503);
@@ -7605,7 +7613,7 @@ export default {
             AND f.order_type='subscription' AND f.fulfillment_status='applied'
             AND s.provider='manual_bank' AND s.plan=? AND s.status='active'
             AND datetime(s.current_period_ends_at)>datetime('now') LIMIT 1`)
-          .bind(row.payment_order_id,row.tenant_id,row.bank_reference,plan).first();
+          .bind(row.payment_order_id,row.tenant_id,body.bankTransactionId,plan).first();
         if(!appliedNow)return json({error:"manual_payment_settlement_not_confirmed"},503);
         const mutation=env.DB.prepare(`UPDATE manual_payment_submissions SET status='approved',reviewed_at=CURRENT_TIMESTAMP,reviewed_by_user_id=?,rejection_reason=NULL
           WHERE id=? AND tenant_id=? AND payment_order_id=? AND bank_reference=? AND ((status='reviewing' AND reviewed_by_user_id=?) OR (status='submitted' AND reviewed_by_user_id IS NULL))
@@ -7613,11 +7621,11 @@ export default {
             JOIN subscriptions s ON s.tenant_id=o.tenant_id WHERE o.id=manual_payment_submissions.payment_order_id AND o.tenant_id=manual_payment_submissions.tenant_id
             AND o.status='paid' AND o.order_type='subscription' AND o.provider='manual_bank' AND o.provider_payment_id=?
             AND f.order_type='subscription' AND f.fulfillment_status='applied' AND s.provider='manual_bank' AND s.plan=? AND s.status='active'
-            AND datetime(s.current_period_ends_at)>datetime('now'))`).bind(a.user_id,submissionId,row.tenant_id,row.payment_order_id,row.bank_reference,a.user_id,row.bank_reference,plan);
+            AND datetime(s.current_period_ends_at)>datetime('now'))`).bind(a.user_id,submissionId,row.tenant_id,row.payment_order_id,row.bank_reference,a.user_id,body.bankTransactionId,plan);
         const completionReceipt=env.DB.prepare("INSERT INTO manual_payment_events(id,submission_id,payment_order_id,tenant_id,event_type,actor_user_id,event_data) SELECT ?,?,?,?,?,?,? WHERE changes()=1")
-          .bind(id(),submissionId,row.payment_order_id,row.tenant_id,"approved_and_activated",a.user_id,JSON.stringify({bankReference:row.bank_reference,amountBwp:row.amount_bwp}));
+          .bind(id(),submissionId,row.payment_order_id,row.tenant_id,"approved_and_activated",a.user_id,JSON.stringify({bankTransactionId:body.bankTransactionId,bankReference:row.bank_reference,amountBwp:row.amount_bwp}));
         const marked=await appendSealedAuditEvent(env,{tenantId:row.tenant_id,actorUserId:a.user_id,eventType:"MANUAL_PAYMENT_APPROVED",entityType:"user",entityId:a.user_id,
-          eventData:{paymentOrderId:row.payment_order_id,submissionId,bankReference:row.bank_reference,amountBwp:row.amount_bwp},mutation,completionReceipt});
+          eventData:{paymentOrderId:row.payment_order_id,submissionId,bankTransactionId:body.bankTransactionId,bankReference:row.bank_reference,amountBwp:row.amount_bwp},mutation,completionReceipt});
         if(!marked.ok)return json({error:"manual_payment_review_conflict"},409);
         return json({ok:true,status:"approved",activated:true,settlement});
       }
