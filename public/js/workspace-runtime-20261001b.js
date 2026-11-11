@@ -2823,14 +2823,12 @@ async function reviewManualPayment(id,action){
    reason=await BW.dialog.prompt({title:"Reject payment",message:"Explain the rejection.",required:true,minLength:5,maxLength:500,confirmLabel:"Reject payment"});
    if(reason===null||!platformBillingSessionCurrent(user,true))return;
   }else if(action==="approve"){
-   // Each owner verification is a distinct affirmative decision. These
-   // attestations are NOT bank-origin proof: independently inspect the
-   // settled company-bank credit and never trust customer-provided references.
-   bankFundsConfirmed=await BW.dialog.confirm({title:"Bank verification 1 of 3 — Cleared funds",message:"I have checked Thebe Desk's own bank account and can see cleared funds credited to it. A customer screenshot, submitted reference or pending transfer is not proof.",confirmLabel:"I verified cleared funds"});
+   // Owner confirmations are not bank-origin settlement proof.
+   bankFundsConfirmed=await BW.dialog.confirm({title:"1 of 3 — Cleared funds",message:"I checked Thebe Desk's bank account: funds are cleared. Screenshots, references and pending transfers are not proof.",confirmLabel:"Cleared funds confirmed"});
    if(!bankFundsConfirmed||!platformBillingSessionCurrent(user,true))return;
-   bankAmountMatched=await BW.dialog.confirm({title:"Bank verification 2 of 3 — Exact amount",message:"I independently checked that the cleared bank credit is in BWP and the amount exactly matches this customer's payment order. No partial, pending or mismatched amount qualifies.",confirmLabel:"I verified exact amount"});
+   bankAmountMatched=await BW.dialog.confirm({title:"2 of 3 — Exact amount",message:"I checked the cleared BWP credit exactly matches this order. Partial or pending transfers do not qualify.",confirmLabel:"Exact amount confirmed"});
    if(!bankAmountMatched||!platformBillingSessionCurrent(user,true))return;
-   bankTransactionMatched=await BW.dialog.confirm({title:"Bank verification 3 of 3 — Transaction match",message:"I checked the bank's own settled transaction, matched it to this customer order, and confirmed it has not been used for another activation. The customer's reference is not a bank transaction ID.",confirmLabel:"I verified the bank transaction"});
+   bankTransactionMatched=await BW.dialog.confirm({title:"3 of 3 — Transaction match",message:"I matched the settled bank transaction to this order and checked it was not reused. A customer reference is not a bank transaction ID.",confirmLabel:"Transaction checked"});
    if(!bankTransactionMatched||!platformBillingSessionCurrent(user,true))return;
   }else return;
   const r=await apiJson(`/api/platform/billing/manual-payments/${encodeURIComponent(id)}/${action}`,{method:"POST",body:JSON.stringify({reason,bankFundsConfirmed,bankAmountMatched,bankTransactionMatched}),idempotencyKey:true});
