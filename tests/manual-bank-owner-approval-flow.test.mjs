@@ -12,7 +12,7 @@ assert.ok(from>0&&to>from,'manual-bank approval handler still exists');
 const route='(async()=>{'+worker.slice(from,to)+'return {status:404,body:{error:"unmatched_route"}};})()';
 const sid='11111111-1111-4111-8111-111111111111';
 function fixture({action='approve',confirmed=true,amountMatched=true,transactionMatched=true,role='owner',orderStatus='pending',reviewStatus='submitted',reviewOwner=null,matchingFulfillment=true,settles=true,auditFails=false,rejectionReason='Not visible in company account'}={}){
-  const state={writes:[],settlements:0,audits:0,status:reviewStatus,orderStatus,providerPaymentId:orderStatus==='paid'?'BANK-123':null,matchingFulfillment,settles};
+  const state={writes:[],settlements:0,audits:0,status:reviewStatus,orderStatus,providerPaymentId:orderStatus==='paid'?'BANK-SETTLED-9001':null,matchingFulfillment,settles};
   const db={async batch(statements){const results=[];for(const statement of statements)results.push(await statement.run());return results},prepare(sql){
     let args=[];
     return {
@@ -25,7 +25,7 @@ function fixture({action='approve',confirmed=true,amountMatched=true,transaction
           metadata_json:'{"plan":"business"}'
         };
         if(sql.includes('SELECT f.payment_order_id FROM payment_fulfillments'))return state.matchingFulfillment?{payment_order_id:'order-1'}:null;
-        if(sql.includes('SELECT o.id FROM payment_orders o'))return (state.matchingFulfillment&&state.orderStatus==='paid'&&state.providerPaymentId==='BANK-123')?{id:'order-1'}:null;
+        if(sql.includes('SELECT o.id FROM payment_orders o'))return (state.matchingFulfillment&&state.orderStatus==='paid'&&state.providerPaymentId==='BANK-SETTLED-9001')?{id:'order-1'}:null;
         throw new Error('Unexpected first query: '+sql);
       },
       async run(){
@@ -44,14 +44,14 @@ function fixture({action='approve',confirmed=true,amountMatched=true,transaction
     env:{DB:db},
     roleAllowed:(actor,expected)=>actor.role===expected,
     platformBillingAdmin:()=>true,
-    readJson:async()=>({reason:rejectionReason,bankFundsConfirmed:confirmed,bankAmountMatched:amountMatched,bankTransactionMatched:transactionMatched}),
+    readJson:async()=>({reason:rejectionReason,bankFundsConfirmed:confirmed,bankAmountMatched:amountMatched,bankTransactionMatched:transactionMatched,bankTransactionId:'BANK-SETTLED-9001'}),
     json:(body,status=200)=>({status,body}),
     boundedReportText:(value,max)=>String(value).slice(0,max),
     safeJson:(value,fallback)=>{try{return JSON.parse(value)}catch{return fallback}},
     applyVerifiedPaymentOrder:async()=>{
       state.settlements++;
       if(!state.settles)return {ok:false,error:'settlement_failure'};
-      state.orderStatus='paid';state.providerPaymentId='BANK-123';
+      state.orderStatus='paid';state.providerPaymentId='BANK-SETTLED-9001';
       return {ok:true,status:'paid'};
     },
     writeAudit:async()=>{if(auditFails)throw Error("audit_write_failed")},
@@ -61,8 +61,21 @@ function fixture({action='approve',confirmed=true,amountMatched=true,transaction
     },
     id:()=>sid
   });
-  return {state,run:()=>vm.runInContext(route,context)};
+  return {state,context,run:()=>vm.runInContext(route,context)};
 }
+test('bank-issued transaction identity is mandatory and cannot be the customer reference',async()=>{
+ for(const value of ['', 'BANK-123', 'pending+123', ' bank-id-1','bank-id-1','UNVERIFIED '+String.fromCharCode(0)]){
+  const f=fixture();f.context.readJson=async()=>({bankFundsConfirmed:true,bankAmountMatched:true,bankTransactionMatched:true,bankTransactionId:value});
+  const result=await f.run();
+  assert.equal(result.status,400);
+  assert.equal(f.state.settlements,0);
+  assert.equal(f.state.writes.length,0);
+ }
+ const f=fixture();const response=await f.run();
+ assert.equal(response.status,200);
+ const mutation=f.state.writes.find(w=>w.sql.includes("status='approved'"));
+ assert.equal(mutation.args.at(-2),'BANK-SETTLED-9001');
+});
 test('approval requires explicit independent company bank-credit confirmation',async()=>{
   const f=fixture({confirmed:false});const r=await f.run();
   assert.equal(r.status,400);assert.equal(r.body.error,'bank_funds_confirmation_required');

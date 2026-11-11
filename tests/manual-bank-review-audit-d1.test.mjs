@@ -31,13 +31,13 @@ test('actual manual-review SQL rolls back completion failures and resumes a paid
   const run=(action='approve',writeAudit=audit)=>vm.runInNewContext(route,{
    url:new URL('https://example.invalid/api/platform/billing/manual-payments/'+sid+'/'+action),req:{method:'POST'},a:{role:'owner',user_id:'admin'},env,
    roleAllowed:()=>true,platformBillingAdmin:()=>true,
-   readJson:async()=>({bankFundsConfirmed:true,bankAmountMatched:true,bankTransactionMatched:true,reason:'Not received in company bank'}),
+   readJson:async()=>({bankFundsConfirmed:true,bankAmountMatched:true,bankTransactionMatched:true,bankTransactionId:'BANK-SETTLED-9001',reason:'Not received in company bank'}),
    json:(body,status=200)=>({body,status}),boundedReportText:(v,n)=>String(v).slice(0,n),safeJson:JSON.parse,
    id:()=>crypto.randomUUID(),writeAudit,appendSealedAuditEvent,
    applyVerifiedPaymentOrder:async()=>{
     settlements++;
     await DB.batch([
-     DB.prepare("UPDATE payment_orders SET status='paid',provider_payment_id='BANK-123'"),
+     DB.prepare("UPDATE payment_orders SET status='paid',provider_payment_id='BANK-SETTLED-9001'"),
      DB.prepare("UPDATE subscriptions SET status='active'"),
      DB.prepare("INSERT INTO payment_fulfillments VALUES('order','client','subscription','applied')")
     ]);
@@ -140,7 +140,7 @@ test('actual manual-review SQL rolls back completion failures and resumes a paid
   // approved after read, without settling again or forging an audit receipt.
   await reset();
   await DB.batch([
-   DB.prepare("UPDATE payment_orders SET status='paid',provider_payment_id='BANK-123' WHERE id='order'"),
+   DB.prepare("UPDATE payment_orders SET status='paid',provider_payment_id='BANK-SETTLED-9001' WHERE id='order'"),
    DB.prepare("UPDATE subscriptions SET status='active' WHERE tenant_id='client'"),
    DB.prepare("INSERT INTO payment_fulfillments VALUES('order','client','subscription','applied')")
   ]);
