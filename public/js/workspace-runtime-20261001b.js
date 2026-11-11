@@ -2730,7 +2730,7 @@ async function renderManualPaymentApprovals(){
     const admin=await apiJson("/api/platform/billing/manual-payments");
     if(load!==manualPaymentAdminLoad||!platformBillingSessionCurrent(user))return;
     if(pendingCount)pendingCount.textContent=String(admin.total??(admin.items||[]).length);
-    box.safeHTML=(admin.items||[]).map(x=>`<div class="item"><div class="muted small">POP/ref is not proof. Match funds in Thebe Desk bank account before approval.</div><b>${escapeHtml(x.tenant_name||x.tenant_id)} · P${x.amount_bwp}</b><div class="muted small">${escapeHtml(platformBillingPlan(x.metadata?.plan))} · bank ref ${escapeHtml(x.bank_reference)} · submitted ${platformBillingTime(x.submitted_at)}</div><div class="row" style="margin-top:8px"><button type="button" class="billing-switch" role="switch" aria-checked="false" aria-label="Activate ${escapeHtml(x.tenant_name||x.tenant_id)}" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','approve')"><span class="billing-switch-track" aria-hidden="true"></span><span>Verify & activate</span></button><button type="button" class="btn soft" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','reject')">Reject</button></div><div class="muted small" role="status" aria-live="polite" id="manualPaymentStatus_${escapeHtml(x.id)}"></div></div>`).join("")||'<div class="muted small">No manual payments awaiting approval.</div>';
+    box.safeHTML=(admin.items||[]).map(x=>`<div class="item"><div class="muted small">POP/ref is not proof. Match funds in Thebe Desk bank account before approval.</div><b>${escapeHtml(x.tenant_name||x.tenant_id)} · P${x.amount_bwp}</b><div class="muted small">${escapeHtml(platformBillingPlan(x.metadata?.plan))} · bank ref ${escapeHtml(x.bank_reference)} · submitted ${platformBillingTime(x.submitted_at)}</div><div class="row" style="margin-top:8px"><button type="button" class="btn" aria-label="Verify settled payment for ${escapeHtml(x.tenant_name||x.tenant_id)}" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','approve')">Verify & activate</button><button type="button" class="btn soft" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','reject')">Reject</button></div><div class="muted small" role="status" aria-live="polite" id="manualPaymentStatus_${escapeHtml(x.id)}"></div></div>`).join("")||'<div class="muted small">No manual payments awaiting approval.</div>';
   }catch(e){
     if(load!==manualPaymentAdminLoad||!platformBillingSessionCurrent(user))return;
     box.textContent=e.status===403?"Platform billing access was denied. Sign out and sign in with an authorized Thebe Desk admin account.":"Could not load payments. Select Refresh approvals to retry.";
@@ -2818,15 +2818,22 @@ async function reviewManualPayment(id,action){
  const status=document.getElementById("manualPaymentStatus_"+id);
  const show=msg=>{if(currentUser===user){if(status)status.textContent=msg;notifyUser(msg)}};
  try{
-  let reason="",bankFundsConfirmed=false;
+  let reason="",bankFundsConfirmed=false,bankAmountMatched=false,bankTransactionMatched=false;
   if(action==="reject"){
    reason=await BW.dialog.prompt({title:"Reject payment",message:"Explain the rejection.",required:true,minLength:5,maxLength:500,confirmLabel:"Reject payment"});
    if(reason===null||!platformBillingSessionCurrent(user,true))return;
   }else if(action==="approve"){
-   bankFundsConfirmed=await BW.dialog.confirm({title:"Verify payment and activate plan",message:"Confirm in the company bank account: funds received, amount matches the order, and the bank transaction matches this customer payment. Customer-submitted references alone are not proof.",confirmLabel:"Funds received — activate"});
+   // Each owner verification is a distinct affirmative decision. These
+   // attestations are NOT bank-origin proof: independently inspect the
+   // settled company-bank credit and never trust customer-provided references.
+   bankFundsConfirmed=await BW.dialog.confirm({title:"Bank verification 1 of 3 — Cleared funds",message:"I have checked Thebe Desk's own bank account and can see cleared funds credited to it. A customer screenshot, submitted reference or pending transfer is not proof.",confirmLabel:"I verified cleared funds"});
    if(!bankFundsConfirmed||!platformBillingSessionCurrent(user,true))return;
+   bankAmountMatched=await BW.dialog.confirm({title:"Bank verification 2 of 3 — Exact amount",message:"I independently checked that the cleared bank credit is in BWP and the amount exactly matches this customer's payment order. No partial, pending or mismatched amount qualifies.",confirmLabel:"I verified exact amount"});
+   if(!bankAmountMatched||!platformBillingSessionCurrent(user,true))return;
+   bankTransactionMatched=await BW.dialog.confirm({title:"Bank verification 3 of 3 — Transaction match",message:"I checked the bank's own settled transaction, matched it to this customer order, and confirmed it has not been used for another activation. The customer's reference is not a bank transaction ID.",confirmLabel:"I verified the bank transaction"});
+   if(!bankTransactionMatched||!platformBillingSessionCurrent(user,true))return;
   }else return;
-  const r=await apiJson(`/api/platform/billing/manual-payments/${encodeURIComponent(id)}/${action}`,{method:"POST",body:JSON.stringify({reason,bankFundsConfirmed,bankAmountMatched:bankFundsConfirmed,bankTransactionMatched:bankFundsConfirmed}),idempotencyKey:true});
+  const r=await apiJson(`/api/platform/billing/manual-payments/${encodeURIComponent(id)}/${action}`,{method:"POST",body:JSON.stringify({reason,bankFundsConfirmed,bankAmountMatched,bankTransactionMatched}),idempotencyKey:true});
   if(!platformBillingSessionCurrent(user))return;
   if(r?.ok!==true||(action==="approve"?(r.status!=="approved"||r.activated!==true):r.status!=="rejected"))throw Error("Server did not confirm the decision. Refresh approvals.");
   show(action==="approve"?"Payment verified and plan activated.":"Payment submission rejected.");
