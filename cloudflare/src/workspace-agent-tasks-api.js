@@ -13,7 +13,7 @@ export async function handleWorkspaceAgentTasksRequest({ request, logicalPath, e
   if (path !== "/api/agentic/workspace-tasks") return null;
   if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
   const auth = await authenticate(request, env);
-  if (!auth) return json({ error: "unauthenticated" }, 401);
+  if (!auth?.tenant_id || !auth?.user_id) return json({ error: "unauthenticated" }, 401);
   if (!roleAllowed(auth, "owner", "manager")) return json({ error: "forbidden" }, 403);
   const workspace = new URL(request.url).searchParams.get("workspace") || "owner";
   if (!allowedWorkspaces.has(workspace)) return json({ error: "invalid_workspace" }, 400);
