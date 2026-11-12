@@ -61,14 +61,17 @@ export function createWorkspaceAgentTaskController({ dock, fetchImpl } = {}) {
         dock.id !== "thebeAiDock" || dock.dataset.surface !== "workspace") {
       return { ok: false, code: "authenticated_workspace_required" };
     }
-    const scope = [identity.tenantId, identity.userId, identity.workspace].join(":");
+    const stableIdentity = Object.freeze({
+      tenantId: String(identity.tenantId), userId: String(identity.userId), workspace: String(identity.workspace)
+    });
+    const scope = [stableIdentity.tenantId, stableIdentity.userId, stableIdentity.workspace].join(":");
     dock.dataset.agentTaskScope = scope;
     const current = generation;
     abortController = new AbortController();
     let result;
     try {
       result = await refreshWorkspaceAgentTaskPanel({
-        dock, identity, fetchImpl, signal: abortController.signal
+        dock, identity: stableIdentity, fetchImpl, signal: abortController.signal
       });
     } catch {
       result = { ok: false, code: "task_fetch_unavailable" };
