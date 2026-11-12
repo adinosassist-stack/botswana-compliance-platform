@@ -58,3 +58,14 @@ test("invalid snapshot envelope cannot create a task panel", async () => {
   });
   assert.equal(result.code, "invalid_task_snapshot");
 });
+
+test("mixed-tenant task snapshot is rejected as a whole", async () => {
+  const result = await refreshWorkspaceAgentTaskPanel({
+    dock: { id: "thebeAiDock", dataset: { surface: "workspace", agentTaskScope: "t:u:finance" } },
+    identity: { tenantId: "t", userId: "u", workspace: "finance" },
+    fetchImpl: async () => ({ ok: true, json: async () => ({
+      ok: true, tasks: [{ id: "a", tenantId: "other", userId: "u", workspace: "finance", state: "queued" }]
+    }) })
+  });
+  assert.equal(result.code, "task_scope_mismatch");
+});
