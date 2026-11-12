@@ -29,3 +29,14 @@ test("clear task panel drops scope even if panel is absent", () => {
   clearWorkspaceAgentTaskPanel(dock);
   assert.equal(dock.dataset.agentTaskScope, undefined);
 });
+
+test("task fetch never starts when identity scope is stale", async () => {
+  let calls = 0;
+  const result = await refreshWorkspaceAgentTaskPanel({
+    dock: { id: "thebeAiDock", dataset: { surface: "workspace", agentTaskScope: "old:u:finance" } },
+    identity: { tenantId: "new", userId: "u", workspace: "finance" },
+    fetchImpl: () => { calls++; throw new Error("unexpected request"); }
+  });
+  assert.equal(result.code, "identity_changed");
+  assert.equal(calls, 0);
+});
