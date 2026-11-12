@@ -14,10 +14,11 @@ export async function refreshWorkspaceAgentTaskPanel({
   }
   const expectedScope = [identity.tenantId, identity.userId, workspace].join(":");
   if (dock.dataset.agentTaskScope !== expectedScope) return { ok: false, code: "identity_changed" };
-  const response = await fetchImpl("/api/agentic/workspace-tasks?workspace=" + encodeURIComponent(workspace), {
+  let response;
+  try { response = await fetchImpl("/api/agentic/workspace-tasks?workspace=" + encodeURIComponent(workspace), {
     method: "GET", credentials: "same-origin", cache: "no-store", signal,
     headers: { accept: "application/json" }
-  });
+  }); } catch { return { ok: false, code: signal?.aborted ? "request_aborted" : "task_fetch_unavailable" }; }
   if (!response.ok) return { ok: false, code: "task_fetch_unavailable", status: response.status };
   const snapshot = await response.json();
   if (signal?.aborted) return { ok: false, code: "request_aborted" };
