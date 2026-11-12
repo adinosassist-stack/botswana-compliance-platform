@@ -33,3 +33,13 @@ test("completion requires review and cannot grant execution", () => {
   assert.equal(transitionWorkspaceAgentTask(pending.task, "completed", { reviewerApproved: true }).ok, false);
   assert.equal(transitionWorkspaceAgentTask(pending.task, "failed").ok, true);
 });
+
+test("duplicate IDs do not consume the six-task display capacity", () => {
+  const workUnits = [
+    { id: "a", objective: "First" }, { id: "a", objective: "Duplicate" },
+    ...Array.from({ length: 7 }, (_, i) => ({ id: "item-" + i, objective: "Review" }))
+  ];
+  const result = planWorkspaceAgentTasks({ workspace: "owner", tenantId: "t", userId: "u", workUnits });
+  assert.equal(result.tasks.length, 6);
+  assert.equal(new Set(result.tasks.map(t => t.id)).size, 6);
+});
