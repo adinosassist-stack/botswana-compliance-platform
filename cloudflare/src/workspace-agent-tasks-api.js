@@ -6,13 +6,12 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), {
 });
 const allowedWorkspaces = new Set(["owner", "finance", "property", "people", "compliance", "market", "operations"]);
 
-// Candidate read-only endpoint. Router wiring is intentionally deferred until integration tests.
+// Authenticated read-only endpoint. Live deployment remains subject to PR review and release gates.
 // No request-supplied tenant/user identity, source references, task status or approval is accepted.
 export async function handleWorkspaceAgentTasksRequest({ request, logicalPath, env } = {}) {
   const path = String(logicalPath || new URL(request.url).pathname);
   if (path !== "/api/agentic/workspace-tasks") return null;
   if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
-  // Fail closed until the existing authenticated agent router explicitly enables this candidate.
   const auth = await authenticate(request, env);
   if (!auth) return json({ error: "unauthenticated" }, 401);
   if (!roleAllowed(auth, "owner", "manager")) return json({ error: "forbidden" }, 403);
