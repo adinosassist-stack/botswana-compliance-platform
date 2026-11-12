@@ -55,7 +55,9 @@ export function createWorkspaceAgentTaskController({ dock, fetchImpl } = {}) {
     abortController = null;
     clearWorkspaceAgentTaskPanel(dock);
   };
+  let disposed = false;
   const refresh = async (identity) => {
+    if (disposed) return { ok: false, code: "controller_disposed" };
     clear();
     if (!dock || !identity?.tenantId || !identity?.userId || !identity?.workspace ||
         dock.id !== "thebeAiDock" || dock.dataset.surface !== "workspace") {
@@ -81,5 +83,6 @@ export function createWorkspaceAgentTaskController({ dock, fetchImpl } = {}) {
     abortController = null;
     return result;
   };
-  return Object.freeze({ refresh, clear, dispose: clear });
+  const dispose = () => { disposed = true; clear(); };
+  return Object.freeze({ refresh, clear, dispose });
 }
