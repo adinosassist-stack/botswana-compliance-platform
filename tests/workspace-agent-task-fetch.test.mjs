@@ -49,3 +49,12 @@ test("invalid JSON fails closed without rendering tasks", async () => {
   });
   assert.equal(result.code, "invalid_task_response");
 });
+
+test("invalid snapshot envelope cannot create a task panel", async () => {
+  const result = await refreshWorkspaceAgentTaskPanel({
+    dock: { id: "thebeAiDock", dataset: { surface: "workspace", agentTaskScope: "t:u:finance" } },
+    identity: { tenantId: "t", userId: "u", workspace: "finance" },
+    fetchImpl: async () => ({ ok: true, json: async () => ({ ok: false, tasks: [] }) })
+  });
+  assert.equal(result.code, "invalid_task_snapshot");
+});
