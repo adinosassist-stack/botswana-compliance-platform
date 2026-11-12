@@ -132,3 +132,15 @@ test("controller snapshots caller identity before asynchronous fetch", async () 
   ] }) });
   assert.equal((await pending).code, "task_scope_mismatch");
 });
+
+test("disposed controller cannot restart authenticated task requests", async () => {
+  const dock = { id: "thebeAiDock", dataset: { surface: "workspace" }, querySelector: () => null };
+  let calls = 0;
+  const controller = createWorkspaceAgentTaskController({
+    dock, fetchImpl: () => { calls++; throw new Error("unexpected fetch"); }
+  });
+  controller.dispose();
+  const result = await controller.refresh({ tenantId: "t", userId: "u", workspace: "owner" });
+  assert.equal(result.code, "controller_disposed");
+  assert.equal(calls, 0);
+});
