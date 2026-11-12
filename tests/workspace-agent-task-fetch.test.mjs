@@ -40,3 +40,12 @@ test("task fetch never starts when identity scope is stale", async () => {
   assert.equal(result.code, "identity_changed");
   assert.equal(calls, 0);
 });
+
+test("invalid JSON fails closed without rendering tasks", async () => {
+  const result = await refreshWorkspaceAgentTaskPanel({
+    dock: { id: "thebeAiDock", dataset: { surface: "workspace", agentTaskScope: "t:u:finance" } },
+    identity: { tenantId: "t", userId: "u", workspace: "finance" },
+    fetchImpl: async () => ({ ok: true, json: async () => { throw new SyntaxError("bad json"); } })
+  });
+  assert.equal(result.code, "invalid_task_response");
+});
