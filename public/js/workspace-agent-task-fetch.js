@@ -41,3 +41,35 @@ export function clearWorkspaceAgentTaskPanel(dock) {
   delete dock.dataset.agentTaskScope;
   dock.querySelector('[data-thebe-agent-task-panel="1"]')?.remove();
 }
+
+/**
+ * Explicit opt-in lifecycle controller. The authenticated shell owns identity,
+ * scope changes and logout; no DOM-derived identity or automatic bootstrapping.
+ */
+export function createWorkspaceAgentTaskController({ dock, fetchImpl } = {}) {
+  let generation = 0;
+  let abortController = null;
+  const clear = () => {
+    generation++;
+    abortController?.abort();
+    abortController = null;
+    clearWorkspaceAgentTaskPanel(dock);
+  };
+  const refresh = async (identity) => {
+    clear();
+    if (!dock || !identity?.tenantId || !identity?.userId || !identity?.workspace ||
+        dock.id !== "thebeAiDock" || dock.dataset.surface !== "workspace") {
+      return { ok: false, code: "authenticated_workspace_required" };
+    }
+    const scope = [identity.tenantId, identity.userId, identity.workspace].join(":");
+    dock.dataset.agentTaskScope = scope;
+    const current = generation;
+    abortController = new AbortController();
+    const result = await refreshWorkspaceAgentTaskPanel({
+      dock, identity, fetchImpl, signal: abortController.signal
+    });
+    if (current !== generation) return { ok: false, code: "identity_changed" };
+    return result;
+  };
+  return Object.freeze({ refresh, clear, dispose: clear });
+}
