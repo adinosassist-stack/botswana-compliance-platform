@@ -6,6 +6,9 @@ export function renderWorkspaceAgentTasks({ dock, snapshot, identity } = {}) {
   if (!dock || dock.id !== "thebeAiDock" || dock.dataset.surface !== "workspace") {
     return { ok: false, code: "workspace_dock_required" };
   }
+  if (!identity?.tenantId || !identity?.userId || !identity?.workspace || !snapshot?.ok || !Array.isArray(snapshot.tasks)) {
+    return { ok: false, code: "verified_task_context_required" };
+  }
   let panel = dock.querySelector('[data-thebe-agent-task-panel="1"]');
   if (!panel) {
     panel = document.createElement("section");
