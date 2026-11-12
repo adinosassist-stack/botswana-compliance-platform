@@ -30,6 +30,9 @@ export async function refreshWorkspaceAgentTaskPanel({
     return { ok: false, code: "identity_changed" };
   }
   if (!snapshot?.ok || !Array.isArray(snapshot.tasks)) return { ok: false, code: "invalid_task_snapshot" };
+  if (snapshot.tasks.some(task => task?.tenantId !== identity.tenantId || task?.userId !== identity.userId || task?.workspace !== workspace)) {
+    return { ok: false, code: "task_scope_mismatch" };
+  }
   return renderWorkspaceAgentTasks({ dock, snapshot, identity });
 }
 
