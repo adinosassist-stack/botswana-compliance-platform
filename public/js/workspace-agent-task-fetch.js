@@ -28,6 +28,7 @@ export async function refreshWorkspaceAgentTaskPanel({
   if (dock.dataset.agentTaskScope !== expectedScope) {
     return { ok: false, code: "identity_changed" };
   }
+  if (!snapshot?.ok || !Array.isArray(snapshot.tasks)) return { ok: false, code: "invalid_task_snapshot" };
   return renderWorkspaceAgentTasks({ dock, snapshot, identity });
 }
 
