@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { refreshWorkspaceAgentTaskPanel, clearWorkspaceAgentTaskPanel } from "../public/js/workspace-agent-task-fetch.js";
+import { refreshWorkspaceAgentTaskPanel, clearWorkspaceAgentTaskPanel, createWorkspaceAgentTaskController } from "../public/js/workspace-agent-task-fetch.js";
 test("task fetch fails closed without authenticated workspace context", async () => {
   const result = await refreshWorkspaceAgentTaskPanel({ dock: { id: "thebeAiDock", dataset: { surface: "workspace" } } });
   assert.equal(result.ok, false);
@@ -68,4 +68,25 @@ test("mixed-tenant task snapshot is rejected as a whole", async () => {
     }) })
   });
   assert.equal(result.code, "task_scope_mismatch");
+});
+
+test("lifecycle controller clears scope and aborts pending fetch on logout", async () => {
+  const dock = {
+    id: "thebeAiDock", dataset: { surface: "workspace" },
+    querySelector: () => null
+  };
+  let signal;
+  const controller = createWorkspaceAgentTaskController({
+    dock, fetchImpl: (_url, options) => {
+      signal = options.signal;
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+      });
+    }
+  });
+  const pending = controller.refresh({ tenantId: "t", userId: "u", workspace: "finance" });
+  controller.clear();
+  assert.equal(signal.aborted, true);
+  assert.equal(dock.dataset.agentTaskScope, undefined);
+  assert.equal((await pending).code, "identity_changed");
 });
