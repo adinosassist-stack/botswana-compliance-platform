@@ -107,3 +107,13 @@ test("lifecycle controller contains renderer or transport exceptions", async () 
   assert.equal(result.ok, false);
   assert.equal(result.code, "task_fetch_unavailable");
 });
+
+test("failed lifecycle refresh clears scoped task identity", async () => {
+  const dock = { id: "thebeAiDock", dataset: { surface: "workspace" }, querySelector: () => null };
+  const controller = createWorkspaceAgentTaskController({
+    dock, fetchImpl: async () => ({ ok: false, status: 503 })
+  });
+  const result = await controller.refresh({ tenantId: "t", userId: "u", workspace: "owner" });
+  assert.equal(result.ok, false);
+  assert.equal(dock.dataset.agentTaskScope, undefined);
+});
