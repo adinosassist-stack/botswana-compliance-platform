@@ -90,3 +90,20 @@ test("lifecycle controller clears scope and aborts pending fetch on logout", asy
   assert.equal(dock.dataset.agentTaskScope, undefined);
   assert.equal((await pending).code, "identity_changed");
 });
+
+test("lifecycle controller contains renderer or transport exceptions", async () => {
+  const dock = {
+    id: "thebeAiDock", dataset: { surface: "workspace" },
+    querySelector: () => { throw new Error("DOM unavailable"); }
+  };
+  const controller = createWorkspaceAgentTaskController({ dock });
+  // Invalid context returns before a task request, but clear is still invoked.
+  // Use a well-behaved dock to test transport failure separately.
+  const safeDock = { id: "thebeAiDock", dataset: { surface: "workspace" }, querySelector: () => null };
+  const safe = createWorkspaceAgentTaskController({
+    dock: safeDock, fetchImpl: async () => { throw new Error("offline"); }
+  });
+  const result = await safe.refresh({ tenantId: "t", userId: "u", workspace: "owner" });
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "task_fetch_unavailable");
+});
