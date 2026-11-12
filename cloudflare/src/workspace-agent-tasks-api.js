@@ -11,7 +11,7 @@ const allowedWorkspaces = new Set(["owner", "finance", "property", "people", "co
 export async function handleWorkspaceAgentTasksRequest({ request, logicalPath, env } = {}) {
   const path = String(logicalPath || new URL(request.url).pathname);
   if (path !== "/api/agentic/workspace-tasks") return null;
-  if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
+  if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);\n  // Fail closed until the existing authenticated agent router explicitly enables this candidate.
   const auth = await authenticate(request, env);
   if (!auth) return json({ error: "unauthenticated" }, 401);
   if (!roleAllowed(auth, "owner", "manager")) return json({ error: "forbidden" }, 403);
