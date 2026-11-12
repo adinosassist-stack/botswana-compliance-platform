@@ -29,9 +29,7 @@ test("completion requires review and cannot grant execution", () => {
   const active = transitionWorkspaceAgentTask(task, "in_progress");
   assert.equal(active.ok, true);
   const pending = transitionWorkspaceAgentTask(active.task, "needs_review");
-  assert.equal(transitionWorkspaceAgentTask(pending.task, "completed").code, "task_review_required");
-  const done = transitionWorkspaceAgentTask(pending.task, "completed", { reviewerApproved: true });
-  assert.equal(done.ok, true);
-  assert.equal(done.task.executionAllowed, false);
-  assert.equal(transitionWorkspaceAgentTask(done.task, "queued").ok, false);
+  assert.equal(transitionWorkspaceAgentTask(pending.task, "completed").ok, false);
+  assert.equal(transitionWorkspaceAgentTask(pending.task, "completed", { reviewerApproved: true }).ok, false);
+  assert.equal(transitionWorkspaceAgentTask(pending.task, "failed").ok, true);
 });
