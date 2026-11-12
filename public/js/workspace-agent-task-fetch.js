@@ -19,6 +19,7 @@ export async function refreshWorkspaceAgentTaskPanel({
     method: "GET", credentials: "same-origin", cache: "no-store", signal,
     headers: { accept: "application/json" }
   }); } catch { return { ok: false, code: signal?.aborted ? "request_aborted" : "task_fetch_unavailable" }; }
+  if (signal?.aborted) return { ok: false, code: "request_aborted" };
   if (!response.ok) return { ok: false, code: "task_fetch_unavailable", status: response.status };
   let snapshot;
   try { snapshot = await response.json(); }
