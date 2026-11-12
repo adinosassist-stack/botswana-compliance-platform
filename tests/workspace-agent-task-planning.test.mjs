@@ -1,0 +1,37 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { planWorkspaceAgentTasks, transitionWorkspaceAgentTask } from "../cloudflare/src/workspace-agent-task-planning.js";
+
+test("rejects missing tenant or user context", () => {
+  assert.equal(planWorkspaceAgentTasks({ workspace: "finance", userId: "u" }).ok, false);
+  assert.equal(planWorkspaceAgentTasks({ workspace: "unknown", tenantId: "t", userId: "u" }).ok, false);
+});
+test("bounds tasks, deduplicates IDs, and drops unauthorized sources", () => {
+  const workUnits = Array.from({ length: 9 }, (_, i) => ({
+    id: String(i), objective: "Review", sourceRefs: ["approved", "private"]
+  }));
+  const result = planWorkspaceAgentTasks({
+    workspace: "finance", tenantId: "tenant-a", userId: "user-a",
+    workUnits, allowedSourceRefs: ["approved"]
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.tasks.length, 6);
+  assert.deepEqual(result.tasks[0].sourceRefs, ["approved"]);
+  assert.equal(result.tasks[0].sourceRefsDropped, 1);
+  assert.equal(result.tasks[0].executionAllowed, false);
+  assert.equal(result.tasks[0].approvalRequired, true);
+  assert.equal(result.tasks[0].tenantId, "tenant-a");
+});
+test("completion requires review and cannot grant execution", () => {
+  const task = planWorkspaceAgentTasks({
+    workspace: "operations", tenantId: "t", userId: "u", workUnits: [{ id: "a", objective: "Review" }]
+  }).tasks[0];
+  const active = transitionWorkspaceAgentTask(task, "in_progress");
+  assert.equal(active.ok, true);
+  const pending = transitionWorkspaceAgentTask(active.task, "needs_review");
+  assert.equal(transitionWorkspaceAgentTask(pending.task, "completed").code, "task_review_required");
+  const done = transitionWorkspaceAgentTask(pending.task, "completed", { reviewerApproved: true });
+  assert.equal(done.ok, true);
+  assert.equal(done.task.executionAllowed, false);
+  assert.equal(transitionWorkspaceAgentTask(done.task, "queued").ok, false);
+});
