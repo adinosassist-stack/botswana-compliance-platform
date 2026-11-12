@@ -117,3 +117,18 @@ test("failed lifecycle refresh clears scoped task identity", async () => {
   assert.equal(result.ok, false);
   assert.equal(dock.dataset.agentTaskScope, undefined);
 });
+
+test("controller snapshots caller identity before asynchronous fetch", async () => {
+  const dock = { id: "thebeAiDock", dataset: { surface: "workspace" }, querySelector: () => null };
+  const identity = { tenantId: "tenant-a", userId: "u", workspace: "finance" };
+  let finish;
+  const controller = createWorkspaceAgentTaskController({
+    dock, fetchImpl: () => new Promise(resolve => { finish = resolve; })
+  });
+  const pending = controller.refresh(identity);
+  identity.tenantId = "tenant-b";
+  finish({ ok: true, json: async () => ({ ok: true, tasks: [
+    { id: "a", tenantId: "tenant-b", userId: "u", workspace: "finance", state: "queued" }
+  ] }) });
+  assert.equal((await pending).code, "task_scope_mismatch");
+});
