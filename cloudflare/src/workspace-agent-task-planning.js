@@ -14,7 +14,8 @@ export function planWorkspaceAgentTasks({ workspace, tenantId, userId, workUnits
   const allowed = new Set((Array.isArray(allowedSourceRefs) ? allowedSourceRefs : []).map(x => clean(x, 120)).filter(Boolean));
   const seen = new Set();
   const tasks = [];
-  for (const item of (Array.isArray(workUnits) ? workUnits : []).slice(0, 6)) {
+  for (const item of (Array.isArray(workUnits) ? workUnits : [])) {
+    if (tasks.length >= 6) break;
     const id = clean(item?.id, 120);
     if (!id || seen.has(id)) continue;
     seen.add(id);
