@@ -12,6 +12,8 @@ export async function refreshWorkspaceAgentTaskPanel({
   if (!["owner", "finance", "property", "people", "compliance", "market", "operations"].includes(workspace)) {
     return { ok: false, code: "invalid_workspace" };
   }
+  const expectedScope = [identity.tenantId, identity.userId, workspace].join(":");
+  if (dock.dataset.agentTaskScope !== expectedScope) return { ok: false, code: "identity_changed" };
   const response = await fetchImpl("/api/agentic/workspace-tasks?workspace=" + encodeURIComponent(workspace), {
     method: "GET", credentials: "same-origin", cache: "no-store", signal,
     headers: { accept: "application/json" }
@@ -20,7 +22,7 @@ export async function refreshWorkspaceAgentTaskPanel({
   const snapshot = await response.json();
   if (signal?.aborted) return { ok: false, code: "request_aborted" };
   // An identity change while awaiting the response must invalidate the result.
-  if (dock.dataset.agentTaskScope !== [identity.tenantId, identity.userId, workspace].join(":")) {
+  if (dock.dataset.agentTaskScope !== expectedScope) {
     return { ok: false, code: "identity_changed" };
   }
   return renderWorkspaceAgentTasks({ dock, snapshot, identity });
