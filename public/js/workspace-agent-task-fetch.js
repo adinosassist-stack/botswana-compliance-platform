@@ -65,9 +65,14 @@ export function createWorkspaceAgentTaskController({ dock, fetchImpl } = {}) {
     dock.dataset.agentTaskScope = scope;
     const current = generation;
     abortController = new AbortController();
-    const result = await refreshWorkspaceAgentTaskPanel({
-      dock, identity, fetchImpl, signal: abortController.signal
-    });
+    let result;
+    try {
+      result = await refreshWorkspaceAgentTaskPanel({
+        dock, identity, fetchImpl, signal: abortController.signal
+      });
+    } catch {
+      result = { ok: false, code: "task_fetch_unavailable" };
+    }
     if (current !== generation) return { ok: false, code: "identity_changed" };
     return result;
   };
