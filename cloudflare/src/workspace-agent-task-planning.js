@@ -44,7 +44,9 @@ export function transitionWorkspaceAgentTask(task, nextState) {
   if (!task || !WORKSPACE_AGENT_TASK_STATES.includes(task.state) || !transitions[task.state].includes(next)) {
     return Object.freeze({ ok: false, code: "task_transition_invalid" });
   }
-  // Completion is reserved for a trusted server-side approval/evidence workflow.\n  // A caller-supplied boolean is never evidence of reviewer authorization.\n  if (next === "completed") return Object.freeze({ ok: false, code: "trusted_completion_required" });
+  // Completion is reserved for a trusted server-side approval/evidence workflow. 
+  // A caller-supplied boolean is never evidence of reviewer authorization. 
+  if (next === "completed") return Object.freeze({ ok: false, code: "trusted_completion_required" });
   return Object.freeze({ ok: true, code: "task_state_updated", task: Object.freeze({
     ...task, state: next, executionAllowed: false, externalSideEffects: false
   }) });
