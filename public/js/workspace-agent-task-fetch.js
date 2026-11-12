@@ -20,7 +20,9 @@ export async function refreshWorkspaceAgentTaskPanel({
     headers: { accept: "application/json" }
   }); } catch { return { ok: false, code: signal?.aborted ? "request_aborted" : "task_fetch_unavailable" }; }
   if (!response.ok) return { ok: false, code: "task_fetch_unavailable", status: response.status };
-  const snapshot = await response.json();
+  let snapshot;
+  try { snapshot = await response.json(); }
+  catch { return { ok: false, code: "invalid_task_response" }; }
   if (signal?.aborted) return { ok: false, code: "request_aborted" };
   // An identity change while awaiting the response must invalidate the result.
   if (dock.dataset.agentTaskScope !== expectedScope) {
