@@ -74,6 +74,7 @@ export function createWorkspaceAgentTaskController({ dock, fetchImpl } = {}) {
       result = { ok: false, code: "task_fetch_unavailable" };
     }
     if (current !== generation) return { ok: false, code: "identity_changed" };
+    if (!result?.ok) clearWorkspaceAgentTaskPanel(dock);
     return result;
   };
   return Object.freeze({ refresh, clear, dispose: clear });
