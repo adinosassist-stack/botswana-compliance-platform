@@ -3,7 +3,7 @@ import { workspaceAgentTaskView } from "./workspace-agent-task-view.js";
 // Explicit mount only: caller must provide an authenticated, server-authorized snapshot.
 // Client filtering is presentation defense, NOT a substitute for server authorization.
 export function renderWorkspaceAgentTasks({ dock, snapshot, identity } = {}) {
-  if (!dock || dock.id !== "thebeAiDock" || dock.dataset.surface !== "workspace") {
+  if (!dock || dock.id !== "thebeAiDock" || dock.dataset?.surface !== "workspace") {
     return { ok: false, code: "workspace_dock_required" };
   }
   if (!identity?.tenantId || !identity?.userId || !identity?.workspace || !snapshot?.ok || !Array.isArray(snapshot.tasks)) {
