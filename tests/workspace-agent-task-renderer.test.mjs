@@ -29,3 +29,28 @@ test("renderer refuses mixed-tenant snapshot before touching DOM", () => {
   assert.equal(renderWorkspaceAgentTasks({ dock, identity, snapshot }).code, "task_scope_mismatch");
   assert.equal(touched, 0);
 });
+
+test("renderer displays canonical task state and review requirement", () => {
+  const originalDocument = globalThis.document;
+  const elements = [];
+  const element = tag => ({
+    tag, dataset: {}, children: [], textContent: "",
+    setAttribute() {}, append(...children) { this.children.push(...children); },
+    replaceChildren(...children) { this.children = [...children]; }
+  });
+  globalThis.document = { createElement: tag => { const node = element(tag); elements.push(node); return node; } };
+  try {
+    const dock = {
+      id: "thebeAiDock", dataset: { surface: "workspace" },
+      querySelector: () => null, append(node) { this.panel = node; }
+    };
+    const identity = { tenantId: "t", userId: "u", workspace: "finance" };
+    const snapshot = { ok: true, tasks: [{
+      id: "task", tenantId: "t", userId: "u", workspace: "finance",
+      title: "Review reconciliation", state: "queued", approvalRequired: true,
+      executionAllowed: false, externalSideEffects: false
+    }] };
+    assert.equal(renderWorkspaceAgentTasks({ dock, identity, snapshot }).count, 1);
+    assert.ok(elements.some(node => node.tag === "small" && node.textContent === "queued · Review required"));
+  } finally { globalThis.document = originalDocument; }
+});
