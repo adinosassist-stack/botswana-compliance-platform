@@ -65,3 +65,27 @@ test("renderer fails closed for unmounted dock without dataset", () => {
   assert.equal(result.code, "workspace_dock_required");
   assert.equal(touched, 0);
 });
+
+test("renderer rejects unsafe advisory snapshot before DOM mutation", () => {
+  let touched = 0;
+  const dock = {
+    id: "thebeAiDock", dataset: { surface: "workspace" },
+    querySelector: () => { touched++; throw new Error("DOM access forbidden"); }
+  };
+  const identity = { tenantId: "t", userId: "u", workspace: "finance" };
+  const base = {
+    id: "task", tenantId: "t", userId: "u", workspace: "finance",
+    title: "Review", state: "queued", approvalRequired: true,
+    executionAllowed: false, externalSideEffects: false, authority: "recommendation_only"
+  };
+  for (const unsafe of [
+    { ...base, executionAllowed: true },
+    { ...base, approvalRequired: false },
+    { ...base, externalSideEffects: true },
+    { ...base, authority: "execute" }
+  ]) {
+    assert.equal(renderWorkspaceAgentTasks({ dock, identity, snapshot: { ok: true, tasks: [unsafe] } }).code, "unsafe_task_snapshot");
+  }
+  assert.equal(renderWorkspaceAgentTasks({ dock, identity, snapshot: { ok: true, tasks: Array(7).fill(base) } }).code, "unsafe_task_snapshot");
+  assert.equal(touched, 0);
+});
