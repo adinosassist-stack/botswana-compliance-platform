@@ -5,7 +5,7 @@ import { renderWorkspaceAgentTasks } from "./workspace-agent-task-renderer.js";
 export async function refreshWorkspaceAgentTaskPanel({
   dock, identity, fetchImpl = globalThis.fetch, signal
 } = {}) {
-  if (!dock || dock.id !== "thebeAiDock" || dock.dataset.surface !== "workspace" ||
+  if (!dock || dock.id !== "thebeAiDock" || dock.dataset?.surface !== "workspace" ||
       !identity?.tenantId || !identity?.userId || !identity?.workspace ||
       typeof fetchImpl !== "function") return { ok: false, code: "authenticated_workspace_required" };
   const workspace = String(identity.workspace);
@@ -62,7 +62,7 @@ export function createWorkspaceAgentTaskController({ dock, fetchImpl } = {}) {
     if (disposed) return { ok: false, code: "controller_disposed" };
     clear();
     if (!dock || !identity?.tenantId || !identity?.userId || !identity?.workspace ||
-        dock.id !== "thebeAiDock" || dock.dataset.surface !== "workspace") {
+        dock.id !== "thebeAiDock" || dock.dataset?.surface !== "workspace") {
       return { ok: false, code: "authenticated_workspace_required" };
     }
     const stableIdentity = Object.freeze({
