@@ -40,7 +40,8 @@ export function clearWorkspaceAgentTaskPanel(dock) {
   if (!dock || !dock.dataset) return;
   delete dock.dataset.agentTaskScope;
   if (typeof dock.querySelector === "function") {
-    dock.querySelector('[data-thebe-agent-task-panel="1"]')?.remove();
+    try { dock.querySelector('[data-thebe-agent-task-panel="1"]')?.remove(); }
+    catch { /* Unmounted or replaced dock: scope was already invalidated. */ }
   }
 }
 
