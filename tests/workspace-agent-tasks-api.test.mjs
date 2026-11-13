@@ -19,3 +19,12 @@ test("workspace task API does not claim unrelated routes", async () => {
   });
   assert.equal(response, null);
 });
+
+test("task source candidate window is bounded and exceeds six display slots", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const source = await readFile(new URL("../cloudflare/src/workspace-agent-tasks-api.js", import.meta.url), "utf8");
+  const match = source.match(/ORDER BY updated_at DESC LIMIT (\\d+)/);
+  assert.ok(match, "task source query must have a fixed SQL limit");
+  const limit = Number(match[1]);
+  assert.ok(limit > 6 && limit <= 24, "candidate window must allow invalid-row skipping without unbounded reads");
+});
