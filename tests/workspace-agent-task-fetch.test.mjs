@@ -144,3 +144,11 @@ test("disposed controller cannot restart authenticated task requests", async () 
   assert.equal(result.code, "controller_disposed");
   assert.equal(calls, 0);
 });
+
+test("controller cleanup tolerates unmounted dock without querySelector", () => {
+  const controller = createWorkspaceAgentTaskController({
+    dock: { id: "thebeAiDock", dataset: { surface: "workspace", agentTaskScope: "old" } }
+  });
+  assert.doesNotThrow(() => controller.clear());
+  assert.doesNotThrow(() => controller.dispose());
+});
