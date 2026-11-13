@@ -43,6 +43,8 @@ test("presentation adapter rejects completed, malformed, and oversized snapshots
     task({ id: "done", state: "completed" }),
     task({ id: "", title: "Missing identifier" }),
     task({ id: "bad-title", title: null }),
+    task({ id: "blank-title", title: "  " }),
+    task({ id: "blank-cleaned", title: "\\u0000" }),
     task({ id: "valid" })
   ] };
   assert.deepEqual(workspaceAgentTaskView(snapshot, identity).map(x => x.id), ["valid"]);
