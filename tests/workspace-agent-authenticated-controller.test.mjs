@@ -33,3 +33,18 @@ test("disposed controller cannot fetch identity", async () => {
   assert.equal((await controller.refresh("owner")).code, "controller_disposed");
   assert.equal(calls, 0);
 });
+
+test("logout aborts in-flight identity request", async () => {
+  let capturedSignal;
+  let resolve;
+  const controller = createAuthenticatedWorkspaceAgentController({ dock: dock(), fetchImpl: (_, options) => {
+    capturedSignal = options.signal;
+    return new Promise(r => { resolve = r; });
+  } });
+  const pending = controller.refresh("finance");
+  assert.equal(capturedSignal.aborted, false);
+  controller.clear();
+  assert.equal(capturedSignal.aborted, true);
+  resolve({ ok: true, json: async () => ({ ok: true, tenantId: "t", userId: "u" }) });
+  assert.equal((await pending).code, "identity_changed");
+});
