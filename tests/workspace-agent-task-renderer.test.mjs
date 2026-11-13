@@ -48,7 +48,7 @@ test("renderer displays canonical task state and review requirement", () => {
     const snapshot = { ok: true, tasks: [{
       id: "task", tenantId: "t", userId: "u", workspace: "finance",
       title: "Review reconciliation", state: "queued", approvalRequired: true,
-      executionAllowed: false, externalSideEffects: false
+      executionAllowed: false, externalSideEffects: false, authority: "recommendation_only"
     }] };
     assert.equal(renderWorkspaceAgentTasks({ dock, identity, snapshot }).count, 1);
     assert.ok(elements.some(node => node.tag === "small" && node.textContent === "Queued · Review required"));
