@@ -152,3 +152,14 @@ test("controller cleanup tolerates unmounted dock without querySelector", () => 
   assert.doesNotThrow(() => controller.clear());
   assert.doesNotThrow(() => controller.dispose());
 });
+
+test("missing dock dataset fails closed without network requests", async () => {
+  let calls = 0;
+  const dock = { id: "thebeAiDock" };
+  const identity = { tenantId: "t", userId: "u", workspace: "finance" };
+  const fetchImpl = () => { calls++; throw new Error("unexpected network call"); };
+  assert.equal((await refreshWorkspaceAgentTaskPanel({ dock, identity, fetchImpl })).code, "authenticated_workspace_required");
+  const controller = createWorkspaceAgentTaskController({ dock, fetchImpl });
+  assert.equal((await controller.refresh(identity)).code, "authenticated_workspace_required");
+  assert.equal(calls, 0);
+});
