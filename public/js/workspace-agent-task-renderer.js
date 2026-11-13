@@ -12,6 +12,12 @@ export function renderWorkspaceAgentTasks({ dock, snapshot, identity } = {}) {
   if (snapshot.tasks.some(task => task?.tenantId !== identity.tenantId || task?.userId !== identity.userId || task?.workspace !== identity.workspace)) {
     return { ok: false, code: "task_scope_mismatch" };
   }
+  if (snapshot.tasks.length > 6 || snapshot.tasks.some(task =>
+    !task || task.approvalRequired !== true || task.executionAllowed !== false ||
+    task.externalSideEffects !== false || task.authority !== "recommendation_only"
+  )) {
+    return { ok: false, code: "unsafe_task_snapshot" };
+  }
   let panel = dock.querySelector('[data-thebe-agent-task-panel="1"]');
   if (!panel) {
     panel = document.createElement("section");
