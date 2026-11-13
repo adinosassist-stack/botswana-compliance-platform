@@ -97,6 +97,8 @@ test("lifecycle controller contains renderer or transport exceptions", async () 
     querySelector: () => { throw new Error("DOM unavailable"); }
   };
   const controller = createWorkspaceAgentTaskController({ dock });
+  assert.doesNotThrow(() => controller.clear());
+  assert.doesNotThrow(() => controller.dispose());
   // Invalid context returns before a task request, but clear is still invoked.
   // Use a well-behaved dock to test transport failure separately.
   const safeDock = { id: "thebeAiDock", dataset: { surface: "workspace" }, querySelector: () => null };
