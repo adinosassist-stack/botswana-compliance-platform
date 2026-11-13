@@ -66,3 +66,15 @@ test("state transitions reject forged or elevated task authority", () => {
   assert.equal(transitioned.task.approvalRequired, true);
   assert.equal(transitioned.task.executionAllowed, false);
 });
+
+test("empty objectives are skipped without consuming task capacity or IDs", () => {
+  const workUnits = [
+    { id: "a", objective: "   " },
+    { id: "a", objective: "Valid replacement" },
+    ...Array.from({ length: 5 }, (_, i) => ({ id: "item-" + i, objective: "Review" }))
+  ];
+  const result = planWorkspaceAgentTasks({ workspace: "owner", tenantId: "t", userId: "u", workUnits });
+  assert.equal(result.tasks.length, 6);
+  assert.equal(result.tasks[0].title, "Valid replacement");
+  assert.ok(result.tasks.every(task => task.title.trim().length > 0));
+});
