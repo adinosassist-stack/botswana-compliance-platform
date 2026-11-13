@@ -51,6 +51,6 @@ test("renderer displays canonical task state and review requirement", () => {
       executionAllowed: false, externalSideEffects: false
     }] };
     assert.equal(renderWorkspaceAgentTasks({ dock, identity, snapshot }).count, 1);
-    assert.ok(elements.some(node => node.tag === "small" && node.textContent === "queued · Review required"));
+    assert.ok(elements.some(node => node.tag === "small" && node.textContent === "Queued · Review required"));
   } finally { globalThis.document = originalDocument; }
 });
