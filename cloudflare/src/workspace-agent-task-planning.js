@@ -17,12 +17,13 @@ export function planWorkspaceAgentTasks({ workspace, tenantId, userId, workUnits
   for (const item of (Array.isArray(workUnits) ? workUnits : [])) {
     if (tasks.length >= 6) break;
     const id = clean(item?.id, 120);
-    if (!id || seen.has(id)) continue;
+    const title = clean(item?.objective, 500);
+    if (!id || !title || seen.has(id)) continue;
     seen.add(id);
     const refs = [...new Set((Array.isArray(item?.sourceRefs) ? item.sourceRefs : []).map(x => clean(x, 120)).filter(x => allowed.has(x)))];
     tasks.push(Object.freeze({
       id, workspace: scope, tenantId: tenant, userId: actor,
-      title: clean(item?.objective, 500),
+      title,
       priority: ["low", "medium", "high"].includes(item?.priority) ? item.priority : "medium",
       state: "queued", sourceRefs: Object.freeze(refs),
       sourceRefsDropped: Math.max(0, (Array.isArray(item?.sourceRefs) ? item.sourceRefs.length : 0) - refs.length),
