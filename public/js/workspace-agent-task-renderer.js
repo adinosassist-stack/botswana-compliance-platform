@@ -9,6 +9,9 @@ export function renderWorkspaceAgentTasks({ dock, snapshot, identity } = {}) {
   if (!identity?.tenantId || !identity?.userId || !identity?.workspace || !snapshot?.ok || !Array.isArray(snapshot.tasks)) {
     return { ok: false, code: "verified_task_context_required" };
   }
+  if (snapshot.tasks.some(task => task?.tenantId !== identity.tenantId || task?.userId !== identity.userId || task?.workspace !== identity.workspace)) {
+    return { ok: false, code: "task_scope_mismatch" };
+  }
   let panel = dock.querySelector('[data-thebe-agent-task-panel="1"]');
   if (!panel) {
     panel = document.createElement("section");
