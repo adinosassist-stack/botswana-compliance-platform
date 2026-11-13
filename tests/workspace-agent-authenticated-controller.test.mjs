@@ -48,3 +48,16 @@ test("logout aborts in-flight identity request", async () => {
   resolve({ ok: true, json: async () => ({ ok: true, tenantId: "t", userId: "u" }) });
   assert.equal((await pending).code, "identity_changed");
 });
+
+test("disposing controller aborts pending identity lookup", async () => {
+  let signal, resolve;
+  const controller = createAuthenticatedWorkspaceAgentController({ dock: dock(), fetchImpl: (_, options) => {
+    signal = options.signal;
+    return new Promise(r => { resolve = r; });
+  } });
+  const pending = controller.refresh("owner");
+  controller.dispose();
+  assert.equal(signal.aborted, true);
+  resolve({ ok: true, json: async () => ({ ok: true, tenantId: "t", userId: "u" }) });
+  assert.equal((await pending).code, "identity_changed");
+});
