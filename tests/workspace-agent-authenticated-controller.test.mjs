@@ -73,3 +73,44 @@ test("identity lookup never decodes response after logout", async () => {
   assert.equal((await pending).code, "identity_changed");
   assert.equal(decodeCalls, 0);
 });
+
+test("authenticated identity triggers scoped task request without mutations", async () => {
+  const calls = [];
+  const controller = createAuthenticatedWorkspaceAgentController({ dock: dock(), fetchImpl: async (url, options) => {
+    calls.push({ url, options });
+    if (url === "/api/agentic/workspace-identity") {
+      return { ok: true, json: async () => ({ ok: true, tenantId: "tenant-a", userId: "user-a" }) };
+    }
+    return { ok: true, json: async () => ({ ok: false, tasks: [] }) };
+  } });
+  const result = await controller.refresh("finance");
+  assert.equal(result.code, "invalid_task_snapshot");
+  assert.deepEqual(calls.map(x => x.url), [
+    "/api/agentic/workspace-identity",
+    "/api/agentic/workspace-tasks?workspace=finance"
+  ]);
+  assert.ok(calls.every(x => x.options.method === "GET" && x.options.credentials === "same-origin" && x.options.cache === "no-store"));
+});
+
+test("workspace switch aborts old identity and only requests tasks for new workspace", async () => {
+  let resolveOld, oldSignal;
+  const calls = [];
+  const controller = createAuthenticatedWorkspaceAgentController({ dock: dock(), fetchImpl: (url, options) => {
+    calls.push(url);
+    if (url === "/api/agentic/workspace-identity" && !resolveOld) {
+      oldSignal = options.signal;
+      return new Promise(resolve => { resolveOld = resolve; });
+    }
+    if (url === "/api/agentic/workspace-identity") {
+      return Promise.resolve({ ok: true, json: async () => ({ ok: true, tenantId: "tenant-a", userId: "user-a" }) });
+    }
+    return Promise.resolve({ ok: true, json: async () => ({ ok: false, tasks: [] }) });
+  } });
+  const old = controller.refresh("finance");
+  const next = controller.refresh("property");
+  assert.equal(oldSignal.aborted, true);
+  resolveOld({ ok: true, json: async () => ({ ok: true, tenantId: "tenant-old", userId: "user-old" }) });
+  assert.equal((await old).code, "identity_changed");
+  assert.equal((await next).code, "invalid_task_snapshot");
+  assert.deepEqual(calls.filter(url => url.includes("workspace-tasks")), ["/api/agentic/workspace-tasks?workspace=property"]);
+});
