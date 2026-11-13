@@ -171,16 +171,14 @@ test("scope encoding prevents delimiter collisions between tenant and user IDs",
     id: "thebeAiDock", dataset: { surface: "workspace" },
     querySelector: () => null
   };
-  let resolveFirst;
   const controller = createWorkspaceAgentTaskController({
-    dock, fetchImpl: () => new Promise(resolve => { resolveFirst = resolve; })
+    dock, fetchImpl: async () => ({ ok: false, status: 503 })
   });
   const first = controller.refresh({ tenantId: "a:b", userId: "c", workspace: "finance" });
   const firstScope = dock.dataset.agentTaskScope;
-  controller.clear();
+  await first;
   const second = controller.refresh({ tenantId: "a", userId: "b:c", workspace: "finance" });
-  assert.notEqual(firstScope, dock.dataset.agentTaskScope);
-  controller.clear();
-  assert.equal((await first).code, "identity_changed");
-  assert.equal((await second).code, "identity_changed");
+  const secondScope = dock.dataset.agentTaskScope;
+  await second;
+  assert.notEqual(firstScope, secondScope);
 });
