@@ -10,11 +10,13 @@ const allowedWorkspaces = new Set(["owner", "finance", "property", "people", "co
 // No request-supplied tenant/user identity, source references, task status or approval is accepted.
 export async function handleWorkspaceAgentTasksRequest({ request, logicalPath, env } = {}) {
   const path = String(logicalPath || new URL(request.url).pathname);
-  if (path !== "/api/agentic/workspace-tasks") return null;
+  const isIdentity = path === "/api/agentic/workspace-identity";
+  if (!isIdentity && path !== "/api/agentic/workspace-tasks") return null;
   if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
   const auth = await authenticate(request, env);
   if (!auth?.tenant_id || !auth?.user_id) return json({ error: "unauthenticated" }, 401);
   if (!roleAllowed(auth, "owner", "manager")) return json({ error: "forbidden" }, 403);
+  if (isIdentity) return json({ ok: true, tenantId: auth.tenant_id, userId: auth.user_id });
   const workspace = new URL(request.url).searchParams.get("workspace") || "owner";
   if (!allowedWorkspaces.has(workspace)) return json({ error: "invalid_workspace" }, 400);
   if (!env?.DB) return json({ error: "task_source_unavailable" }, 503);
