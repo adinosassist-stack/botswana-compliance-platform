@@ -14,7 +14,7 @@ export function renderWorkspaceAgentTasks({ dock, snapshot, identity } = {}) {
   }
   if (snapshot.tasks.length > 6 || snapshot.tasks.some(task =>
     !task || !["queued", "in_progress", "needs_review", "failed"].includes(task.state) ||
-    typeof task.id !== "string" || !task.id.trim() || typeof task.title !== "string" ||
+    typeof task.id !== "string" || !task.id.trim() || typeof task.title !== "string" || !task.title.trim() ||
     task.approvalRequired !== true || task.executionAllowed !== false ||
     task.externalSideEffects !== false || task.authority !== "recommendation_only"
   )) {
