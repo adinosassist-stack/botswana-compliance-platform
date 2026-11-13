@@ -20,6 +20,9 @@ export function renderWorkspaceAgentTasks({ dock, snapshot, identity } = {}) {
   )) {
     return { ok: false, code: "unsafe_task_snapshot" };
   }
+  if (new Set(snapshot.tasks.map(task => task.id)).size !== snapshot.tasks.length) {
+    return { ok: false, code: "duplicate_task_ids" };
+  }
   let panel = dock.querySelector('[data-thebe-agent-task-panel="1"]');
   if (!panel) {
     panel = document.createElement("section");
