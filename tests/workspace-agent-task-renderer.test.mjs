@@ -54,3 +54,14 @@ test("renderer displays canonical task state and review requirement", () => {
     assert.ok(elements.some(node => node.tag === "small" && node.textContent === "Queued · Review required"));
   } finally { globalThis.document = originalDocument; }
 });
+
+test("renderer fails closed for unmounted dock without dataset", () => {
+  let touched = 0;
+  const dock = { id: "thebeAiDock", querySelector: () => { touched++; } };
+  const result = renderWorkspaceAgentTasks({
+    dock, identity: { tenantId: "t", userId: "u", workspace: "owner" },
+    snapshot: { ok: true, tasks: [] }
+  });
+  assert.equal(result.code, "workspace_dock_required");
+  assert.equal(touched, 0);
+});
