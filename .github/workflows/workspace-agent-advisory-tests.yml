@@ -1,0 +1,29 @@
+name: Workspace Agent advisory task tests
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/src/workspace-agent-task-planning.js'
+      - 'cloudflare/src/workspace-agent-tasks-api.js'
+      - 'public/js/workspace-agent-task-*.js'
+      - 'tests/workspace-agent-*.test.mjs'
+      - '.github/workflows/workspace-agent-advisory-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  advisory-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check syntax
+        run: |
+          node --check cloudflare/src/workspace-agent-task-planning.js
+          node --check cloudflare/src/workspace-agent-tasks-api.js
+          node --check public/js/workspace-agent-task-view.js
+          node --check public/js/workspace-agent-task-renderer.js
+      - name: Test advisory task boundaries
+        run: node --test tests/workspace-agent-*.test.mjs

@@ -6,6 +6,7 @@ import base from "./production-entry.js";
 import {handleAgenticAuthorityRequest} from "./agentic-authority-core.js";
 import {handleAgenticControlPlaneRequest} from "./agentic-control-plane.js";
 import {handleAgenticResponsibilityRequest} from "./agentic-responsibility-api.js";
+import {handleWorkspaceAgentTasksRequest} from "./workspace-agent-tasks-api.js";
 import {handleAgenticResponsibilityCommand} from "./agentic-responsibility-command.js";
 import {handleAgenticWhatsAppRequest} from "./agentic-whatsapp-core.js";
 import {handleEmployeeDispatchRequest,runEmployeeDispatchSweep} from "./employee-dispatch.js";
@@ -242,6 +243,8 @@ const agenticRuntime={
     if(persistentTaskResponse)return persistentTaskResponse;
     const responsibilityCommandResponse=await handleAgenticResponsibilityCommand({request,logicalPath,env});
     if(responsibilityCommandResponse)return responsibilityCommandResponse;
+    const workspaceTaskResponse=await handleWorkspaceAgentTasksRequest({request,logicalPath,env});
+    if(workspaceTaskResponse)return workspaceTaskResponse;
     const responsibilityResponse=await handleAgenticResponsibilityRequest({request,logicalPath,env});
     if(responsibilityResponse)return responsibilityResponse;
     const controlPlaneResponse=await handleAgenticControlPlaneRequest({request,logicalPath,env});
