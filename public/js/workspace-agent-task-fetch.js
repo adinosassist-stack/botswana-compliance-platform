@@ -30,10 +30,12 @@ export async function refreshWorkspaceAgentTaskPanel({
     return { ok: false, code: "identity_changed" };
   }
   if (!snapshot?.ok || !Array.isArray(snapshot.tasks)) return { ok: false, code: "invalid_task_snapshot" };
+  if (snapshot.tasks.length > 6) return { ok: false, code: "unsafe_task_snapshot" };
   if (snapshot.tasks.some(task => task?.tenantId !== identity.tenantId || task?.userId !== identity.userId || task?.workspace !== workspace)) {
     return { ok: false, code: "task_scope_mismatch" };
   }
-  return renderWorkspaceAgentTasks({ dock, snapshot, identity });
+  try { return renderWorkspaceAgentTasks({ dock, snapshot, identity }); }
+  catch { return { ok: false, code: "task_render_unavailable" }; }
 }
 
 export function clearWorkspaceAgentTaskPanel(dock) {
