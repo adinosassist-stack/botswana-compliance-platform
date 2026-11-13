@@ -26,6 +26,7 @@ export function createAuthenticatedWorkspaceAgentController({ dock, fetchImpl = 
       });
       if (current !== epoch) return { ok: false, code: "identity_changed" };
       if (!response.ok) return { ok: false, code: "identity_unavailable" };
+      if (requestAbort.signal.aborted) return { ok: false, code: "identity_changed" };
       identity = await response.json();
     } catch { return { ok: false, code: current !== epoch ? "identity_changed" : "identity_unavailable" }; }
     if (current === epoch) identityAbort = null;
