@@ -43,3 +43,26 @@ test("duplicate IDs do not consume the six-task display capacity", () => {
   assert.equal(result.tasks.length, 6);
   assert.equal(new Set(result.tasks.map(t => t.id)).size, 6);
 });
+
+test("state transitions reject forged or elevated task authority", () => {
+  const task = planWorkspaceAgentTasks({
+    workspace: "operations", tenantId: "t", userId: "u",
+    workUnits: [{ id: "a", objective: "Review" }]
+  }).tasks[0];
+  for (const unsafe of [
+    { executionAllowed: true },
+    { externalSideEffects: true },
+    { approvalRequired: false },
+    { authority: "execute" },
+    { tenantId: "" },
+    { userId: "" },
+    { id: "" },
+    { workspace: "unknown" }
+  ]) {
+    assert.equal(transitionWorkspaceAgentTask({ ...task, ...unsafe }, "in_progress").code, "task_transition_invalid");
+  }
+  const transitioned = transitionWorkspaceAgentTask(task, "in_progress");
+  assert.equal(transitioned.task.authority, "recommendation_only");
+  assert.equal(transitioned.task.approvalRequired, true);
+  assert.equal(transitioned.task.executionAllowed, false);
+});
