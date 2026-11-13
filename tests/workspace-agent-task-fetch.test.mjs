@@ -182,3 +182,30 @@ test("scope encoding prevents delimiter collisions between tenant and user IDs",
   await second;
   assert.notEqual(firstScope, secondScope);
 });
+
+test("oversized task response is rejected before touching dock DOM", async () => {
+  let touched = 0;
+  const dock = {
+    id: "thebeAiDock", dataset: { surface: "workspace", agentTaskScope: JSON.stringify(["t", "u", "finance"]) },
+    querySelector: () => { touched++; throw new Error("unexpected DOM access"); }
+  };
+  const task = { id: "a", tenantId: "t", userId: "u", workspace: "finance" };
+  const result = await refreshWorkspaceAgentTaskPanel({
+    dock, identity: { tenantId: "t", userId: "u", workspace: "finance" },
+    fetchImpl: async () => ({ ok: true, json: async () => ({ ok: true, tasks: Array(7).fill(task) }) })
+  });
+  assert.equal(result.code, "unsafe_task_snapshot");
+  assert.equal(touched, 0);
+});
+
+test("DOM errors are contained by direct refresh without leaking task data", async () => {
+  const dock = {
+    id: "thebeAiDock", dataset: { surface: "workspace", agentTaskScope: JSON.stringify(["t", "u", "finance"]) },
+    querySelector: () => { throw new Error("detached dock"); }
+  };
+  const result = await refreshWorkspaceAgentTaskPanel({
+    dock, identity: { tenantId: "t", userId: "u", workspace: "finance" },
+    fetchImpl: async () => ({ ok: true, json: async () => ({ ok: true, tasks: [] }) })
+  });
+  assert.equal(result.code, "task_render_unavailable");
+});
