@@ -13,7 +13,9 @@ export function renderWorkspaceAgentTasks({ dock, snapshot, identity } = {}) {
     return { ok: false, code: "task_scope_mismatch" };
   }
   if (snapshot.tasks.length > 6 || snapshot.tasks.some(task =>
-    !task || task.approvalRequired !== true || task.executionAllowed !== false ||
+    !task || !["queued", "in_progress", "needs_review", "failed"].includes(task.state) ||
+    typeof task.id !== "string" || !task.id.trim() || typeof task.title !== "string" ||
+    task.approvalRequired !== true || task.executionAllowed !== false ||
     task.externalSideEffects !== false || task.authority !== "recommendation_only"
   )) {
     return { ok: false, code: "unsafe_task_snapshot" };
