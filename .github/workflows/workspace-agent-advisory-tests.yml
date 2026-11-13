@@ -5,6 +5,7 @@ on:
       - 'cloudflare/src/workspace-agent-task-planning.js'
       - 'cloudflare/src/workspace-agent-tasks-api.js'
       - 'public/js/workspace-agent-task-*.js'
+      - 'public/js/workspace-agent-authenticated-controller.js'
       - 'tests/workspace-agent-*.test.mjs'
       - '.github/workflows/workspace-agent-advisory-tests.yml'
   workflow_dispatch:
@@ -25,5 +26,7 @@ jobs:
           node --check cloudflare/src/workspace-agent-tasks-api.js
           node --check public/js/workspace-agent-task-view.js
           node --check public/js/workspace-agent-task-renderer.js
+          node --check public/js/workspace-agent-task-fetch.js
+          node --check public/js/workspace-agent-authenticated-controller.js
       - name: Test advisory task boundaries
         run: node --test tests/workspace-agent-*.test.mjs
