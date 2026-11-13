@@ -61,3 +61,15 @@ test("disposing controller aborts pending identity lookup", async () => {
   resolve({ ok: true, json: async () => ({ ok: true, tenantId: "t", userId: "u" }) });
   assert.equal((await pending).code, "identity_changed");
 });
+
+test("identity lookup never decodes response after logout", async () => {
+  let finish, decodeCalls = 0;
+  const controller = createAuthenticatedWorkspaceAgentController({
+    dock: dock(), fetchImpl: () => new Promise(resolve => { finish = resolve; })
+  });
+  const pending = controller.refresh("owner");
+  controller.clear();
+  finish({ ok: true, json: async () => { decodeCalls++; return { ok: true, tenantId: "t", userId: "u" }; } });
+  assert.equal((await pending).code, "identity_changed");
+  assert.equal(decodeCalls, 0);
+});
