@@ -37,9 +37,11 @@ export async function refreshWorkspaceAgentTaskPanel({
 }
 
 export function clearWorkspaceAgentTaskPanel(dock) {
-  if (!dock) return;
+  if (!dock || !dock.dataset) return;
   delete dock.dataset.agentTaskScope;
-  dock.querySelector('[data-thebe-agent-task-panel="1"]')?.remove();
+  if (typeof dock.querySelector === "function") {
+    dock.querySelector('[data-thebe-agent-task-panel="1"]')?.remove();
+  }
 }
 
 /**
