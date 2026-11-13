@@ -8,7 +8,7 @@ export function createAuthenticatedWorkspaceAgentController({ dock, fetchImpl = 
   let disposed = false;
   let identityAbort = null;
   const clear = () => { epoch++; identityAbort?.abort(); identityAbort = null; controller.clear(); };
-  const dispose = () => { disposed = true; epoch++; controller.dispose(); };
+  const dispose = () => { disposed = true; clear(); controller.dispose(); };
   const refresh = async (workspace) => {
     if (disposed) return { ok: false, code: "controller_disposed" };
     clear();
