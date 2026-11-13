@@ -82,7 +82,11 @@ test("renderer rejects unsafe advisory snapshot before DOM mutation", () => {
     { ...base, executionAllowed: true },
     { ...base, approvalRequired: false },
     { ...base, externalSideEffects: true },
-    { ...base, authority: "execute" }
+    { ...base, authority: "execute" },
+    { ...base, state: "completed" },
+    { ...base, state: "unexpected" },
+    { ...base, id: "" },
+    { ...base, title: null }
   ]) {
     assert.equal(renderWorkspaceAgentTasks({ dock, identity, snapshot: { ok: true, tasks: [unsafe] } }).code, "unsafe_task_snapshot");
   }
