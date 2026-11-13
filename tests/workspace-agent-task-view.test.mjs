@@ -22,7 +22,7 @@ test("rejects unscoped, invalid and excessive task snapshots", () => {
   const view = workspaceAgentTaskView({ ok: true, tasks: [
     task({ state: "not_a_state" }), ...Array.from({ length: 9 }, (_, i) => task({ id: String(i) }))
   ] }, { tenantId: "tenant-a", userId: "user-a", workspace: "finance" });
-  assert.equal(view.length, 5);
+  assert.equal(view.length, 0);
 });
 
 test("rejects executable or unreviewed task payloads", () => {
@@ -35,4 +35,16 @@ test("rejects executable or unreviewed task payloads", () => {
     task({ id: "advisory" })
   ] };
   assert.deepEqual(workspaceAgentTaskView(snapshot, identity).map(t => t.id), ["advisory"]);
+});
+
+test("presentation adapter rejects completed, malformed, and oversized snapshots", () => {
+  const identity = { tenantId: "tenant-a", userId: "user-a", workspace: "finance" };
+  const snapshot = { ok: true, tasks: [
+    task({ id: "done", state: "completed" }),
+    task({ id: "", title: "Missing identifier" }),
+    task({ id: "bad-title", title: null }),
+    task({ id: "valid" })
+  ] };
+  assert.deepEqual(workspaceAgentTaskView(snapshot, identity).map(x => x.id), ["valid"]);
+  assert.deepEqual(workspaceAgentTaskView({ ok: true, tasks: Array(7).fill(task()) }, identity), []);
 });
