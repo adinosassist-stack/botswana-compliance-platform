@@ -4,6 +4,7 @@ on:
     paths:
       - 'cloudflare/src/workspace-agent-task-planning.js'
       - 'cloudflare/src/workspace-agent-tasks-api.js'
+      - 'cloudflare/src/agentic-entry.js'
       - 'public/js/workspace-agent-task-*.js'
       - 'public/js/workspace-agent-authenticated-controller.js'
       - 'tests/workspace-agent-*.test.mjs'
@@ -24,6 +25,7 @@ jobs:
         run: |
           node --check cloudflare/src/workspace-agent-task-planning.js
           node --check cloudflare/src/workspace-agent-tasks-api.js
+          node --check cloudflare/src/agentic-entry.js
           node --check public/js/workspace-agent-task-view.js
           node --check public/js/workspace-agent-task-renderer.js
           node --check public/js/workspace-agent-task-fetch.js
