@@ -93,3 +93,20 @@ test("renderer rejects unsafe advisory snapshot before DOM mutation", () => {
   assert.equal(renderWorkspaceAgentTasks({ dock, identity, snapshot: { ok: true, tasks: Array(7).fill(base) } }).code, "unsafe_task_snapshot");
   assert.equal(touched, 0);
 });
+
+test("renderer rejects duplicate task identifiers without touching DOM", () => {
+  let touched = 0;
+  const dock = {
+    id: "thebeAiDock", dataset: { surface: "workspace" },
+    querySelector: () => { touched++; throw new Error("DOM must remain untouched"); }
+  };
+  const identity = { tenantId: "t", userId: "u", workspace: "finance" };
+  const task = {
+    id: "same", title: "Review", tenantId: "t", userId: "u", workspace: "finance",
+    state: "queued", approvalRequired: true, executionAllowed: false,
+    externalSideEffects: false, authority: "recommendation_only"
+  };
+  const result = renderWorkspaceAgentTasks({ dock, identity, snapshot: { ok: true, tasks: [task, { ...task }] } });
+  assert.equal(result.code, "duplicate_task_ids");
+  assert.equal(touched, 0);
+});
