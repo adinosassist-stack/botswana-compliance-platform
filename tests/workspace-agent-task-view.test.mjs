@@ -4,7 +4,8 @@ import { workspaceAgentTaskView } from "../public/js/workspace-agent-task-view.j
 const task = (overrides = {}) => ({
   id: "a", title: "Review finance", state: "needs_review", priority: "high",
   tenantId: "tenant-a", userId: "user-a", workspace: "finance",
-  approvalRequired: true, ...overrides
+  approvalRequired: true, executionAllowed: false, externalSideEffects: false,
+  authority: "recommendation_only", ...overrides
 });
 test("only displays tasks for matching tenant, user and workspace", () => {
   const view = workspaceAgentTaskView({ ok: true, tasks: [
@@ -22,4 +23,16 @@ test("rejects unscoped, invalid and excessive task snapshots", () => {
     task({ state: "not_a_state" }), ...Array.from({ length: 9 }, (_, i) => task({ id: String(i) }))
   ] }, { tenantId: "tenant-a", userId: "user-a", workspace: "finance" });
   assert.equal(view.length, 5);
+});
+
+test("rejects executable or unreviewed task payloads", () => {
+  const identity = { tenantId: "tenant-a", userId: "user-a", workspace: "finance" };
+  const snapshot = { ok: true, tasks: [
+    task({ id: "execute", executionAllowed: true }),
+    task({ id: "side-effects", externalSideEffects: true }),
+    task({ id: "no-review", approvalRequired: false }),
+    task({ id: "elevated", authority: "execute" }),
+    task({ id: "advisory" })
+  ] };
+  assert.deepEqual(workspaceAgentTaskView(snapshot, identity).map(t => t.id), ["advisory"]);
 });
