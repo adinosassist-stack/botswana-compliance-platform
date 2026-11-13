@@ -13,7 +13,9 @@ export function workspaceAgentTaskView(snapshot, { tenantId, userId, workspace }
   if (!tenant || !actor || !scope || !snapshot?.ok || !Array.isArray(snapshot.tasks)) return Object.freeze([]);
   return Object.freeze(snapshot.tasks.slice(0, 6).filter(task =>
     task?.tenantId === tenant && task?.userId === actor && task?.workspace === scope &&
-    Object.hasOwn(STATES, task?.state)
+    Object.hasOwn(STATES, task?.state) &&
+    task?.approvalRequired === true && task?.executionAllowed === false &&
+    task?.externalSideEffects === false && task?.authority === "recommendation_only"
   ).map(task => Object.freeze({
     id: clean(task.id, 120),
     title: clean(task.title, 240),
