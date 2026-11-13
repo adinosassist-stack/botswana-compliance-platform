@@ -38,7 +38,7 @@ export function renderWorkspaceAgentTasks({ dock, snapshot, identity } = {}) {
     const name = document.createElement("span");
     name.textContent = task.title || "Untitled task";
     const status = document.createElement("small");
-    status.textContent = task.status + (task.reviewRequired ? " · Review required" : "");
+    status.textContent = task.state + (task.approvalRequired ? " · Review required" : "");
     row.append(name, status);
     list.append(row);
   }
