@@ -84,11 +84,10 @@ try {
   assert.ok(state.requests.some(request=>request.path==="/api/auth/me"));
   assert.ok(state.requests.some(request=>request.path==="/api/agentic/workspace-identity"));
 
-  // A view change invalidates the previous scope and uses the permitted finance scope.
+  // A real view class change MUST clear old scope even without a custom event.
   await page.evaluate(()=>{
     document.getElementById("dashboard").classList.remove("active");
     document.getElementById("moneyhub").classList.add("active");
-    window.dispatchEvent(new CustomEvent("thebe:workspace-view-change",{detail:{id:"moneyhub"}}));
   });
   await page.getByText("Review verified finance items").waitFor();
   assert.ok(!await page.getByText("Review verified owner items").count(),"old workspace tasks must be removed");
@@ -101,11 +100,10 @@ try {
   await page.waitForFunction(()=>document.getElementById("thebeAiDock")?.dataset?.agentTaskScope?.includes("tenant-B"));
   assert.ok(state.requests.filter(request=>request.path==="/api/auth/me").length>authBefore);
 
-  // Unmapped view cannot keep an earlier tenant-scoped task visible.
+  // Unmapped DOM-only view cannot retain earlier tenant-scoped advice.
   await page.evaluate(()=>{
     document.getElementById("moneyhub").classList.remove("active");
     document.getElementById("payments").classList.add("active");
-    window.dispatchEvent(new CustomEvent("thebe:workspace-view-change",{detail:{id:"payments"}}));
   });
   await page.waitForFunction(()=>!document.querySelector('[data-thebe-agent-task-panel="1"]'));
   assert.equal(await page.locator('[data-thebe-agent-task-panel="1"]').count(),0);
@@ -135,12 +133,22 @@ try {
   await page.evaluate(()=>window.__THEBE_AGENT_APP_SHELL__?.refresh());
   await page.getByText("Review verified owner items").waitFor();
 
+  // Dock surface changes are not custom events: hidden advice must disappear
+  // and later reappear only after a fresh authenticated session request.
+  const authBeforeDock=state.requests.filter(request=>request.path==="/api/auth/me").length;
+  await page.evaluate(()=>document.getElementById("thebeAiDock").dataset.surface="hidden");
+  await page.waitForFunction(()=>!document.querySelector('[data-thebe-agent-task-panel="1"]'));
+  assert.equal(await page.locator('[data-thebe-agent-task-panel="1"]').count(),0);
+  await page.evaluate(()=>document.getElementById("thebeAiDock").dataset.surface="workspace");
+  await page.getByText("Review verified owner items").waitFor();
+  assert.ok(state.requests.filter(request=>request.path==="/api/auth/me").length>authBeforeDock);
+
   // Hiding the shell must clear sensitive task scope immediately.
   await page.evaluate(()=>document.getElementById("appShell").style.display="none");
   await page.waitForFunction(()=>!document.querySelector('[data-thebe-agent-task-panel="1"]'));
   assert.equal(await page.locator('[data-thebe-agent-task-panel="1"]').count(),0);
   assert.deepEqual(state.writes,[],"advisory agent must not issue POST/PUT/PATCH/DELETE requests");
-  console.log("PASS: Chromium authenticated Agent advice, scope changes, expired/reviewer denial, spoofed events and no writes");
+  console.log("PASS: Chromium DOM-only Agent navigation, dock surface invalidation, tenant isolation, role expiry and no writes");
   await page.close();
 } finally {
   await browser.close();
