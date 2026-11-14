@@ -206,6 +206,23 @@ jobs:
             WORKFLOW_PAGE_1="$workflow_page_1" WORKFLOW_PAGE_2="$workflow_page_2" python3 -c 'import json,os; p1=json.load(open(os.environ["WORKFLOW_PAGE_1"])); p2=json.load(open(os.environ["WORKFLOW_PAGE_2"])); runs=p1.get("workflow_runs",[])+p2.get("workflow_runs",[]); print(json.dumps({"workflow_runs":runs},separators=(",",":")))'
           }
 
+          # A protected owner-dispatched deployment is valid historical provenance only
+          # when GitHub records an independent thusico approval for production.
+          # A completed green dispatch without that approval is never sufficient.
+          verify_protected_manual_deployment(){
+            local deployment_run_id="$1"
+            [[ "$deployment_run_id" =~ ^[0-9]+$ ]] || return 1
+            local approvals_json
+            approvals_json="$(
+              curl --fail-with-body --silent --show-error \
+                --header 'Accept: application/vnd.github+json' \
+                --header "Authorization: Bearer $GH_TOKEN" \
+                --header 'X-GitHub-Api-Version: 2022-11-28' \
+                "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$deployment_run_id/approvals"
+            )" || return 1
+            printf '%s' "$approvals_json" | python3 -c 'import json,sys; approvals=json.load(sys.stdin); valid=isinstance(approvals,list) and any(isinstance(a,dict) and a.get("state")=="approved" and str((a.get("user") or {}).get("login","")).lower()=="thusico" and any(e.get("name")=="production" for e in a.get("environments",[]) if isinstance(e,dict)) for a in approvals); sys.exit(0 if valid else 1)'
+          }
+
           recovery_json=''
           recovery_confirmed=0
           for attempt in $(seq 1 37); do
@@ -254,7 +271,13 @@ jobs:
             [[ "$candidate_bf07_success" == '1' ]] || continue
 
             candidate_deploy_json="$(fetch_workflow_runs deploy-production.yml "$candidate_sha")"
-            candidate_deploy_success="$(printf '%s' "$candidate_deploy_json" | CANDIDATE_SHA="$candidate_sha" python3 -c 'import json,os,sys; runs=json.load(sys.stdin).get("workflow_runs",[]); sha=os.environ["CANDIDATE_SHA"]; print("1" if any(r.get("head_sha")==sha and r.get("head_branch")=="main" and r.get("event")=="workflow_run" and r.get("status")=="completed" and r.get("conclusion")=="success" for r in runs) else "0")')"
+            candidate_deploy_proof="$(printf '%s' "$candidate_deploy_json" | CANDIDATE_SHA="$candidate_sha" python3 -c 'import json,os,sys; runs=json.load(sys.stdin).get("workflow_runs",[]); sha=os.environ["CANDIDATE_SHA"]; qualified=[r for r in runs if r.get("head_sha")==sha and r.get("head_branch")=="main" and r.get("status")=="completed" and r.get("conclusion")=="success"]; auto=next((r for r in qualified if r.get("event")=="workflow_run"),None); manual=next((r for r in qualified if r.get("event")=="workflow_dispatch" and isinstance(r.get("id"),int) and r["id"]>0),None); print("automatic:"+str(auto["id"]) if auto else ("manual:"+str(manual["id"]) if manual else "missing"))')"
+            candidate_deploy_success='0'
+            if [[ "$candidate_deploy_proof" == automatic:* ]]; then
+              candidate_deploy_success='1'
+            elif [[ "$candidate_deploy_proof" == manual:* ]] && verify_protected_manual_deployment "${candidate_deploy_proof#manual:}"; then
+              candidate_deploy_success='1'
+            fi
             [[ "$candidate_deploy_success" == '1' ]] || continue
 
             candidate_smoke_json="$(fetch_workflow_runs postdeploy-smoke.yml "$candidate_sha")"
@@ -264,14 +287,19 @@ jobs:
             previous_release_sha="$candidate_sha"
             break
           done < <(git rev-list --first-parent --max-count="$MAX_RELEASE_LINEAGE_MERGES" "$base_sha")
-          [[ "$previous_release_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'no prior BF-07-sealed, automatically deployed production release with successful post-deploy smoke found on bounded first-parent history' >&2; exit 1; }
+          [[ "$previous_release_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'no prior BF-07-sealed, independently approved production deployment with successful post-deploy smoke found on bounded first-parent history' >&2; exit 1; }
           echo "Prior deployed production release baseline resolved: ${previous_release_sha:0:12}"
 
           prior_bf07_json="$(fetch_workflow_runs bf07-seal.yml "$previous_release_sha")"
           printf '%s' "$prior_bf07_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("prior deployed release has no successful BF-07 seal on main"); print("Prior BF-07 release baseline confirmed: run {}".format(match.get("id")))'
 
           prior_deploy_json="$(fetch_workflow_runs deploy-production.yml "$previous_release_sha")"
-          printf '%s' "$prior_deploy_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("event")=="workflow_run" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("prior deployed release has no successful automatic production deployment on main"); print("Prior production release baseline confirmed: run {}".format(match.get("id")))'
+          prior_deploy_proof="$(printf '%s' "$prior_deploy_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; runs=json.load(sys.stdin).get("workflow_runs",[]); sha=os.environ["PREVIOUS_RELEASE_SHA"]; qualified=[r for r in runs if r.get("head_sha")==sha and r.get("head_branch")=="main" and r.get("status")=="completed" and r.get("conclusion")=="success"]; auto=next((r for r in qualified if r.get("event")=="workflow_run"),None); manual=next((r for r in qualified if r.get("event")=="workflow_dispatch" and isinstance(r.get("id"),int) and r["id"]>0),None); print("automatic:"+str(auto["id"]) if auto else ("manual:"+str(manual["id"]) if manual else "missing"))')"
+          [[ "$prior_deploy_proof" != missing ]] || { echo 'prior deployed release has no completed successful automatic or independently approved manual production deployment on main' >&2; exit 1; }
+          if [[ "$prior_deploy_proof" == manual:* ]]; then
+            verify_protected_manual_deployment "${prior_deploy_proof#manual:}" || { echo 'prior manual production deployment lacks independent thusico approval for protected production environment' >&2; exit 1; }
+          fi
+          echo "Prior production release baseline confirmed: $prior_deploy_proof"
 
           prior_smoke_json="$(fetch_workflow_runs postdeploy-smoke.yml "$previous_release_sha")"
           printf '%s' "$prior_smoke_json" | PREVIOUS_RELEASE_SHA="$previous_release_sha" python3 -c 'import json,os,sys; body=json.load(sys.stdin); sha=os.environ["PREVIOUS_RELEASE_SHA"]; runs=body.get("workflow_runs",[]); match=next((run for run in runs if run.get("head_sha")==sha and run.get("head_branch")=="main" and run.get("event")=="workflow_run" and run.get("status")=="completed" and run.get("conclusion")=="success"),None); match or sys.exit("prior deployed release has no successful automatic post-deploy smoke on main"); print("Prior post-deploy smoke release baseline confirmed: run {}".format(match.get("id")))'
