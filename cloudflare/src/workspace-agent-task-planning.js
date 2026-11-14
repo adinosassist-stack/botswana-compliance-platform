@@ -45,7 +45,7 @@ export function transitionWorkspaceAgentTask(task, nextState) {
     completed: []
   };
   if (!task || !WORKSPACES.has(task.workspace) || !clean(task.tenantId, 120) || !clean(task.userId, 120) ||
-      !clean(task.id, 120) || task.approvalRequired !== true ||
+      !clean(task.id, 120) || !clean(task.title, 500) || task.approvalRequired !== true ||
       task.executionAllowed !== false || task.externalSideEffects !== false ||
       task.authority !== "recommendation_only" ||
       !WORKSPACE_AGENT_TASK_STATES.includes(task.state) || !transitions[task.state].includes(next)) {
@@ -55,7 +55,14 @@ export function transitionWorkspaceAgentTask(task, nextState) {
   // A caller-supplied boolean is never evidence of reviewer authorization. 
   if (next === "completed") return Object.freeze({ ok: false, code: "trusted_completion_required" });
   return Object.freeze({ ok: true, code: "task_state_updated", task: Object.freeze({
-    ...task, state: next, approvalRequired: true, authority: "recommendation_only",
+    id: clean(task.id, 120), workspace: task.workspace,
+    tenantId: clean(task.tenantId, 120), userId: clean(task.userId, 120),
+    title: clean(task.title, 500),
+    priority: ["low", "medium", "high"].includes(task.priority) ? task.priority : "medium",
+    state: next,
+    sourceRefs: Object.freeze(Array.isArray(task.sourceRefs) ? task.sourceRefs.slice(0, 20).map(ref => clean(ref, 120)).filter(Boolean) : []),
+    sourceRefsDropped: Number.isSafeInteger(task.sourceRefsDropped) && task.sourceRefsDropped >= 0 ? task.sourceRefsDropped : 0,
+    approvalRequired: true, authority: "recommendation_only",
     executionAllowed: false, externalSideEffects: false
   }) });
 }
