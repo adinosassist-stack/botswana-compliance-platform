@@ -130,7 +130,7 @@ export async function handleStaffManager({request,url,env,auth,json,readJson,id}
  const method=request.method,path=url.pathname,tenantId=auth.tenant_id;
  if(path==="/api/employee-self-service/tasks"&&method==="GET"){
   const rows=await env.DB.prepare("SELECT t.id,t.employee_id,e.full_name employee_name,t.title,t.detail,t.priority,t.status,t.due_date,t.version,t.updated_at,n.note latest_note,n.actor_kind latest_note_actor FROM employee_portal_tasks t JOIN employees e ON e.id=t.employee_id AND e.tenant_id=t.tenant_id LEFT JOIN employee_portal_task_events n ON n.rowid=(SELECT MAX(ev.rowid) FROM employee_portal_task_events ev WHERE ev.task_id=t.id AND ev.tenant_id=t.tenant_id AND LENGTH(TRIM(ev.note))>0) WHERE t.tenant_id=? ORDER BY CASE t.status WHEN 'submitted' THEN 0 ELSE 1 END,t.updated_at DESC LIMIT 100").bind(tenantId).all();
-  return json({items:rows.results||[]});
+  return json({items:rows.results||[],tenantId});
  }
  if(path==="/api/employee-self-service/tasks"&&method==="POST"){
   const body=await dataBody(readJson,request),input=staffTaskInput(body);

@@ -1,0 +1,32 @@
+name: Work board contract tests
+on:
+  pull_request:
+    paths:
+      - 'public/js/work-board-*.js'
+      - 'public/js/employee-self-service-manager.js'
+      - 'cloudflare/src/employee-self-service.js'
+      - 'server/project-job-costing-preview.js'
+      - 'server/employee-routines-preview.js'
+      - 'tests/work-*.test.mjs'
+      - '.github/workflows/work-board-contract.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  work-board:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax validation
+        run: |
+          node --check public/js/work-board-readonly.js
+          node --check public/js/work-board-renderer.js
+          node --check public/js/work-board-manager-adapter.js
+          node --check public/js/employee-self-service-manager.js
+          node --check cloudflare/src/employee-self-service.js
+      - name: Work contract tests
+        run: node --test tests/work-page-preview-contract.test.mjs tests/work-board-readonly.test.mjs tests/work-board-manager-adapter.test.mjs tests/work-board-manager-integration.test.mjs
