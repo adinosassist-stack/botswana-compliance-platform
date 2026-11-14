@@ -17,7 +17,7 @@ test("task fetch rejects invalid workspace without a network call", async () => 
   assert.equal(calls, 0);
 });
 test("task fetch discards stale response after identity changes", async () => {
-  const dock = { id: "thebeAiDock", dataset: { surface: "workspace", agentTaskScope: "other:u:finance" } };
+  const dock = { id: "thebeAiDock", dataset: { surface: "workspace", agentTaskScope: JSON.stringify(["other", "u", "finance"]) } };
   const result = await refreshWorkspaceAgentTaskPanel({
     dock, identity: { tenantId: "t", userId: "u", workspace: "finance" },
     fetchImpl: async () => ({ ok: true, json: async () => ({ ok: true, tasks: [] }) })
@@ -25,7 +25,7 @@ test("task fetch discards stale response after identity changes", async () => {
   assert.equal(result.code, "identity_changed");
 });
 test("clear task panel drops scope even if panel is absent", () => {
-  const dock = { dataset: { agentTaskScope: "t:u:finance" }, querySelector: () => null };
+  const dock = { dataset: { agentTaskScope: JSON.stringify(["t", "u", "finance"]) }, querySelector: () => null };
   clearWorkspaceAgentTaskPanel(dock);
   assert.equal(dock.dataset.agentTaskScope, undefined);
 });
@@ -33,7 +33,7 @@ test("clear task panel drops scope even if panel is absent", () => {
 test("task fetch never starts when identity scope is stale", async () => {
   let calls = 0;
   const result = await refreshWorkspaceAgentTaskPanel({
-    dock: { id: "thebeAiDock", dataset: { surface: "workspace", agentTaskScope: "old:u:finance" } },
+    dock: { id: "thebeAiDock", dataset: { surface: "workspace", agentTaskScope: JSON.stringify(["old", "u", "finance"]) } },
     identity: { tenantId: "new", userId: "u", workspace: "finance" },
     fetchImpl: () => { calls++; throw new Error("unexpected request"); }
   });
@@ -43,7 +43,7 @@ test("task fetch never starts when identity scope is stale", async () => {
 
 test("invalid JSON fails closed without rendering tasks", async () => {
   const result = await refreshWorkspaceAgentTaskPanel({
-    dock: { id: "thebeAiDock", dataset: { surface: "workspace", agentTaskScope: "t:u:finance" } },
+    dock: { id: "thebeAiDock", dataset: { surface: "workspace", agentTaskScope: JSON.stringify(["t", "u", "finance"]) } },
     identity: { tenantId: "t", userId: "u", workspace: "finance" },
     fetchImpl: async () => ({ ok: true, json: async () => { throw new SyntaxError("bad json"); } })
   });
@@ -52,7 +52,7 @@ test("invalid JSON fails closed without rendering tasks", async () => {
 
 test("invalid snapshot envelope cannot create a task panel", async () => {
   const result = await refreshWorkspaceAgentTaskPanel({
-    dock: { id: "thebeAiDock", dataset: { surface: "workspace", agentTaskScope: "t:u:finance" } },
+    dock: { id: "thebeAiDock", dataset: { surface: "workspace", agentTaskScope: JSON.stringify(["t", "u", "finance"]) } },
     identity: { tenantId: "t", userId: "u", workspace: "finance" },
     fetchImpl: async () => ({ ok: true, json: async () => ({ ok: false, tasks: [] }) })
   });
@@ -61,7 +61,7 @@ test("invalid snapshot envelope cannot create a task panel", async () => {
 
 test("mixed-tenant task snapshot is rejected as a whole", async () => {
   const result = await refreshWorkspaceAgentTaskPanel({
-    dock: { id: "thebeAiDock", dataset: { surface: "workspace", agentTaskScope: "t:u:finance" } },
+    dock: { id: "thebeAiDock", dataset: { surface: "workspace", agentTaskScope: JSON.stringify(["t", "u", "finance"]) } },
     identity: { tenantId: "t", userId: "u", workspace: "finance" },
     fetchImpl: async () => ({ ok: true, json: async () => ({
       ok: true, tasks: [{ id: "a", tenantId: "other", userId: "u", workspace: "finance", state: "queued" }]
@@ -97,6 +97,8 @@ test("lifecycle controller contains renderer or transport exceptions", async () 
     querySelector: () => { throw new Error("DOM unavailable"); }
   };
   const controller = createWorkspaceAgentTaskController({ dock });
+  assert.doesNotThrow(() => controller.clear());
+  assert.doesNotThrow(() => controller.dispose());
   // Invalid context returns before a task request, but clear is still invoked.
   // Use a well-behaved dock to test transport failure separately.
   const safeDock = { id: "thebeAiDock", dataset: { surface: "workspace" }, querySelector: () => null };
@@ -143,4 +145,67 @@ test("disposed controller cannot restart authenticated task requests", async () 
   const result = await controller.refresh({ tenantId: "t", userId: "u", workspace: "owner" });
   assert.equal(result.code, "controller_disposed");
   assert.equal(calls, 0);
+});
+
+test("controller cleanup tolerates unmounted dock without querySelector", () => {
+  const controller = createWorkspaceAgentTaskController({
+    dock: { id: "thebeAiDock", dataset: { surface: "workspace", agentTaskScope: "old" } }
+  });
+  assert.doesNotThrow(() => controller.clear());
+  assert.doesNotThrow(() => controller.dispose());
+});
+
+test("missing dock dataset fails closed without network requests", async () => {
+  let calls = 0;
+  const dock = { id: "thebeAiDock" };
+  const identity = { tenantId: "t", userId: "u", workspace: "finance" };
+  const fetchImpl = () => { calls++; throw new Error("unexpected network call"); };
+  assert.equal((await refreshWorkspaceAgentTaskPanel({ dock, identity, fetchImpl })).code, "authenticated_workspace_required");
+  const controller = createWorkspaceAgentTaskController({ dock, fetchImpl });
+  assert.equal((await controller.refresh(identity)).code, "authenticated_workspace_required");
+  assert.equal(calls, 0);
+});
+
+test("scope encoding prevents delimiter collisions between tenant and user IDs", async () => {
+  const dock = {
+    id: "thebeAiDock", dataset: { surface: "workspace" },
+    querySelector: () => null
+  };
+  const controller = createWorkspaceAgentTaskController({
+    dock, fetchImpl: async () => ({ ok: false, status: 503 })
+  });
+  const first = controller.refresh({ tenantId: "a:b", userId: "c", workspace: "finance" });
+  const firstScope = dock.dataset.agentTaskScope;
+  await first;
+  const second = controller.refresh({ tenantId: "a", userId: "b:c", workspace: "finance" });
+  const secondScope = dock.dataset.agentTaskScope;
+  await second;
+  assert.notEqual(firstScope, secondScope);
+});
+
+test("oversized task response is rejected before touching dock DOM", async () => {
+  let touched = 0;
+  const dock = {
+    id: "thebeAiDock", dataset: { surface: "workspace", agentTaskScope: JSON.stringify(["t", "u", "finance"]) },
+    querySelector: () => { touched++; throw new Error("unexpected DOM access"); }
+  };
+  const task = { id: "a", tenantId: "t", userId: "u", workspace: "finance" };
+  const result = await refreshWorkspaceAgentTaskPanel({
+    dock, identity: { tenantId: "t", userId: "u", workspace: "finance" },
+    fetchImpl: async () => ({ ok: true, json: async () => ({ ok: true, tasks: Array(7).fill(task) }) })
+  });
+  assert.equal(result.code, "unsafe_task_snapshot");
+  assert.equal(touched, 0);
+});
+
+test("DOM errors are contained by direct refresh without leaking task data", async () => {
+  const dock = {
+    id: "thebeAiDock", dataset: { surface: "workspace", agentTaskScope: JSON.stringify(["t", "u", "finance"]) },
+    querySelector: () => { throw new Error("detached dock"); }
+  };
+  const result = await refreshWorkspaceAgentTaskPanel({
+    dock, identity: { tenantId: "t", userId: "u", workspace: "finance" },
+    fetchImpl: async () => ({ ok: true, json: async () => ({ ok: true, tasks: [] }) })
+  });
+  assert.equal(result.code, "task_render_unavailable");
 });
