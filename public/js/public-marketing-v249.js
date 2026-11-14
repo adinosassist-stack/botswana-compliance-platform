@@ -54,8 +54,8 @@
     if(typeof mq.addEventListener==="function")mq.addEventListener("change",sync);else mq.addListener?.(sync)
   }
   function updateGuidedWhatsAppCtas(gate){
-    const guided=gate.querySelectorAll('a[href^="https://wa.me/26777723273?text="]');
-    for(const link of guided)link.href=`https://wa.me/26777723273?text=${encodeURIComponent("Thebe, brief me.")}`
+    const guided=gate.querySelectorAll('a[href^="https://wa.me/26774583606?text="]');
+    for(const link of guided)link.href=`https://wa.me/26774583606?text=${encodeURIComponent("Thebe, brief me.")}`
   }
   function init(){
     const gate=document.getElementById("marketingGate");
