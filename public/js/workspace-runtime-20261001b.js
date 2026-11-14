@@ -3617,7 +3617,7 @@ function scheduleWorkspaceNavigationRender(id,target,epoch){
   else setTimeout(render,0);
 }
 let lastWorkspaceView="dashboard";
-function showView(id,options={}){if(!roleCanView(id)){console.warn("Role denied view",id,currentWorkspaceRole());if(!options?.silent){let sr=document.getElementById("srStatus");if(sr)sr.textContent="This area is not available for your role."}return false}const target=document.getElementById(id);if(!target){console.warn("Unknown view",id);return false}const workspaceNavigationEpoch=options?.preserveNavigationEpoch===true?workspaceViewNavigationEpoch:++workspaceViewNavigationEpoch;if(target.dataset.lazyView==="1"&&options?.lazyHydrated!==true){target.dataset.lazyNavigationEpoch=String(workspaceNavigationEpoch);activateLazyWorkspacePlaceholder(id,target);void hydrateLazyWorkspaceView(id,target,options);return true}lastWorkspaceView=id;emitWorkspaceAgentShellState("navigation");document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));target.classList.add("active");if(id==="propertyintelligence")scheduleResidentPropertyVisibility(target);document.querySelectorAll(".nav button").forEach(b=>{let active=b.dataset.view===id;b.classList.toggle("active",active);if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});const nb=document.querySelector(`[data-view="${id}"]`),meta=(typeof COMMAND_META!=="undefined"?COMMAND_META[id]:null);document.getElementById("pageTitle").textContent=meta?.[0]||nb?.textContent?.trim()||"BW Compliance OS";updateMobileNav(id);let sr=document.getElementById("srStatus");if(sr)sr.textContent="Opened "+document.getElementById("pageTitle").textContent;window.scrollTo({top:0,behavior:prefersReducedMotion()?"auto":"smooth"});if(options?.skipDataRefresh)setTimeout(animateViewItems,20);if(!options?.skipDataRefresh&&!options?.roleRedirect)scheduleWorkspaceNavigationRender(id,target,workspaceNavigationEpoch);globalThis.dispatchEvent?.(new CustomEvent("thebe:workspace-view-change",{detail:{id}}));if(!STANDALONE_PREVIEW&&!options?.skipDataRefresh&&!options?.roleRedirect){if(id==="billing")queueMicrotask(()=>void loadBilling());if(id==="audit")queueMicrotask(()=>void hydrateWorkspaceAudit())}return true}
+function showView(id,options={}){if(!roleCanView(id)){console.warn("Role denied view",id,currentWorkspaceRole());if(!options?.silent){let sr=document.getElementById("srStatus");if(sr)sr.textContent="This area is not available for your role."}return false}const target=document.getElementById(id);if(!target){console.warn("Unknown view",id);return false}const workspaceNavigationEpoch=options?.preserveNavigationEpoch===true?workspaceViewNavigationEpoch:++workspaceViewNavigationEpoch;if(target.dataset.lazyView==="1"&&options?.lazyHydrated!==true){target.dataset.lazyNavigationEpoch=String(workspaceNavigationEpoch);activateLazyWorkspacePlaceholder(id,target);void hydrateLazyWorkspaceView(id,target,options);return true}lastWorkspaceView=id;document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));target.classList.add("active");if(id==="propertyintelligence")scheduleResidentPropertyVisibility(target);document.querySelectorAll(".nav button").forEach(b=>{let active=b.dataset.view===id;b.classList.toggle("active",active);if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});const nb=document.querySelector(`[data-view="${id}"]`),meta=(typeof COMMAND_META!=="undefined"?COMMAND_META[id]:null);document.getElementById("pageTitle").textContent=meta?.[0]||nb?.textContent?.trim()||"BW Compliance OS";updateMobileNav(id);let sr=document.getElementById("srStatus");if(sr)sr.textContent="Opened "+document.getElementById("pageTitle").textContent;window.scrollTo({top:0,behavior:prefersReducedMotion()?"auto":"smooth"});if(options?.skipDataRefresh)setTimeout(animateViewItems,20);if(!options?.skipDataRefresh&&!options?.roleRedirect)scheduleWorkspaceNavigationRender(id,target,workspaceNavigationEpoch);globalThis.dispatchEvent?.(new CustomEvent("thebe:workspace-view-change",{detail:{id}}));if(!STANDALONE_PREVIEW&&!options?.skipDataRefresh&&!options?.roleRedirect){if(id==="billing")queueMicrotask(()=>void loadBilling());if(id==="audit")queueMicrotask(()=>void hydrateWorkspaceAudit())}return true}
 
 let wizardStep=0;
 let firstValueTopTarget="workhub";
@@ -3713,7 +3713,7 @@ function syncMarketingSessionActions(){
  document.querySelectorAll('#marketingGate [data-guest-action]').forEach(el=>{el.hidden=canResume});
  document.querySelectorAll('#marketingGate .marketing-session-action').forEach(el=>{el.hidden=!canResume});
 }
-function showMarketing(){emitWorkspaceAgentShellState("shell-hidden");const rp=document.getElementById("roleAccessPortal");if(rp)rp.style.display="none";marketingGate.classList.remove("hidden");authGate.classList.add("hidden");concealWorkspaceShell();syncMobileRoleNav("");syncMarketingSessionActions()}
+function showMarketing(){const rp=document.getElementById("roleAccessPortal");if(rp)rp.style.display="none";marketingGate.classList.remove("hidden");authGate.classList.add("hidden");concealWorkspaceShell();syncMobileRoleNav("");syncMarketingSessionActions()}
 function hideMarketing(){marketingGate.classList.add("hidden")}
 function returnToPublicWebsite(){
  const active=document.querySelector('.view.active')?.id;if(active&&roleCanView(active))lastWorkspaceView=active;
@@ -3903,7 +3903,7 @@ async function submitAuth(){
   if(authMode===submittingMode)authSubmit.textContent=originalSubmitText;else authSubmit.textContent=authMode==="register"?"Create account & workspace":"Sign in"
  }
 }
-async function logoutUser(){emitWorkspaceAgentShellState("logout");platformRegulatoryAccess=false;currentUser=null;syncPlatformBillingControls();void refreshPlatformBillingDashboard();try{await apiFetch("/api/auth/logout",{method:"POST",body:"{}"})}catch{}csrfToken="";currentUser=null;lastWorkspaceView="dashboard";replaceWorkspaceStore({activeCompanyId:null,activeRole:"",companies:[],audit:[]});authPassword.value="";document.querySelectorAll(".modal.open").forEach(m=>m.classList.remove("open"));showMarketing()}
+async function logoutUser(){platformRegulatoryAccess=false;currentUser=null;syncPlatformBillingControls();void refreshPlatformBillingDashboard();try{await apiFetch("/api/auth/logout",{method:"POST",body:"{}"})}catch{}csrfToken="";currentUser=null;lastWorkspaceView="dashboard";replaceWorkspaceStore({activeCompanyId:null,activeRole:"",companies:[],audit:[]});authPassword.value="";document.querySelectorAll(".modal.open").forEach(m=>m.classList.remove("open"));showMarketing()}
 function consumeInitialWorkspaceState(){
  const node=document.getElementById("thebe-initial-workspace-state");
  if(!node)return null;
@@ -3952,10 +3952,6 @@ window.whenThebeWorkspaceReady=function(callback){
  if(window.__THEBE_WORKSPACE_READY__===true){queueMicrotask(callback);return}
  window.addEventListener("thebe:workspace-ready",callback,{once:true});
 };
-function emitWorkspaceAgentShellState(reason){
- const role=currentWorkspaceRole();
- window.dispatchEvent(new CustomEvent("thebe:workspace-agent-shell-state",{detail:{reason,authenticated:isWorkspaceRole(role),role,view:lastWorkspaceView}}));
-}
 function markWorkspaceReady(){
  if(window.__THEBE_WORKSPACE_READY__===true)return;
  marketingGate.classList.add("hidden");
@@ -3964,7 +3960,6 @@ function markWorkspaceReady(){
  syncMobileRoleNav(currentWorkspaceRole());
  window.__THEBE_WORKSPACE_READY__=true;
  window.dispatchEvent(new Event("thebe:workspace-ready"));
- emitWorkspaceAgentShellState("ready");
 }
 async function bootstrap(){marketingGate.classList.add("hidden");authGate.classList.add("hidden");concealWorkspaceShell();syncMobileRoleNav("");if(await handleDailyReporterPortal())return;if(await handlePublicPassportFragment())return;if(STANDALONE_PREVIEW){showMarketing();return}try{await loadServerState();if(isWorkspaceRole(currentUser?.role))markWorkspaceReady()}catch(err){csrfToken="";currentUser=null;showMarketing()}}
 
