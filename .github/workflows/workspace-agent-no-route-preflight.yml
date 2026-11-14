@@ -56,7 +56,7 @@ jobs:
           [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
           test "$GITHUB_SHA" = "$EXPECTED_SHA"
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
-      - name: Verify proposed Worker and D1 names are unallocated
+      - name: Verify the inert Worker and dedicated empty D1
         env:
           AUDIT_TOKEN: ${{ secrets.WORKSPACE_AGENT_STAGING_READONLY_CLOUDFLARE_TOKEN }}
         run: |
@@ -68,15 +68,28 @@ jobs:
             curl --fail --silent --show-error --max-time 30 \
               --header "Authorization: Bearer $AUDIT_TOKEN" "$api/$1"
           }
-          read_inventory workers/scripts | jq -e --arg name "$resource" '
-            .success == true and (.result | type == "array" and all(.[]; (.id | type) == "string" and .id != $name))'
-          read_inventory "d1/database?name=$resource&page=1&per_page=100" | jq -e --arg name "$resource" '
-            .success == true and ((.result_info.total_pages // 1) <= 1) and
-            (.result | type == "array" and length < 100 and all(.[]; (.name | type) == "string" and .name != $name))'
+          script="workers/scripts/$resource"
+          inert_version=dfb71693-9031-44d3-958b-e13ba8cf7594
+          d1_id=fb0c7c32-6e0a-42cf-89c3-971529e583db
+          read_inventory "$script/deployments" | jq -e --arg version "$inert_version" '
+            .success == true and
+            (.result.deployments[0].versions | length == 1 and
+              .[0].version_id == $version and .[0].percentage == 100)' >/dev/null
+          read_inventory "$script/subdomain" | jq -e '
+            .success == true and .result.enabled == false and
+            .result.previews_enabled == false' >/dev/null
+          read_inventory "$script/settings" | jq -e '
+            .success == true and (.result.bindings | type == "array" and
+              all(.[]; .type == "plain_text") and
+              ([.[] | select(.name == "WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED") | .text] == ["false"]))' >/dev/null
+          read_inventory "$script/schedules" | jq -e '
+            .success == true and .result.schedules == []' >/dev/null
           read_inventory "workers/domains?service=$resource" | jq -e '
-            .success == true and .result == []'
-          echo "Proposed names are unallocated and the service has no listed custom domains."
-          echo "Pre-provisioning inventory only. Live bindings and ingress require separate qualification."
+            .success == true and .result == []' >/dev/null
+          read_inventory "d1/database/$d1_id" | jq -e --arg id "$d1_id" --arg name "$resource" '
+            .success == true and .result.uuid == $id and .result.name == $name and
+            .result.num_tables == 0' >/dev/null
+          echo "Verified the inert version, disabled subdomain and previews, Agent flag off, no resource bindings, schedules or custom domains, and empty dedicated D1."
       - name: Recheck current main
         env:
           GH_TOKEN: ${{ github.token }}
