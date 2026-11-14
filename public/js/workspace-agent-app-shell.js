@@ -25,8 +25,10 @@ export function createWorkspaceAgentAppShell({
   if (!target || !documentRef || typeof fetchImpl !== "function") return null;
   const adapter = makeAdapter({ target, getDock: () => documentRef.getElementById("thebeAiDock"), fetchImpl });
   let disposed = false, epoch = 0, requestAbort = null, awaitingDock = false;
-  let dockObserver = null, gateObserver = null;
+  let dockObserver = null, gateObserver = null, viewObserver = null;
   let currentDock = documentRef.getElementById("thebeAiDock") || null;
+  let lastDockSurface = currentDock?.dataset?.surface ?? null;
+  let lastViewId = documentRef.querySelector(".view.active")?.id ?? null;
   const gateVisible = (id) => {
     const gate = documentRef.getElementById(id);
     return !!gate && !gate.hidden && !gate.classList?.contains("hidden");
@@ -89,7 +91,21 @@ export function createWorkspaceAgentAppShell({
     return result;
   };
   const onReady = () => { void refresh(); };
-  const onViewChange = () => { void refresh(); };
+  const onViewChange = () => {
+    // An event may accompany the real DOM class change: coalesce them.
+    lastViewId = documentRef.querySelector(".view.active")?.id ?? null;
+    void refresh();
+  };
+  const onViewMutation = () => {
+    if (disposed) return;
+    const nextViewId = documentRef.querySelector(".view.active")?.id ?? null;
+    if (nextViewId === lastViewId) return;
+    lastViewId = nextViewId;
+    // Clear stale tenant/workspace advice immediately even if the canonical
+    // runtime does not emit a custom view-change event.
+    clear();
+    if (shellVisible() && workspaceAgentScopeForView(nextViewId)) void refresh();
+  };
   const onPageHide = () => clear();
   const onPageShow = () => { if (shellVisible()) void refresh(); };
   const onVisibilityChange = () => {
@@ -109,12 +125,31 @@ export function createWorkspaceAgentAppShell({
     if (!shellVisible()) clear();
     else if (!adapter.isActive()) void refresh();
   };
+  const observeDock = () => {
+    if (!dockObserver) return;
+    dockObserver.disconnect();
+    // The dock may be nested, replaced, or inserted after shell boot.
+    if (documentRef.body) dockObserver.observe(documentRef.body, { childList: true, subtree: true });
+    if (currentDock) dockObserver.observe(currentDock, {
+      attributes: true, attributeFilter: ["data-surface"]
+    });
+  };
   const onBodyMutation = () => {
     if (disposed) return;
     const nextDock = documentRef.getElementById("thebeAiDock") || null;
     if (nextDock !== currentDock) {
       // An unmounted or replaced dock must never retain the previous scope.
       currentDock = nextDock;
+      lastDockSurface = nextDock?.dataset?.surface ?? null;
+      observeDock();
+      clear();
+      if (dockValid() && shellVisible()) void refresh();
+      return;
+    }
+    const nextSurface = currentDock?.dataset?.surface ?? null;
+    if (nextSurface !== lastDockSurface) {
+      // Hiding the dock must clear its task state, not just block new fetches.
+      lastDockSurface = nextSurface;
       clear();
       if (dockValid() && shellVisible()) void refresh();
       return;
@@ -135,7 +170,12 @@ export function createWorkspaceAgentAppShell({
     }
     if (documentRef.body) {
       dockObserver = new MutationObserverImpl(onBodyMutation);
-      dockObserver.observe(documentRef.body, { childList: true });
+      observeDock();
+    }
+    const appShell = documentRef.getElementById("appShell");
+    if (appShell) {
+      viewObserver = new MutationObserverImpl(onViewMutation);
+      viewObserver.observe(appShell, { attributes: true, subtree: true, attributeFilter: ["class"] });
     }
   }
   // The native ready event is already subscribed; registering a second runtime
@@ -153,6 +193,7 @@ export function createWorkspaceAgentAppShell({
     documentRef.removeEventListener?.("change", onCompanyChange, true);
     dockObserver?.disconnect();
     gateObserver?.disconnect();
+    viewObserver?.disconnect();
     adapter.dispose();
   };
   return Object.freeze({ refresh, clear, dispose, isActive: adapter.isActive });

@@ -170,3 +170,66 @@ test("pageshow revalidates session after navigation cache restore",async()=>{
  assert.equal(f.activations.length,2);
  f.app.dispose();
 });
+
+test("DOM-only view class navigation invalidates previous advisory scope without custom event",async()=>{
+ const f=fixture("owner",{observe:true});
+ await f.app.refresh();
+ assert.equal(f.calls(),1);
+ const cleared=f.clears();
+ f.setView("moneyhub");
+ f.observers[2].notify();
+ await new Promise(resolve=>setTimeout(resolve,0));
+ assert.ok(f.clears()>cleared);
+ assert.equal(f.calls(),2);
+ assert.deepEqual(f.activations.map(x=>x.workspace),["owner","finance"]);
+ // Unrelated class changes inside the active shell should not re-probe auth.
+ f.observers[2].notify();
+ await new Promise(resolve=>setTimeout(resolve,0));
+ assert.equal(f.calls(),2);
+ f.app.dispose();
+ assert.ok(f.observers.every(o=>o.disconnected));
+});
+test("DOM-only navigation to unmapped view clears tasks without fetching session",async()=>{
+ const f=fixture("owner",{observe:true});
+ await f.app.refresh();
+ const before=f.clears();
+ f.setView("payments");
+ f.observers[2].notify();
+ await new Promise(resolve=>setTimeout(resolve,0));
+ assert.ok(f.clears()>before);
+ assert.equal(f.calls(),1);
+ assert.equal(f.activations.length,1);
+ f.app.dispose();
+});
+test("DOM-only navigation invalidates in-flight session probe and stale activation",async()=>{
+ let resolveProbe;
+ const f=fixture("owner",{observe:true,fetchResponse:()=>new Promise(resolve=>{resolveProbe=resolve})});
+ const pending=f.app.refresh();
+ f.setView("payments");
+ f.observers[2].notify();
+ resolveProbe({ok:true,json:async()=>({user:{role:"owner",id:"u1"},csrfToken:"secret"})});
+ assert.equal((await pending).code,"identity_changed");
+ assert.equal(f.activations.length,0);
+ assert.equal(f.calls(),1);
+ f.app.dispose();
+});
+test("dock surface hides task scope and reactivates only after same-origin recheck",async()=>{
+ const f=fixture("owner",{observe:true});
+ await f.app.refresh();
+ const dock=f.nodes.get("thebeAiDock");
+ const before=f.clears();
+ dock.dataset.surface="hidden";
+ f.observers[1].notify();
+ await new Promise(resolve=>setTimeout(resolve,0));
+ assert.ok(f.clears()>before);
+ assert.equal(f.calls(),1,"hidden dock cannot issue new auth requests");
+ dock.dataset.surface="workspace";
+ f.observers[1].notify();
+ await new Promise(resolve=>setTimeout(resolve,0));
+ assert.equal(f.calls(),2);
+ assert.equal(f.activations.length,2);
+ f.observers[1].notify();
+ await new Promise(resolve=>setTimeout(resolve,0));
+ assert.equal(f.calls(),2,"irrelevant childList changes must not reauthorize");
+ f.app.dispose();
+});
