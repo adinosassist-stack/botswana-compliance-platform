@@ -91,6 +91,13 @@ export function createWorkspaceAgentAppShell({
   const onReady = () => { void refresh(); };
   const onViewChange = () => { void refresh(); };
   const onPageHide = () => clear();
+  const onPageShow = () => { if (shellVisible()) void refresh(); };
+  const onVisibilityChange = () => {
+    // Returning to an old tab must revalidate the current server session.
+    if (documentRef.visibilityState === "hidden") clear();
+    else if (shellVisible()) void refresh();
+    else clear();
+  };
   // A company selector can change without a navigation event. Immediately
   // discard any advisory snapshot and independently reverify the session.
   const onCompanyChange = event => {
@@ -117,7 +124,8 @@ export function createWorkspaceAgentAppShell({
   target.addEventListener("thebe:workspace-ready", onReady);
   target.addEventListener("thebe:workspace-view-change", onViewChange);
   target.addEventListener("pagehide", onPageHide);
-  documentRef.addEventListener?.("visibilitychange", onGateMutation);
+  target.addEventListener("pageshow", onPageShow);
+  documentRef.addEventListener?.("visibilitychange", onVisibilityChange);
   documentRef.addEventListener?.("change", onCompanyChange, true);
   if (typeof MutationObserverImpl === "function") {
     gateObserver = new MutationObserverImpl(onGateMutation);
@@ -140,7 +148,8 @@ export function createWorkspaceAgentAppShell({
     target.removeEventListener("thebe:workspace-ready", onReady);
     target.removeEventListener("thebe:workspace-view-change", onViewChange);
     target.removeEventListener("pagehide", onPageHide);
-    documentRef.removeEventListener?.("visibilitychange", onGateMutation);
+    target.removeEventListener("pageshow", onPageShow);
+    documentRef.removeEventListener?.("visibilitychange", onVisibilityChange);
     documentRef.removeEventListener?.("change", onCompanyChange, true);
     dockObserver?.disconnect();
     gateObserver?.disconnect();
