@@ -27,6 +27,11 @@ try{
    if(opts.method==='POST'){
     const data=JSON.parse(opts.body);
     if(path.endsWith('/services'))serviceSaved=data;
+    if(path==='/api/corporate-assets'&&data.name==='Off-page printer')offPageAsset={
+     id:data.id,name:data.name,category:data.category,branch:data.branch,serial:data.serial,custodian:data.custodian,
+     acquisition_date:data.acquisitionDate,acquisition_cost_minor:data.acquisitionCostMinor,
+     book_value_minor:data.bookValueMinor,status:data.status,revision:1
+    };
     // Acknowledgement without a persisted registration should never pass readback.
     return {ok:true,id:data.id};
    }
