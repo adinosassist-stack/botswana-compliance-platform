@@ -67,7 +67,7 @@ jobs:
           const setup=fs.readFileSync('V76_WHATSAPP_SETUP.md','utf8');
 
           assert.match(setup,/Official Thebe Desk WhatsApp Business number/i);
-          assert.match(setup,/\+267 74583606/,'setup guide must retain the approved customer-facing number');
+          assert.match(setup,/\+267 77723273/,'legacy Meta setup guide remains unchanged until separately approved connector configuration');
           assert.match(setup,/connector is disabled until every production gate below is complete/i,'provider delivery must remain fail-closed until configured');
 
           const hrefs=[...html.matchAll(/href="([^"]*wa\.me\/[^"]+)"/gi)].map(match=>match[1]);
