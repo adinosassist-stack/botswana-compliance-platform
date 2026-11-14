@@ -42,7 +42,7 @@ jobs:
     env:
       TARGET_SHA: ${{ github.event.workflow_run.head_sha || github.event.pull_request.head.sha || inputs.expected_sha || github.sha }}
       ORIGIN: https://thebedesk.com
-      OFFICIAL_WHATSAPP_NUMBER: '26777723273'
+      OFFICIAL_WHATSAPP_NUMBER: '26774583606'
       EXPECTED_PREFILL: "Hi, I'd like to see how Thebe Desk could work for my business."
 
     steps:
@@ -67,7 +67,7 @@ jobs:
           const setup=fs.readFileSync('V76_WHATSAPP_SETUP.md','utf8');
 
           assert.match(setup,/Official Thebe Desk WhatsApp Business number/i);
-          assert.match(setup,/\+267 77723273/,'setup guide must retain the approved customer-facing number');
+          assert.match(setup,/\+267 74583606/,'setup guide must retain the approved customer-facing number');
           assert.match(setup,/connector is disabled until every production gate below is complete/i,'provider delivery must remain fail-closed until configured');
 
           const hrefs=[...html.matchAll(/href="([^"]*wa\.me\/[^"]+)"/gi)].map(match=>match[1]);
@@ -83,7 +83,7 @@ jobs:
           assert.ok(guided,'a guided WhatsApp CTA with prefilled enquiry text is required');
           assert.equal(guided.searchParams.get('text'),expectedPrefill,'guided CTA prefill changed unexpectedly');
           assert.match(html,/Talk to us on WhatsApp/i);
-          assert.match(html,/WhatsApp \+267 77 723 273/i);
+          assert.match(html,/WhatsApp \+267 74 583 606/i);
           console.log(`PASS source WhatsApp public entry number=+${number} links=${hrefs.length}`);
           NODE
 
