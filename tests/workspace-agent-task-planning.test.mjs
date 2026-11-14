@@ -113,3 +113,20 @@ test("advisory transitions strip caller-injected approval and execution claims",
   assert.equal(transitioned.task.authority, "recommendation_only");
   assert.equal(transitionWorkspaceAgentTask({ ...planned, title: "  " }, "in_progress").ok, false);
 });
+
+test("transition canonicalizes duplicate and oversized source references", () => {
+  const planned = planWorkspaceAgentTasks({
+    workspace: "finance", tenantId: "t", userId: "u",
+    workUnits: [{ id: "one", objective: "Review" }]
+  }).tasks[0];
+  const rawRefs = ["a", "a", "  ", ...Array.from({ length: 105 }, (_, i) => "ref-" + i)];
+  const result = transitionWorkspaceAgentTask({
+    ...planned, sourceRefs: rawRefs, sourceRefsDropped: 2
+  }, "in_progress");
+  assert.equal(result.ok, true);
+  assert.equal(result.task.sourceRefs.length, 20);
+  assert.equal(new Set(result.task.sourceRefs).size, 20);
+  assert.equal(result.task.sourceRefsDropped, 2 + rawRefs.length - 20);
+  assert.equal(Object.isFrozen(result.task.sourceRefs), true);
+  assert.equal(transitionWorkspaceAgentTask(planned, "completed").code, "trusted_completion_required");
+});
