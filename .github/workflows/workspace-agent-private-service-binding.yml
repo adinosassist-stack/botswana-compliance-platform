@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "cloudflare/src/**"
+      - "cloudflare/wrangler.workspace-agent-staging.qualification.toml"
       - "package.json"
       - "package-lock.json"
       - ".nvmrc"
@@ -29,3 +30,12 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Exercise the private binding with synthetic sessions and local D1
         run: node --test tests/workspace-agent-private-service-binding.test.mjs
+      - name: Build the qualification target without uploading
+        env:
+          WRANGLER_SEND_METRICS: "false"
+        run: |
+          set -euo pipefail
+          npx --no-install wrangler deploy --dry-run \
+            --config cloudflare/wrangler.workspace-agent-staging.qualification.toml \
+            --outdir "$RUNNER_TEMP/workspace-agent-qualification"
+          test -s "$RUNNER_TEMP/workspace-agent-qualification/workspace-agent-staging-qualification-entry.js"
