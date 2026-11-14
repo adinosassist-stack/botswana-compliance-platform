@@ -30,7 +30,8 @@ export function renderWorkspaceAgentTasks({ dock, snapshot, identity } = {}) {
     panel.className = "thebe-agent-task-panel";
     panel.setAttribute("aria-label", "Workspace Agent tasks");
     panel.setAttribute("aria-live", "polite");
-    dock.append(panel);
+    const scrollArea = dock.querySelector(".thebe-ai-dock-scroll") ?? dock;
+    scrollArea.append(panel);
   }
   panel.replaceChildren();
   const heading = document.createElement("strong");

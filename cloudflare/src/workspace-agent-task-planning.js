@@ -3,6 +3,8 @@ export const WORKSPACE_AGENT_TASK_VERSION = "2026-11-12.v2";
 export const WORKSPACE_AGENT_TASK_STATES = Object.freeze(["queued", "in_progress", "needs_review", "completed", "failed"]);
 const WORKSPACES = new Set(["owner", "finance", "property", "people", "compliance", "market", "operations"]);
 const clean = (value, max = 200) => String(value ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, max);
+const priorities = ["high", "medium", "low"];
+const taskPriority = value => priorities.includes(value) ? value : "medium";
 
 export function planWorkspaceAgentTasks({ workspace, tenantId, userId, workUnits = [], allowedSourceRefs = [] } = {}) {
   const scope = clean(workspace, 32).toLowerCase();
@@ -14,7 +16,10 @@ export function planWorkspaceAgentTasks({ workspace, tenantId, userId, workUnits
   const allowed = new Set((Array.isArray(allowedSourceRefs) ? allowedSourceRefs.slice(0, 100) : []).map(x => clean(x, 120)).filter(Boolean));
   const seen = new Set();
   const tasks = [];
-  for (const item of (Array.isArray(workUnits) ? workUnits : [])) {
+  const rankedUnits = Array.isArray(workUnits) ? [...workUnits].sort((first, second) =>
+    priorities.indexOf(taskPriority(first?.priority)) - priorities.indexOf(taskPriority(second?.priority))
+  ) : [];
+  for (const item of rankedUnits) {
     if (tasks.length >= 6) break;
     const id = clean(item?.id, 120);
     const title = clean(item?.objective, 240);
@@ -25,7 +30,7 @@ export function planWorkspaceAgentTasks({ workspace, tenantId, userId, workUnits
     tasks.push(Object.freeze({
       id, workspace: scope, tenantId: tenant, userId: actor,
       title,
-      priority: ["low", "medium", "high"].includes(item?.priority) ? item.priority : "medium",
+      priority: taskPriority(item?.priority),
       state: "queued", sourceRefs: Object.freeze(refs),
       sourceRefsDropped: Math.max(0, sourceRefs.length - refs.length),
       approvalRequired: true, executionAllowed: false, externalSideEffects: false,
@@ -61,7 +66,7 @@ export function transitionWorkspaceAgentTask(task, nextState) {
     id: clean(task.id, 120), workspace: task.workspace,
     tenantId: clean(task.tenantId, 120), userId: clean(task.userId, 120),
     title: clean(task.title, 240),
-    priority: ["low", "medium", "high"].includes(task.priority) ? task.priority : "medium",
+    priority: taskPriority(task.priority),
     state: next,
     sourceRefs: Object.freeze(refs),
     sourceRefsDropped: priorDropped + rawRefs.length - refs.length,

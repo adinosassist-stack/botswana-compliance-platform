@@ -33,7 +33,7 @@ const html = `<!doctype html><html><head><meta charset="utf-8"></head><body>
     <section id="payments" class="view">Payments</section>
     <select id="companySelect"><option value="co-A">Company A</option><option value="co-B">Company B</option></select>
   </main>
-  <section id="thebeAiDock" data-surface="workspace"></section>
+  <section id="thebeAiDock" data-surface="workspace"><div class="thebe-ai-dock-scroll"></div></section>
   <script>window.__THEBE_WORKSPACE_READY__=true;</script>
   <script type="module" src="/js/workspace-agent-app-shell.js"></script>
 </body></html>`;
@@ -80,6 +80,7 @@ try {
   const page=await browser.newPage();
   await page.goto(origin+"/app/");
   await page.locator('[data-thebe-agent-task-panel="1"] li').waitFor({timeout:10000});
+  assert.equal(await page.locator('.thebe-ai-dock-scroll > [data-thebe-agent-task-panel="1"]').count(),1);
   assert.match(await page.locator('[data-thebe-agent-task-panel="1"]').innerText(),/verified owner items/);
   assert.ok(state.requests.some(request=>request.path==="/api/auth/me"));
   assert.ok(state.requests.some(request=>request.path==="/api/agentic/workspace-identity"));
