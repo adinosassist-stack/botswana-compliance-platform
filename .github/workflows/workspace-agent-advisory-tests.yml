@@ -4,8 +4,11 @@ on:
     paths:
       - 'cloudflare/src/workspace-agent-task-planning.js'
       - 'cloudflare/src/workspace-agent-tasks-api.js'
+      - 'cloudflare/src/release-governance-entry.js'
+      - 'cloudflare/src/workspace-agent-advisory-preview-gate.js'
       - 'cloudflare/src/agentic-entry.js'
       - 'server/workspace-agent-node-private.js'
+      - 'server/workspace-agent-node-private-auth-fields.js'
       - 'server/server.js'
       - 'public/js/workspace-agent-task-*.js'
       - 'public/js/workspace-agent-authenticated-controller.js'
@@ -29,6 +32,7 @@ jobs:
         run: |
           node --check cloudflare/src/workspace-agent-task-planning.js
           node --check cloudflare/src/workspace-agent-tasks-api.js
+          node --check cloudflare/src/workspace-agent-advisory-preview-gate.js
           node --check cloudflare/src/agentic-entry.js
           node --check public/js/workspace-agent-task-view.js
           node --check public/js/workspace-agent-task-renderer.js
@@ -37,6 +41,7 @@ jobs:
           node --check public/js/workspace-agent-event-adapter.js
           node --check public/js/workspace-agent-app-shell.js
           node --check server/workspace-agent-node-private.js
+          node --check server/workspace-agent-node-private-auth-fields.js
           node --check server/server.js
       - name: Test advisory task boundaries
         run: node --test tests/workspace-agent-*.test.mjs
