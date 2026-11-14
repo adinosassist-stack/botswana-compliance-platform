@@ -31,9 +31,14 @@ function harness({appEnv="test",enabled=true,role="owner",tenantId="tenant-A",us
 const identity="/api/agentic/workspace-identity", tasks="/api/agentic/workspace-tasks";
 
 test("disabled unless explicitly test-only; production cannot register even with opt-in",()=>{
- for(const options of [{appEnv:"production",enabled:true},{appEnv:"development",enabled:true},{appEnv:"test",enabled:false},{appEnv:"test",enabled:undefined}]){
+ for(const options of [{appEnv:"production",enabled:true},{appEnv:"development",enabled:true},{appEnv:"test",enabled:false},{appEnv:"test",enabled:null}]){
   const h=harness(options);assert.equal(h.registered,false);assert.equal(h.routes.size,0);
  }
+});
+test("missing explicit enablement never registers Node routes",()=>{
+  const routes=[];
+  assert.equal(registerPrivateNodeWorkspaceAgent({app:{all:path=>routes.push(path)},sessionAuth:()=>{},pool:{query:async()=>{}},appEnv:"test"}),false);
+  assert.deepEqual(routes,[]);
 });
 test("requires authenticated opaque session identifiers for identity",async()=>{
  const h=harness();
