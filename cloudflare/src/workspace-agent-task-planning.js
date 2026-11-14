@@ -44,6 +44,7 @@ export function transitionWorkspaceAgentTask(task, nextState) {
     failed: ["queued"],
     completed: []
   };
+  if (next === "completed") return Object.freeze({ ok: false, code: "trusted_completion_required" });
   if (!task || !WORKSPACES.has(task.workspace) || !clean(task.tenantId, 120) || !clean(task.userId, 120) ||
       !clean(task.id, 120) || !clean(task.title, 500) || task.approvalRequired !== true ||
       task.executionAllowed !== false || task.externalSideEffects !== false ||
@@ -53,15 +54,17 @@ export function transitionWorkspaceAgentTask(task, nextState) {
   }
   // Completion is reserved for a trusted server-side approval/evidence workflow. 
   // A caller-supplied boolean is never evidence of reviewer authorization. 
-  if (next === "completed") return Object.freeze({ ok: false, code: "trusted_completion_required" });
+  const rawRefs = Array.isArray(task.sourceRefs) ? task.sourceRefs : [];
+  const refs = [...new Set(rawRefs.slice(0, 100).map(ref => clean(ref, 120)).filter(Boolean))].slice(0, 20);
+  const priorDropped = Number.isSafeInteger(task.sourceRefsDropped) && task.sourceRefsDropped >= 0 ? task.sourceRefsDropped : 0;
   return Object.freeze({ ok: true, code: "task_state_updated", task: Object.freeze({
     id: clean(task.id, 120), workspace: task.workspace,
     tenantId: clean(task.tenantId, 120), userId: clean(task.userId, 120),
     title: clean(task.title, 500),
     priority: ["low", "medium", "high"].includes(task.priority) ? task.priority : "medium",
     state: next,
-    sourceRefs: Object.freeze(Array.isArray(task.sourceRefs) ? task.sourceRefs.slice(0, 20).map(ref => clean(ref, 120)).filter(Boolean) : []),
-    sourceRefsDropped: Number.isSafeInteger(task.sourceRefsDropped) && task.sourceRefsDropped >= 0 ? task.sourceRefsDropped : 0,
+    sourceRefs: Object.freeze(refs),
+    sourceRefsDropped: priorDropped + rawRefs.length - refs.length,
     approvalRequired: true, authority: "recommendation_only",
     executionAllowed: false, externalSideEffects: false
   }) });
