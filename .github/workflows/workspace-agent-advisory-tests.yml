@@ -7,6 +7,8 @@ on:
       - 'cloudflare/src/agentic-entry.js'
       - 'public/js/workspace-agent-task-*.js'
       - 'public/js/workspace-agent-authenticated-controller.js'
+      - 'public/js/workspace-agent-app-shell.js'
+      - 'public/js/workspace-agent-event-adapter.js'
       - 'tests/workspace-agent-*.test.mjs'
       - '.github/workflows/workspace-agent-advisory-tests.yml'
   workflow_dispatch:
@@ -30,5 +32,7 @@ jobs:
           node --check public/js/workspace-agent-task-renderer.js
           node --check public/js/workspace-agent-task-fetch.js
           node --check public/js/workspace-agent-authenticated-controller.js
+          node --check public/js/workspace-agent-event-adapter.js
+          node --check public/js/workspace-agent-app-shell.js
       - name: Test advisory task boundaries
         run: node --test tests/workspace-agent-*.test.mjs

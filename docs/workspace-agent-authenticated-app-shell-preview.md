@@ -1,0 +1,9 @@
+# Workspace Agent authenticated /app shell (preview gate)
+
+The canonical inline/external runtime is immutable and remains byte-equivalent. This batch adds a separate ES-module shell consumer and a server-side injection gate in `cloudflare/src/release-governance-entry.js`.
+
+**Off by default.** The module is injected only when the server environment variable `WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED` is exactly `true`, the /app/ session is verified with `/api/auth/me` (including a valid user and CSRF bootstrap), the server has successfully prefetched a Workspace state, and the user's server-probed role is `owner` or `manager`. Do not enable this flag in production: reserve it for a separately approved, private protected staging environment.
+
+The module listens to the existing canonical `thebe:workspace-ready` and `thebe:workspace-view-change` events; these are UI signals, never proof of authorization. It rechecks `/api/auth/me` with same-origin credentials and no-store, validates the server-provided role, maps permitted view IDs to read-only Agent workspaces, and delegates to the existing bridge which validates opaque tenant/user identity at `/api/agentic/workspace-identity` before fetching scoped advisory tasks. Unmapped views cannot activate the panel. Page navigation, shell concealment and pagehide invalidate pending requests and tasks. The client never accepts tenant identity from URLs, DOM state, events or localStorage.
+
+**Remaining release gates:** protected isolated staging deployment approval, live owner/manager and unauthorized-session Chromium tests, tenant-switch/relogin adversarial checks, dock overflow/a11y checks, Node/Cloudflare transport parity, independent thusico review, and separate production-write/deployment approval. No agent execution, money movement, payment approval or automatic production deployment is part of this batch.
