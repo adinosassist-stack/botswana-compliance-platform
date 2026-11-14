@@ -174,7 +174,7 @@ test("foundation source preflight bounds simultaneous D1 metadata reads and pres
     }))};
   let active=0,maxActive=0,queries=0;
   const db={prepare(sql){
-    assert.match(sql,/^SELECT\\b/i,"preflight must issue SELECT statements only");
+    assert.match(sql,/^SELECT\b/i,"preflight must issue SELECT statements only");
     return {bind(){return {first:async()=>{
       active++;maxActive=Math.max(maxActive,active);queries++;
       try{await new Promise(resolve=>setImmediate(resolve));return null}
@@ -207,5 +207,5 @@ test("source preflight fails closed on a D1 read error without issuing writes",a
     }}}};
   }};
   await assert.rejects(inspectFoundationSourceMetadata(db,pack),/simulated D1 timeout/);
-  assert.ok(statements.length>0&&statements.every(sql=>/^SELECT\\b/i.test(sql)));
+  assert.ok(statements.length>0&&statements.every(sql=>/^SELECT\b/i.test(sql)));
 });
