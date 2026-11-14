@@ -122,8 +122,9 @@ export function createWorkspaceAgentAppShell({
       dockObserver.observe(documentRef.body, { childList: true });
     }
   }
+  // The native ready event is already subscribed; registering a second runtime
+  // callback would cause duplicate identity requests and cancel the first.
   if (target.__THEBE_WORKSPACE_READY__ === true) queueMicrotask(onReady);
-  else if (typeof target.whenThebeWorkspaceReady === "function") target.whenThebeWorkspaceReady(onReady);
   const dispose = () => {
     if (disposed) return;
     disposed = true;
