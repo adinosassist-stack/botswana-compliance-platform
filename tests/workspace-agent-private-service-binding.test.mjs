@@ -27,7 +27,7 @@ test("private Worker binding authenticates read-only advisory requests against i
   }));
   const [{ text: targetScript }] = (await build({
     stdin: {
-      contents: 'import agent from "./agentic-entry.js"; export default {fetch:agent.fetch};',
+      contents: 'export { default } from "./workspace-agent-staging-qualification-entry.js";',
       resolveDir: fileURLToPath(new URL("../cloudflare/src/", import.meta.url)),
     },
     bundle: true, format: "esm", platform: "neutral", external: ["node:*"], write: false,
@@ -110,6 +110,9 @@ test("private Worker binding authenticates read-only advisory requests against i
       }
     }
     assert.equal((await dispatch("tasks", "ownerA", "POST")).status, 404);
+    const unrelated = await runtime.dispatchFetch(local + "/api/version");
+    assert.equal(unrelated.status, 404);
+    assert.equal(unrelated.headers.get("cache-control"), "no-store");
     assert.deepEqual(await (await runtime.dispatchFetch(local + "/fixtures")).json(), before);
   } finally {
     await runtime.dispose();
