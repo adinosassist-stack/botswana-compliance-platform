@@ -58,6 +58,19 @@ export function qualifyWorkspaceAgentOffline(sources) {
       privateNode.includes('appEnv !== "test" || enabled !== true')&&
       privateNode.includes('req.auth')&&
       privateNode.includes('tenant_id=$1 AND workspace=$2')),
+    ok("agent_api_denied_at_outermost_entry_before_other_handlers",
+      apiEntry.includes("import {isWorkspaceAgentAdvisoryPath,workspaceAgentAdvisoryApiAllowed,denyUnqualifiedWorkspaceAgentApi}")&&
+      apiGate.includes("export function denyUnqualifiedWorkspaceAgentApi(")&&
+      apiGate.includes("if(!isWorkspaceAgentAdvisoryPath(logicalPath))return null;")&&
+      apiGate.includes("if(workspaceAgentAdvisoryApiAllowed({env,request,logicalPath}))return null;")&&
+      (()=>{
+        const outer=apiEntry.slice(apiEntry.lastIndexOf("export default {"));
+        const denied=outer.indexOf("const denied=denyUnqualifiedWorkspaceAgentApi({env,request,logicalPath});");
+        const returnDenied=outer.indexOf("if(denied)return denied;");
+        const downstream=outer.indexOf("await guardPausedWorkspaceWrites(");
+        const handler=outer.indexOf("attachmentRuntime.fetch(");
+        return denied>=0 && returnDenied>denied && downstream>returnDenied && handler>downstream;
+      })()),
     ok("agent_api_not_exposed_outside_exact_private_staging",
       apiEntry.includes("if(isWorkspaceAgentAdvisoryPath(logicalPath))")&&
       apiEntry.includes("if(!workspaceAgentAdvisoryApiAllowed({env,request,logicalPath}))")&&
