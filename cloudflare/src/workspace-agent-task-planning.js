@@ -17,7 +17,7 @@ export function planWorkspaceAgentTasks({ workspace, tenantId, userId, workUnits
   for (const item of (Array.isArray(workUnits) ? workUnits : [])) {
     if (tasks.length >= 6) break;
     const id = clean(item?.id, 120);
-    const title = clean(item?.objective, 500);
+    const title = clean(item?.objective, 240);
     if (!id || !title || seen.has(id)) continue;
     seen.add(id);
     const sourceRefs = Array.isArray(item?.sourceRefs) ? item.sourceRefs : [];
@@ -46,7 +46,7 @@ export function transitionWorkspaceAgentTask(task, nextState) {
   };
   if (next === "completed") return Object.freeze({ ok: false, code: "trusted_completion_required" });
   if (!task || !WORKSPACES.has(task.workspace) || !clean(task.tenantId, 120) || !clean(task.userId, 120) ||
-      !clean(task.id, 120) || !clean(task.title, 500) || task.approvalRequired !== true ||
+      !clean(task.id, 120) || !clean(task.title, 240) || task.approvalRequired !== true ||
       task.executionAllowed !== false || task.externalSideEffects !== false ||
       task.authority !== "recommendation_only" ||
       !WORKSPACE_AGENT_TASK_STATES.includes(task.state) || !transitions[task.state].includes(next)) {
@@ -60,7 +60,7 @@ export function transitionWorkspaceAgentTask(task, nextState) {
   return Object.freeze({ ok: true, code: "task_state_updated", task: Object.freeze({
     id: clean(task.id, 120), workspace: task.workspace,
     tenantId: clean(task.tenantId, 120), userId: clean(task.userId, 120),
-    title: clean(task.title, 500),
+    title: clean(task.title, 240),
     priority: ["low", "medium", "high"].includes(task.priority) ? task.priority : "medium",
     state: next,
     sourceRefs: Object.freeze(refs),
