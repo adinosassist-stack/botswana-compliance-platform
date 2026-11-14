@@ -1,0 +1,26 @@
+name: Workspace Agent Postgres schema proposal static review
+
+on:
+  pull_request:
+    paths:
+      - "db/drafts/workspace-agent-postgres-schema-review.sql"
+      - "tests/workspace-agent-postgres-schema-proposal.test.mjs"
+      - ".github/workflows/workspace-agent-postgres-schema-review.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-review-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify schema proposal without running SQL
+        run: node --test tests/workspace-agent-postgres-schema-proposal.test.mjs
