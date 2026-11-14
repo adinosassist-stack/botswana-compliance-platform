@@ -106,9 +106,13 @@
     updateSearchMetadata();
     const gate=document.getElementById("marketingGate");
     if(gate){
-      updateHero(gate);
-      updatePricing(gate);
-      updateClosingMessage(gate);
+      // v21 is the authoritative marketing presentation. A late v20 timer
+      // must not overwrite the newer hero, pricing, or closing copy.
+      if(gate.dataset?.marketRefinementV21!=="21"){
+        updateHero(gate);
+        updatePricing(gate);
+        updateClosingMessage(gate);
+      }
       gate.dataset.marketGrowthV20="1";
     }
     updateWorkspacePlanPresentation();
