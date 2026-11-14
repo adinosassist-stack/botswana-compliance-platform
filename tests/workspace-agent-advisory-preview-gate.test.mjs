@@ -55,17 +55,17 @@ test("exact, explicit staging hostname required; forwarded Host/header hints gra
 });
 test("role, initial opaque identity and CSRF bootstrap must all be server-verified",()=>{
   for(const role of [undefined,null,"reviewer","auditor","employee","Owner","platform_admin"]) {
-    assert.equal(allowed(input({probeRole:role})),false);
+    assert.equal(allowed({...input(),probeRole:role}),false);
   }
   for(const initialIdentity of [undefined,null,{}, {user:{id:"test"}}, 
     {user:{id:" "},csrfToken:identity.csrfToken},
     {user:{id:124},csrfToken:identity.csrfToken},
     {user:{id:"synthetic"},csrfToken:"short"}
-  ])assert.equal(allowed(input({initialIdentity})),false);
+  ])assert.equal(allowed({...input(),initialIdentity}),false);
 });
 test("no POST, non-GET or forged event can authorize preview injection",()=>{
   for(const method of ["POST","PUT","PATCH","DELETE","HEAD","OPTIONS",null]) {
-    assert.equal(allowed(input({method})),false);
+    assert.equal(allowed({...input(),request:{...input().request,method}}),false);
   }
   assert.equal(allowed(),false);
 });
