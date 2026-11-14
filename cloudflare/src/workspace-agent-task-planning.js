@@ -11,21 +11,23 @@ export function planWorkspaceAgentTasks({ workspace, tenantId, userId, workUnits
   if (!WORKSPACES.has(scope) || !tenant || !actor) {
     return Object.freeze({ ok: false, code: "workspace_context_required", tasks: Object.freeze([]) });
   }
-  const allowed = new Set((Array.isArray(allowedSourceRefs) ? allowedSourceRefs : []).map(x => clean(x, 120)).filter(Boolean));
+  const allowed = new Set((Array.isArray(allowedSourceRefs) ? allowedSourceRefs.slice(0, 100) : []).map(x => clean(x, 120)).filter(Boolean));
   const seen = new Set();
   const tasks = [];
   for (const item of (Array.isArray(workUnits) ? workUnits : [])) {
     if (tasks.length >= 6) break;
     const id = clean(item?.id, 120);
-    if (!id || seen.has(id)) continue;
+    const title = clean(item?.objective, 240);
+    if (!id || !title || seen.has(id)) continue;
     seen.add(id);
-    const refs = [...new Set((Array.isArray(item?.sourceRefs) ? item.sourceRefs : []).map(x => clean(x, 120)).filter(x => allowed.has(x)))];
+    const sourceRefs = Array.isArray(item?.sourceRefs) ? item.sourceRefs : [];
+    const refs = [...new Set(sourceRefs.slice(0, 100).map(x => clean(x, 120)).filter(x => allowed.has(x)))].slice(0, 20);
     tasks.push(Object.freeze({
       id, workspace: scope, tenantId: tenant, userId: actor,
-      title: clean(item?.objective, 500),
+      title,
       priority: ["low", "medium", "high"].includes(item?.priority) ? item.priority : "medium",
       state: "queued", sourceRefs: Object.freeze(refs),
-      sourceRefsDropped: Math.max(0, (Array.isArray(item?.sourceRefs) ? item.sourceRefs.length : 0) - refs.length),
+      sourceRefsDropped: Math.max(0, sourceRefs.length - refs.length),
       approvalRequired: true, executionAllowed: false, externalSideEffects: false,
       authority: "recommendation_only"
     }));
@@ -42,13 +44,28 @@ export function transitionWorkspaceAgentTask(task, nextState) {
     failed: ["queued"],
     completed: []
   };
-  if (!task || !WORKSPACE_AGENT_TASK_STATES.includes(task.state) || !transitions[task.state].includes(next)) {
+  if (next === "completed") return Object.freeze({ ok: false, code: "trusted_completion_required" });
+  if (!task || !WORKSPACES.has(task.workspace) || !clean(task.tenantId, 120) || !clean(task.userId, 120) ||
+      !clean(task.id, 120) || !clean(task.title, 240) || task.approvalRequired !== true ||
+      task.executionAllowed !== false || task.externalSideEffects !== false ||
+      task.authority !== "recommendation_only" ||
+      !WORKSPACE_AGENT_TASK_STATES.includes(task.state) || !transitions[task.state].includes(next)) {
     return Object.freeze({ ok: false, code: "task_transition_invalid" });
   }
   // Completion is reserved for a trusted server-side approval/evidence workflow. 
   // A caller-supplied boolean is never evidence of reviewer authorization. 
-  if (next === "completed") return Object.freeze({ ok: false, code: "trusted_completion_required" });
+  const rawRefs = Array.isArray(task.sourceRefs) ? task.sourceRefs : [];
+  const refs = [...new Set(rawRefs.slice(0, 100).map(ref => clean(ref, 120)).filter(Boolean))].slice(0, 20);
+  const priorDropped = Number.isSafeInteger(task.sourceRefsDropped) && task.sourceRefsDropped >= 0 ? task.sourceRefsDropped : 0;
   return Object.freeze({ ok: true, code: "task_state_updated", task: Object.freeze({
-    ...task, state: next, executionAllowed: false, externalSideEffects: false
+    id: clean(task.id, 120), workspace: task.workspace,
+    tenantId: clean(task.tenantId, 120), userId: clean(task.userId, 120),
+    title: clean(task.title, 240),
+    priority: ["low", "medium", "high"].includes(task.priority) ? task.priority : "medium",
+    state: next,
+    sourceRefs: Object.freeze(refs),
+    sourceRefsDropped: priorDropped + rawRefs.length - refs.length,
+    approvalRequired: true, authority: "recommendation_only",
+    executionAllowed: false, externalSideEffects: false
   }) });
 }
