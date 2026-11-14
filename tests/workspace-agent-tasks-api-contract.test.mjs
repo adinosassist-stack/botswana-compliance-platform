@@ -4,7 +4,9 @@ import {handleWorkspaceAgentTasksRequest} from "../cloudflare/src/workspace-agen
 
 const origin="https://thebedesk.com";
 const session={user_id:"user-A",tenant_id:"tenant-A",role:"owner",csrf_token:"test-csrf"};
-function harness({auth=session,result={success:true,results:[]},failure=false}={}){
+function harness(options={}){
+ const {auth=session,failure=false}=options;
+ const result=Object.hasOwn(options,"result") ? options.result : {success:true,results:[]};
  const calls={auth:[],tasks:[],writes:0};
  const env={
    SESSION_SECRET:"synthetic-offline-secret-not-connected-to-production",
