@@ -37,6 +37,10 @@ try{
    }
    if(path.endsWith('/history'))return {items:[...(serviceSaved?[{event_type:'CORPORATE_ASSET_SERVICE_RECORDED',event_data:JSON.stringify(serviceSaved),occurred_at:'2026-11-02T00:00:00Z'}]:[]),{event_type:'CORPORATE_ASSET_CREATED',occurred_at:'2026-11-01T00:00:00Z'}]};
    if(path.endsWith('/schedule'))return {items:[{asset_name:item.name,kind:'insurance',due_on:'2026-12-01'}]};
+   if(/^\/api\/corporate-assets\/[a-f0-9-]{36}$/i.test(path)){
+    const id=path.split('/').at(-1);
+    return {item:id===item.id?item:offPageAsset?.id===id?offPageAsset:null};
+   }
    return {items:[item],summary:{total:1,bookValueMinor:19000000,maintenance:0,due:1,byCategory:[{category:'fleet',count:1}]},nextCursor:null};
   };
  });
