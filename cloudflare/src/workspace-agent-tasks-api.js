@@ -23,7 +23,9 @@ export async function handleWorkspaceAgentTasksRequest({ request, logicalPath, e
   try {
     const result = await env.DB.prepare(`SELECT id,objective,workspace FROM agent_responsibilities
       WHERE tenant_id=? AND workspace=? AND status='active'
-      ORDER BY updated_at DESC LIMIT 6`).bind(auth.tenant_id, workspace).all();
+      ORDER BY updated_at DESC LIMIT 24`).bind(auth.tenant_id, workspace).all();
+    // Read a bounded candidate window so blank or duplicate objectives cannot
+    // hide valid tasks; the planner still returns at most six advisory tasks.
     const workUnits = (Array.isArray(result?.results) ? result.results : []).map(row => ({
       id: row.id, objective: row.objective, priority: "medium", sourceRefs: []
     }));
