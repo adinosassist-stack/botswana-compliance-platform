@@ -87,10 +87,11 @@ test("only workspace allowlist is accepted; disallowed and forged scopes never q
  const h=harness();
  for(const workspace of ["finance';DELETE",[],"payments","",["owner","other"],"__proto__"]){
   const r=await h.request(tasks,{workspace});
-  if(workspace==="")assert.equal(r.status,200);
-  else assert.equal(r.status,400);
+  assert.equal(r.status,400);
  }
- assert.equal(h.queries.length,1);
+ assert.equal(h.queries.length,0);
+ assert.equal((await h.request(tasks)).status,200,"omitted workspace still defaults to owner");
+ assert.deepEqual(h.queries[0].values,["tenant-A","owner"]);
 });
 test("manager read-only scope supported",async()=>{
  const h=harness({role:"manager",rows:[{id:"t",objective:"Review",workspace:"finance"}]});
