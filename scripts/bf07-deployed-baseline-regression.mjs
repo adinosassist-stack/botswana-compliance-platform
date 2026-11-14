@@ -35,7 +35,7 @@ const required=[
   "[[ \"$candidate_deploy_success\" == '1' ]] || continue",
   "[[ \"$candidate_smoke_success\" == '1' ]] || continue",
   'prior_launch_audit_json="$(fetch_workflow_runs production-launch-audit.yml "$previous_release_sha")"',
-  'run.get("conclusion") in {"success","failure"}',
+  'r.get("conclusion") in {"success","failure"}',
   'Prior Phase 0 launch-audit verdict NOT VERIFIED',
   'Prior Phase 0 launch-audit execution confirmed:'
 ];
