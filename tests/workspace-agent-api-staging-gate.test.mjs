@@ -65,7 +65,7 @@ test("invalid hosts, schemes, credentials, ports, method and forged logical path
 });
 test("production entry routes both private APIs only behind the staging gate",()=>{
  const source=readFileSync(new URL("../cloudflare/src/agentic-entry.js",import.meta.url),"utf8");
- assert.match(source,/import \{isWorkspaceAgentAdvisoryPath,workspaceAgentAdvisoryApiAllowed\} from "\.\/workspace-agent-api-staging-gate\.js"/);
+ assert.match(source,/import \{isWorkspaceAgentAdvisoryPath,workspaceAgentAdvisoryApiAllowed,denyUnqualifiedWorkspaceAgentApi\} from "\.\/workspace-agent-api-staging-gate\.js"/);
  const start=source.indexOf("if(isWorkspaceAgentAdvisoryPath(logicalPath))");
  const check=source.indexOf("if(!workspaceAgentAdvisoryApiAllowed({env,request,logicalPath}))",start);
  const taskCall=source.indexOf("const workspaceTaskResponse=await handleWorkspaceAgentTasksRequest({request,logicalPath,env})",check);
