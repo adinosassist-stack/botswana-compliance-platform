@@ -28,3 +28,18 @@ export function workspaceAgentAdvisoryApiAllowed({env,request,logicalPath}={}) {
       configuredHost.toLowerCase()!==host)return false;
   return true;
 }
+
+/** Run at the OUTERMOST Worker ingress, before any other route dispatcher.
+ * Return null for unrelated requests and authorized staging candidates.
+ * Staging candidates STILL require authenticated identity and tenant checks
+ * inside the separate task handler; no approval or execution is conferred.
+ */
+export function denyUnqualifiedWorkspaceAgentApi({env,request,logicalPath}={}) {
+  if(!isWorkspaceAgentAdvisoryPath(logicalPath))return null;
+  if(workspaceAgentAdvisoryApiAllowed({env,request,logicalPath}))return null;
+  return new Response(JSON.stringify({error:"not_found"}),{
+    status:404,
+    headers:{"content-type":"application/json; charset=utf-8",
+      "cache-control":"no-store","x-content-type-options":"nosniff"}
+  });
+}

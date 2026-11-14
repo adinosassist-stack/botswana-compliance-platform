@@ -93,3 +93,30 @@ test("offline readiness must require exact staging, pinned host and direct API p
   assert.equal(verdict.readyForStagingDeployment,false);
  }
 });
+
+test("offline evidence rejects missing earliest denial before any runtime dispatcher",()=>{
+ const verdict=qualifies();
+ assert.ok(verdict.checks.some(check=>
+   check.code==="agent_api_denied_at_outermost_entry_before_other_handlers" &&
+   check.passed));
+ const variants=[
+   {apiEntry:baseline.apiEntry.replace(
+     "const denied=denyUnqualifiedWorkspaceAgentApi({env,request,logicalPath});",
+     "const denied=null;")},
+   {apiEntry:baseline.apiEntry.replace(
+     "if(denied)return denied;",
+     "if(false)return denied;")},
+   {apiGate:baseline.apiGate.replace(
+     "if(!isWorkspaceAgentAdvisoryPath(logicalPath))return null;",
+     "if(false)return null;")},
+   {apiGate:baseline.apiGate.replace(
+     "if(workspaceAgentAdvisoryApiAllowed({env,request,logicalPath}))return null;",
+     "if(true)return null;")}
+ ];
+ for(const v of variants){
+   const r=qualifies(v);
+   assert.equal(r.safetyChecksPassed,false);
+   assert.equal(r.readyForStagingDeployment,false);
+   assert.equal(r.productionActivationAuthorized,false);
+ }
+});
