@@ -73,3 +73,49 @@
 6. Keep issue #2413 open until public disclosures and legal approval evidence are complete. Paid launch must also pass independent real-company-bank settlement and subscription acceptance in #1874.
 
 **This file is a review packet, not a substitute for legal advice, CIPA/BURS verification, policy decisions, approval, or launch authorization.**
+
+
+## F. Botswana law and policy-review checkpoints (researched 14 November 2026)
+
+**These are issues for qualified Botswana legal counsel, not final interpretations or customer commitments.**
+
+1. **Data protection is already in force.** Botswana's Data Protection Act, 2024 (Act No. 18 of 2024) commenced **14 January 2025** by SI 4/2025. The legal review must test lawful purposes, notice transparency, controller/processor roles, data-subject requests, security, retention, service providers/transfers, breach procedures and any data-protection-officer obligations that apply to Thebe Desk's *actual* processing. Relevant statute listing: https://www.botswanalaws.com/principal-legislation/data-protection/ . Commencement Order: https://itlawco.com/wp-content/uploads/2025/01/1736836435941.pdf .
+2. **Fair consumer contracting.** Botswana Competition and Consumer Authority guidance says suppliers should provide accurate, clear service information and fair contracts, with Pula pricing and access to complaint resolution. It describes a six-month repair/replace/refund guarantee **for qualifying defective goods**: do **not** automatically transpose that goods-specific provision into a universal SaaS refund window. Source: https://cca.co.bw/consumer-rights-under-consumer-protection-act .
+3. **Distance/electronic transaction cooling-off review.** Ask counsel to examine the current Electronic Communications and Transactions Act, any relevant exceptions/amendments, and whether a cooling-off or mandatory refund right applies to paid digital services or business-to-business subscriptions. Do not state that no refunds apply, or invent a 7-day or 30-day policy without this jurisdiction- and transaction-specific review.
+4. **Business customer versus consumer.** Decide which protections apply to business entities and which to individuals, taking account of customer classification and statutory definitions. Avoid one broad exclusion of consumer protections.
+5. **Consent and version compatibility.** Registration currently uses the \`2026-10-14\` Terms and Privacy document versions. When later approved pages change, verify the version recorded by the client and enforced by the server, the audit record, OAuth onboarding, legacy accounts, and the prospective-effective-date policy. No consent records, schema or production flags are changed by this review.
+
+## G. Proposed operational handling (internal proposal, owner sign-off required)
+
+1. **One published support entry point at launch:** the existing site WhatsApp number can remain the intake channel only if the owner confirms that Lovely Stones Proprietary Limited controls it, personnel can identify requests securely, and the channel reliably routes *Billing / Refunds / Cancellation / Privacy / Security*. Do not call it a dedicated DPO line without appointing an authorised privacy lead.
+2. **Case registration:** require a ticket identifier, request category, receipt time, authorised account reference, appropriate authenticated identity check and internal owner. Do not request or retain bank account passwords, full payment cards or unnecessary identity documents via WhatsApp.
+3. **Cancellation handling:** authenticate workspace owner; distinguish ending future access/renewal from refund entitlement; tell customer effective date and data-export options in the final response. Since manual bank payments are used, do not imply automatic billing or a card cancellation flow that is not actually enabled.
+4. **Refund handling:** independently investigate duplicate/overpayment/wrong allocation/non-delivery, compare bank settlement and invoice, check whether any statutory rights apply, obtain human approval, secure destination validation, record adjustment and any entitlement change atomically or via a documented recoverable workflow. Reject forged screenshot-based refund requests.
+5. **Privacy requests:** send to designated authorised staff; determine whether the company is acting as controller for the given request or supporting a business customer's controller obligations. Confirm identity without excessive collection, log actions and respond within time limits established by law and counsel.
+6. **Response times:** owner and legal counsel must approve any publicly promised hours/days and escalation path. An internal service-level target may be set later, but none is imposed or represented here.
+7. **Public communications:** publish an address or contact only after confirmed for business use; do not display private personal addresses, secret credentials, company bank account numbers, or internal legal certificates on a public GitHub issue.
+
+### H. Legal owner decisions — to be recorded before a publishing PR
+
+| Decision | Proposed safe default to review | Decision required |
+| --- | --- | --- |
+| Public support | Existing verified-on-site WhatsApp intake | Confirm owner controls channel and routing |
+| Billing and legal contact | Company-owned, tested escalation path | Identify responsible authorised staff/channel |
+| Privacy contact | Named role and reliable escalation, not invented DPO credentials | Appoint/confirm qualified person and contact |
+| Cancellation | Customer can request non-renewal; provide authenticated confirmation and data-export options | Effective date and support process |
+| Refunds | Case-by-case review for duplicate/excess/error/non-delivery, preserving all mandatory rights | Eligibility, statutory rights, timeline, approval authority |
+| Trial/renewal | Current website 14-day trial and manual payment; no automatic recurring billing claim | Trial expiry and paid-term wording |
+| Registered address | Plot 32431, Phakalane, Gaborone supplied by owner | Official CIPA registered-vs-principal status |
+| Service processors | Only name verified active production providers | Current contracts, locations, processing roles |
+| Legal effective date | Versioned new date after counsel approves final text | Consent-version technical plan |
+
+### I. Evidence and QA matrix for the subsequent implementation PR
+
+- Validate responsive public Terms, Privacy, DPA, Pricing, Cancellation, Support, and Subprocessors links on desktop and 320px/375px mobile.
+- Confirm no remaining contracting-entity placeholders on the approved published pages; check UIN/address exactly against approved CIPA extract.
+- Confirm registration checkbox/link text, server-required Terms/Privacy version, audit evidence, OAuth path and re-login across old/new versions before a legal-version bump.
+- Confirm no automatic checkout/FNB/POP upload/advanced-AI claim is inadvertently made during the manual-bank initial launch.
+- Check authenticated owner and customer support/billing navigation, cancellation request and privacy escalation with real accounts; do not use synthetic UI success to assert operational response capability.
+- Record exact build SHA, required CI, independent \`thusico\` approvals, governed deployment and public read-only smoke. Keep sensitive proof private.
+
+**No actual corporate standing, customer bank credit, operational support ownership, refund entitlement or statutory compliance is established by this draft.**
