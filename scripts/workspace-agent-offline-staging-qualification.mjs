@@ -7,6 +7,7 @@ import { resolve } from "node:path";
 const FILES = Object.freeze({
   production:"cloudflare/wrangler.toml",
   server:"cloudflare/src/release-governance-entry.js",
+  stagingGate:"cloudflare/src/workspace-agent-advisory-preview-gate.js",
   worker:"cloudflare/src/workspace-agent-tasks-api.js",
   node:"server/server.js",
   nodePrivate:"server/workspace-agent-node-private.js",
@@ -24,6 +25,7 @@ export function readWorkspaceAgentSources() {
 export function qualifyWorkspaceAgentOffline(sources) {
   const p=String(sources?.production||"");
   const s=String(sources?.server||"");
+  const stagingGate=String(sources?.stagingGate||"");
   const w=String(sources?.worker||"");
   const n=String(sources?.node||"");
   const privateNode=String(sources?.nodePrivate||"");
@@ -34,9 +36,16 @@ export function qualifyWorkspaceAgentOffline(sources) {
     ok("production_config_has_no_enabled_agent_flag",
       !/^\s*WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED\s*=\s*["']true["']/m.test(p)),
     ok("app_module_requires_explicit_server_flag",
-      s.includes('env?.WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED==="true"')),
+      s.includes("workspaceAgentAdvisoryPreviewAllowed({env,request,probeRole,initialIdentity})")&&
+      stagingGate.includes('env?.APP_ENV !== "staging"')&&
+      stagingGate.includes('env?.WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED !== "true"')),
+    ok("app_module_requires_exact_staging_host",
+      stagingGate.includes("WORKSPACE_AGENT_ADVISORY_STAGING_HOST")&&
+      stagingGate.includes("configuredHost.toLowerCase() !== host")&&
+      stagingGate.includes("url.protocol !== \"https:\"")&&
+      stagingGate.includes("request?.method !== \"GET\"")),
     ok("app_module_restricted_to_server_authenticated_owner_manager",
-      s.includes('initialIdentity &&')&&s.includes('(probeRole==="owner"||probeRole==="manager")')),
+      stagingGate.includes('initialIdentity &&')&&stagingGate.includes('(probeRole==="owner"||probeRole==="manager")')),
     ok("app_module_injected_as_module_not_inline_runtime",
       s.includes('type="module" src="${WORKSPACE_AGENT_ADVISORY_BOOT_SCRIPT}"')),
     ok("node_candidate_registered_only_in_explicit_private_test_env",
