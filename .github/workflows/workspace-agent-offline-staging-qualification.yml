@@ -1,0 +1,71 @@
+name: Workspace Agent offline staging qualification
+
+on:
+  pull_request:
+    paths:
+      - "scripts/workspace-agent-offline-staging-qualification.mjs"
+      - "tests/workspace-agent-offline-staging-qualification.test.mjs"
+      - "cloudflare/src/workspace-agent-tasks-api.js"
+      - "cloudflare/src/release-governance-entry.js"
+      - "public/js/workspace-agent-app-shell.js"
+      - "tests/workspace-agent-app-shell-browser.mjs"
+      - "cloudflare/wrangler.toml"
+      - ".github/workflows/workspace-agent-offline-staging-qualification.yml"
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: "Exact current main SHA for offline, no-write qualification"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  offline-readonly:
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Require exact current main for manual qualification
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          current="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          test "$current" = "$EXPECTED_SHA"
+      - name: Syntax and safety tests (offline)
+        run: |
+          node --check scripts/workspace-agent-offline-staging-qualification.mjs
+          node --test tests/workspace-agent-offline-staging-qualification.test.mjs
+      - name: Produce no-deployment evidence
+        run: node scripts/workspace-agent-offline-staging-qualification.mjs --output "$RUNNER_TEMP/workspace-agent-offline-evidence.json"
+      - name: Reconfirm exact current main after offline qualification
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" = "$EXPECTED_SHA"
+      - name: Attach redacted offline readiness evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-agent-offline-staging-readiness
+          path: ${{ runner.temp }}/workspace-agent-offline-evidence.json
+          if-no-files-found: error
+          retention-days: 7
