@@ -3,8 +3,8 @@ on:
   workflow_dispatch:
     inputs:
       expected_main_sha:
-        description: Exact current main SHA
-        required: true
+        description: Optional exact main SHA override (defaults to the commit selected at dispatch)
+        required: false
         type: string
 permissions: {}
 
@@ -18,7 +18,7 @@ jobs:
     timeout-minutes: 5
     env:
       GH_TOKEN: ${{ github.token }}
-      EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+      EXPECTED_SHA: ${{ inputs.expected_main_sha || github.sha }}
     steps:
       - name: Verify staging environment protections before referencing it
         run: |
@@ -49,7 +49,7 @@ jobs:
     steps:
       - name: Verify exact main after environment approval
         env:
-          EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+          EXPECTED_SHA: ${{ inputs.expected_main_sha || github.sha }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
