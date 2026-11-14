@@ -28,7 +28,7 @@ test('only auth and corporate asset paths delegate, with narrowed runtime',async
   ['/api/corporate-assets/11111111-1111-4111-8111-111111111111/history','GET'],
   ['/api/corporate-assets/11111111-1111-4111-8111-111111111111/services','POST']];
  for(const [path,method] of routes)assert.equal((await hit(app,path,method)).status,200,path);
- for(const [path,method] of [['/api/auth/register','POST'],['/api/state','POST'],['/api/billing/status','GET'],['/api/corporate-assets','DELETE'],['/api/corporate-assets/not-an-id','PUT']])
+ for(const [path,method] of [['/api/auth/register','POST'],['/api/state','POST'],['/api/billing/status','GET'],['/api/corporate-assets','DELETE'],['/api/corporate-assets/not-an-id','PUT'],['/api/corporate-assets/11111111-1111-4111-8111-111111111111/services','GET']])
   assert.equal((await hit(app,path,method)).status,403,path);
  assert.equal(called.length,routes.length);
  assert.equal(called[0].runtime.DB,env.DB);assert.equal(called[0].runtime.THEBE_CORPORATE_ASSETS_ENABLED,'true');assert.equal(called[0].runtime.ASSETS_STAGING_WRITES_ENABLED,'true');
