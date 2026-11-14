@@ -1,0 +1,41 @@
+name: Workspace Agent no-route staging draft safety
+on:
+  pull_request:
+    paths:
+      - "scripts/workspace-agent-no-route-staging-plan.mjs"
+      - "docs/workspace-agent-no-route-staging-plan.json"
+      - "docs/workspace-agent-no-route-staging-decision.md"
+      - "tests/workspace-agent-no-route-staging-plan.test.mjs"
+      - ".github/workflows/workspace-agent-no-route-staging-plan.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check plan policy syntax and tests
+        run: |
+          node --check scripts/workspace-agent-no-route-staging-plan.mjs
+          node --test tests/workspace-agent-no-route-staging-plan.test.mjs
+      - name: Explicit no-deployment boundary
+        run: |
+          node --input-type=module <<'JS'
+          import {readFileSync} from "node:fs";
+          import {assessWorkspaceAgentNoRoutePlan} from "./scripts/workspace-agent-no-route-staging-plan.mjs";
+          const {plan,inventory}=JSON.parse(readFileSync("docs/workspace-agent-no-route-staging-plan.json","utf8"));
+          const assessment=assessWorkspaceAgentNoRoutePlan(plan,inventory);
+          if(!assessment.staticDraftPassed || assessment.readyForStagingDeployment ||
+             assessment.stagingActivationAuthorized || assessment.productionActivationAuthorized)
+             throw Error("NO_ROUTE_DRAFT_GATE_FAILED");
+          console.log("NO_ROUTE_DRAFT_ONLY: no Worker, database, route or activation actions");
+          JS
