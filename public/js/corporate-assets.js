@@ -75,6 +75,12 @@
     asset.book_value_minor!==body.bookValueMinor||asset.status!==body.status)return false;
   return method==='PUT'?Number(asset.revision)===body.revision+1:Number(asset.revision)===1;
  }
+ async function verifyExactAssetReadback(body,method){
+  try{
+   const result=await api(ROOT+'/'+encodeURIComponent(body.id));
+   return assetReadbackMatches(result?.item,body,method);
+  }catch{return false}
+ }
  // Service IDs belong to service rows, not the asset register. The sealed audit entry
  // is committed atomically with the service row and provides an exact-ID readback.
  async function serviceReadbackVerified(path,serviceId){
