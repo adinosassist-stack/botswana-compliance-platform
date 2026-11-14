@@ -24,6 +24,12 @@ assert.equal(completedPhase0Verdict(null),false,'missing Phase 0 audits must fai
 const required=[
   'candidate_bf07_json="$(fetch_workflow_runs bf07-seal.yml "$candidate_sha")"',
   'candidate_deploy_json="$(fetch_workflow_runs deploy-production.yml "$candidate_sha")"',
+  'verify_protected_manual_deployment(){',
+  '/actions/runs/$deployment_run_id/approvals',
+  'candidate_deploy_proof=',
+  'prior_deploy_proof=',
+  'manual:',
+  'prior manual production deployment lacks independent thusico approval for protected production environment',
   'candidate_smoke_json="$(fetch_workflow_runs postdeploy-smoke.yml "$candidate_sha")"',
   "[[ \"$candidate_bf07_success\" == '1' ]] || continue",
   "[[ \"$candidate_deploy_success\" == '1' ]] || continue",
