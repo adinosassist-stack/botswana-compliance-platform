@@ -46,4 +46,7 @@ jobs:
           node --check server/workspace-agent-node-private-auth-fields.js
           node --check server/server.js
       - name: Test advisory task boundaries
-        run: node --test tests/workspace-agent-*.test.mjs
+        run: |
+          # The private service-binding test runs in its own dependency-installed job.
+          shopt -s extglob
+          node --test tests/workspace-agent-!(private-service-binding).test.mjs
