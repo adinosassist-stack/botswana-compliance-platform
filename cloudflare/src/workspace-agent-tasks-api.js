@@ -17,7 +17,11 @@ export async function handleWorkspaceAgentTasksRequest({ request, logicalPath, e
   if (!auth?.tenant_id || !auth?.user_id) return json({ error: "unauthenticated" }, 401);
   if (!roleAllowed(auth, "owner", "manager")) return json({ error: "forbidden" }, 403);
   if (isIdentity) return json({ ok: true, tenantId: auth.tenant_id, userId: auth.user_id });
-  const workspace = new URL(request.url).searchParams.get("workspace") || "owner";
+  // Never silently select the first of duplicate or empty workspace values.
+  // Absent workspace retains the documented default owner scope.
+  const requestedWorkspaces = new URL(request.url).searchParams.getAll("workspace");
+  const workspace = requestedWorkspaces.length === 0 ? "owner" :
+    requestedWorkspaces.length === 1 ? requestedWorkspaces[0] : null;
   if (!allowedWorkspaces.has(workspace)) return json({ error: "invalid_workspace" }, 400);
   if (!env?.DB) return json({ error: "task_source_unavailable" }, 503);
   try {
@@ -26,7 +30,12 @@ export async function handleWorkspaceAgentTasksRequest({ request, logicalPath, e
       ORDER BY updated_at DESC LIMIT 24`).bind(auth.tenant_id, workspace).all();
     // Read a bounded candidate window so blank or duplicate objectives cannot
     // hide valid tasks; the planner still returns at most six advisory tasks.
-    const workUnits = (Array.isArray(result?.results) ? result.results : []).map(row => ({
+    // A malformed/error D1 result is not an empty verified workspace.
+    // Do not display a false "no tasks" success if the source is unavailable.
+    if (result?.success === false || !Array.isArray(result?.results) || result.results.length > 24) {
+      return json({ error: "task_source_unavailable" }, 503);
+    }
+    const workUnits = result.results.map(row => ({
       id: row.id, objective: row.objective, priority: "medium", sourceRefs: []
     }));
     const snapshot = planWorkspaceAgentTasks({
