@@ -8,6 +8,8 @@ on:
       - "cloudflare/src/workspace-agent-tasks-api.js"
       - "cloudflare/src/release-governance-entry.js"
       - "cloudflare/src/workspace-agent-advisory-preview-gate.js"
+      - "cloudflare/src/workspace-agent-api-staging-gate.js"
+      - "cloudflare/src/agentic-entry.js"
       - "public/js/workspace-agent-app-shell.js"
       - "server/workspace-agent-node-private.js"
       - "server/server.js"
