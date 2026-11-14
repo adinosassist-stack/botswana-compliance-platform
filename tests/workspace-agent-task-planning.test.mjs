@@ -130,3 +130,15 @@ test("transition canonicalizes duplicate and oversized source references", () =>
   assert.equal(Object.isFrozen(result.task.sourceRefs), true);
   assert.equal(transitionWorkspaceAgentTask(planned, "completed").code, "trusted_completion_required");
 });
+
+test("planner and transitions enforce the presentation title length contract", () => {
+  const planned = planWorkspaceAgentTasks({
+    workspace: "finance", tenantId: "t", userId: "u",
+    workUnits: [{ id: "long", objective: "x".repeat(500) }]
+  }).tasks[0];
+  assert.equal(planned.title.length, 240);
+  const transitioned = transitionWorkspaceAgentTask({ ...planned, title: "y".repeat(500) }, "in_progress");
+  assert.equal(transitioned.ok, true);
+  assert.equal(transitioned.task.title.length, 240);
+  assert.equal(transitioned.task.executionAllowed, false);
+});
