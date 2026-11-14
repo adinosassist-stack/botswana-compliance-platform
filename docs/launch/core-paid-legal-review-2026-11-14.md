@@ -10,7 +10,7 @@
 1. The owner supplied a Botswana Certificate of Incorporation identifying **Lovely Stones Proprietary Limited** as incorporated under Companies Act CAP:42:01 on **26 January 2024**. The submitted certificate contains a company UIN. This document does **not** independently establish present standing, authority to contract or the registered address; obtain a current CIPA extract/verification before public legal publication. Avoid posting the source certificate and registration identifiers to public issue discussions.
 2. The owner supplied a BURS tax-clearance certificate for the same company, dated **8 October 2026** and stating validity through **8 October 2027 unless revoked**. The uploaded certificate has not been independently validated through the official BURS portal. **Do not present it as proof of VAT registration, company standing, refund treatment or payment-provider licensing.**
 3. The owner identified **Plot 32431, Phakalane, Gaborone, Botswana** as the intended business address. **Legal reviewer must verify whether this is the official registered address, principal place of business, or both**; do not label it a CIPA-registered address without evidence.
-4. The current public Terms, Privacy Notice and Data Processing Terms use WhatsApp **+267 77 723 273** for legal/privacy escalation. The website reference verifies that the channel is *published*, not that a designated privacy contact, authorised support operator, response SLA or billing support owner is in place.
+4. The current public Terms, Privacy Notice and Data Processing Terms use WhatsApp **+267 77 723 273** for legal/privacy escalation. **The owner has now supplied +267 74 583 606 as the intended replacement support/WhatsApp number for the legal draft.** The current site number is historical/current-page evidence, not the future contact decision. Confirm ownership, WhatsApp reachability and lawful support/privacy routing of the new number before publishing. Neither a designated privacy contact, authorised support operator, response SLA nor billing support owner has yet been independently established.
 5. Current source pages: `public/terms/index.html`, `public/privacy/index.html`, `public/data-processing/index.html`, `public/subprocessors/index.html`. Public legal language is dated **14 October 2026** and deliberately withholds unverified company/provider/data-location claims.
 6. Existing manual-payment launch acceptance: `docs/CORE_PAID_LAUNCH_ACCEPTANCE.md` and launch issues #1874 and #2413. Published Release 608 source must not be equated with end-to-end bank settlement acceptance.
 
@@ -55,7 +55,7 @@
 | Intended legal name | Owner-supplied CIPA certificate: Lovely Stones Proprietary Limited | Independently verify current CIPA standing and authority |
 | Company registration/UIN | Appears on private CIPA certificate | Confirm from official registry; include in public copy only after approval |
 | Business address | Owner-supplied Plot 32431, Phakalane, Gaborone, Botswana | Verify official registered vs principal-office status |
-| Public WhatsApp support | Existing website: +267 77 723 273 | Owner confirms channel ownership and real escalation testing |
+| Public WhatsApp support | Site currently displays +267 77 723 273; owner proposes replacement **+267 74 583 606** | Test new number/WhatsApp availability and confirm lawful owner-controlled support, billing and privacy routing before public change |
 | Legal and contractual notices | Existing Terms/Privacy use placeholders | Counsel-approved document/version and effective date |
 | Designated privacy contact | Not established by existing pages | Designate an authorised role/channel; test reachability |
 | Customer billing contact | Not independently confirmed | Confirm invoicing and support owner |
@@ -87,7 +87,7 @@
 
 ## G. Proposed operational handling (internal proposal, owner sign-off required)
 
-1. **One published support entry point at launch:** the existing site WhatsApp number can remain the intake channel only if the owner confirms that Lovely Stones Proprietary Limited controls it, personnel can identify requests securely, and the channel reliably routes *Billing / Refunds / Cancellation / Privacy / Security*. Do not call it a dedicated DPO line without appointing an authorised privacy lead.
+1. **One proposed support entry point at launch:** the owner-provided replacement contact is **+267 74 583 606** (Botswana format; proposed WhatsApp channel). Do not presume WhatsApp is active or belongs to the company merely from the number. Before approved public replacement of +267 77 723 273, test reachability and confirm that Lovely Stones Proprietary Limited controls the channel, authorised personnel can securely identify requests, and it reliably routes *Billing / Refunds / Cancellation / Privacy / Security*. Do not call it a dedicated DPO line without appointing an authorised privacy lead.
 2. **Case registration:** require a ticket identifier, request category, receipt time, authorised account reference, appropriate authenticated identity check and internal owner. Do not request or retain bank account passwords, full payment cards or unnecessary identity documents via WhatsApp.
 3. **Cancellation handling:** authenticate workspace owner; distinguish ending future access/renewal from refund entitlement; tell customer effective date and data-export options in the final response. Since manual bank payments are used, do not imply automatic billing or a card cancellation flow that is not actually enabled.
 4. **Refund handling:** independently investigate duplicate/overpayment/wrong allocation/non-delivery, compare bank settlement and invoice, check whether any statutory rights apply, obtain human approval, secure destination validation, record adjustment and any entitlement change atomically or via a documented recoverable workflow. Reject forged screenshot-based refund requests.
@@ -99,7 +99,7 @@
 
 | Decision | Proposed safe default to review | Decision required |
 | --- | --- | --- |
-| Public support | Existing verified-on-site WhatsApp intake | Confirm owner controls channel and routing |
+| Public support | Proposed replacement: +267 74 583 606; old number remains on live legal pages | Confirm new channel ownership/WhatsApp activation, escalation routing and a governed update across public pages |
 | Billing and legal contact | Company-owned, tested escalation path | Identify responsible authorised staff/channel |
 | Privacy contact | Named role and reliable escalation, not invented DPO credentials | Appoint/confirm qualified person and contact |
 | Cancellation | Customer can request non-renewal; provide authenticated confirmation and data-export options | Effective date and support process |
