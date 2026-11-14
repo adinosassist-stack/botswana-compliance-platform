@@ -6,11 +6,31 @@ on:
     branches-ignore: [main]
     paths:
       - public/home.html
+      - public/terms/**
+      - public/privacy/**
+      - public/data-processing/**
+      - public/subprocessors/**
+      - public/security/**
+      - public/ai-data/**
+      - public/js/public-marketing-v249.js
+      - public/js/public-market-ux-v250.js
+      - public/js/market-conversion-v11.js
+      - tests/public-support-contact-cutover.test.mjs
       - V76_WHATSAPP_SETUP.md
       - .github/workflows/whatsapp-public-postdeploy.yml
   pull_request:
     paths:
       - public/home.html
+      - public/terms/**
+      - public/privacy/**
+      - public/data-processing/**
+      - public/subprocessors/**
+      - public/security/**
+      - public/ai-data/**
+      - public/js/public-marketing-v249.js
+      - public/js/public-market-ux-v250.js
+      - public/js/market-conversion-v11.js
+      - tests/public-support-contact-cutover.test.mjs
       - V76_WHATSAPP_SETUP.md
       - .github/workflows/whatsapp-public-postdeploy.yml
   workflow_run:
@@ -86,6 +106,11 @@ jobs:
           assert.match(html,/WhatsApp \+267 74 583 606/i);
           console.log(`PASS source WhatsApp public entry number=+${number} links=${hrefs.length}`);
           NODE
+
+      - name: Verify coordinated public contact sources
+        if: github.event_name != 'workflow_run'
+        shell: bash
+        run: node --test tests/public-support-contact-cutover.test.mjs
 
       - name: Verify deployed WhatsApp entry after production deploy
         if: github.event_name == 'workflow_run' || github.event_name == 'workflow_dispatch'
