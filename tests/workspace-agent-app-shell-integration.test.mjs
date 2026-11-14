@@ -16,8 +16,11 @@ function fixture(role="owner", { observe=false, fetchResponse=null } = {}) {
     disconnect() { this.disconnected=true; }
     notify() { this.callback([]); }
   }
+  const documentListeners = new Map();
   const documentRef={
     body:{},
+    addEventListener:(name,cb)=>documentListeners.set(name,cb),
+    removeEventListener:(name,cb)=>{if(documentListeners.get(name)===cb)documentListeners.delete(name)},
     getElementById:(id)=>nodes.get(id)||null,
     querySelector:(selector)=>selector===".view.active"?{id:view}:null
   };
@@ -36,7 +39,9 @@ function fixture(role="owner", { observe=false, fetchResponse=null } = {}) {
   };
   const app=createWorkspaceAgentAppShell({target,documentRef,fetchImpl,makeAdapter,MutationObserverImpl:observe?Observer:null});
   target.__THEBE_WORKSPACE_READY__=true;
-  return {app,target,nodes,observers,setView:(value)=>{view=value},activations,clears:()=>clears,calls:()=>calls};
+  return {app,target,nodes,observers,setView:(value)=>{view=value},activations,clears:()=>clears,calls:()=>calls,
+    dispatchDocumentEvent:(name,id)=>documentListeners.get(name)?.({target:{id}}),
+    hasDocumentListener:(name)=>documentListeners.has(name)};
 }
 test("only mapped views can select advisory task scope",()=>{
  assert.equal(workspaceAgentScopeForView("dashboard"),"owner");
@@ -120,4 +125,17 @@ test("missing Workspace dock never probes session",async()=>{
  assert.equal((await f.app.refresh()).code,"workspace_dock_required");
  assert.equal(f.calls(),0);
  f.app.dispose();
+});
+
+test("company selector change invalidates old advisory tasks without view navigation",async()=>{
+ const f=fixture("owner");
+ await f.app.refresh();
+ const cleared=f.clears();
+ f.dispatchDocumentEvent("change","companySelect");
+ await new Promise(resolve=>setTimeout(resolve,0));
+ assert.ok(f.clears()>cleared);
+ assert.equal(f.calls(),2);
+ assert.equal(f.activations.length,2);
+ f.app.dispose();
+ assert.equal(f.hasDocumentListener("change"),false);
 });
