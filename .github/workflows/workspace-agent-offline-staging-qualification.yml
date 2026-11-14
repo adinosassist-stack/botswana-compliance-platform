@@ -7,6 +7,7 @@ on:
       - "tests/workspace-agent-offline-staging-qualification.test.mjs"
       - "cloudflare/src/workspace-agent-tasks-api.js"
       - "cloudflare/src/release-governance-entry.js"
+      - "cloudflare/src/workspace-agent-advisory-preview-gate.js"
       - "public/js/workspace-agent-app-shell.js"
       - "server/workspace-agent-node-private.js"
       - "server/server.js"

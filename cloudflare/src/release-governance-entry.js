@@ -1,5 +1,6 @@
 import base from "./agentic-entry.js";
 import {applyAssetReleaseIdentity} from "./asset-release-identity.js";
+import {workspaceAgentAdvisoryPreviewAllowed} from "./workspace-agent-advisory-preview-gate.js";
 import releaseMetadata from "../../release/production.json" with {type:"json"};
 import {durableRegistrationChallengeGate,validateAndClaimRegistrationProof} from "./registration-boundary.js";
 import {handleConversionEvent,recordRegistrationSuccess,recordWorkspaceReached} from "./conversion-funnel-governance.js";
@@ -303,10 +304,8 @@ async function workspaceSurfaceResponse(request,env,ctx){
     const html=await shell.clone().text();
     let injected=injectInitialWorkspaceState(html,initialState);
     injected=injectInitialWorkspaceIdentity(injected,initialIdentity);
-    // Staging-only preview: explicit server flag, verified owner/manager session.
-    // Never enable advisory boot on reviewer, auditor, public or auth surfaces.
-    if(env?.WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED==="true" && initialIdentity &&
-       (probeRole==="owner"||probeRole==="manager")) {
+    // Exact, authenticated private staging only; remote flags cannot enable production.
+    if(workspaceAgentAdvisoryPreviewAllowed({env,request,probeRole,initialIdentity})) {
       injected=injectWorkspaceAgentAdvisoryBoot(injected);
     }
     if(injected===html)return shell;

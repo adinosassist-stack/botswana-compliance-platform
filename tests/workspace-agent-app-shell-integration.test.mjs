@@ -78,9 +78,13 @@ test("pagehide invalidates activation and disposal blocks future refresh",async(
 });
 test("Cloudflare app boot stays off by default and restricted to authenticated owner/manager",()=>{
  const server=readFileSync(new URL("../cloudflare/src/release-governance-entry.js",import.meta.url),"utf8");
- assert.match(server,/WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED==="true"/);
- assert.match(server,/initialIdentity &&/);
- assert.match(server,/probeRole==="owner"\|\|probeRole==="manager"/);
+ assert.match(server,/workspaceAgentAdvisoryPreviewAllowed\(\{env,request,probeRole,initialIdentity\}\)/);
+ const gate=readFileSync(new URL("../cloudflare/src/workspace-agent-advisory-preview-gate.js",import.meta.url),"utf8");
+ assert.match(gate,/env\?\.APP_ENV !== "staging"/);
+ assert.match(gate,/WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED !== "true"/);
+ assert.match(gate,/WORKSPACE_AGENT_ADVISORY_STAGING_HOST/);
+ assert.match(gate,/initialIdentity &&/);
+ assert.match(gate,/probeRole==="owner"\|\|probeRole==="manager"/);
  assert.match(server,/type="module" src="\$\{WORKSPACE_AGENT_ADVISORY_BOOT_SCRIPT\}"/);
  const runtime=readFileSync(new URL("../public/js/workspace-runtime-20261001b.js",import.meta.url),"utf8");
  assert.doesNotMatch(runtime,/workspace-agent-app-shell\.js/);

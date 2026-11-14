@@ -28,13 +28,17 @@ test("fails if production Wrangler enables advisory Agent feature flag",()=>{
   assert.equal(result.result,"OFFLINE_SAFETY_CHECK_FAILED");
   assert.equal(result.checks[0].passed,false);
 });
-test("fails if server omits protected owner/manager or exact opt-in",()=>{
+test("fails if server or helper removes preview environment, role, or host protection",()=>{
   for(const altered of [
-    baseline.server.replace('env?.WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED==="true"','true'),
-    baseline.server.replace('(probeRole==="owner"||probeRole==="manager")','true')
+    {server:baseline.server.replace("workspaceAgentAdvisoryPreviewAllowed({env,request,probeRole,initialIdentity})","true")},
+    {stagingGate:baseline.stagingGate.replace('env?.APP_ENV !== "staging"','false')},
+    {stagingGate:baseline.stagingGate.replace('env?.WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED !== "true"','false')},
+    {stagingGate:baseline.stagingGate.replace('(probeRole==="owner"||probeRole==="manager")','true')},
+    {stagingGate:baseline.stagingGate.replace('configuredHost.toLowerCase() !== host','false')},
+    {stagingGate:baseline.stagingGate.replace('request?.method !== "GET"','false')}
   ]) {
-    const result=qualifies({server:altered});
-    assert.equal(result.safetyChecksPassed,false);
+    const result=qualifies(altered);
+    assert.equal(result.safetyChecksPassed,false,JSON.stringify(altered));
     assert.equal(result.readyForStagingDeployment,false);
   }
 });
