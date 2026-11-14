@@ -139,8 +139,10 @@ test("Node HTTP denials do not read tasks or allow any mutation",async()=>{
       assert.equal(p.status,405);
       assert.equal((await h.request("/api/agentic/workspace-tasks",{method})).status,405);
     }
-    assert.equal((await h.request("/api/agentic/workspace-tasks?workspace=__proto__")).status,400);
-    assert.equal((await h.request("/api/agentic/workspace-tasks?workspace=owner&workspace=finance")).status,400);
+    for (const suffix of ["?workspace=__proto__","?workspace=","?workspace",
+      "?workspace=owner&workspace=finance","?workspace=owner&workspace=owner"]) {
+      assert.equal((await h.request("/api/agentic/workspace-tasks"+suffix)).status,400,suffix);
+    }
     assert.equal((await h.request("/api/agentic/workspace-tasks",{session:"reviewer-A"})).status,403);
     assert.equal((await h.request("/api/agentic/workspace-tasks",{session:null})).status,401);
     assert.equal(h.sqlCalls.length,0);
