@@ -120,3 +120,26 @@ test("offline evidence rejects missing earliest denial before any runtime dispat
    assert.equal(r.productionActivationAuthorized,false);
  }
 });
+
+test("offline evidence requires denial at real production release entry before conversion",()=>{
+ const baselineResult=qualifies();
+ assert.ok(baselineResult.checks.some(check=>
+   check.code==="production_release_entry_denies_advisory_api_before_conversion"&&check.passed));
+ for(const change of [
+  {server:baseline.server.replace(
+    "const denied=denyUnqualifiedWorkspaceAgentApi({env,request,logicalPath:path});",
+    "const denied=null;")},
+  {server:baseline.server.replace("if(denied)return denied;","if(false)return denied;")},
+  {server:baseline.server.replace(
+    'import {denyUnqualifiedWorkspaceAgentApi} from "./workspace-agent-api-staging-gate.js";',
+    "// removed guard import")},
+  {apiGate:baseline.apiGate.replace(
+    "export function denyUnqualifiedWorkspaceAgentApi(",
+    "function allowAllWorkspaceAgentApi(")}
+ ]){
+   const verdict=qualifies(change);
+   assert.equal(verdict.safetyChecksPassed,false,Object.keys(change)[0]);
+   assert.equal(verdict.readyForStagingDeployment,false);
+   assert.equal(verdict.productionActivationAuthorized,false);
+ }
+});
