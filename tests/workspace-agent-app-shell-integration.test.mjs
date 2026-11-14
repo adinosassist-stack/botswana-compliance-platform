@@ -2,13 +2,20 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createWorkspaceAgentAppShell, workspaceAgentScopeForView } from "../public/js/workspace-agent-app-shell.js";
-function fixture(role="owner") {
+function fixture(role="owner", { observe=false, fetchResponse=null } = {}) {
   const target = new EventTarget(); target.__THEBE_WORKSPACE_READY__=false;
   const nodes = new Map();
   for (const id of ["appShell","marketingGate","authGate","thebeAiDock"]) {
-    nodes.set(id,{id,hidden:false,classList:{contains:()=>id!=="appShell"},dataset:{surface:"workspace"}});
+    nodes.set(id,{id,hidden:false,classList:{contains:()=>id!=="appShell"},dataset:{surface:"workspace"},style:{display:"",visibility:""}});
   }
   let view="dashboard",calls=0,activations=[],clears=0;
+  const observers=[];
+  class Observer {
+    constructor(callback) { this.callback=callback; this.disconnected=false; observers.push(this); }
+    observe() {}
+    disconnect() { this.disconnected=true; }
+    notify() { this.callback([]); }
+  }
   const documentRef={
     body:{},
     getElementById:(id)=>nodes.get(id)||null,
@@ -24,11 +31,12 @@ function fixture(role="owner") {
     calls++;
     assert.equal(path,"/api/auth/me");assert.equal(options.credentials,"same-origin");
     assert.equal(options.cache,"no-store");
+    if (typeof fetchResponse === "function") return fetchResponse(path,options);
     return {ok:true,json:async()=>({user:{role,id:"u1"},csrfToken:"secret"})};
   };
-  const app=createWorkspaceAgentAppShell({target,documentRef,fetchImpl,makeAdapter,MutationObserverImpl:null});
+  const app=createWorkspaceAgentAppShell({target,documentRef,fetchImpl,makeAdapter,MutationObserverImpl:observe?Observer:null});
   target.__THEBE_WORKSPACE_READY__=true;
-  return {app,target,nodes,setView:(value)=>{view=value},activations,clears:()=>clears,calls:()=>calls};
+  return {app,target,nodes,observers,setView:(value)=>{view=value},activations,clears:()=>clears,calls:()=>calls};
 }
 test("only mapped views can select advisory task scope",()=>{
  assert.equal(workspaceAgentScopeForView("dashboard"),"owner");
@@ -70,4 +78,46 @@ test("Cloudflare app boot stays off by default and restricted to authenticated o
  assert.match(server,/type="module" src="\$\{WORKSPACE_AGENT_ADVISORY_BOOT_SCRIPT\}"/);
  const runtime=readFileSync(new URL("../public/js/workspace-runtime-20261001b.js",import.meta.url),"utf8");
  assert.doesNotMatch(runtime,/workspace-agent-app-shell\.js/);
+});
+
+test("stale session probe cannot activate after navigation into unmapped view",async()=>{
+ let resolveProbe;
+ const f=fixture("owner",{fetchResponse:()=>new Promise(resolve=>{resolveProbe=resolve})});
+ const pending=f.app.refresh();
+ f.setView("payments");
+ f.target.dispatchEvent(new Event("thebe:workspace-view-change"));
+ resolveProbe({ok:true,json:async()=>({user:{role:"owner",id:"u1"},csrfToken:"secret"})});
+ assert.equal((await pending).code,"identity_changed");
+ assert.equal(f.activations.length,0);
+ f.app.dispose();
+});
+test("CSS-concealed workspace clears tasks before any further activation",async()=>{
+ const f=fixture("owner",{observe:true});
+ await f.app.refresh();
+ const calls=f.calls(), cleared=f.clears();
+ f.nodes.get("appShell").style.display="none";
+ f.observers[0].notify();
+ assert.ok(f.clears()>cleared);
+ assert.equal((await f.app.refresh()).code,"workspace_shell_hidden");
+ assert.equal(f.calls(),calls);
+ f.app.dispose();
+ assert.ok(f.observers.every(observer=>observer.disconnected));
+});
+test("a remounted dock clears previous scope and refreshes against same-origin session",async()=>{
+ const f=fixture("owner",{observe:true});
+ await f.app.refresh();
+ const cleared=f.clears();
+ f.nodes.set("thebeAiDock",{id:"thebeAiDock",hidden:false,classList:{contains:()=>false},dataset:{surface:"workspace"}});
+ f.observers[1].notify();
+ await new Promise(resolve=>setTimeout(resolve,0));
+ assert.ok(f.clears()>cleared);
+ assert.equal(f.calls(),2);
+ assert.equal(f.activations.length,2);
+ f.app.dispose();
+});
+test("missing Workspace dock never probes session",async()=>{
+ const f=fixture();f.nodes.delete("thebeAiDock");
+ assert.equal((await f.app.refresh()).code,"workspace_dock_required");
+ assert.equal(f.calls(),0);
+ f.app.dispose();
 });
