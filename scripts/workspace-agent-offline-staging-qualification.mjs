@@ -9,6 +9,7 @@ const FILES = Object.freeze({
   server:"cloudflare/src/release-governance-entry.js",
   worker:"cloudflare/src/workspace-agent-tasks-api.js",
   node:"server/server.js",
+  nodePrivate:"server/workspace-agent-node-private.js",
   client:"public/js/workspace-agent-app-shell.js",
   browser:"tests/workspace-agent-app-shell-browser.mjs",
   chromium:".github/workflows/workspace-agent-app-shell-browser.yml"
@@ -25,6 +26,7 @@ export function qualifyWorkspaceAgentOffline(sources) {
   const s=String(sources?.server||"");
   const w=String(sources?.worker||"");
   const n=String(sources?.node||"");
+  const privateNode=String(sources?.nodePrivate||"");
   const c=String(sources?.client||"");
   const b=String(sources?.browser||"");
   const ci=String(sources?.chromium||"");
@@ -37,6 +39,12 @@ export function qualifyWorkspaceAgentOffline(sources) {
       s.includes('initialIdentity &&')&&s.includes('(probeRole==="owner"||probeRole==="manager")')),
     ok("app_module_injected_as_module_not_inline_runtime",
       s.includes('type="module" src="${WORKSPACE_AGENT_ADVISORY_BOOT_SCRIPT}"')),
+    ok("node_candidate_registered_only_in_explicit_private_test_env",
+      n.includes("registerPrivateNodeWorkspaceAgent({")&&
+      n.includes('enabled:process.env.WORKSPACE_AGENT_NODE_PRIVATE_TEST_ENABLED==="true"')&&
+      privateNode.includes('appEnv !== "test" || enabled !== true')&&
+      privateNode.includes('req.auth')&&
+      privateNode.includes('tenant_id=$1 AND workspace=$2')),
     ok("agent_identity_and_tasks_get_only",
       w.includes('"/api/agentic/workspace-identity"')&&
       w.includes('"/api/agentic/workspace-tasks"')&&
@@ -67,6 +75,7 @@ export function qualifyWorkspaceAgentOffline(sources) {
     nodeTransport:{
       identityRoutePresent:nodeHasIdentity,
       tasksRoutePresent:nodeHasTasks,
+      privateTestCandidatePresent:privateNode.includes("export function registerPrivateNodeWorkspaceAgent"),
       parityQualified:false
     },
     blockers:[
