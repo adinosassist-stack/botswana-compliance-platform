@@ -75,6 +75,12 @@
     asset.book_value_minor!==body.bookValueMinor||asset.status!==body.status)return false;
   return method==='PUT'?Number(asset.revision)===body.revision+1:Number(asset.revision)===1;
  }
+ async function verifyExactAssetReadback(body,method){
+  try{
+   const result=await api(ROOT+'/'+encodeURIComponent(body.id));
+   return assetReadbackMatches(result?.item,body,method);
+  }catch{return false}
+ }
  // Service IDs belong to service rows, not the asset register. The sealed audit entry
  // is committed atomically with the service row and provides an exact-ID readback.
  async function serviceReadbackVerified(path,serviceId){
@@ -103,7 +109,12 @@
    if(path.endsWith('/services')){
     const token=epoch,verified=await serviceReadbackVerified(path,body.id);
     if(token===epoch&&who===key()&&root?.classList.contains('active'))status(verified?'Service / renewal saved and verified in asset history.':'Save accepted, but service history readback could not be verified. Open History or refresh to confirm.');
-   }else status(rows.some(asset=>assetReadbackMatches(asset,body,method))?'Saved and verified in your company register.':'Save accepted, but the saved asset was not found on the refreshed page. Search or refresh to verify the record.');
+   }else{
+    const token=epoch;
+    const verified=rows.some(asset=>assetReadbackMatches(asset,body,method))||await verifyExactAssetReadback(body,method);
+    if(token===epoch&&who===key()&&root?.classList.contains('active'))
+     status(verified?'Saved and verified in your company register.':'Save accepted, but exact asset readback could not be verified. Refresh or search to confirm.');
+   }
   }
   catch(e){dialogInfo.message.textContent=e.code==='asset_conflict'?'This asset changed in another session. Close this form and refresh before editing again.':e.message||'Save failed. Refresh before trying again.'}
   finally{busy=false;dialogInfo.submit.disabled=false}
