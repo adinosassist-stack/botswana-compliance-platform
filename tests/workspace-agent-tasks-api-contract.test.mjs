@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {handleWorkspaceAgentTasksRequest} from "../cloudflare/src/workspace-agent-tasks-api.js";
 
+import releaseEntry from "../cloudflare/src/release-governance-entry.js";
+
 const origin="https://thebedesk.com";
 const session={user_id:"user-A",tenant_id:"tenant-A",role:"owner",csrf_token:"test-csrf"};
 function harness(options={}){
@@ -25,11 +27,22 @@ function harness(options={}){
      throw Error("unexpected_query");
    }}
  };
- const request=async(path="/api/agentic/workspace-tasks?workspace=owner",{method="GET",cookie=true}={})=>{
+ const stagingHost = "workspace-agent-staging.thebedesk.com";
+ const staging = {
+   APP_ENV: "staging",
+   WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED: "true",
+   WORKSPACE_AGENT_ADVISORY_STAGING_HOST: stagingHost
+ };
+ const request=async(path="/api/agentic/workspace-tasks?workspace=owner",{method="GET",cookie=true,throughEntry=false,flags={}}={})=>{
    const headers=cookie?{cookie:"bw_session=synthetic-offline-session"}:{};
-   const response=await handleWorkspaceAgentTasksRequest({
-     request:new Request(origin+path,{method,headers}),env
-   });
+   const target = throughEntry ? "https://" + stagingHost : origin;
+   const incoming = new Request(target + path, {method,headers});
+   // In-process stand-in for service binding fetch. No DNS or Cloudflare I/O.
+   const response = throughEntry
+     ? await releaseEntry.fetch(incoming, {...env,...staging,...flags}, {
+         waitUntil() { throw Error("unexpected background work"); }
+       })
+     : await handleWorkspaceAgentTasksRequest({request:incoming,env});
    return {status:response.status,body:await response.json(),cache:response.headers.get("cache-control")};
  };
  return {calls,request};
@@ -117,4 +130,30 @@ test("D1 unauthorized roles and non-GET methods never read responsibility rows",
    assert.equal(h.calls.auth.length,0);
    assert.equal(h.calls.tasks.length,0);
  }
+});
+
+test("offline private caller reaches the real Worker entry with synthetic owner and manager sessions", async () => {
+  for (const [role, tenant] of [["owner","tenant-A"],["manager","tenant-B"]]) {
+    const h = harness({
+      auth: {...session, role, tenant_id: tenant},
+      result: {success:true, results:[{id:"synthetic-task", objective:"Review books", workspace:"finance"}]}
+    });
+    const result = await h.request("/api/agentic/workspace-tasks?workspace=finance", {throughEntry:true});
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.equal(result.cache, "no-store");
+    assert.equal(result.body.tasks[0].tenantId, tenant);
+    assert.deepEqual(h.calls.tasks.map(call => call.args), [[tenant,"finance"]]);
+    assert.equal(h.calls.writes, 0);
+  }
+});
+
+test("offline private caller cannot bypass disabled staging or missing session", async () => {
+  const h = harness();
+  assert.equal((await h.request(undefined, {throughEntry:true,
+    flags:{WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED:"false"}
+  })).status, 404);
+  assert.equal((await h.request(undefined, {throughEntry:true,cookie:false})).status, 401);
+  assert.deepEqual(h.calls.auth, []);
+  assert.deepEqual(h.calls.tasks, []);
+  assert.equal(h.calls.writes, 0);
 });
