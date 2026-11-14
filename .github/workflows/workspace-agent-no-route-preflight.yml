@@ -6,20 +6,26 @@ on:
         description: Exact current main SHA
         required: true
         type: string
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   verify-environment:
     if: github.ref == 'refs/heads/main'
+    permissions:
+      actions: read
+      contents: read
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:
       GH_TOKEN: ${{ github.token }}
+      EXPECTED_SHA: ${{ inputs.expected_main_sha }}
     steps:
       - name: Verify staging environment protections before referencing it
         run: |
           set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
           environment_api="repos/$GITHUB_REPOSITORY/environments/workspace-agent-private-staging"
           reviewer_id="$(gh api users/thusico --jq .id)"
           gh api "$environment_api" | jq -e --argjson reviewer "$reviewer_id" '
@@ -27,6 +33,7 @@ jobs:
               .prevent_self_review == true and
               ([.reviewers[] | select(.type == "User") | .reviewer.id] == [$reviewer]) and
               (.reviewers | length == 1)) and
+            .deployment_branch_policy.protected_branches == false and
             .deployment_branch_policy.custom_branch_policies == true'
           gh api "$environment_api/deployment-branch-policies" | jq -e '
             .total_count == 1 and .branch_policies[0].name == "main" and
@@ -34,6 +41,8 @@ jobs:
 
   inventory:
     needs: verify-environment
+    permissions:
+      contents: read
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     environment: workspace-agent-private-staging
