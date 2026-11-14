@@ -1,0 +1,26 @@
+# Build the isolated qualification target. Supply the short-lived synthetic
+# session secret and enable advisory reads only during the protected test run.
+name = "bw-workspace-agent-staging"
+main = "src/workspace-agent-staging-qualification-entry.js"
+account_id = "ddd23cab31928a4bb3d4998df9b26d1d"
+compatibility_date = "2026-09-03"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+preview_urls = false
+keep_vars = false
+
+[vars]
+APP_ENV = "staging"
+WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED = "false"
+WORKSPACE_AGENT_ADVISORY_STAGING_HOST = "workspace-agent-staging.thebedesk.com"
+THEBE_GENERAL_AI_ENABLED = "false"
+THEBE_INTERNAL_AUTONOMY_ENABLED = "false"
+AGENT_BOUNDED_TASK_EXECUTION_ENABLED = "0"
+THEBE_LIVE_VOICE_ENABLED = "false"
+POP_UPLOAD_STAGING_ENABLED = "false"
+PAYMENT_PROVIDER = "none"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bw-workspace-agent-staging"
+database_id = "fb0c7c32-6e0a-42cf-89c3-971529e583db"
