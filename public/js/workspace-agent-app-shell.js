@@ -26,6 +26,7 @@ export function createWorkspaceAgentAppShell({
   const adapter = makeAdapter({ target, getDock: () => documentRef.getElementById("thebeAiDock"), fetchImpl });
   let disposed = false, epoch = 0, requestAbort = null, awaitingDock = false;
   let dockObserver = null, gateObserver = null;
+  let currentDock = documentRef.getElementById("thebeAiDock") || null;
   const gateVisible = (id) => {
     const gate = documentRef.getElementById(id);
     return !!gate && !gate.hidden && !gate.classList?.contains("hidden");
@@ -95,6 +96,15 @@ export function createWorkspaceAgentAppShell({
     else if (!adapter.isActive()) void refresh();
   };
   const onBodyMutation = () => {
+    if (disposed) return;
+    const nextDock = documentRef.getElementById("thebeAiDock") || null;
+    if (nextDock !== currentDock) {
+      // An unmounted or replaced dock must never retain the previous scope.
+      currentDock = nextDock;
+      clear();
+      if (dockValid() && shellVisible()) void refresh();
+      return;
+    }
     if (awaitingDock && dockValid() && shellVisible()) void refresh();
   };
   target.addEventListener("thebe:workspace-ready", onReady);
