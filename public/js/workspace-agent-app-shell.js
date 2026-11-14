@@ -34,6 +34,7 @@ export function createWorkspaceAgentAppShell({
     const shell = documentRef.getElementById("appShell");
     return target.__THEBE_WORKSPACE_READY__ === true &&
       !!shell && !shell.hidden && !shell.classList?.contains("hidden") &&
+      shell.style?.display !== "none" && shell.style?.visibility !== "hidden" &&
       !gateVisible("marketingGate") && !gateVisible("authGate");
   };
   const dockValid = () => {
@@ -99,7 +100,7 @@ export function createWorkspaceAgentAppShell({
   target.addEventListener("thebe:workspace-ready", onReady);
   target.addEventListener("thebe:workspace-view-change", onViewChange);
   target.addEventListener("pagehide", onPageHide);
-  target.addEventListener("visibilitychange", onGateMutation);
+  documentRef.addEventListener?.("visibilitychange", onGateMutation);
   if (typeof MutationObserverImpl === "function") {
     gateObserver = new MutationObserverImpl(onGateMutation);
     for (const id of ["marketingGate", "authGate", "appShell"]) {
@@ -120,7 +121,7 @@ export function createWorkspaceAgentAppShell({
     target.removeEventListener("thebe:workspace-ready", onReady);
     target.removeEventListener("thebe:workspace-view-change", onViewChange);
     target.removeEventListener("pagehide", onPageHide);
-    target.removeEventListener("visibilitychange", onGateMutation);
+    documentRef.removeEventListener?.("visibilitychange", onGateMutation);
     dockObserver?.disconnect();
     gateObserver?.disconnect();
     adapter.dispose();
