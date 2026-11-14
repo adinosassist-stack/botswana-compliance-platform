@@ -19,7 +19,7 @@ assert.equal(deployedBaselineQualified({seal:true,deploy:true,smoke:false}),fals
 assert.equal(completedPhase0Verdict('success'),true,'a successful Phase 0 audit is a completed post-deploy verdict');
 assert.equal(completedPhase0Verdict('failure'),true,'a failed Phase 0 audit is still a completed post-deploy verdict and must not erase an already-proven supply-chain baseline');
 assert.equal(completedPhase0Verdict('cancelled'),false,'cancelled Phase 0 audits must not qualify as completed verdicts');
-assert.equal(completedPhase0Verdict(null),false,'missing Phase 0 audits must fail closed');
+assert.equal(completedPhase0Verdict(null),false,'missing Phase 0 audits must remain not verified and never count as launch readiness');
 
 const required=[
   'candidate_bf07_json="$(fetch_workflow_runs bf07-seal.yml "$candidate_sha")"',
@@ -36,13 +36,15 @@ const required=[
   "[[ \"$candidate_smoke_success\" == '1' ]] || continue",
   'prior_launch_audit_json="$(fetch_workflow_runs production-launch-audit.yml "$previous_release_sha")"',
   'run.get("conclusion") in {"success","failure"}',
-  'prior deployed release has no completed automatic Phase 0 launch-audit verdict on main',
+  'Prior Phase 0 launch-audit verdict NOT VERIFIED',
   'Prior Phase 0 launch-audit execution confirmed:'
 ];
 for(const fragment of required){
   assert.ok(bf07.includes(fragment),`BF-07 deployed-baseline invariant missing: ${fragment}`);
 }
 
+assert.ok(bf07.includes('::warning::Prior Phase 0 launch-audit verdict NOT VERIFIED'), 'missing historical launch audit must emit explicit warning');
+assert.ok(!bf07.includes('match or sys.exit("prior deployed release has no completed automatic Phase 0 launch-audit verdict on main")'), 'historical audit absence must not retroactively invalidate independently sealed, deployed and smoke-tested supply-chain baseline');
 assert.ok(!bf07.includes('candidate_launch_audit_success='),'BF-07 must not select a supply-chain baseline by Phase 0 success');
 assert.ok(!bf07.includes('no prior closed production release with a successful automatic launch audit found'),'BF-07 must not deadlock future deployment on a prior post-deploy readiness failure');
 assert.ok(!bf07.includes('prior closed release has no successful automatic Phase 0 launch audit on main'),'BF-07 must not require a successful Phase 0 verdict to prove an already-deployed artifact lineage baseline');
