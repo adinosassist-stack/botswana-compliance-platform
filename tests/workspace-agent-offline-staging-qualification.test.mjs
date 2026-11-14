@@ -55,3 +55,18 @@ test("fabricated Node route names do not grant parity approval",()=>{
   assert.equal(result.nodeTransport.parityQualified,false);
   assert.equal(result.readyForStagingDeployment,false);
 });
+
+test("private Node parity candidate is present but never counts as staging qualification",()=>{
+ const result=qualifies();
+ assert.equal(result.nodeTransport.privateTestCandidatePresent,true);
+ assert.equal(result.nodeTransport.parityQualified,false);
+ assert.equal(result.readyForStagingDeployment,false);
+ assert.equal(result.productionActivationAuthorized,false);
+});
+test("private Node parity feature gate may not allow production or implicit activation",()=>{
+ const result=qualifies({
+   nodePrivate:baseline.nodePrivate.replace('appEnv !== "test" || enabled !== true','enabled !== true')
+ });
+ assert.equal(result.safetyChecksPassed,false);
+ assert.ok(result.checks.some(check=>check.code==="node_candidate_registered_only_in_explicit_private_test_env"&&!check.passed));
+});

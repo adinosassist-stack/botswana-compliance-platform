@@ -8,6 +8,8 @@ on:
       - "cloudflare/src/workspace-agent-tasks-api.js"
       - "cloudflare/src/release-governance-entry.js"
       - "public/js/workspace-agent-app-shell.js"
+      - "server/workspace-agent-node-private.js"
+      - "server/server.js"
       - "tests/workspace-agent-app-shell-browser.mjs"
       - "cloudflare/wrangler.toml"
       - ".github/workflows/workspace-agent-offline-staging-qualification.yml"
