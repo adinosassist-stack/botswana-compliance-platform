@@ -6,7 +6,7 @@ on:
       - "server/workspace-agent-node-private.js"
       - "server/workspace-agent-node-private-auth-fields.js"
       - "server/server.js"
-      - "tests/workspace-agent-node-private-http.test.mjs"
+      - "tests/node-agent-private-http-isolation.test.mjs"
       - ".github/workflows/workspace-agent-node-private-http.yml"
   workflow_dispatch:
 
@@ -27,6 +27,6 @@ jobs:
       - name: Install locked dependencies without lifecycle scripts
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Syntax check synthetic HTTP contract
-        run: node --check tests/workspace-agent-node-private-http.test.mjs
+        run: node --check tests/node-agent-private-http-isolation.test.mjs
       - name: Run loopback-only multi-tenant denial and no-write tests
-        run: node --test tests/workspace-agent-node-private-http.test.mjs
+        run: node --test tests/node-agent-private-http-isolation.test.mjs
