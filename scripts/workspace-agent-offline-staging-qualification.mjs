@@ -2,6 +2,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 
 const FILES = Object.freeze({
   production:"cloudflare/wrangler.toml",
@@ -80,7 +81,7 @@ export function qualifyWorkspaceAgentOffline(sources) {
   };
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url)===process.argv[1]) {
+if (process.argv[1] && fileURLToPath(import.meta.url)===resolve(process.argv[1])) {
   const result=qualifyWorkspaceAgentOffline(readWorkspaceAgentSources());
   const outputIndex=process.argv.indexOf("--output");
   if(outputIndex>=0) {
