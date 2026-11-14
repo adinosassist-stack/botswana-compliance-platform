@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { assessWorkspaceAgentNoRoutePlan } from "../scripts/workspace-agent-no-route-staging-plan.mjs";
 
@@ -79,4 +80,37 @@ test("even forged complete approvals cannot change hard-coded nondeployment resu
  assert.equal(s.outcome,"DRAFT_STATIC_POLICY_FAILED");
  assert.equal(s.readyForStagingDeployment,false);
  assert.equal(s.productionActivationAuthorized,false);
+});
+
+test("protected inventory checks exact main before inspecting environment rules", () => {
+  const workflow = readFileSync(new URL(
+    "../.github/workflows/workspace-agent-no-route-preflight.yml", import.meta.url
+  ), "utf8");
+  const gate = workflow.split("  verify-environment:\n")[1].split("\n  inventory:")[0];
+  assert.match(gate, /^      actions: read$/m);
+  const run = gate.split("        run: |\n")[1];
+  const sha = "a".repeat(40);
+  const mockGitHub = `
+    gh() {
+      case "$1 $2" in
+        "api repos/owner/repo/git/ref/heads/main") echo "$REMOTE_SHA";;
+        "api users/thusico") echo 42;;
+        "api repos/owner/repo/environments/workspace-agent-private-staging")
+          echo '{"protection_rules":[{"type":"required_reviewers","prevent_self_review":true,"reviewers":[{"type":"User","reviewer":{"id":42}}]}],"deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}';;
+        "api repos/owner/repo/environments/workspace-agent-private-staging/deployment-branch-policies")
+          echo '{"total_count":1,"branch_policies":[{"name":"main","type":"branch"}]}';;
+        *) return 99;;
+      esac
+      echo "$2" >&2
+    }
+  `;
+  for (const [remoteSha, status] of [[sha, 0], ["b".repeat(40), 1]]) {
+    const probe = spawnSync("bash", ["-c", mockGitHub + run], {
+      encoding: "utf8",
+      env: { ...process.env, GITHUB_REPOSITORY: "owner/repo", GITHUB_SHA: sha,
+        EXPECTED_SHA: sha, REMOTE_SHA: remoteSha }
+    });
+    assert.equal(probe.status, status, probe.stderr);
+    assert.equal(probe.stderr.includes("/environments/"), status === 0, probe.stderr);
+  }
 });
