@@ -1,0 +1,20 @@
+# REVIEW ONLY: Dedicated Workspace Agent Stage-A inert bundle configuration.
+# No deployment is authorized; dry-run bundling in CI is the only purpose.
+# No routes, custom domains, assets, D1, R2, KV, Queue, secrets, service bindings.
+# Never use General AI, billing, POP, corporate assets or production resources.
+name = "bw-workspace-agent-staging"
+main = "src/workspace-agent-staging-inert-entry.js"
+compatibility_date = "2026-09-03"
+workers_dev = false
+preview_urls = false
+keep_vars = false
+
+[vars]
+APP_ENV = "staging"
+WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED = "false"
+THEBE_GENERAL_AI_ENABLED = "false"
+THEBE_INTERNAL_AUTONOMY_ENABLED = "false"
+AGENT_BOUNDED_TASK_EXECUTION_ENABLED = "0"
+THEBE_LIVE_VOICE_ENABLED = "false"
+POP_UPLOAD_STAGING_ENABLED = "false"
+PAYMENT_PROVIDER = "none"
