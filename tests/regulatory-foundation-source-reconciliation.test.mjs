@@ -4,6 +4,7 @@ import fs from "node:fs";
 import {DatabaseSync} from "node:sqlite";
 import {
   inspectFoundationSourceMetadata,
+  FOUNDATION_PREFLIGHT_MAX_CONCURRENT_READS,
   publicFoundationSourcePreflight,
   updateUnreviewedFoundationSourceMetadata,
   foundationSourceDesired
@@ -163,4 +164,48 @@ test("import path offers separate read-only preflight and gates metadata hashes 
   assert.ok(method.includes("FOUNDATION_SOURCE_METADATA_RECONCILED"));
   assert.ok(w.includes('url.searchParams.get("preflight")==="1"'));
   assert.ok(w.includes("return json(result,result.ok?201:409)"));
+});
+
+test("foundation source preflight bounds simultaneous D1 metadata reads and preserves seed order",async()=>{
+  const count=24,pack={packKey:"botswana-foundation-v1",version:"1.8",
+    sources:Array.from({length:count},(_,i)=>({
+      key:`parallel-${i}`,authority:"Synthetic Official Source",
+      title:`Test source ${i}`,url:`https://example.invalid/sources/${i}`,type:"official"
+    }))};
+  let active=0,maxActive=0,queries=0;
+  const db={prepare(sql){
+    assert.match(sql,/^SELECT\\b/i,"preflight must issue SELECT statements only");
+    return {bind(){return {first:async()=>{
+      active++;maxActive=Math.max(maxActive,active);queries++;
+      try{await new Promise(resolve=>setImmediate(resolve));return null}
+      finally{active--}
+    }}}};
+  }};
+  const result=await inspectFoundationSourceMetadata(db,pack);
+  assert.equal(FOUNDATION_PREFLIGHT_MAX_CONCURRENT_READS,4);
+  assert.equal(maxActive,FOUNDATION_PREFLIGHT_MAX_CONCURRENT_READS,
+    "independent sources should be inspected concurrently, never without a limit");
+  assert.equal(queries,count*2,"each unregistered source has registry + URL SELECTs");
+  assert.equal(result.counts.create,count);
+  assert.equal(result.ok,true);
+  assert.deepEqual(result.items.map(item=>item.key),pack.sources.map(item=>item.key),
+    "parallel inspection must preserve canonical source order");
+  assert.ok(result.items.every(item=>item.action==="create"&&item.sourceId===null));
+});
+
+test("source preflight fails closed on a D1 read error without issuing writes",async()=>{
+  const pack={packKey:"botswana-foundation-v1",version:"1.8",sources:[
+    {key:"ok",url:"https://example.invalid/ok",title:"OK source",authority:"Synthetic"},
+    {key:"bad",url:"https://example.invalid/bad",title:"Bad source",authority:"Synthetic"}
+  ]};
+  const statements=[];
+  const db={prepare(sql){
+    statements.push(sql);
+    return {bind(...params){return {first:async()=>{
+      if(params.includes("source:bad"))throw new Error("simulated D1 timeout");
+      return null;
+    }}}};
+  }};
+  await assert.rejects(inspectFoundationSourceMetadata(db,pack),/simulated D1 timeout/);
+  assert.ok(statements.length>0&&statements.every(sql=>/^SELECT\\b/i.test(sql)));
 });
