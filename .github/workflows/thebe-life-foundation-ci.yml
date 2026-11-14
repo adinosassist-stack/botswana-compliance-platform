@@ -6,6 +6,7 @@ on:
     paths:
       - 'server/thebe-life/**'
       - 'cloudflare/src/thebe-life-household-route.js'
+      - 'cloudflare/src/thebe-life-motshelo-read-route.js'
       - 'cloudflare/src/thebe-life-staging-preflight.js'
       - 'public/js/thebe-life-*.js'
       - 'public/assets/thebe-life-*.css'
@@ -35,23 +36,39 @@ jobs:
       - name: Syntax checks
         run: |
           node --check cloudflare/src/thebe-life-household-route.js
+          node --check cloudflare/src/thebe-life-motshelo-read-route.js
           node --check cloudflare/src/thebe-life-staging-preflight.js
           node --check server/thebe-life/d1-household-reader.mjs
           node --check server/thebe-life/d1-household-writer.mjs
           node --check server/thebe-life/d1-family-budget-summary.mjs
           node --check server/thebe-life/d1-family-members.mjs
           node --check server/thebe-life/family-goal-planner.mjs
+          node --check server/thebe-life/household-budget-plan.mjs
+          node --check server/thebe-life/motshelo-governance.mjs
+          node --check server/thebe-life/motshelo-reconciliation.mjs
+          node --check server/thebe-life/d1-motshelo-reader.mjs
+          node --check server/thebe-life/d1-motshelo-group-summary.mjs
           node --check public/js/thebe-life-workspace-preview.js
           node --check public/js/thebe-life-workspace-adapter.js
+          node --check public/js/thebe-life-private-read-client.js
       - name: Offline Life tests — no credentials or customer data
         run: |
           node --test \
             tests/thebe-life-finance-core.test.mjs \
             tests/thebe-life-ledgers-governance.test.mjs \
+            tests/thebe-life-household-budget-plan.test.mjs \
+            tests/thebe-life-motshelo-veto.test.mjs \
+            tests/thebe-life-motshelo-reconciliation.test.mjs \
+            tests/thebe-life-d1-motshelo-reader.test.mjs \
+            tests/thebe-life-d1-motshelo-group-summary.test.mjs \
             tests/thebe-life-d1-reader.test.mjs \
             tests/thebe-life-d1-writer.test.mjs \
             tests/thebe-life-household-route.test.mjs \
+            tests/thebe-life-motshelo-read-route.test.mjs \
             tests/thebe-life-workspace-adapter-static.test.mjs \
+            tests/thebe-life-workspace-budget-preview.test.mjs \
+            tests/thebe-life-private-read-client.test.mjs \
+            tests/thebe-life-private-beta-workspace.test.mjs \
             tests/thebe-life-staging-preflight.test.mjs \
             tests/thebe-life-family-budget-summary.test.mjs \
             tests/thebe-life-family-members-goals.test.mjs \
