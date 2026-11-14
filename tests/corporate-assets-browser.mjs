@@ -16,7 +16,7 @@ try{
   window.whenThebeWorkspaceReady=fn=>document.addEventListener('DOMContentLoaded',fn);
   window.showView=id=>{document.querySelectorAll('.view').forEach(el=>el.classList.toggle('active',el.id===id));document.getElementById('pageTitle').textContent=id==='corporateassets'?'Assets':id;window.dispatchEvent(new CustomEvent('thebe:workspace-view-change',{detail:{id}}))};
   let item={id:'11111111-1111-4111-8111-111111111111',name:'Delivery truck',category:'fleet',branch:'Gaborone',serial:'TR-001',custodian:'Dispatch',acquisition_date:'2026-01-01',acquisition_cost_minor:20000000,book_value_minor:19000000,status:'active',revision:1};
-  let serviceSaved=null;
+  let serviceSaved=null,offPageAsset=null;
   window.apiJson=async(path,opts={})=>{
    window.calls.push({path,method:opts.method||'GET'});
    if(opts.method==='PUT'){
