@@ -54,7 +54,17 @@ try{
  await page.getByLabel('Asset name',{exact:true}).fill('Office laptop');await page.getByLabel('Branch / location',{exact:true}).fill('Palapye');await page.getByLabel('Acquisition date',{exact:true}).fill('2026-10-01');await page.getByLabel('Acquisition cost (BWP)',{exact:true}).fill('15000.25');await page.getByLabel('Recorded book value (BWP)',{exact:true}).fill('14000');
  await page.getByRole('button',{name:'Save',exact:true}).click();await page.locator('dialog').waitFor({state:'detached'});assert.ok(await page.evaluate(()=>calls.some(c=>c.method==='POST')));
  // A generic 200 OK followed by a page without the new ID cannot prove a saved record exists.
- await page.getByText('Save accepted, but the saved asset was not found on the refreshed page. Search or refresh to verify the record.').waitFor();
+ await page.getByText('Save accepted, but exact asset readback could not be verified. Refresh or search to confirm.').waitFor();
+ // An ID outside the first register page must still be verified from authenticated exact GET.
+ await page.getByRole('button',{name:'Register asset',exact:true}).click();
+ await page.getByLabel('Asset name',{exact:true}).fill('Off-page printer');
+ await page.getByLabel('Branch / location',{exact:true}).fill('Francistown');
+ await page.getByLabel('Acquisition date',{exact:true}).fill('2026-11-01');
+ await page.getByLabel('Acquisition cost (BWP)',{exact:true}).fill('2500');
+ await page.getByLabel('Recorded book value (BWP)',{exact:true}).fill('2000');
+ await page.getByRole('button',{name:'Save',exact:true}).click();
+ await page.getByText('Saved and verified in your company register.').waitFor();
+ assert.ok(await page.evaluate(()=>calls.some(c=>/^\/api\/corporate-assets\/[a-f0-9-]{36}$/i.test(c.path))),'exact-ID readback must be used beyond first page');
  // Editing an existing ID confirms the positive readback path when the exact ID is present.
  await page.getByRole('button',{name:'Edit',exact:true}).click();
  await page.getByRole('button',{name:'Save',exact:true}).click();
@@ -92,7 +102,7 @@ try{
  await page.getByRole('button',{name:'Edit',exact:true}).click();
  await page.getByLabel('Branch / location',{exact:true}).fill('Maun');
  await page.getByRole('button',{name:'Save',exact:true}).click();
- await page.getByText('Save accepted, but the saved asset was not found on the refreshed page. Search or refresh to verify the record.').waitFor();
+ await page.getByText('Save accepted, but exact asset readback could not be verified. Refresh or search to confirm.').waitFor();
  await page.evaluate(()=>{window.apiJson=window.assetReadbackApi;});
  console.log('PASS exact service audit readback, missing audit caution and stale edit detection');
 
