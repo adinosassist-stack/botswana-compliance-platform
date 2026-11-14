@@ -10,6 +10,7 @@ const WORKSPACE_SURFACE_ROLES=new Set(["owner","manager","reviewer","auditor"]);
 const OAUTH_VISIBILITY_SCRIPT="/js/oauth-availability.js?v=20260916b";
 const WORKSPACE_BOUNDARY_SCRIPT="/js/surface-boundaries.js?v=20260918-no-layout-read";
 const WORKSPACE_IDENTITY_BOOTSTRAP_SCRIPT="/js/workspace-identity-bootstrap-v303.js?v=20261006-v303";
+const WORKSPACE_AGENT_ADVISORY_BOOT_SCRIPT="/js/workspace-agent-app-shell.js?v=20261114-protected-preview";
 const CONVERSION_FUNNEL_SCRIPT="/js/conversion-funnel-v14.js?v=20261029a";
 const PUBLIC_HOME_ASSET="/home";
 const AUTH_PORTAL_ASSET="/auth";
@@ -216,6 +217,14 @@ function normalizeWorkspaceAssetUrls(html){
 function injectOauthAvailabilityScript(html){return injectScriptOnce(html,OAUTH_VISIBILITY_SCRIPT)}
 function injectWorkspaceBoundaryScript(html){return injectScriptOnce(html,WORKSPACE_BOUNDARY_SCRIPT)}
 
+export function injectWorkspaceAgentAdvisoryBoot(html){
+ const source=String(html||"");
+ if(!source.toLowerCase().includes("</body>")||source.includes("/js/workspace-agent-app-shell.js"))return source;
+ const index=source.toLowerCase().lastIndexOf("</body>");
+ const tag=`<script type="module" src="${WORKSPACE_AGENT_ADVISORY_BOOT_SCRIPT}"></script>\n`;
+ return source.slice(0,index)+tag+source.slice(index);
+}
+
 function safeEmbeddedJson(value){
   const json=JSON.stringify(value);
   if(typeof json!=="string"||new TextEncoder().encode(json).byteLength>MAX_EMBEDDED_WORKSPACE_STATE_BYTES)return "";
@@ -294,6 +303,12 @@ async function workspaceSurfaceResponse(request,env,ctx){
     const html=await shell.clone().text();
     let injected=injectInitialWorkspaceState(html,initialState);
     injected=injectInitialWorkspaceIdentity(injected,initialIdentity);
+    // Staging-only preview: explicit server flag, verified owner/manager session.
+    // Never enable advisory boot on reviewer, auditor, public or auth surfaces.
+    if(env?.WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED==="true" && initialIdentity &&
+       (probeRole==="owner"||probeRole==="manager")) {
+      injected=injectWorkspaceAgentAdvisoryBoot(injected);
+    }
     if(injected===html)return shell;
     const headers=new Headers(shell.headers);
     headers.delete("content-length");headers.delete("etag");
