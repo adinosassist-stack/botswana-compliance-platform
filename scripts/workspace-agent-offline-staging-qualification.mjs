@@ -8,6 +8,8 @@ const FILES = Object.freeze({
   production:"cloudflare/wrangler.toml",
   server:"cloudflare/src/release-governance-entry.js",
   stagingGate:"cloudflare/src/workspace-agent-advisory-preview-gate.js",
+  apiEntry:"cloudflare/src/agentic-entry.js",
+  apiGate:"cloudflare/src/workspace-agent-api-staging-gate.js",
   worker:"cloudflare/src/workspace-agent-tasks-api.js",
   node:"server/server.js",
   nodePrivate:"server/workspace-agent-node-private.js",
@@ -26,6 +28,8 @@ export function qualifyWorkspaceAgentOffline(sources) {
   const p=String(sources?.production||"");
   const s=String(sources?.server||"");
   const stagingGate=String(sources?.stagingGate||"");
+  const apiEntry=String(sources?.apiEntry||"");
+  const apiGate=String(sources?.apiGate||"");
   const w=String(sources?.worker||"");
   const n=String(sources?.node||"");
   const privateNode=String(sources?.nodePrivate||"");
@@ -54,6 +58,28 @@ export function qualifyWorkspaceAgentOffline(sources) {
       privateNode.includes('appEnv !== "test" || enabled !== true')&&
       privateNode.includes('req.auth')&&
       privateNode.includes('tenant_id=$1 AND workspace=$2')),
+    ok("agent_api_denied_at_outermost_entry_before_other_handlers",
+      apiEntry.includes("import {isWorkspaceAgentAdvisoryPath,workspaceAgentAdvisoryApiAllowed,denyUnqualifiedWorkspaceAgentApi}")&&
+      apiGate.includes("export function denyUnqualifiedWorkspaceAgentApi(")&&
+      apiGate.includes("if(!isWorkspaceAgentAdvisoryPath(logicalPath))return null;")&&
+      apiGate.includes("if(workspaceAgentAdvisoryApiAllowed({env,request,logicalPath}))return null;")&&
+      (()=>{
+        const outer=apiEntry.slice(apiEntry.lastIndexOf("export default {"));
+        const denied=outer.indexOf("const denied=denyUnqualifiedWorkspaceAgentApi({env,request,logicalPath});");
+        const returnDenied=outer.indexOf("if(denied)return denied;");
+        const downstream=outer.indexOf("await guardPausedWorkspaceWrites(");
+        const handler=outer.indexOf("attachmentRuntime.fetch(");
+        return denied>=0 && returnDenied>denied && downstream>returnDenied && handler>downstream;
+      })()),
+    ok("agent_api_not_exposed_outside_exact_private_staging",
+      apiEntry.includes("if(isWorkspaceAgentAdvisoryPath(logicalPath))")&&
+      apiEntry.includes("if(!workspaceAgentAdvisoryApiAllowed({env,request,logicalPath}))")&&
+      apiGate.includes('env?.APP_ENV!=="staging"')&&
+      apiGate.includes('env?.WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED!=="true"')&&
+      apiGate.includes('request?.method!=="GET"')&&
+      apiGate.includes('url.pathname!==logicalPath')&&
+      apiGate.includes('url.protocol!=="https:"')&&
+      apiGate.includes("configuredHost.toLowerCase()!==host")),
     ok("agent_identity_and_tasks_get_only",
       w.includes('"/api/agentic/workspace-identity"')&&
       w.includes('"/api/agentic/workspace-tasks"')&&

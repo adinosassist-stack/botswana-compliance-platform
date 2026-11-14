@@ -74,3 +74,49 @@ test("private Node parity feature gate may not allow production or implicit acti
  assert.equal(result.safetyChecksPassed,false);
  assert.ok(result.checks.some(check=>check.code==="node_candidate_registered_only_in_explicit_private_test_env"&&!check.passed));
 });
+
+test("offline readiness must require exact staging, pinned host and direct API path gate",()=>{
+ const permitted=qualifies();
+ assert.ok(permitted.checks.some(c=>c.code==="agent_api_not_exposed_outside_exact_private_staging"&&c.passed));
+ for(const changes of [
+  {apiEntry:baseline.apiEntry.replace("if(isWorkspaceAgentAdvisoryPath(logicalPath))","if(true)")},
+  {apiEntry:baseline.apiEntry.replace("if(!workspaceAgentAdvisoryApiAllowed({env,request,logicalPath}))","if(false)")},
+  {apiGate:baseline.apiGate.replace('env?.APP_ENV!=="staging"','false')},
+  {apiGate:baseline.apiGate.replace('env?.WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED!=="true"','false')},
+  {apiGate:baseline.apiGate.replace('request?.method!=="GET"','false')},
+  {apiGate:baseline.apiGate.replace('url.pathname!==logicalPath','false')},
+  {apiGate:baseline.apiGate.replace('url.protocol!=="https:"','false')},
+  {apiGate:baseline.apiGate.replace('configuredHost.toLowerCase()!==host','false')}
+ ]){
+  const verdict=qualifies(changes);
+  assert.equal(verdict.safetyChecksPassed,false,Object.keys(changes)[0]);
+  assert.equal(verdict.readyForStagingDeployment,false);
+ }
+});
+
+test("offline evidence rejects missing earliest denial before any runtime dispatcher",()=>{
+ const verdict=qualifies();
+ assert.ok(verdict.checks.some(check=>
+   check.code==="agent_api_denied_at_outermost_entry_before_other_handlers" &&
+   check.passed));
+ const variants=[
+   {apiEntry:baseline.apiEntry.replace(
+     "const denied=denyUnqualifiedWorkspaceAgentApi({env,request,logicalPath});",
+     "const denied=null;")},
+   {apiEntry:baseline.apiEntry.replace(
+     "if(denied)return denied;",
+     "if(false)return denied;")},
+   {apiGate:baseline.apiGate.replace(
+     "if(!isWorkspaceAgentAdvisoryPath(logicalPath))return null;",
+     "if(false)return null;")},
+   {apiGate:baseline.apiGate.replace(
+     "if(workspaceAgentAdvisoryApiAllowed({env,request,logicalPath}))return null;",
+     "if(true)return null;")}
+ ];
+ for(const v of variants){
+   const r=qualifies(v);
+   assert.equal(r.safetyChecksPassed,false);
+   assert.equal(r.readyForStagingDeployment,false);
+   assert.equal(r.productionActivationAuthorized,false);
+ }
+});
