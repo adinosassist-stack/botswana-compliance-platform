@@ -15,8 +15,25 @@ try{
   window.currentUser={id:'owner-a',tenantId:'tenant-a',role:'owner'};window.calls=[];
   window.whenThebeWorkspaceReady=fn=>document.addEventListener('DOMContentLoaded',fn);
   window.showView=id=>{document.querySelectorAll('.view').forEach(el=>el.classList.toggle('active',el.id===id));document.getElementById('pageTitle').textContent=id==='corporateassets'?'Assets':id;window.dispatchEvent(new CustomEvent('thebe:workspace-view-change',{detail:{id}}))};
-  const item={id:'11111111-1111-4111-8111-111111111111',name:'Delivery truck',category:'fleet',branch:'Gaborone',serial:'TR-001',custodian:'Dispatch',acquisition_date:'2026-01-01',acquisition_cost_minor:20000000,book_value_minor:19000000,status:'active',revision:1};
-  window.apiJson=async(path,opts={})=>{window.calls.push({path,method:opts.method||'GET'});if(opts.method==='POST'||opts.method==='PUT')return {ok:true};if(path.endsWith('/history'))return {items:[{event_type:'CORPORATE_ASSET_CREATED',occurred_at:'2026-11-01T00:00:00Z'}]};if(path.endsWith('/schedule'))return {items:[{asset_name:item.name,kind:'insurance',due_on:'2026-12-01'}]};return {items:[item],summary:{total:1,bookValueMinor:19000000,maintenance:0,due:1,byCategory:[{category:'fleet',count:1}]},nextCursor:null}};
+  let item={id:'11111111-1111-4111-8111-111111111111',name:'Delivery truck',category:'fleet',branch:'Gaborone',serial:'TR-001',custodian:'Dispatch',acquisition_date:'2026-01-01',acquisition_cost_minor:20000000,book_value_minor:19000000,status:'active',revision:1};
+  let serviceSaved=null;
+  window.apiJson=async(path,opts={})=>{
+   window.calls.push({path,method:opts.method||'GET'});
+   if(opts.method==='PUT'){
+    const data=JSON.parse(opts.body);
+    item={...item,name:data.name,category:data.category,branch:data.branch,serial:data.serial,custodian:data.custodian,acquisition_date:data.acquisitionDate,acquisition_cost_minor:data.acquisitionCostMinor,book_value_minor:data.bookValueMinor,status:data.status,revision:item.revision+1};
+    return {ok:true,id:data.id};
+   }
+   if(opts.method==='POST'){
+    const data=JSON.parse(opts.body);
+    if(path.endsWith('/services'))serviceSaved=data;
+    // Acknowledgement without a persisted registration should never pass readback.
+    return {ok:true,id:data.id};
+   }
+   if(path.endsWith('/history'))return {items:[...(serviceSaved?[{event_type:'CORPORATE_ASSET_SERVICE_RECORDED',event_data:JSON.stringify(serviceSaved),occurred_at:'2026-11-02T00:00:00Z'}]:[]),{event_type:'CORPORATE_ASSET_CREATED',occurred_at:'2026-11-01T00:00:00Z'}]};
+   if(path.endsWith('/schedule'))return {items:[{asset_name:item.name,kind:'insurance',due_on:'2026-12-01'}]};
+   return {items:[item],summary:{total:1,bookValueMinor:19000000,maintenance:0,due:1,byCategory:[{category:'fleet',count:1}]},nextCursor:null};
+  };
  });
  await page.goto('http://localhost/');await page.getByRole('button',{name:'Corporate assets',exact:true}).waitFor();
  assert.equal(await page.evaluate(()=>calls.length),0,'unrelated pages must not load asset records');
@@ -34,6 +51,42 @@ try{
  await page.getByRole('button',{name:'Save',exact:true}).click();
  await page.getByText('Saved and verified in your company register.').waitFor();
  await page.getByRole('button',{name:'History',exact:true}).click();await page.getByText('corporate asset created',{exact:true}).waitFor();await page.getByRole('button',{name:'Close',exact:true}).click();
+
+ // Exact service history ID, not the parent asset ID, proves the accepted service save.
+ await page.getByRole('button',{name:'Service / renewal',exact:true}).click();
+ await page.getByLabel('Service / record date',{exact:true}).fill('2026-11-01');
+ await page.getByLabel('Next due date',{exact:true}).fill('2026-12-15');
+ await page.getByLabel('Description',{exact:true}).fill('Annual inspection');
+ await page.getByRole('button',{name:'Save',exact:true}).click();
+ await page.getByText('Service / renewal saved and verified in asset history.').waitFor();
+ // An acknowledged service with no matching sealed event is explicitly unverified.
+ await page.evaluate(()=>{
+  window.serviceReadbackApi=window.apiJson;
+  window.apiJson=(path,opts={})=>{
+   if(opts.method==='POST'&&path.endsWith('/services'))return Promise.resolve({ok:true,id:JSON.parse(opts.body).id});
+   if(path.endsWith('/history'))return Promise.resolve({items:[]});
+   return window.serviceReadbackApi(path,opts);
+  };
+ });
+ await page.getByRole('button',{name:'Service / renewal',exact:true}).click();
+ await page.getByLabel('Service / record date',{exact:true}).fill('2026-11-02');
+ await page.getByLabel('Next due date',{exact:true}).fill('2027-01-15');
+ await page.getByLabel('Description',{exact:true}).fill('Scheduled calibration');
+ await page.getByRole('button',{name:'Save',exact:true}).click();
+ await page.getByText('Save accepted, but service history readback could not be verified. Open History or refresh to confirm.').waitFor();
+ await page.evaluate(()=>{window.apiJson=window.serviceReadbackApi;});
+ // An unchanged stale register row cannot verify an edit even when the server says ok.
+ await page.evaluate(()=>{
+  window.assetReadbackApi=window.apiJson;
+  window.apiJson=(path,opts={})=>opts.method==='PUT'?Promise.resolve({ok:true,id:JSON.parse(opts.body).id}):window.assetReadbackApi(path,opts);
+ });
+ await page.getByRole('button',{name:'Edit',exact:true}).click();
+ await page.getByLabel('Branch / location',{exact:true}).fill('Maun');
+ await page.getByRole('button',{name:'Save',exact:true}).click();
+ await page.getByText('Save accepted, but the saved asset was not found on the refreshed page. Search or refresh to verify the record.').waitFor();
+ await page.evaluate(()=>{window.apiJson=window.assetReadbackApi;});
+ console.log('PASS exact service audit readback, missing audit caution and stale edit detection');
+
  await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'mobile viewport must not overflow');
  await page.screenshot({path:'test-results/corporate-assets-mobile.png',fullPage:true,animations:'disabled'});
  await page.getByRole('button',{name:'Edit',exact:true}).click();assert.equal(await page.getByLabel('Asset name',{exact:true}).inputValue(),'Delivery truck');await page.keyboard.press('Escape');
