@@ -91,6 +91,13 @@ export function createWorkspaceAgentAppShell({
   const onReady = () => { void refresh(); };
   const onViewChange = () => { void refresh(); };
   const onPageHide = () => clear();
+  // A company selector can change without a navigation event. Immediately
+  // discard any advisory snapshot and independently reverify the session.
+  const onCompanyChange = event => {
+    if (event?.target?.id !== "companySelect") return;
+    clear();
+    if (shellVisible()) void refresh();
+  };
   const onGateMutation = () => {
     if (!shellVisible()) clear();
     else if (!adapter.isActive()) void refresh();
@@ -111,6 +118,7 @@ export function createWorkspaceAgentAppShell({
   target.addEventListener("thebe:workspace-view-change", onViewChange);
   target.addEventListener("pagehide", onPageHide);
   documentRef.addEventListener?.("visibilitychange", onGateMutation);
+  documentRef.addEventListener?.("change", onCompanyChange, true);
   if (typeof MutationObserverImpl === "function") {
     gateObserver = new MutationObserverImpl(onGateMutation);
     for (const id of ["marketingGate", "authGate", "appShell"]) {
@@ -133,6 +141,7 @@ export function createWorkspaceAgentAppShell({
     target.removeEventListener("thebe:workspace-view-change", onViewChange);
     target.removeEventListener("pagehide", onPageHide);
     documentRef.removeEventListener?.("visibilitychange", onGateMutation);
+    documentRef.removeEventListener?.("change", onCompanyChange, true);
     dockObserver?.disconnect();
     gateObserver?.disconnect();
     adapter.dispose();
