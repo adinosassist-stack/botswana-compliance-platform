@@ -41,7 +41,8 @@ function fixture(role="owner", { observe=false, fetchResponse=null } = {}) {
   target.__THEBE_WORKSPACE_READY__=true;
   return {app,target,nodes,observers,setView:(value)=>{view=value},activations,clears:()=>clears,calls:()=>calls,
     dispatchDocumentEvent:(name,id)=>documentListeners.get(name)?.({target:{id}}),
-    hasDocumentListener:(name)=>documentListeners.has(name)};
+    hasDocumentListener:(name)=>documentListeners.has(name),
+    setVisibility:(state)=>{documentRef.visibilityState=state}};
 }
 test("only mapped views can select advisory task scope",()=>{
  assert.equal(workspaceAgentScopeForView("dashboard"),"owner");
@@ -138,4 +139,30 @@ test("company selector change invalidates old advisory tasks without view naviga
  assert.equal(f.activations.length,2);
  f.app.dispose();
  assert.equal(f.hasDocumentListener("change"),false);
+});
+
+test("hidden tab discards advisory scope and visible return rechecks session",async()=>{
+ const f=fixture("owner");
+ await f.app.refresh();
+ const cleared=f.clears();
+ f.setVisibility("hidden");
+ f.dispatchDocumentEvent("visibilitychange");
+ assert.ok(f.clears()>cleared);
+ f.setVisibility("visible");
+ f.dispatchDocumentEvent("visibilitychange");
+ await new Promise(resolve=>setTimeout(resolve,0));
+ assert.equal(f.calls(),2);
+ assert.equal(f.activations.length,2);
+ f.app.dispose();
+ assert.equal(f.hasDocumentListener("visibilitychange"),false);
+});
+test("pageshow revalidates session after navigation cache restore",async()=>{
+ const f=fixture("owner");
+ await f.app.refresh();
+ f.target.dispatchEvent(new Event("pagehide"));
+ f.target.dispatchEvent(new Event("pageshow"));
+ await new Promise(resolve=>setTimeout(resolve,0));
+ assert.equal(f.calls(),2);
+ assert.equal(f.activations.length,2);
+ f.app.dispose();
 });
