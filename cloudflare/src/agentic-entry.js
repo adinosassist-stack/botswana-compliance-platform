@@ -7,7 +7,7 @@ import {handleAgenticAuthorityRequest} from "./agentic-authority-core.js";
 import {handleAgenticControlPlaneRequest} from "./agentic-control-plane.js";
 import {handleAgenticResponsibilityRequest} from "./agentic-responsibility-api.js";
 import {handleWorkspaceAgentTasksRequest} from "./workspace-agent-tasks-api.js";
-import {isWorkspaceAgentAdvisoryPath,workspaceAgentAdvisoryApiAllowed} from "./workspace-agent-api-staging-gate.js";
+import {isWorkspaceAgentAdvisoryPath,workspaceAgentAdvisoryApiAllowed,denyUnqualifiedWorkspaceAgentApi} from "./workspace-agent-api-staging-gate.js";
 import {handleAgenticResponsibilityCommand} from "./agentic-responsibility-command.js";
 import {handleAgenticWhatsAppRequest} from "./agentic-whatsapp-core.js";
 import {handleEmployeeDispatchRequest,runEmployeeDispatchSweep} from "./employee-dispatch.js";
@@ -307,7 +307,13 @@ const attachmentRuntime=withReportAttachments(agenticRuntime,{logicalRequestPath
 export default {
   ...attachmentRuntime,
   async fetch(request,env,ctx){
-    const paused=await guardPausedWorkspaceWrites(request,env,{logicalPath:logicalRequestPath(request),authenticate:authenticateWorkspaceSession});
+    const logicalPath=logicalRequestPath(request);
+    // Deny *before* report attachments, paused-write auth, voice, payments,
+    // autonomy, WhatsApp or any other Agent handler can process this path.
+    // The inner handler repeats the gate before doing authenticated SELECTs.
+    const denied=denyUnqualifiedWorkspaceAgentApi({env,request,logicalPath});
+    if(denied)return denied;
+    const paused=await guardPausedWorkspaceWrites(request,env,{logicalPath,authenticate:authenticateWorkspaceSession});
     return paused||attachmentRuntime.fetch(request,env,ctx);
   }
 };
