@@ -11,7 +11,7 @@ export function planWorkspaceAgentTasks({ workspace, tenantId, userId, workUnits
   if (!WORKSPACES.has(scope) || !tenant || !actor) {
     return Object.freeze({ ok: false, code: "workspace_context_required", tasks: Object.freeze([]) });
   }
-  const allowed = new Set((Array.isArray(allowedSourceRefs) ? allowedSourceRefs : []).map(x => clean(x, 120)).filter(Boolean));
+  const allowed = new Set((Array.isArray(allowedSourceRefs) ? allowedSourceRefs.slice(0, 100) : []).map(x => clean(x, 120)).filter(Boolean));
   const seen = new Set();
   const tasks = [];
   for (const item of (Array.isArray(workUnits) ? workUnits : [])) {
@@ -20,13 +20,14 @@ export function planWorkspaceAgentTasks({ workspace, tenantId, userId, workUnits
     const title = clean(item?.objective, 500);
     if (!id || !title || seen.has(id)) continue;
     seen.add(id);
-    const refs = [...new Set((Array.isArray(item?.sourceRefs) ? item.sourceRefs : []).map(x => clean(x, 120)).filter(x => allowed.has(x)))];
+    const sourceRefs = Array.isArray(item?.sourceRefs) ? item.sourceRefs : [];
+    const refs = [...new Set(sourceRefs.slice(0, 100).map(x => clean(x, 120)).filter(x => allowed.has(x)))].slice(0, 20);
     tasks.push(Object.freeze({
       id, workspace: scope, tenantId: tenant, userId: actor,
       title,
       priority: ["low", "medium", "high"].includes(item?.priority) ? item.priority : "medium",
       state: "queued", sourceRefs: Object.freeze(refs),
-      sourceRefsDropped: Math.max(0, (Array.isArray(item?.sourceRefs) ? item.sourceRefs.length : 0) - refs.length),
+      sourceRefsDropped: Math.max(0, sourceRefs.length - refs.length),
       approvalRequired: true, executionAllowed: false, externalSideEffects: false,
       authority: "recommendation_only"
     }));
