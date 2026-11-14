@@ -26,6 +26,9 @@ test('feature flag and role fail closed without storage access',async()=>{
 test('create, edit, history and service are tenant scoped and sealed',async()=>{
  const f=fixture();try{
   assert.equal((await f.call('','POST',asset)).status,201);
+  const exact=await (await f.call('/'+aid)).json();assert.equal(exact.item.id,aid);assert.equal(exact.item.name,asset.name);
+  assert.equal((await f.call('/'+aid,'GET',null,{tenant_id:'b',user_id:'b',role:'owner'})).status,404,'exact lookup cannot expose other tenant');
+  assert.equal((await f.call('/'+other)).status,404,'unknown asset is not found');
   const list=await (await f.call()).json();assert.equal(list.items.length,1);assert.equal(list.summary.bookValueMinor,19000000);
   assert.equal((await f.call('','GET',null,{tenant_id:'b',user_id:'b',role:'owner'})).status,200);
   assert.equal((await (await f.call('','GET',null,{tenant_id:'b',user_id:'b',role:'owner'})).json()).items.length,0);
