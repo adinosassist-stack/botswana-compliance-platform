@@ -16,6 +16,7 @@ import { normalizeHttpsOrigin, requestOriginAllowed as nodeRequestOriginAllowed,
 import { safeNextPath as nodeSafeNextPath } from "./oauth-navigation.js";
 import { registerPrivateAgentHistory } from "./agent-approval-history-private-host.js";
 import { registerPrivateNodeWorkspaceAgent } from "./workspace-agent-node-private.js";
+import { privateNodeAgentAuthIdentityFields } from "./workspace-agent-node-private-auth-fields.js";
 import { publicUrlConfig, buildPasswordResetUrl } from "./public-app-url.js";
 import { proxyTrustPolicy } from "./proxy-trust.js";
 import { nodePreBodyAbuseRule } from "./prebody-abuse.js";
@@ -370,7 +371,7 @@ app.post("/api/auth/password-reset/complete",preAuthOrigin,passwordResetComplete
     }catch(e){await db.query("rollback").catch(()=>{});throw e}finally{db.release()}
   }catch(e){next(e)}
 });
-app.get("/api/auth/me",auth,(req,res)=>res.json({csrfToken:req.auth.csrf_token,user:{email:req.auth.email,role:req.auth.role,tenantId:req.auth.tenant_id,tenantName:req.auth.tenant_name}}));
+app.get("/api/auth/me",auth,(req,res)=>res.set("Cache-Control","no-store").json({csrfToken:req.auth.csrf_token,user:{email:req.auth.email,role:req.auth.role,tenantId:req.auth.tenant_id,tenantName:req.auth.tenant_name,...privateNodeAgentAuthIdentityFields({appEnv:config.APP_ENV,enabled:process.env.WORKSPACE_AGENT_NODE_PRIVATE_TEST_ENABLED==="true",session:req.auth})}}));
 app.get("/api/billing/status",auth,roles("owner"),async(req,res,next)=>{try{const q=await pool.query("select status,trial_ends_at,current_period_ends_at,plan from subscriptions where tenant_id=$1",[req.auth.tenant_id]);res.json(q.rows[0]||{status:"missing"})}catch(e){next(e)}});
 app.post("/api/billing/request-plan",auth,roles("owner"),async(req,res,next)=>{const p=z.object({plan:planSchema}).safeParse(req.body);if(!p.success)return res.status(400).json({error:"invalid_plan"});try{const q=await pool.query("update subscriptions set plan=$2,updated_at=now() where tenant_id=$1 returning plan,status,trial_ends_at,current_period_ends_at",[req.auth.tenant_id,p.data.plan]);if(!q.rowCount)return res.status(404).json({error:"subscription_not_found"});await audit(pool,{tenantId:req.auth.tenant_id,userId:req.auth.user_id,eventType:"PLAN_PREFERENCE_CHANGED",requestId:req.requestId,eventData:{plan:p.data.plan}});res.json(q.rows[0])}catch(e){next(e)}});
 
