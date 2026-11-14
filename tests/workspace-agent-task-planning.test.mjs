@@ -78,3 +78,16 @@ test("empty objectives are skipped without consuming task capacity or IDs", () =
   assert.equal(result.tasks[0].title, "Valid replacement");
   assert.ok(result.tasks.every(task => task.title.trim().length > 0));
 });
+
+test("source references are bounded and excess references are reported as dropped", () => {
+  const refs = Array.from({ length: 120 }, (_, i) => "ref-" + i);
+  const result = planWorkspaceAgentTasks({
+    workspace: "finance", tenantId: "t", userId: "u",
+    allowedSourceRefs: refs,
+    workUnits: [{ id: "one", objective: "Review", sourceRefs: refs }]
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.tasks[0].sourceRefs.length, 20);
+  assert.equal(result.tasks[0].sourceRefsDropped, 100);
+  assert.equal(result.tasks[0].executionAllowed, false);
+});
