@@ -30,7 +30,8 @@ export function registerPrivateNodeWorkspaceAgent({
     }
     if (!["owner","manager"].includes(session.role)) return reply(res,403,{error:"forbidden"});
     if (endpoint === "identity") return reply(res,200,{ok:true,tenantId,userId});
-    const workspace=req.query?.workspace || "owner";
+    // Missing defaults to owner; empty or duplicate values are ambiguous.
+    const workspace=req.query?.workspace === undefined ? "owner" : req.query.workspace;
     if (typeof workspace !== "string" || !WORKSPACES.has(workspace)) {
       return reply(res,400,{error:"invalid_workspace"});
     }
