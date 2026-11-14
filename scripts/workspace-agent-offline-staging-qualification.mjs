@@ -39,6 +39,17 @@ export function qualifyWorkspaceAgentOffline(sources) {
   const checks=[
     ok("production_config_has_no_enabled_agent_flag",
       !/^\s*WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED\s*=\s*["']true["']/m.test(p)),
+    ok("production_release_entry_denies_advisory_api_before_conversion",
+      s.includes('import {denyUnqualifiedWorkspaceAgentApi} from "./workspace-agent-api-staging-gate.js"')&&
+      apiGate.includes("export function denyUnqualifiedWorkspaceAgentApi(")&&
+      (()=>{
+        const outer=s.slice(s.lastIndexOf("export default {"));
+        const denied=outer.indexOf("const denied=denyUnqualifiedWorkspaceAgentApi({env,request,logicalPath:path});");
+        const returned=outer.indexOf("if(denied)return denied;");
+        const conversion=outer.indexOf("await handleConversionEvent({request,path,env,ctx})");
+        const downstream=outer.indexOf("await base.fetch(request,downstreamEnv,ctx)");
+        return denied>=0 && returned>denied && conversion>returned && downstream>conversion;
+      })()),
     ok("app_module_requires_explicit_server_flag",
       s.includes("workspaceAgentAdvisoryPreviewAllowed({env,request,probeRole,initialIdentity})")&&
       stagingGate.includes('env?.APP_ENV !== "staging"')&&
