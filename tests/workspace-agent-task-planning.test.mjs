@@ -44,6 +44,16 @@ test("duplicate IDs do not consume the six-task display capacity", () => {
   assert.equal(new Set(result.tasks.map(t => t.id)).size, 6);
 });
 
+test("explicit high priority is ranked before the display cap and equal priorities preserve source order", () => {
+  const workUnits = [
+    ...Array.from({ length: 6 }, (_, index) => ({ id: `item-${index}`, objective: "Review" })),
+    { id: "low", objective: "Review later", priority: "low" },
+    { id: "high", objective: "Review first", priority: "high" }
+  ];
+  const result = planWorkspaceAgentTasks({ workspace: "owner", tenantId: "t", userId: "u", workUnits });
+  assert.deepEqual(result.tasks.map(task => task.id), ["high", "item-0", "item-1", "item-2", "item-3", "item-4"]);
+});
+
 test("state transitions reject forged or elevated task authority", () => {
   const task = planWorkspaceAgentTasks({
     workspace: "operations", tenantId: "t", userId: "u",
