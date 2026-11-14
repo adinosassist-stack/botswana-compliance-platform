@@ -279,7 +279,7 @@
       const callout=make('div','commercial-callout');
       const copy=make('div');
       copy.append(make('b',null,'Need more than 10 locations or manage businesses for clients?'),make('p',null,'Talk to us about a larger operating structure or professional-service workflow.'));
-      const link=setExternal(makeLink(null,'Talk to us →','https://wa.me/26777723273?text=Thebe%2C%20brief%20me%20about%20larger%20plans.'));
+      const link=setExternal(makeLink(null,'Talk to us →','https://wa.me/26774583606?text=Thebe%2C%20brief%20me%20about%20larger%20plans.'));
       callout.append(copy,link);
       secondary.replaceWith(callout);
     }
@@ -297,7 +297,7 @@
       make('p',null,'Use WhatsApp to ask about Thebe Desk, get help choosing a plan or find your way into the right workspace feature.')
     );
     const actions=make('div','whatsapp-actions');
-    actions.append(setExternal(makeLink('btn primary','Chat with Thebe Desk on WhatsApp','https://wa.me/26777723273?text=Thebe%2C%20brief%20me.')));
+    actions.append(setExternal(makeLink('btn primary','Chat with Thebe Desk on WhatsApp','https://wa.me/26774583606?text=Thebe%2C%20brief%20me.')));
     copy.append(actions,make('div','whatsapp-note','WhatsApp is an entry point. Your authenticated workspace remains the system of record.'));
     const points=make('div','whatsapp-points');
     ['Ask questions before starting your trial.','Get help choosing the right plan.','Keep governed business records and approvals inside your authenticated workspace.'].forEach(text=>{
