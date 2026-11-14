@@ -35,9 +35,9 @@ const checks = [
   ['release merge must have successful Recovery CI', bf07.includes('/actions/workflows/recovery-ci.yml/runs?branch=main&per_page=100&page=1') && bf07.includes('/actions/workflows/recovery-ci.yml/runs?branch=main&per_page=100&page=2') && bf07.includes('fetch_recovery_runs') && bf07.includes('release merge has no successful completed Recovery CI run on main')],
   ['release Recovery CI synchronization is bounded and fail-closed', bf07.includes('for attempt in $(seq 1 37)') && bf07.includes('bounded wait $attempt/36') && bf07.includes('release merge Recovery CI failed closed') && bf07.includes("[[ \"$recovery_confirmed\" == '1' ]]")],
   ['workflow history is paginated beyond the first 100 runs without workflow_run branch filtering', bf07.includes('fetch_workflow_runs(){') && bf07.includes('/actions/workflows/$workflow/runs?$qualification&per_page=100&page=1') && bf07.includes('/actions/workflows/$workflow/runs?$qualification&per_page=100&page=2') && !bf07.includes('/actions/workflows/$workflow/runs?branch=main') && bf07.includes('p1.get("workflow_runs",[])+p2.get("workflow_runs",[])')],
-  ['prior deployed release is resolved from bounded first-parent manifest merges only after exact BF-07, deploy and post-deploy smoke success', bf07.includes('git rev-list --first-parent --max-count="$MAX_RELEASE_LINEAGE_MERGES" "$base_sha"') && bf07.includes('candidate_parent_count') && bf07.includes('candidate_parent="${candidate_line[1]}"') && bf07.includes('git diff --quiet "$candidate_parent" "$candidate_sha" -- release/production.json && continue') && bf07.includes('candidate_bf07_json="$(fetch_workflow_runs bf07-seal.yml "$candidate_sha")"') && bf07.includes('candidate_deploy_json="$(fetch_workflow_runs deploy-production.yml "$candidate_sha")"') && bf07.includes('candidate_smoke_json="$(fetch_workflow_runs postdeploy-smoke.yml "$candidate_sha")"') && bf07.includes("[[ \"$candidate_bf07_success\" == '1' ]] || continue") && bf07.includes("[[ \"$candidate_deploy_success\" == '1' ]] || continue") && bf07.includes("[[ \"$candidate_smoke_success\" == '1' ]] || continue") && bf07.includes('no prior BF-07-sealed, automatically deployed production release with successful post-deploy smoke found on bounded first-parent history') && !bf07.includes('git merge-base --is-ancestor')],
+  ['prior deployed release is resolved from bounded first-parent manifest merges only after exact BF-07, deploy and post-deploy smoke success', bf07.includes('git rev-list --first-parent --max-count="$MAX_RELEASE_LINEAGE_MERGES" "$base_sha"') && bf07.includes('candidate_parent_count') && bf07.includes('candidate_parent="${candidate_line[1]}"') && bf07.includes('git diff --quiet "$candidate_parent" "$candidate_sha" -- release/production.json && continue') && bf07.includes('candidate_bf07_json="$(fetch_workflow_runs bf07-seal.yml "$candidate_sha")"') && bf07.includes('candidate_deploy_json="$(fetch_workflow_runs deploy-production.yml "$candidate_sha")"') && bf07.includes('candidate_smoke_json="$(fetch_workflow_runs postdeploy-smoke.yml "$candidate_sha")"') && bf07.includes("[[ \"$candidate_bf07_success\" == '1' ]] || continue") && bf07.includes("[[ \"$candidate_deploy_success\" == '1' ]] || continue") && bf07.includes("[[ \"$candidate_smoke_success\" == '1' ]] || continue") && bf07.includes('no prior BF-07-sealed, independently approved production deployment with successful post-deploy smoke found on bounded first-parent history') && !bf07.includes('git merge-base --is-ancestor')],
   ['prior release baseline must have successful BF-07 from exact-SHA paginated history', bf07.includes('fetch_workflow_runs bf07-seal.yml "$previous_release_sha"') && bf07.includes('prior deployed release has no successful BF-07 seal on main')],
-  ['prior release baseline must have successful automatic production deployment from exact-SHA paginated history', bf07.includes('fetch_workflow_runs deploy-production.yml "$previous_release_sha"') && bf07.includes('prior deployed release has no successful automatic production deployment on main')],
+  ['prior release baseline must have independently approved production deployment from exact-SHA paginated history', bf07.includes('fetch_workflow_runs deploy-production.yml "$previous_release_sha"') && bf07.includes('prior deployed release has no completed successful automatic or independently approved manual production deployment on main')],
   ['prior release baseline must have successful automatic post-deploy smoke from exact-SHA paginated history', bf07.includes('fetch_workflow_runs postdeploy-smoke.yml "$previous_release_sha"') && bf07.includes('prior deployed release has no successful automatic post-deploy smoke on main')],
   ['prior release Phase 0 is required to have a completed automatic verdict but success is not supply-chain lineage authority', bf07.includes('fetch_workflow_runs production-launch-audit.yml "$previous_release_sha"') && bf07.includes('run.get("conclusion") in {"success","failure"}') && bf07.includes('prior deployed release has no completed automatic Phase 0 launch-audit verdict on main') && bf07.includes('Prior Phase 0 launch-audit execution confirmed:') && !bf07.includes('candidate_launch_audit_success') && !bf07.includes('prior closed release has no successful automatic Phase 0 launch audit on main')],
   ['first-parent lineage review window is bounded and capped', bf07.includes("MAX_RELEASE_LINEAGE_MERGES: '200'") && bf07.includes('MAX_RELEASE_LINEAGE_MERGES <= 200') && bf07.includes('release lineage exceeds the bounded ${MAX_RELEASE_LINEAGE_MERGES}-merge review window') && bf07.includes('${#lineage_shas[@]} <= MAX_RELEASE_LINEAGE_MERGES')],
@@ -129,6 +129,9 @@ try {
   });
 
   const stub = [
+    'verify_protected_manual_deployment(){',
+    '  [[ "$1" == "${APPROVED_MANUAL_DEPLOY_RUN_ID:-}" ]]',
+    '}',
     'fetch_workflow_runs(){',
     '  local workflow="$1"',
     '  local exact_sha="${2:-}"',
@@ -144,7 +147,7 @@ try {
     '}'
   ].join('\n');
 
-  const select = (runs, limit = 200, baseSha = direct) => spawnSync(
+  const select = (runs, limit = 200, baseSha = direct, approvedRunId = '') => spawnSync(
     'bash', ['-euo', 'pipefail', '-c', `${stub}\n${selector}\nprintf '%s' "$previous_release_sha"`],
     {
       cwd: fixture,
@@ -153,7 +156,8 @@ try {
         ...process.env,
         base_sha: baseSha,
         MAX_RELEASE_LINEAGE_MERGES: String(limit),
-        WORKFLOW_RUNS_JSON: JSON.stringify(runs)
+        WORKFLOW_RUNS_JSON: JSON.stringify(runs),
+        APPROVED_MANUAL_DEPLOY_RUN_ID: approvedRunId
       }
     }
   );
@@ -162,6 +166,17 @@ try {
   const result = select(qualified);
   assert.equal(result.status, 0, result.stderr);
   assert.ok(result.stdout.endsWith(release), 'select sealed + automatically deployed + postdeploy-green release');
+
+  const manualQualified = workflowMap({
+    deployOk: false,
+    extra: { 'deploy-production.yml': [successRun(release, 'workflow_dispatch')] }
+  });
+  const manualRunId = String(Number.parseInt(release.slice(0, 8), 16));
+  const manualAccepted = select(manualQualified, 200, direct, manualRunId);
+  assert.equal(manualAccepted.status, 0, manualAccepted.stderr);
+  assert.ok(manualAccepted.stdout.endsWith(release), 'independently approved protected manual deployment qualifies only with exact seal and smoke');
+  assert.notEqual(select(manualQualified).status, 0, 'manual dispatch lacking protected independent approval must fail closed');
+  assert.notEqual(select(manualQualified, 200, direct, '99999999').status, 0, 'manual deployment with mismatched approval run id must fail closed');
 
   assert.notEqual(select(workflowMap({ seal: false })).status, 0, 'missing BF-07 seal must fail closed');
   assert.notEqual(select(workflowMap({ deployOk: false })).status, 0, 'missing automatic deployment must fail closed');
