@@ -101,7 +101,7 @@ jobs:
         env:
           EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
           CONFIRMATION: ${{ inputs.confirmation }}
-          RUNNER_ENVIRONMENT: workspace-agent-private-staging
+          WORKSPACE_AGENT_QUALIFICATION_ENVIRONMENT: workspace-agent-private-staging
           CLOUDFLARE_API_TOKEN: ${{ secrets.WORKSPACE_AGENT_STAGING_QUALIFICATION_CLOUDFLARE_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
           WRANGLER_SEND_METRICS: 'false'
@@ -111,7 +111,7 @@ jobs:
         env:
           EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
           CONFIRMATION: ${{ inputs.confirmation }}
-          RUNNER_ENVIRONMENT: workspace-agent-private-staging
+          WORKSPACE_AGENT_QUALIFICATION_ENVIRONMENT: workspace-agent-private-staging
           CLOUDFLARE_API_TOKEN: ${{ secrets.WORKSPACE_AGENT_STAGING_QUALIFICATION_CLOUDFLARE_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
           WRANGLER_SEND_METRICS: 'false'
