@@ -31,7 +31,7 @@ const store={
   companyId:tenant,logoAssetId:"syntheticLogo",layout:{xPercent:4,yPercent:2,widthPercent:20}
  }:null,
  readPrivateAsset:async({companyId,logoAssetId})=>companyId===tenant&&logoAssetId==="syntheticLogo"?{
-  bytes:logo,mimeType:"image/png",aspectRatio:aspect
+  bytes:logo,mimeType:"image/png",width:32,height:24,aspectRatio:aspect
  }:null
 };
 async function template(){
