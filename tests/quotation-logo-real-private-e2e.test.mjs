@@ -80,9 +80,9 @@ async function fixture(){
    }
    throw Error("unexpected_d1_write");
   }
- }};}
- };}
  };
+ }};
+ }};
  const privateLogoBucket={
   async put(key,bytes){logoObjects.set(key,bytes.slice());events.push("r2_logo_put")},
   async get(key){events.push("r2_logo_get");const data=logoObjects.get(key);return data?r2Value(data):null},
