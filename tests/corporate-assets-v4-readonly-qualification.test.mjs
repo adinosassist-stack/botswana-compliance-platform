@@ -152,5 +152,7 @@ test('protected runner refuses non-main, malformed credentials and failed metada
   c=>c.accountToken='',c=>c.accountToken='contains whitespace'
  ]){const c={...good};change(c);await assert.rejects(()=>inspectV4ReadOnlyQualification(c));}
  await assert.rejects(()=>inspectV4ReadOnlyQualification({...good,
-  request:async()=>({ok:false,status:403})}),/v4_metadata_read_denied_403/);
+  request:async()=>({ok:false,status:403}),
+  readExposure:async()=>({worker:WORKER,privateExposureVerified:true,errors:[],deploymentAuthorized:false})
+ }),/v4_metadata_read_denied_403/);
 });
