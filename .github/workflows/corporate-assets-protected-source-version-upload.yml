@@ -27,7 +27,9 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: corporate-assets-protected-source-version-creation
+  # PR offline CI must not compete with a separately protected write dispatch.
+  # All workflow_dispatch runs keep their original single-writer group.
+  group: ${{ github.event_name == 'workflow_dispatch' && 'corporate-assets-protected-source-version-creation' || format('corporate-assets-source-upload-pr-{0}', github.event.pull_request.number) }}
   cancel-in-progress: false
 jobs:
   offline:
