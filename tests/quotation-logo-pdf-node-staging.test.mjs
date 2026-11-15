@@ -56,7 +56,7 @@ function harness({tamper=false}={}){
   return {getPages:()=>pages.map(page=>({
    getSize:()=>({width:page.width,height:page.height}),
    drawImage:()=>{calls.draw++}
-  })),embedPng:async()=>({}),save:async()=>pdf};
+  })),embedPng:async()=>({width:200,height:100}),save:async()=>pdf};
  }}};
  const preview=createNodeStagingQuotationPdfPreviewHandler({
   db,privateLogoBucket,privateTemplateBucket,approvedTemplates,authorization,pdfLib,
