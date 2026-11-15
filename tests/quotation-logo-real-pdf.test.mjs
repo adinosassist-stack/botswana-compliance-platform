@@ -25,6 +25,8 @@ const auth={
  assertCompanyEditor:async()=>true
 };
 const store={
+ writePrivateAsset:async()=>{throw Error("preview_must_not_write")},
+ upsertCompanyLogoSettings:async()=>{throw Error("preview_must_not_update")},
  getCompanyLogoSettings:async({companyId})=>companyId===tenant?{
   companyId:tenant,logoAssetId:"syntheticLogo",layout:{xPercent:4,yPercent:2,widthPercent:20}
  }:null,
