@@ -47,8 +47,27 @@ export async function handleQuotationLogoHttp({request,actor,companyId,authoriza
  const pathname=new URL(request.url).pathname;
  const method=request.method.toUpperCase();
  // Endpoint is deliberately narrowly scoped; route must be mounted explicitly.
- if(!["/api/quotation/logo","/api/quotation/logo/upload"].includes(pathname))
+ if(!["/api/quotation/logo","/api/quotation/logo/upload","/api/quotation/logo/image"].includes(pathname))
   return invalid("not_found",404);
+ if(method==="GET"&&pathname==="/api/quotation/logo/image"){
+  try{
+   const saved=await getCompanyQuotationLogo({actor,companyId,authorization,store});
+   if(!saved)return invalid("company_logo_not_configured",404);
+   // getCompanyQuotationLogo checks the private company-scoped asset reference.
+   const asset=await store.readPrivateAsset({companyId,logoAssetId:saved.settings.logoAssetId});
+   if(!asset||!(asset.bytes instanceof Uint8Array))return invalid("company_logo_not_found",404);
+   if(!approvedType.has(asset.mimeType)||asset.bytes.length<32||asset.bytes.length>maxRequestBytes)
+    return invalid("invalid_saved_logo",500);
+   return new Response(asset.bytes.slice(),{status:200,headers:{
+    "content-type":asset.mimeType,"content-length":String(asset.bytes.byteLength),
+    "cache-control":"private, no-store","x-content-type-options":"nosniff",
+    "content-security-policy":"default-src 'none'; sandbox"
+   }});
+  }catch(e){
+   return invalid(e.message==="logo_access_denied"?"logo_access_denied":"logo_read_failed",
+    e.message==="logo_access_denied"?403:500);
+  }
+ }
  if(method==="GET"&&pathname==="/api/quotation/logo"){
   try{
    const saved=await getCompanyQuotationLogo({actor,companyId,authorization,store});
