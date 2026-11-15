@@ -7,6 +7,29 @@
 import {mountQuotationLogoEditor} from "./quotation-logo-editor.mjs";
 const endpoint="/api/quotation/logo";
 const deny=code=>{throw Error(code)};
+async function readBoundedResponse(response,maxBytes){
+ const announced=Number(response.headers.get("content-length")||0);
+ if(Number.isFinite(announced)&&announced>maxBytes)deny("download_exceeds_limit");
+ if(!response.body?.getReader)deny("download_stream_unavailable");
+ const reader=response.body.getReader();const chunks=[];let count=0;
+ try {
+  while(true){
+   const {value,done}=await reader.read();
+   if(done)break;
+   if(!(value instanceof Uint8Array))deny("invalid_download_chunk");
+   count+=value.byteLength;
+   if(count>maxBytes)deny("download_exceeds_limit");
+   chunks.push(value);
+  }
+ }finally{
+  try{await reader.cancel()}catch{}
+  reader.releaseLock();
+ }
+ const out=new Uint8Array(count);
+ let offset=0;
+ for(const chunk of chunks){out.set(chunk,offset);offset+=chunk.byteLength}
+ return out;
+}
 const parseJson=async response=>{
  const contentType=response.headers.get("content-type")||"";
  if(!contentType.toLowerCase().includes("application/json"))deny("invalid_logo_api_response");
@@ -32,7 +55,7 @@ export function createQuotationLogoHttpClient({fetchImpl,csrfToken,enabled=false
    if(!result.ok)deny("saved_logo_image_unavailable");
    const type=(result.headers.get("content-type")||"").split(";")[0].trim().toLowerCase();
    if(!["image/png","image/jpeg"].includes(type))deny("invalid_saved_logo_type");
-   const bytes=new Uint8Array(await result.arrayBuffer());
+   const bytes=await readBoundedResponse(result,2*1024*1024);
    if(bytes.length<32||bytes.length>2*1024*1024)deny("invalid_saved_logo_size");
    return new Blob([bytes],{type});
   },
@@ -52,10 +75,8 @@ export function createQuotationLogoHttpClient({fetchImpl,csrfToken,enabled=false
    if(!result.ok)deny("quotation_pdf_preview_unavailable");
    const mime=(result.headers.get("content-type")||"").split(";")[0].trim().toLowerCase();
    if(mime!=="application/pdf")deny("invalid_quotation_pdf_type");
-   // Bound size before allocating if the server supplied a content length.
-   const declared=Number(result.headers.get("content-length")||0);
-   if(declared>10*1024*1024)deny("quotation_pdf_preview_too_large");
-   const bytes=new Uint8Array(await result.arrayBuffer());
+   // Enforce the cap during streaming, even when Content-Length is absent.
+   const bytes=await readBoundedResponse(result,10*1024*1024);
    if(bytes.length<5||bytes.length>10*1024*1024||
       bytes[0]!==37||bytes[1]!==80||bytes[2]!==68||bytes[3]!==70||bytes[4]!==45)
     deny("invalid_quotation_pdf_payload");
