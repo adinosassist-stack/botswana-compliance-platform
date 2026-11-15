@@ -26,6 +26,16 @@ export function createQuotationLogoHttpClient({fetchImpl,csrfToken,enabled=false
    const body=await api(endpoint,{method:"GET"});
    return {settings:body.settings||null,aspectRatio:body.aspectRatio||null};
   },
+  async loadImage(){
+   const result=await fetchImpl(endpoint+"/image",{method:"GET",
+    credentials:"same-origin",cache:"no-store",redirect:"error"});
+   if(!result.ok)deny("saved_logo_image_unavailable");
+   const type=(result.headers.get("content-type")||"").split(";")[0].trim().toLowerCase();
+   if(!["image/png","image/jpeg"].includes(type))deny("invalid_saved_logo_type");
+   const bytes=new Uint8Array(await result.arrayBuffer());
+   if(bytes.length<32||bytes.length>2*1024*1024)deny("invalid_saved_logo_size");
+   return new Blob([bytes],{type});
+  },
   async upload(file){
    if(!(file instanceof Blob))deny("invalid_logo_upload");
    if(file.size>2*1024*1024||file.size<32)deny("invalid_logo_upload");
@@ -52,13 +62,12 @@ export async function mountCompanyQuotationLogoEditor(root,{companyId,capability
   deny("quotation_logo_feature_disabled");
  const api=createQuotationLogoHttpClient({fetchImpl,csrfToken,enabled:true});
  const current=await api.load();
+ const savedLogoBlob=current.settings?.logoAssetId?await api.loadImage():null;
  let verifiedAspectRatio=current.aspectRatio;
  const editor=mountQuotationLogoEditor(root,{
   companyId,logoAssetId:current.settings?.logoAssetId,
   initialLayout:current.settings?.layout,
-  // Existing image preview requires a separate authorized binary endpoint.
-  // Until that is available, saving layout without a newly uploaded image is
-  // possible only when UI receives a verified asset image via another adapter.
+  initialLogoBlob:savedLogoBlob,initialAspectRatio:verifiedAspectRatio,
   onUpload:async file=>{const uploaded=await api.upload(file);verifiedAspectRatio=uploaded.aspectRatio;return uploaded},
   onSave:async settings=>{
    if(!Number.isFinite(verifiedAspectRatio)||verifiedAspectRatio<=0)deny('logo_aspect_ratio_unavailable');
