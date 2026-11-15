@@ -50,6 +50,10 @@ jobs:
       EXPECTED_SHA: ${{ inputs.expected_main_sha }}
       AUDIT_TOKEN: ${{ secrets.WORKSPACE_AGENT_STAGING_READONLY_CLOUDFLARE_TOKEN }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
       - name: Read version lineage without revealing bindings or secret values
         run: |
           set -euo pipefail
@@ -57,6 +61,7 @@ jobs:
           test "$GITHUB_SHA" = "$EXPECTED_SHA"
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
           tmp="$(mktemp -d)"
+          export TMP_VERSION_DIR="$tmp"
           trap 'rm -rf "$tmp"' EXIT
           api="https://api.cloudflare.com/client/v4/accounts/b11d872b2660e76ca66323023b45b3ab/workers/scripts/bw-workspace-agent-staging"
           fetch() {
@@ -65,41 +70,34 @@ jobs:
             fi
           }
           fetch 'versions?per_page=100&page=1' versions
+          fetch 'versions?per_page=100&page=2' versions2
           fetch 'deployments' deployments
-          # Reject malformed/truncated and non-unique lists. No blind ordering assumptions.
-          jq -e '.success == true and (.result.items | type == "array") and
-            (.result.items | length >= 2) and
-            (.result_info.total_count == (.result.items | length)) and
-            (.result_info.total_pages == 1) and
-            ([.result.items[].id] | length == (unique | length))' "$tmp/versions" >/dev/null || {
-              echo "::error::Version listing missing, incomplete, or unknown schema"; exit 1
-            }
-          jq -e '.success == true and (.result.deployments[0].versions |
-            length == 1 and .[0].version_id == "64d9bae9-2ea3-40c1-9a26-83cea97ad71c" and
-            .[0].percentage == 100)' "$tmp/deployments" >/dev/null || {
-              echo "::error::Pinned deployed version changed"; exit 1
-            }
-          # Cloudflare may return versions in API-specific order; determine newest by timestamps,
-          # require unique fully parseable created_on values and stop if ambiguous.
-          jq -e '
-            [.result.items[] | select((.created_on | type) == "string" and
-              (.id | type) == "string")] | length == (.result.items | length)
-          ' "$tmp/versions" >/dev/null || {
-            echo "::error::Missing version creation timestamps"; exit 1
+          # Cloudflare OpenAPI documents result.items[].metadata.created_on and
+          # sequential result.items[].number; result_info is optional and not trusted.
+          # A second page must be empty. Unknown response shapes fail CLOSED.
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import {checkVersionLineage} from './scripts/workspace-agent-version-lineage-audit.mjs';
+          let assessment;
+          try {
+            const first=JSON.parse(readFileSync(process.env.TMP_VERSION_DIR+'/versions','utf8'));
+            const second=JSON.parse(readFileSync(process.env.TMP_VERSION_DIR+'/versions2','utf8'));
+            const deployed=JSON.parse(readFileSync(process.env.TMP_VERSION_DIR+'/deployments','utf8'));
+            assessment=checkVersionLineage(first,second,deployed);
+          } catch {
+            console.error('::error::version_provenance_response_unreadable');
+            process.exit(1);
           }
-          latest="$(jq -r '.result.items | sort_by(.created_on) | last | .id' "$tmp/versions")"
-          second="$(jq -r '.result.items | sort_by(.created_on) | .[-2] | .created_on' "$tmp/versions")"
-          newest="$(jq -r '.result.items | sort_by(.created_on) | last | .created_on' "$tmp/versions")"
-          test "$newest" != "$second" || { echo "::error::Ambiguous latest upload"; exit 1; }
-          jq -e '[.result.items[].id] | index("64d9bae9-2ea3-40c1-9a26-83cea97ad71c") != null' "$tmp/versions" >/dev/null || {
-            echo "::error::Deployed pinned version absent from upload history"; exit 1
+          if(!assessment.valid) {
+            console.error('::error::'+assessment.reason);
+            process.exit(1);
           }
-          if [ "$latest" = "64d9bae9-2ea3-40c1-9a26-83cea97ad71c" ]; then
-            echo "PASS latest_uploaded_equals_pinned_inert"
-          else
-            echo "::warning::Latest uploaded version differs from deployed inert version"
-            echo "BLOCK secret_binding_inheritance_from_latest"
-          fi
+          if(assessment.canInheritFromLatest) console.log('PASS latest_uploaded_equals_pinned_inert');
+          else {
+            console.log('::warning::Latest uploaded version differs from deployed inert version');
+            console.log('BLOCK secret_binding_inheritance_from_latest');
+          }
+          NODE
           # Report only lineage classification; no settings mutation, secrets, version promotion,
           # or logs/artifacts containing full Cloudflare payloads.
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
