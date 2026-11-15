@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {validDate,daysUntilDelivery,scheduleFieldsFromInput,dueRemindersFromRows,dueDeliveryReminders} from "../cloudflare/src/delivery-installation-reminders.js";
+import {validDate,daysUntilDelivery,scheduleFieldsFromInput,scheduleEntriesFromInput,parseReportSchedules,MAX_REPORT_JOBS,MAX_OVERDUE_DAYS,dueRemindersFromRows,dueDeliveryReminders} from "../cloudflare/src/delivery-installation-reminders.js";
 
 test("Botswana calendar day window is inclusive D-4 to due date",()=>{
   assert.equal(daysUntilDelivery("2026-11-19","2026-11-15"),4);
@@ -34,9 +34,9 @@ test("only upcoming scheduled jobs appear; latest completion suppresses old remi
     row("other-reporter","LT-12","2026-11-19","scheduled","l1","e2")
   ];
   const due=dueRemindersFromRows(rows,"2026-11-15");
-  assert.equal(due.length,3);
-  assert.deepEqual(due.map(x=>x.jobReference),["LT-13","LT-12","LT-12"]);
-  assert.deepEqual(due.map(x=>x.daysUntil),[0,4,4]);
+  assert.equal(due.length,4);
+  assert.deepEqual(due.map(x=>x.jobReference),["LT-15","LT-13","LT-12","LT-12"]);
+  assert.deepEqual(due.map(x=>x.daysUntil),[-1,0,4,4]);
   assert.ok(due.every(x=>x.sourceReportId&&x.locationId));
 });
 test("D1 query scopes tenant and optionally exact reporter and location before reading rows",async()=>{
@@ -53,4 +53,51 @@ test("invalid tenant/date never query D1",async()=>{
   assert.deepEqual(await dueDeliveryReminders(env,{tenantId:"",today:"2026-11-15"}),[]);
   assert.deepEqual(await dueDeliveryReminders(env,{tenantId:"t",today:"invalid"}),[]);
   assert.equal(called,false);
+});
+
+test("multi-job daily report supports eight distinct jobs, rejects ambiguous or oversized requests",()=>{
+  const a={jobReference:"LT-101",jobType:"delivery",scheduledDate:"2026-11-19",jobStatus:"scheduled"};
+  const b={jobReference:"LT-102",jobType:"installation",scheduledDate:"2026-11-20",jobStatus:"scheduled"};
+  const valid=scheduleEntriesFromInput({jobs:[a,b]});
+  assert.deepEqual(valid.fields.jobs,[a,b]);
+  assert.equal(valid.entries.length,2);
+  assert.deepEqual(scheduleEntriesFromInput({jobs:[a]}).fields,a,"single job remains flat for backward compatibility");
+  assert.deepEqual(scheduleEntriesFromInput({jobReference:"LT-101",jobType:"delivery",scheduledDate:"2026-11-19"}).entries[0].jobStatus,"scheduled");
+  assert.equal(scheduleEntriesFromInput({jobs:Array(MAX_REPORT_JOBS+1).fill(a)}).error,"invalid_delivery_jobs");
+  assert.equal(scheduleEntriesFromInput({jobs:"not an array"}).error,"invalid_delivery_jobs");
+  assert.equal(scheduleEntriesFromInput({jobs:[a,{...a,jobReference:"lt-101"}]}).error,"duplicate_delivery_job");
+  assert.equal(scheduleEntriesFromInput({jobs:[{}]}).error,"incomplete_delivery_job");
+  assert.equal(scheduleEntriesFromInput({jobs:[a],jobReference:a.jobReference}).error,"conflicting_delivery_job_formats");
+  assert.equal(scheduleEntriesFromInput({jobs:[a,{...a,jobType:"installation"}]}).entries.length,2,"distinct job types may share a reference");
+  assert.equal(scheduleEntriesFromInput({jobs:[]}).entries.length,0);
+  assert.equal(scheduleEntriesFromInput({jobs:[a,{...b,scheduledDate:"2026-02-30"}]}).error,"valid_delivery_installation_date_required");
+});
+
+test("multiple reminder jobs are independent; newer completion and rescheduling override older rows",()=>{
+  const earlier={id:"older",employee_id:"employee-A",location_id:"branch-A",full_name:"Test reporter",location_name:"Test branch",
+    kpi_json:JSON.stringify({jobs:[
+      {jobReference:"LT-101",jobType:"installation",scheduledDate:"2026-11-19",jobStatus:"scheduled"},
+      {jobReference:"LT-102",jobType:"delivery",scheduledDate:"2026-11-18",jobStatus:"scheduled"},
+      {jobReference:"LT-103",jobType:"installation",scheduledDate:"2026-11-19",jobStatus:"scheduled"}
+    ]})};
+  const newer={...earlier,id:"newer",kpi_json:JSON.stringify({jobs:[
+    {jobReference:"LT-101",jobType:"installation",scheduledDate:"2026-11-19",jobStatus:"completed"},
+    {jobReference:"LT-102",jobType:"delivery",scheduledDate:"2026-11-20",jobStatus:"scheduled"}
+  ]})};
+  const reminders=dueRemindersFromRows([newer,earlier],"2026-11-15");
+  assert.deepEqual(reminders.map(x=>x.jobReference),["LT-103"]);
+  assert.deepEqual(parseReportSchedules(earlier.kpi_json).map(x=>x.jobReference),["LT-101","LT-102","LT-103"]);
+});
+
+test("overdue reminders stop after seven days and never resurrect cancelled work",()=>{
+  assert.equal(MAX_OVERDUE_DAYS,7);
+  const reminders=dueRemindersFromRows([
+    row("late7","LT-7","2026-11-08"),
+    row("late8","LT-8","2026-11-07"),
+    row("later-cancelled","LT-9","2026-11-12","cancelled"),
+    row("older-scheduled","LT-9","2026-11-12","scheduled")
+  ],"2026-11-15");
+  assert.deepEqual(reminders.map(x=>x.jobReference),["LT-7"]);
+  assert.equal(reminders[0].urgency,"overdue");
+  assert.equal(reminders[0].daysUntil,-7);
 });
