@@ -69,3 +69,28 @@ test("malformed PDF output is never downloaded as if valid",async()=>{
  const res=await call("GET",{pdfLib:bad});assert.equal(res.status,500);
  assert.equal(res.headers.get("content-type"),"application/json; charset=utf-8");
 });
+
+test("authorization outage fails closed without access to template or PDF engine",async()=>{
+ let loaded=false;
+ const res=await call("GET",{
+  authorization:{...approval,assertCompanyReader:async()=>{throw Error("identity_service_timeout")}},
+  templates:{getApprovedLogoFreeTemplate:async()=>{loaded=true;throw Error("should_not_be_called")}}
+ });
+ assert.equal(res.status,403);
+ assert.equal(loaded,false);
+ assert.equal((await res.json()).error,"quotation_pdf_access_denied");
+});
+test("PDF output larger than 10 MiB is rejected by server before response",async()=>{
+ const big=new Uint8Array(10*1024*1024+1);
+ big.set(Buffer.from("%PDF-1.7"));
+ const oversized={PDFDocument:{load:async()=>({
+  getPages:()=>[
+   {getSize:()=>({width:612.24,height:858.96}),drawImage:()=>{}},
+   {getSize:()=>({width:841.92,height:1190.64}),drawImage:()=>{}}
+  ],embedPng:async()=>({}),save:async()=>big
+ })}};
+ const res=await call("GET",{pdfLib:oversized});
+ assert.equal(res.status,500);
+ assert.equal(res.headers.get("content-type"),"application/json; charset=utf-8");
+ assert.equal((await res.json()).error,"invalid_quotation_pdf_output");
+});
