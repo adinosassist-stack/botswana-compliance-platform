@@ -50,6 +50,10 @@ jobs:
       EXPECTED_SHA: ${{ inputs.expected_main_sha }}
       AUDIT_TOKEN: ${{ secrets.WORKSPACE_AGENT_STAGING_READONLY_CLOUDFLARE_TOKEN }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
       - name: Read-only isolated inventory with redacted check names
         run: |
           set -euo pipefail
@@ -92,9 +96,38 @@ jobs:
           check isolated_worker_only "$tmp/scripts" '.success == true and ([.result[].id] == ["bw-workspace-agent-staging"])'
           fetch "workers/scripts/$worker/deployments" "$tmp/deployments"
           check pinned_inert_100pct "$tmp/deployments" '.success == true and (.result.deployments[0].versions | length == 1 and .[0].version_id == "64d9bae9-2ea3-40c1-9a26-83cea97ad71c" and .[0].percentage == 100)'
-          fetch "workers/scripts/$worker/settings" "$tmp/settings"
-          check plain_text_only_no_resource_bindings "$tmp/settings" '.success == true and (.result.bindings | type == "array" and length == 8 and all(.[]; .type == "plain_text"))'
-          check advisory_shell_disabled "$tmp/settings" '.success == true and ([.result.bindings[] | select(.name == "WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED") | .text] == ["false"])'
+          # /scripts/{name}/settings reflects latest uploaded settings, not the 100%-deployed
+          # inert version. Qualify ONLY the explicit pinned version; leave newer uploads blocked.
+          fetch "workers/workers/$worker/versions/$inert" "$tmp/pinned"
+          fetch "workers/workers/$worker/versions/latest" "$tmp/latest"
+          export WORKSPACE_AGENT_DIAGNOSTIC_TMP="$tmp"
+          if node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import {inspectInertDeployed} from './scripts/workspace-agent-deployed-inert-audit.mjs';
+          const dir=process.env.WORKSPACE_AGENT_DIAGNOSTIC_TMP;
+          let verdict;
+          try {
+            const read=name=>JSON.parse(readFileSync(dir+'/'+name,'utf8'));
+            verdict=inspectInertDeployed({
+              pinned:read('pinned'),latest:read('latest'),deployments:read('deployments')
+            });
+          } catch {
+            console.error('::error::FAIL pinned_deployed_version_metadata');
+            process.exit(1);
+          }
+          if(!verdict.deployedInertSafe) {
+            for(const issue of verdict.issues)console.error('::error::FAIL '+issue);
+            process.exit(1);
+          }
+          console.log('PASS pinned_inert_exact_eight_plain_text_bindings');
+          console.log('PASS pinned_inert_advisory_shell_disabled');
+          console.log('BLOCK unsafe_latest_upload_promotion');
+          NODE
+          then
+            :
+          else
+            fail=1
+          fi
           fetch "workers/scripts/$worker/subdomain" "$tmp/subdomain"
           check workers_dev_and_previews_disabled "$tmp/subdomain" '.success == true and .result.enabled == false and .result.previews_enabled == false'
           fetch "workers/scripts/$worker/schedules" "$tmp/schedules"
