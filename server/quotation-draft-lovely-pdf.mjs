@@ -68,7 +68,7 @@ export async function drawLovelyQuotationDraft({pdf,pdfLib,draft}={}){
  checked.items.forEach((item,i)=>{
   const top=337+i*40;
   const lines=wrapQuotationDescription(font,item.description,226,8);
-  lines.forEach((line,index)=>text(line,42,top+index*11,226,8));
+  lines.forEach((line,index)=>text(line,42,top+index*10,226,8));
   text(String(item.quantity),292,top,48,9);
   text(moneyBwp(item.unitPriceCents),376,top,101,9);
   text(moneyBwp(item.lineTotalCents),502,top,89,9);
