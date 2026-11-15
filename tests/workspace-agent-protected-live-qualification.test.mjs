@@ -18,17 +18,21 @@ function baseline(){return {targetDeployment:{versions:[{version_id:INERT_VERSIO
 const gate={GITHUB_REF:'refs/heads/main',GITHUB_SHA:'7c1bc8cb5dc0a98114511cf11e31d0473487740d',
   EXPECTED_MAIN_SHA:'7c1bc8cb5dc0a98114511cf11e31d0473487740d',
   CONFIRMATION:PHRASE,GITHUB_REPOSITORY:'adinosassist-stack/botswana-compliance-platform',
-  GITHUB_ACTIONS:'true',CLOUDFLARE_API_TOKEN:'fake',RUNNER_ENVIRONMENT:'workspace-agent-private-staging'};
+  GITHUB_ACTIONS:'true',CLOUDFLARE_API_TOKEN:'fake',WORKSPACE_AGENT_QUALIFICATION_ENVIRONMENT:'workspace-agent-private-staging'};
 
 test('workflow is dispatch only, exact-main protected, independently reviewed with rollback',()=>{
-  assert.match(yaml,/workflow_dispatch:/);assert.doesNotMatch(yaml,/\n  (push|pull_request|schedule):/);
+  assert.match(yaml,/workflow_dispatch:/);
+  assert.doesNotMatch(yaml,/^\s+RUNNER_ENVIRONMENT:/m);
+  assert.equal((yaml.match(/WORKSPACE_AGENT_QUALIFICATION_ENVIRONMENT: workspace-agent-private-staging/g) || []).length,2);assert.doesNotMatch(yaml,/\n  (push|pull_request|schedule):/);
   for(const pattern of [/environment: workspace-agent-private-staging/,/prevent_self_review == true/,
     /users\/thusico/,/expected_main_sha/,/preflight_run_id/,/\.conclusion == "success"/,
     /github\.ref == 'refs\/heads\/main'/,/concurrency:/,/cancel-in-progress: false/,
     /--dry-run/,/--verify-only/,/if: always\(\)/,/CLOUDFLARE_API_TOKEN:/,/GITHUB_TOKEN:/])assert.match(yaml,pattern);
 });
 test('fail closed when any owner, SHA or environment gate is incorrect',()=>{
-  requireGate(gate);
+  requireGate({...gate,RUNNER_ENVIRONMENT:'github-hosted'});
+  assert.throws(()=>requireGate({...gate,WORKSPACE_AGENT_QUALIFICATION_ENVIRONMENT:undefined,
+    RUNNER_ENVIRONMENT:'workspace-agent-private-staging'}),/gate_failed/);
   for(const field of Object.keys(gate)){
     assert.throws(()=>requireGate({...gate,[field]:field==='CLOUDFLARE_API_TOKEN'?'':'wrong'}),/gate_failed/,field);
   }
