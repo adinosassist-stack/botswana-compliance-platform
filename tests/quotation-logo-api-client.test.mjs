@@ -44,3 +44,26 @@ test("private image loading requires proper binary type and bounded size",async(
   fetchImpl:async()=>new Response(bytes,{headers:{"content-type":"text/html"}})});
  await assert.rejects(bad.loadImage(),/invalid_saved_logo_type/);
 });
+
+test("PDF preview only accepts authenticated bounded PDF response",async()=>{
+ const pdf=Uint8Array.from(Buffer.from("%PDF-1.7\\nSafe preview"));
+ const calls=[];
+ const api=createQuotationLogoHttpClient({enabled:true,csrfToken:token,
+  fetchImpl:async(url,options)=>{
+   calls.push({url,options});
+   return new Response(pdf,{headers:{"content-type":"application/pdf","content-length":String(pdf.length)}});
+  }});
+ const blob=await api.previewPdf();
+ assert.equal(blob.type,"application/pdf");
+ assert.equal(blob.size,pdf.length);
+ assert.equal(calls[0].url,"/api/quotation/logo/pdf-preview");
+ assert.equal(calls[0].options.method,"GET");
+ assert.equal(calls[0].options.credentials,"same-origin");
+ assert.equal(calls[0].options.cache,"no-store");
+ const bad=createQuotationLogoHttpClient({enabled:true,csrfToken:token,
+  fetchImpl:async()=>new Response("not a pdf",{headers:{"content-type":"application/pdf"}})});
+ await assert.rejects(bad.previewPdf(),/invalid_quotation_pdf_payload/);
+ const wrongMime=createQuotationLogoHttpClient({enabled:true,csrfToken:token,
+  fetchImpl:async()=>new Response(pdf,{headers:{"content-type":"text/html"}})});
+ await assert.rejects(wrongMime.previewPdf(),/invalid_quotation_pdf_type/);
+});
