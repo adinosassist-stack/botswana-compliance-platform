@@ -11,11 +11,11 @@ import {join, resolve} from 'node:path';
 import {spawn} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 
-export const ACCOUNT = 'ddd23cab31928a4bb3d4998df9b26d1d';
+export const ACCOUNT = 'b11d872b2660e76ca66323023b45b3ab';
 export const TARGET = 'bw-workspace-agent-staging';
 export const CALLER = 'bw-workspace-agent-qualification-caller';
-export const DB = 'fb0c7c32-6e0a-42cf-89c3-971529e583db';
-export const INERT_VERSION = 'dfb71693-9031-44d3-958b-e13ba8cf7594';
+export const DB = 'fa317ccc-683d-4466-9e3a-e296872d58ba';
+export const INERT_VERSION = '64d9bae9-2ea3-40c1-9a26-83cea97ad71c';
 export const PHRASE = 'QUALIFY_PRIVATE_WORKSPACE_AGENT_ONCE';
 const BASE = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}`;
 const API_ROOT = 'https://api.cloudflare.com/client/v4';
@@ -143,9 +143,10 @@ class Cloudflare {
     });
     if(!response.ok) throw new Error('zone_inventory_denied');
     const data=await response.json();
-    if(!data.success || !Array.isArray(data.result) || (data.result_info?.total_pages??1)!==1)
-      throw new Error('zone_inventory_incomplete');
-    if(!data.result.some(z=>z.name==='thebedesk.com')) throw new Error('staging_zone_inventory_incomplete');
+    const page=data.result_info;
+    if(data.success!==true || !Array.isArray(data.result) || data.result.length!==0 ||
+      page?.total_count!==0 || ![0,1].includes(page?.total_pages))
+      throw new Error('isolated_zone_inventory_not_empty_or_incomplete');
     return data.result;
   }
 }
