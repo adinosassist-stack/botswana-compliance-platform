@@ -4,6 +4,7 @@
  */
 import {pathToFileURL} from 'node:url';
 import {checkAssetStagingBindingMetadata} from './corporate-assets-staging-binding-preflight.mjs';
+import {ACCOUNT,assertOpaqueReadToken,inspectAssetStagingExposure} from './corporate-assets-v3-private-exposure-attestation.mjs';
 import {DB,WORKER,ROLLBACK,CANDIDATE} from './corporate-assets-v3-predeployment-attestation.mjs';
 
 export const SECRET_CANDIDATE_V4='dc708a58-4da1-4af5-a10a-17ace5ea25fa';
@@ -110,7 +111,48 @@ export function evaluateV4ReadOnlyQualification({reviewedMainSha,versionInventor
   blockers:Object.freeze([...new Set(blockers)])
  });
 }
+/** Protected GET-only reader; no secret values returned or printed. */
+export async function inspectV4ReadOnlyQualification({expectedMainSha,repository,ref,githubSha,
+ token,accountToken,request=fetch,readExposure=inspectAssetStagingExposure}={}){
+ if(!SHA.test(expectedMainSha||'')||repository!=='adinosassist-stack/botswana-compliance-platform'||
+    ref!=='refs/heads/main'||githubSha!==expectedMainSha)
+  throw Error('exact_main_v4_read_context_required');
+ assertOpaqueReadToken(token,'cloudflare');
+ assertOpaqueReadToken(accountToken,'account_inventory');
+ const prefix='/accounts/'+ACCOUNT+'/workers/scripts/'+WORKER;
+ const get=async(path)=>{
+  const response=await request('https://api.cloudflare.com/client/v4'+path,{
+   method:'GET',headers:{authorization:'Bearer '+token,accept:'application/json'},
+   redirect:'error',signal:AbortSignal.timeout(15000)
+  });
+  // Do not include Cloudflare error body, auth header or returned binding values in logs.
+  if(!response.ok)throw Error('v4_metadata_read_denied_'+response.status);
+  const data=await response.json();
+  if(data?.success!==true||data.result==null)throw Error('v4_metadata_read_invalid');
+  return data;
+ };
+ const [versionInventory,candidate,active,deployments,privateExposure]=await Promise.all([
+  get(prefix+'/versions?page=1&per_page=100'),
+  get(prefix+'/versions/'+SECRET_CANDIDATE_V4),
+  get(prefix+'/versions/'+ROLLBACK),
+  get(prefix+'/deployments?page=1&per_page=100'),
+  readExposure({token,accountToken,request})
+ ]);
+ const result=evaluateV4ReadOnlyQualification({reviewedMainSha:expectedMainSha,
+  versionInventory,candidateVersion:candidate.result,activeVersion:active.result,
+  deployments,privateExposure});
+ if(!result.candidateMetadataVerified)throw Error('v4_metadata_qualification_failed');
+ return result;
+}
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
- console.error('read_only_v4_qualification_requires_independently_authenticated_metadata_no_side_effects');
- process.exitCode=1;
+ inspectV4ReadOnlyQualification({
+  expectedMainSha:process.env.EXPECTED_MAIN_SHA,
+  repository:process.env.GITHUB_REPOSITORY,ref:process.env.GITHUB_REF,
+  githubSha:process.env.GITHUB_SHA,
+  token:process.env.ASSETS_STAGING_CLOUDFLARE_TOKEN,
+  accountToken:process.env.ASSETS_STAGING_CLOUDFLARE_ACCOUNT_READ_TOKEN
+ }).then(x=>console.log(JSON.stringify(x))).catch(()=>{
+  console.error('v4_read_only_qualification_failed');
+  process.exitCode=1;
+ });
 }
