@@ -7,6 +7,7 @@
  * these values from a customer request or editable company settings.
  */
 import {createHash,timingSafeEqual} from "node:crypto";
+import {readPrivateQuotationR2Bytes} from "./quotation-private-r2-read.mjs";
 const fail=(code)=>{throw Error(code)};
 const valid=x=>typeof x==="string"&&/^[a-zA-Z0-9_-]{1,100}$/.test(x);
 const digest=b=>createHash("sha256").update(b).digest();
@@ -30,10 +31,11 @@ export function createApprovedQuotationTemplateProvider({registry,privateStore}=
       !entry.pages.every(approvedPage))
      fail("quotation_template_not_approved");
    const object=await privateStore.get(entry.privateObjectKey);
-   if(!object||typeof object.arrayBuffer!=="function")fail("quotation_template_not_found");
-   const source=new Uint8Array(await object.arrayBuffer());
-   if(source.byteLength<5||source.byteLength>10*1024*1024||
-      !same(digest(source),Buffer.from(entry.sha256,"hex")))
+   if(!object)fail("quotation_template_not_found");
+   const source=await readPrivateQuotationR2Bytes(object,{
+    maxBytes:10*1024*1024,minBytes:5,errorCode:"quotation_template_integrity_failed"
+   });
+   if(!same(digest(source),Buffer.from(entry.sha256,"hex")))
     fail("quotation_template_integrity_failed");
    if(source[0]!==37||source[1]!==80||source[2]!==68||source[3]!==70||source[4]!==45)
     fail("quotation_template_invalid_pdf");
