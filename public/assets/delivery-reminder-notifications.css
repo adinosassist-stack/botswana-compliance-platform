@@ -1,0 +1,22 @@
+/* Delivery and installation reminders — no gradients, compact, mobile-first. */
+.thebe-delivery-fields{border:1px solid #dce5ef;border-radius:12px;padding:14px;margin:14px 0;background:#fff}
+.thebe-delivery-fields legend{font-weight:750;color:#1e293b;padding:0 6px}
+.thebe-delivery-fields p{font-size:13px;color:#526378;margin:5px 0 12px}
+.thebe-delivery-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.thebe-delivery-grid .field{min-width:0;margin:0}
+.thebe-delivery-grid input,.thebe-delivery-grid select{width:100%;max-width:100%;box-sizing:border-box;min-height:44px}
+.thebe-delivery-reminders{display:grid;gap:9px;margin:12px 0}
+.thebe-delivery-reminder{display:flex;gap:10px;align-items:flex-start;background:#eaf3ff;border:1px solid #bcd7fa;border-radius:12px;padding:12px;color:#153455;box-shadow:0 4px 16px #17233d10}
+.thebe-delivery-reminder[data-urgent="true"]{background:#fff4e6;border-color:#f0bd75;color:#683e0d}
+.thebe-delivery-reminder strong{display:block;font-size:14px}
+.thebe-delivery-reminder small{display:block;color:#4d5e75;font-size:12px;margin-top:4px}
+.thebe-delivery-reminder button{margin-left:auto;background:transparent;border:0;color:inherit;cursor:pointer;font-size:20px;line-height:1;padding:4px;min-width:36px;min-height:36px}
+.thebe-delivery-manager-popup{position:fixed;right:14px;top:76px;width:min(390px,calc(100vw - 28px));max-height:min(65vh,580px);overflow:auto;background:#fff;z-index:10000;border-radius:14px;box-shadow:0 12px 48px #132b4550;border:1px solid #aebed2;padding:15px;color:#172333}
+.thebe-delivery-manager-popup h2{font-size:16px;margin:0 40px 9px 0}
+.thebe-delivery-manager-popup .thebe-delivery-reminder{margin-top:7px}
+.thebe-delivery-manager-popup button.thebe-delivery-dismiss{position:absolute;top:8px;right:8px;min-height:35px;min-width:35px;border:none;border-radius:8px;background:#e9eff8;color:#172333;cursor:pointer}
+.thebe-delivery-manager-bell{position:fixed;right:14px;bottom:16px;z-index:9998;min-height:44px;border:1px solid #a8c3e6;border-radius:30px;background:#143f77;color:#fff;box-shadow:0 6px 18px #132b4529;padding:10px 16px;cursor:pointer;font-weight:700}
+.thebe-delivery-manager-bell[hidden],.thebe-delivery-manager-popup[hidden]{display:none}
+.thebe-delivery-workspace{margin:12px 0;padding:12px;border:1px solid #dae6f5;border-radius:12px;background:#fff}
+.thebe-delivery-workspace h3{font-size:15px;margin:0 0 8px}
+@media(max-width:620px){.thebe-delivery-grid{grid-template-columns:1fr}.thebe-delivery-manager-popup{right:10px;top:64px;width:calc(100vw - 20px);max-height:65vh}.thebe-delivery-manager-bell{right:10px;bottom:10px}}
