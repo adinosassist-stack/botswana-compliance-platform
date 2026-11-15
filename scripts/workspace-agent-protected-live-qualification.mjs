@@ -32,7 +32,7 @@ export function requireGate(env) {
   if (env.GITHUB_REF !== 'refs/heads/main' || !SHA.test(env.GITHUB_SHA || '') ||
       env.GITHUB_SHA !== env.EXPECTED_MAIN_SHA || env.CONFIRMATION !== PHRASE ||
       env.GITHUB_REPOSITORY !== 'adinosassist-stack/botswana-compliance-platform' ||
-      env.GITHUB_ACTIONS !== 'true' || !env.CLOUDFLARE_API_TOKEN || env.RUNNER_ENVIRONMENT !== 'workspace-agent-private-staging') {
+      env.GITHUB_ACTIONS !== 'true' || !env.CLOUDFLARE_API_TOKEN || env.WORKSPACE_AGENT_QUALIFICATION_ENVIRONMENT !== 'workspace-agent-private-staging') {
     throw new Error('protected_exact_main_or_scope_gate_failed');
   }
 }
