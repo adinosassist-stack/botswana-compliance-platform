@@ -78,3 +78,37 @@ test("saved image read is private and scoped to authenticated company",async()=>
    layout:{xPercent:4,yPercent:2,widthPercent:34}})}});
  assert.equal(other.status,500);
 });
+
+test("unauthorized company editor never reaches image processor or upload body",async()=>{
+ let processed=false;
+ const result=await call("/api/quotation/logo/upload",{
+  method:"POST",headers:{"content-type":"image/png"},body:asset.bytes
+ },{
+  authorization:{...authorization,assertCompanyEditor:async()=>false},
+  decodeAndSanitizeLogo:async()=>{processed=true;throw Error("processor_must_not_run")}
+ });
+ assert.equal(result.status,403);
+ assert.equal(processed,false);
+});
+test("company editor authorization exception fails closed without invoking processor",async()=>{
+ let processed=false;
+ const result=await call("/api/quotation/logo/upload",{
+  method:"POST",headers:{"content-type":"image/png"},body:asset.bytes
+ },{
+  authorization:{...authorization,assertCompanyEditor:async()=>{throw Error("auth_backend_unavailable")}},
+  decodeAndSanitizeLogo:async()=>{processed=true}
+ });
+ assert.equal(result.status,500);
+ assert.equal(processed,false);
+});
+test("CSRF verifier exception fails closed without invoking processor",async()=>{
+ let processed=false;
+ const result=await call("/api/quotation/logo/upload",{
+  method:"POST",headers:{"content-type":"image/png"},body:asset.bytes
+ },{
+  verifyMutation:async()=>{throw Error("csrf_unavailable")},
+  decodeAndSanitizeLogo:async()=>{processed=true}
+ });
+ assert.equal(result.status,500);
+ assert.equal(processed,false);
+});
