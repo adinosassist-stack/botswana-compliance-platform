@@ -60,7 +60,7 @@ test('receipt requires all seven exact authorization results and cleanup',()=>{
 test('Wrangler invocation uses an actual resolved executable and version-only upload',()=>{
   const argv=wranglerArgs('/tmp/synthetic-caller.json','/tmp/synthetic-secrets.json');
   assert.ok(argv.every(a=>typeof a==='string' && a.length>0));
-  assert.match(argv[0],/node_modules[\\/]wrangler[\\/]bin[\\/]wrangler\\.js$/);
+  assert.ok(argv[0].replaceAll(String.fromCharCode(92),'/').endsWith('/node_modules/wrangler/bin/wrangler.js'));
   assert.deepEqual(argv.slice(1,3),['versions','upload']);
   assert.ok(argv.includes('--strict'));
   assert.deepEqual(argv.slice(argv.indexOf('--config'),argv.indexOf('--config')+2),
