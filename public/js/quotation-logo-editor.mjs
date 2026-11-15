@@ -63,9 +63,10 @@ export function mountQuotationLogoEditor(root,options={}) {
  const note=el('div','Page 1 · Drag the logo to move it. Arrow keys move by 1%. Both width and height are capped; the original proportions are preserved.',{class:'qle-note'});
  const status=el('div','Choose a logo to start.',{class:'qle-status',role:'status','aria-live':'polite'});
  area.append(controls,preview,note,status);root.replaceChildren(style,area);
- let disposed=false,objectUrl=null,file=null,assetId=options.logoAssetId||null,ratio=2;
+ let disposed=false,objectUrl=null,file=null,assetId=options.logoAssetId||null,ratio=options.initialAspectRatio||2;
  let layout=normalizeQuotationLogoLayout(options.initialLayout||DEFAULT_QUOTE_LOGO_LAYOUT,PAGE_W,PAGE_H,ratio);
  let dragging=null,dirty=false;
+ let saving=false;
  const setStatus=(message)=>{if(!disposed)status.textContent=message};
  function paint(){
   const p=normalizeQuotationLogoLayout(layout,PAGE_W,PAGE_H,ratio);layout=p;
@@ -74,7 +75,7 @@ export function mountQuotationLogoEditor(root,options={}) {
   slider.value=String(Math.round(p.widthPercent));
   heightSlider.value=String(Math.round(p.heightPercent));
   dimensions.textContent=`Width ${p.widthPercent.toFixed(1)}% / 60% · Height ${p.heightPercent.toFixed(1)}% / 30% · proportions locked`;
-  save.disabled=!(dirty&&typeof options.onSave==='function'&&(assetId||(!file?false:typeof options.onUpload==='function')));
+  save.disabled=saving||!(dirty&&typeof options.onSave==='function'&&(assetId||(!file?false:typeof options.onUpload==='function')));
  }
  function markChanged(){dirty=true;paint();setStatus('Unsaved changes.');}
  async function changeFile(){
@@ -91,6 +92,20 @@ export function mountQuotationLogoEditor(root,options={}) {
    logo.style.display='block';layout=normalizeQuotationLogoLayout(DEFAULT_QUOTE_LOGO_LAYOUT,PAGE_W,PAGE_H,ratio);
    markChanged();
   }catch(e){setStatus('Logo rejected: '+e.message);input.value=''}
+ }
+ if(options.initialLogoBlob){
+  // An authenticated read supplies this binary; never accept an arbitrary image URL.
+  loadImage(options.initialLogoBlob).then(next=>{
+   if(disposed){URL.revokeObjectURL(next.url);return}
+   const aspect=next.width/next.height;
+   if(options.initialAspectRatio&&Math.abs(aspect-options.initialAspectRatio)>0.0001){
+    URL.revokeObjectURL(next.url);setStatus('Saved logo dimensions do not match.');return;
+   }
+   if(objectUrl)URL.revokeObjectURL(objectUrl);
+   objectUrl=next.url;ratio=aspect;image.src=objectUrl;
+   layout=normalizeQuotationLogoLayout(options.initialLayout||DEFAULT_QUOTE_LOGO_LAYOUT,PAGE_W,PAGE_H,ratio);
+   logo.style.display='block';paint();setStatus('Saved company logo loaded.');
+  }).catch(()=>setStatus('Saved logo could not be displayed.'));
  }
  input.addEventListener('change',changeFile);
  slider.addEventListener('input',()=>{layout={...layout,widthPercent:Number(slider.value)};markChanged()});
@@ -121,7 +136,7 @@ export function mountQuotationLogoEditor(root,options={}) {
  const stop=()=>{dragging=null};logo.addEventListener('pointerup',stop);logo.addEventListener('pointercancel',stop);
  save.addEventListener('click',async()=>{
   if(!dirty||typeof options.onSave!=='function')return;
-  save.disabled=true;setStatus('Saving logo settings…');
+  saving=true;paint();setStatus('Saving logo settings…');
   try {
    let persistedId=assetId;
    if(file){
@@ -132,8 +147,9 @@ export function mountQuotationLogoEditor(root,options={}) {
    }
    const settings=quotationLogoSettings({companyId:options.companyId,logoAssetId:persistedId,layout,aspectRatio:ratio,pageWidthPt:PAGE_W,pageHeightPt:PAGE_H});
    await options.onSave(settings);if(disposed)return;
-   assetId=persistedId;file=null;dirty=false;setStatus('Logo settings saved.');paint();
-  }catch(e){setStatus('Not saved: '+(e?.message||'unknown error'));paint()}
+   assetId=persistedId;file=null;dirty=false;setStatus('Logo settings saved.');
+  }catch(e){setStatus('Not saved: '+(e?.message||'unknown error'))}
+  finally{saving=false;paint()}
  });
  paint();
  return {getLayout:()=>({...layout}),destroy(){disposed=true;if(objectUrl)URL.revokeObjectURL(objectUrl);root.replaceChildren()}};
