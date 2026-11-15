@@ -247,5 +247,5 @@ function bindAttachments(){
   byId("reportFileInput")?.addEventListener("change",async event=>{const input=event.currentTarget;await addFiles(input.files,"file");input.value=""});
 }
 window.addEventListener("online",networkStatus);window.addEventListener("offline",networkStatus);window.addEventListener("pagehide",event=>{if(!event.persisted)attachmentState.forEach(revokeItem)});
-document.addEventListener("DOMContentLoaded",()=>{byId("reporterDailyForm")?.addEventListener("submit",submit);bindAttachments();initialize();setInterval(refreshDeliveryReminders,60*60*1000);document.addEventListener("visibilitychange",()=>{if(!document.hidden)refreshDeliveryReminders()})});
+document.addEventListener("DOMContentLoaded",()=>{byId("reporterDailyForm")?.addEventListener("submit",submit);bindAttachments();initialize();if(typeof setInterval==="function")setInterval(refreshDeliveryReminders,60*60*1000);document.addEventListener("visibilitychange",()=>{if(!document.hidden)refreshDeliveryReminders()})});
 })();
