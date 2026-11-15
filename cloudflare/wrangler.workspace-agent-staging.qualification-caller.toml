@@ -1,0 +1,18 @@
+# Private temporary caller. A protected run supplies the synthetic session
+# secret and installs and removes the single-minute trigger.
+name = "bw-workspace-agent-qualification-caller"
+main = "src/workspace-agent-staging-qualification-caller.js"
+account_id = "ddd23cab31928a4bb3d4998df9b26d1d"
+compatibility_date = "2026-09-03"
+workers_dev = false
+preview_urls = false
+keep_vars = false
+
+[[services]]
+binding = "TARGET"
+service = "bw-workspace-agent-staging"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bw-workspace-agent-staging"
+database_id = "fb0c7c32-6e0a-42cf-89c3-971529e583db"
