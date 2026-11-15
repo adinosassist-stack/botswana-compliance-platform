@@ -22,10 +22,15 @@ export function createApprovedQuotationTemplateProvider({registry,privateStore}=
  return Object.freeze({
   async getApprovedLogoFreeTemplate({companyId}={}){
    if(!valid(companyId))fail("quotation_template_access_denied");
+   // Reject inherited/prototype registry entries; approval must be explicit.
+   if(!Object.hasOwn(registry,companyId))fail("quotation_template_not_approved");
    const entry=registry[companyId];
+   const scopedKey="quotation-templates/"+companyId+"/";
+   const keyLeaf=typeof entry?.privateObjectKey==="string"&&
+      entry.privateObjectKey.startsWith(scopedKey)?entry.privateObjectKey.slice(scopedKey.length):"";
    if(!entry||entry.companyId!==companyId||entry.logoFree!==true||
       !valid(entry.id)||typeof entry.privateObjectKey!=="string"||
-      !entry.privateObjectKey.startsWith("quotation-templates/"+companyId+"/")||
+      !/^[A-Za-z0-9_-]{1,100}$/.test(keyLeaf)||
       !/^[0-9a-f]{64}$/i.test(entry.sha256)||
       !Array.isArray(entry.pages)||entry.pages.length!==2||
       !entry.pages.every(approvedPage))
