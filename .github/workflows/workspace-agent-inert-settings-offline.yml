@@ -1,0 +1,25 @@
+name: Workspace Agent inert settings offline validator
+on:
+  pull_request:
+    paths:
+      - 'scripts/workspace-agent-inert-settings-audit.mjs'
+      - 'tests/workspace-agent-inert-settings-audit.test.mjs'
+      - '.github/workflows/workspace-agent-inert-settings-offline.yml'
+  push:
+    paths:
+      - 'scripts/workspace-agent-inert-settings-audit.mjs'
+      - 'tests/workspace-agent-inert-settings-audit.test.mjs'
+      - '.github/workflows/workspace-agent-inert-settings-offline.yml'
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run offline safety regression tests
+        run: node --test tests/workspace-agent-inert-settings-audit.test.mjs
