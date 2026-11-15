@@ -108,3 +108,39 @@ test("real renderer refuses overfull eight-line table rather than clipping",asyn
   templates:{getApprovedLogoFreeTemplate:async()=>approved}
  }),/invalid_quotation_item_count/);
 });
+
+test("real PDF engine refuses a private PNG whose decoded dimensions differ from D1 metadata",async()=>{
+ const approved=await template();
+ const changedStore={...store,
+  readPrivateAsset:async args=>{
+   const actual=await store.readPrivateAsset(args);
+   return actual?{...actual,width:64,height:48}:actual;
+  }
+ };
+ await assert.rejects(renderCompanyQuotationLogoPdf({
+  actor,companyId:tenant,authorization:auth,store:changedStore,
+  pdfLib:engine,templates:{getApprovedLogoFreeTemplate:async()=>approved}
+ }),/company_logo_content_dimension_mismatch/);
+});
+test("renderer rejects invalid tenant metadata before decoding a private image",async()=>{
+ const approved=await template();
+ let embedded=false;
+ const invalidStore={...store,
+  readPrivateAsset:async args=>{
+   const actual=await store.readPrivateAsset(args);
+   return actual?{...actual,width:31,height:24,aspectRatio:aspect}:actual;
+  }
+ };
+ const guardedEngine={...engine,
+  PDFDocument:{load:async bytes=>{
+   const pdf=await engine.PDFDocument.load(bytes);
+   pdf.embedPng=async()=>{embedded=true;throw Error("not_allowed")};
+   return pdf;
+  }}
+ };
+ await assert.rejects(renderCompanyQuotationLogoPdf({
+  actor,companyId:tenant,authorization:auth,store:invalidStore,
+  pdfLib:guardedEngine,templates:{getApprovedLogoFreeTemplate:async()=>approved}
+ }),/company_logo_dimension_mismatch/);
+ assert.equal(embedded,false);
+});
