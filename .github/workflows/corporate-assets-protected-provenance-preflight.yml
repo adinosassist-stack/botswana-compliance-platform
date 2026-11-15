@@ -8,6 +8,8 @@ on:
       - 'scripts/corporate-assets-early-main-guard.mjs'
       - 'scripts/corporate-assets-complete-readonly-evidence.mjs'
       - 'tests/corporate-assets-complete-readonly-evidence.test.mjs'
+      - 'scripts/corporate-assets-v3-private-exposure-attestation.mjs'
+      - 'tests/corporate-assets-v3-private-exposure-attestation.test.mjs'
       - 'scripts/corporate-assets-active-credential-types.mjs'
       - 'tests/corporate-assets-active-credential-types.test.mjs'
   workflow_dispatch:
@@ -52,6 +54,8 @@ jobs:
           node --test tests/corporate-assets-protected-provenance-preflight.test.mjs
           node --check scripts/corporate-assets-complete-readonly-evidence.mjs
           node --test tests/corporate-assets-complete-readonly-evidence.test.mjs
+          node --check scripts/corporate-assets-v3-private-exposure-attestation.mjs
+          node --test tests/corporate-assets-v3-private-exposure-attestation.test.mjs
           node --check scripts/corporate-assets-active-credential-types.mjs
           node --test tests/corporate-assets-active-credential-types.test.mjs
       - name: Fail stale main early before independent protected review (GET only)
