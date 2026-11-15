@@ -32,3 +32,27 @@ test("unverified logo-free claim or invalid header zone is rejected",async()=>{
  await assert.rejects(provider({logoFree:false}).getApprovedLogoFreeTemplate({companyId:"lovelyA"}),/not_approved/);
  await assert.rejects(provider({pages:[pages[0],{...pages[1],logoZone:{x:700,y:0,width:200,height:200}}]}).getApprovedLogoFreeTemplate({companyId:"lovelyA"}),/not_approved/);
 });
+
+test("template approval cannot be inherited via prototype of registry object",async()=>{
+ const inherited={id:"lovely_clean_v1",companyId:"lovelyA",logoFree:true,
+  privateObjectKey:"quotation-templates/lovelyA/lovely_clean_v1",sha256:hash,pages};
+ let storageRead=false;
+ const provider=createApprovedQuotationTemplateProvider({
+  registry:Object.create({lovelyA:inherited}),
+  privateStore:{get:async()=>{storageRead=true;throw Error("unexpected_read")}}
+ });
+ await assert.rejects(provider.getApprovedLogoFreeTemplate({companyId:"lovelyA"}),/not_approved/);
+ assert.equal(storageRead,false);
+});
+test("template private key cannot escape the exact tenant-scoped leaf directory",async()=>{
+ const examples=["quotation-templates/lovelyA/../secret",
+  "quotation-templates/lovelyA/child/secret",
+  "quotation-templates/lovelyA/",
+  "quotation-templates/lovelyA/a%2Fb",
+  "quotation-templates/other/asset"];
+ for(const key of examples){
+  await assert.rejects(provider({privateObjectKey:key}).getApprovedLogoFreeTemplate({
+   companyId:"lovelyA"
+  }),/not_approved/);
+ }
+});
