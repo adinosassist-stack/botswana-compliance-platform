@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {qualifyQuotationPrivateStaging} from "../server/quotation-staging-readonly-preflight.mjs";
-const sourceSha="a".repeat(40),prodId="b".repeat(40),stageId="c".repeat(40);
+const sourceSha="a".repeat(40),prodId="22222222-3333-4444-8555-666666666666",
+ stageId="11111111-2222-4333-8444-555555555555";
 function setup({tables=["quotation_logo_assets","quotation_logo_settings"]}={}){
  const calls=[];
  const d1={prepare(sql){
@@ -44,6 +45,9 @@ test("rejects production D1, reused R2 names and exposed routes before all I/O",
  const {calls,config}=setup();
  for(const changes of [
   {d1Id:prodId},
+  {d1Id:"f".repeat(40)},
+  {productionBucketNames:undefined},
+  {routes:undefined},
   {logoBucketName:"bw-compliance-ops-backups"},
   {templateBucketName:config.logoBucketName},
   {routes:["thebedesk.com/*"]},
