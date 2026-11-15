@@ -62,15 +62,22 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$AUDIT_TOKEN"
-          api=https://api.cloudflare.com/client/v4/accounts/ddd23cab31928a4bb3d4998df9b26d1d
+          api=https://api.cloudflare.com/client/v4/accounts/b11d872b2660e76ca66323023b45b3ab
           resource=bw-workspace-agent-staging
           read_inventory() {
             curl --fail --silent --show-error --max-time 30 \
               --header "Authorization: Bearer $AUDIT_TOKEN" "$api/$1"
           }
+          curl --fail --silent --show-error --max-time 30 \
+            --header "Authorization: Bearer $AUDIT_TOKEN" \
+            'https://api.cloudflare.com/client/v4/zones?account.id=b11d872b2660e76ca66323023b45b3ab&per_page=50' |
+            jq -e '.success == true and .result == [] and .result_info.total_count == 0 and
+              (.result_info.total_pages == 0 or .result_info.total_pages == 1)' >/dev/null
+          read_inventory workers/scripts | jq -e --arg name "$resource" '
+            .success == true and ([.result[].id] == [$name])' >/dev/null
           script="workers/scripts/$resource"
-          inert_version=dfb71693-9031-44d3-958b-e13ba8cf7594
-          d1_id=fb0c7c32-6e0a-42cf-89c3-971529e583db
+          inert_version=64d9bae9-2ea3-40c1-9a26-83cea97ad71c
+          d1_id=fa317ccc-683d-4466-9e3a-e296872d58ba
           read_inventory "$script/deployments" | jq -e --arg version "$inert_version" '
             .success == true and
             (.result.deployments[0].versions | length == 1 and
