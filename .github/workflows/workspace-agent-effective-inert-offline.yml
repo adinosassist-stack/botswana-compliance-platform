@@ -1,0 +1,28 @@
+name: Workspace Agent effective inert readiness offline contract
+on:
+  pull_request:
+    paths:
+      - 'scripts/workspace-agent-effective-inert-readiness.mjs'
+      - 'tests/workspace-agent-effective-inert-readiness.test.mjs'
+      - '.github/workflows/workspace-agent-inert-diagnostics.yml'
+      - '.github/workflows/workspace-agent-effective-inert-offline.yml'
+  push:
+    paths:
+      - 'scripts/workspace-agent-effective-inert-readiness.mjs'
+      - 'tests/workspace-agent-effective-inert-readiness.test.mjs'
+      - '.github/workflows/workspace-agent-effective-inert-offline.yml'
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test effective deployed inert and service drift gates
+        run: node --test tests/workspace-agent-effective-inert-readiness.test.mjs
