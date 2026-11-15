@@ -28,3 +28,15 @@ test("tenant and immutable asset ID required, no image bytes in saved settings",
  assert.deepEqual(Object.keys(s),["companyId","logoAssetId","layout"]);
  assert.throws(()=>quotationLogoSettings({companyId:"../other",logoAssetId:"logo1",aspectRatio:2}),/invalid_logo_asset_reference/);
 });
+
+test("both width and height are independently capped while proportions stay unchanged",()=>{
+ const tall=normalizeQuotationLogoLayout({xPercent:80,yPercent:90,widthPercent:60},612.24,858.96,0.2);
+ assert.ok(tall.widthPercent<=60);
+ assert.ok(tall.heightPercent<=30.000001);
+ assert.ok(tall.yPercent+tall.heightPercent<=100.000001);
+ const wide=normalizeQuotationLogoLayout({widthPercent:100},612.24,858.96,8);
+ assert.equal(wide.widthPercent,60);
+ assert.ok(wide.heightPercent<=30);
+ const rect=quotationLogoPageRect(tall,612.24,858.96,0.2);
+ assert.ok(Math.abs(rect.width/rect.height-0.2)<0.00001);
+});
