@@ -54,7 +54,7 @@ function createHarness(){
   getPages:()=>[
    {getSize:()=>pageOne,drawImage:(_,rect)=>pdfDraws.push(rect)},
    {getSize:()=>pageTwo,drawImage:(_,rect)=>pdfDraws.push(rect)}
-  ],embedPng:async()=>({}),save:async()=>pdfBytes
+  ],embedPng:async()=>({width:200,height:100}),save:async()=>pdfBytes
  })}};
  const request=(path,init={},overrides={})=>handleQuotationLogoHttp({
   request:new Request("https://thebedesk.com"+path,init),actor,companyId:"tenantA",
