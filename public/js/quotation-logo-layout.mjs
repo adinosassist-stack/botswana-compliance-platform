@@ -5,6 +5,8 @@
  */
 export const DEFAULT_QUOTE_LOGO_LAYOUT=Object.freeze({xPercent:4,yPercent:2,widthPercent:34});
 export const MAX_LOGO_BYTES=2*1024*1024;
+export const QUOTE_LOGO_MAX_WIDTH_PERCENT=60;
+export const QUOTE_LOGO_MAX_HEIGHT_PERCENT=30;
 export const LOGO_MIME_TYPES=Object.freeze(["image/png","image/jpeg","image/webp"]);
 export function validateLogoUploadMetadata({type,size,width,height}={}) {
  if(!LOGO_MIME_TYPES.includes(type)||!Number.isSafeInteger(size)||size<32||size>MAX_LOGO_BYTES)
@@ -31,9 +33,10 @@ export function normalizeQuotationLogoLayout(layout={},pageWidthPt=612.24,pageHe
  y=layout.yPercent??DEFAULT_QUOTE_LOGO_LAYOUT.yPercent,
  width=layout.widthPercent??DEFAULT_QUOTE_LOGO_LAYOUT.widthPercent;
  if(![x,y,width].every(v=>typeof v==="number"&&Number.isFinite(v)))throw new Error("invalid_logo_layout");
- const maxW=between(88,8,100),w=between(width,8,maxW);
+ const maxWidthFromHeight=QUOTE_LOGO_MAX_HEIGHT_PERCENT*pageHeightPt*aspectRatio/pageWidthPt;
+ const maximumWidth=Math.min(QUOTE_LOGO_MAX_WIDTH_PERCENT,maxWidthFromHeight);
+ const w=between(width,Math.min(8,maximumWidth),maximumWidth);
  const h=w*pageWidthPt/aspectRatio/pageHeightPt;
- if(h>100)throw new Error("logo_exceeds_page");
  return Object.freeze({xPercent:between(x,0,100-w),yPercent:between(y,0,100-h),widthPercent:w,heightPercent:h});
 }
 export function quotationLogoPageRect(layout,pageWidthPt,pageHeightPt,aspectRatio) {
