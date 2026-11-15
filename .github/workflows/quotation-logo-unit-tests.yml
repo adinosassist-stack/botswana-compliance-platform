@@ -35,6 +35,8 @@ jobs:
           node --check server/quotation-logo-service.mjs
           node --check server/quotation-logo-d1-r2-store.mjs
           node --check server/quotation-logo-pdf.mjs
+          node --check server/quotation-draft-model.mjs
+          node --check server/quotation-draft-lovely-pdf.mjs
           node --check server/quotation-logo-template-provider.mjs
           node --check server/quotation-logo-http.mjs
           node --check server/quotation-logo-pdf-http.mjs
