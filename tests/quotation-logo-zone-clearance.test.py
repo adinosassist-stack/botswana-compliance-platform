@@ -33,7 +33,7 @@ class ClearanceTests(unittest.TestCase):
         doc.save(target)
         proc = subprocess.run([sys.executable, str(CHECKER), str(target), str(self.zones)],
                               capture_output=True, text=True, check=False)
-        return proc.returncode, json.loads(proc.stdout)
+        return proc.returncode, json.loads(proc.stdout or proc.stderr)
 
     def test_blank_two_page_pdf_passes_collision_preflight(self):
         code, report = self.run_pdf()
