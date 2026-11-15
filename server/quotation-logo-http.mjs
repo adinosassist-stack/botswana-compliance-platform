@@ -18,6 +18,25 @@ const response=(data,status=200)=>new Response(JSON.stringify(data),{
 const invalid=(code,status)=>response({ok:false,error:code},status);
 const approvedType=new Set(["image/png","image/jpeg"]);
 const bad=code=>{throw Error(code)};
+async function readBoundedBody(request,limit) {
+ const reader=request.body?.getReader();
+ if(!reader)return new Uint8Array();
+ const chunks=[];let count=0;
+ try {
+  while(true){
+   const {done,value}=await reader.read();
+   if(done)break;
+   if(!(value instanceof Uint8Array))bad("invalid_request_body");
+   count+=value.byteLength;
+   if(count>limit)bad("logo_request_too_large");
+   chunks.push(value);
+  }
+ }finally{await reader.cancel().catch(()=>{});reader.releaseLock()}
+ const result=new Uint8Array(count);let offset=0;
+ for(const chunk of chunks){result.set(chunk,offset);offset+=chunk.length}
+ return result;
+}
+
 const allowedKeys=(value,keys)=>value&&typeof value==="object"&&!Array.isArray(value)&&
  Object.keys(value).every(key=>keys.includes(key));
 export async function handleQuotationLogoHttp({request,actor,companyId,authorization,store,
@@ -52,7 +71,7 @@ export async function handleQuotationLogoHttp({request,actor,companyId,authoriza
    if(!approvedType.has(type))return invalid("unsupported_logo_type",415);
    const headerLength=Number(request.headers.get("content-length"));
    if(Number.isFinite(headerLength)&&headerLength>maxRequestBytes)return invalid("logo_too_large",413);
-   const bytes=new Uint8Array(await request.arrayBuffer());
+   const bytes=await readBoundedBody(request,maxRequestBytes);
    if(bytes.length<32||bytes.length>maxRequestBytes)return invalid("invalid_logo_size",413);
    const image=await decodeAndSanitizeLogo({bytes,mimeType:type});
    if(!image||!approvedType.has(image.type)||!(image.bytes instanceof Uint8Array)||
@@ -62,9 +81,8 @@ export async function handleQuotationLogoHttp({request,actor,companyId,authoriza
      file:image});
    return response({ok:true,logoAssetId:saved.logoAssetId,aspectRatio:saved.aspectRatio},201);
   }
-  const raw=await request.text();
-  if(raw.length>4096)return invalid("invalid_logo_settings",413);
-  const value=JSON.parse(raw);
+  const raw=new TextDecoder("utf-8",{fatal:true}).decode(await readBoundedBody(request,4096));
+  let value;try{value=JSON.parse(raw)}catch{return invalid("invalid_logo_settings",400)}
   if(!allowedKeys(value,["logoAssetId","aspectRatio","layout"])||
      !allowedKeys(value.layout,["xPercent","yPercent","widthPercent"]))
    return invalid("invalid_logo_settings",400);
@@ -80,6 +98,8 @@ export async function handleQuotationLogoHttp({request,actor,companyId,authoriza
       "invalid_logo_signature","unsupported_logo_file","unsupported_logo_dimensions"].includes(code))
    return invalid(code,400);
   if(code==="logo_asset_not_found")return invalid(code,404);
+  if(code==="logo_request_too_large")return invalid(code,413);
+  if(code==="invalid_request_body")return invalid(code,400);
   return invalid("logo_request_failed",500);
  }
 }
