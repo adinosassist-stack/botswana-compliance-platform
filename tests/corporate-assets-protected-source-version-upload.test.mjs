@@ -29,12 +29,16 @@ const result=()=>({beforeIds:oldIds,afterIds:inventory(true),
 test('authorizes no mutation without exact explicit main-only owner and independent gate context',()=>{
  const good={mode:'create-version-only',authorization:'CREATE_ISOLATED_ASSETS_SOURCE_VERSION',
   repo:'adinosassist-stack/botswana-compliance-platform',ref:'refs/heads/main',
-  sha,expectedSha:sha,actor:'owner-account',githubReadToken:'test',cloudflareToken:'test'};
+  sha,expectedSha:sha,actor:'owner-account',githubReadToken:'test',cloudflareToken:'test',
+  cloudflareAccountReadToken:'synthetic-account-read'};
  assert.equal(requireVersionOnlyContext(good),true);
  for(const change of [
   a=>a.authorization='PREFLIGHT_ONLY',a=>a.mode='deploy',a=>a.ref='refs/heads/pr',
   a=>a.sha='b'.repeat(40),a=>a.expectedSha='invalid',a=>a.githubReadToken='',
-  a=>a.cloudflareToken='',a=>a.actor='thusico',a=>a.actor=''
+  a=>a.cloudflareToken='',a=>a.cloudflareAccountReadToken='',
+  a=>a.cloudflareAccountReadToken='Bearer invalid',
+  a=>a.cloudflareAccountReadToken='token with whitespace',
+  a=>a.actor='thusico',a=>a.actor=''
  ]){const a={...good};change(a);assert.throws(()=>requireVersionOnlyContext(a))}
 });
 test('version inventory must be complete and introduce exactly one new version',()=>{
