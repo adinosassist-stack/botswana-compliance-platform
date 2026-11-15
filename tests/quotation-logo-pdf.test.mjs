@@ -21,7 +21,7 @@ test("PDF renderer fails closed without approved tenant-specific logo-free templ
  };
  const mockPdf={PDFDocument:{load:async()=>{throw Error("should_not_load_unapproved_template")}}};
  await assert.rejects(renderCompanyQuotationLogoPdf({actor:{},companyId:"a",authorization:a,store,
-  templates:{getApprovedLogoFreeTemplate:async()=>({id:"legacy",logoFree:false,pageCount:2,bytes:new Uint8Array([1])})},
+  templates:{getApprovedLogoFreeTemplate:async()=>({id:"legacy",logoFree:false,pageCount:2,pages:[{width:612.24,height:858.96,logoZone:{x:0,y:0,width:612.24,height:858.96}},{width:841.92,height:1190.64,logoZone:{x:0,y:0,width:252.576,height:300}}],bytes:new Uint8Array([1])})},
   pdfLib:mockPdf}),/unapproved_logo_pdf_template/);
 });
 test("PNG placement renders on both pages of approved blank template",async()=>{
@@ -38,7 +38,7 @@ test("PNG placement renders on both pages of approved blank template",async()=>{
   embedPng:async()=>({}),save:async()=>Uint8Array.from([37,80,68,70])
  };
  const result=await renderCompanyQuotationLogoPdf({actor:{},companyId:"a",authorization:auth,store,
-  templates:{getApprovedLogoFreeTemplate:async()=>({id:"lovely-clean-v1",logoFree:true,pageCount:2,bytes:Uint8Array.from([37,80,68,70])})},
+  templates:{getApprovedLogoFreeTemplate:async()=>({id:"lovely-clean-v1",logoFree:true,pageCount:2,pages:[{width:612.24,height:858.96,logoZone:{x:0,y:0,width:612.24,height:858.96}},{width:841.92,height:1190.64,logoZone:{x:0,y:0,width:252.576,height:300}}],bytes:Uint8Array.from([37,80,68,70])})},
   pdfLib:{PDFDocument:{load:async()=>pdf}}});
  assert.equal(result.templateId,"lovely-clean-v1");
  assert.equal(calls.length,2);assert.equal(result.logoAssetId,"l1");
@@ -46,4 +46,19 @@ test("PNG placement renders on both pages of approved blank template",async()=>{
  assert.ok(calls[1].x+calls[1].width<=841.92*0.30+0.001);
  assert.ok(calls[1].y>=0&&calls[1].y+calls[1].height<=1190.64);
  assert.ok(Math.abs(calls[1].width/calls[1].height-2)<0.0001);
+});
+
+test("renderer refuses logo covering non-logo content zone",async()=>{
+ const b=Uint8Array.from([137,80,78,71,13,10,26,10,0,0,0,0]);
+ const auth={assertCompanyReader:async()=>true,assertCompanyEditor:async()=>true};
+ const store={readPrivateAsset:async()=>({bytes:b,mimeType:"image/png",aspectRatio:2}),
+  getCompanyLogoSettings:async()=>({companyId:"a",logoAssetId:"l1",layout:{xPercent:50,yPercent:50,widthPercent:34}}),
+  writePrivateAsset:async()=>({}),upsertCompanyLogoSettings:async()=>{}};
+ const pdf={getPages:()=>[{getSize:()=>({width:612.24,height:858.96}),drawImage:()=>{throw Error("must_not_draw")}},
+  {getSize:()=>({width:841.92,height:1190.64}),drawImage:()=>{throw Error("must_not_draw")}}]};
+ await assert.rejects(renderCompanyQuotationLogoPdf({actor:{},companyId:"a",authorization:auth,store,
+  templates:{getApprovedLogoFreeTemplate:async()=>({id:"approved",logoFree:true,pageCount:2,bytes:b,
+   pages:[{width:612.24,height:858.96,logoZone:{x:0,y:0,width:250,height:200}},
+    {width:841.92,height:1190.64,logoZone:{x:0,y:0,width:253,height:300}}]})},
+  pdfLib:{PDFDocument:{load:async()=>pdf}}}),/logo_outside_approved_template_zone/);
 });
