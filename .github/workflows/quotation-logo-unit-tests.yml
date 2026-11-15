@@ -1,0 +1,40 @@
+name: Quotation Logo Unit Tests
+on:
+  pull_request:
+    paths:
+      - 'public/js/quotation-logo-*.mjs'
+      - 'server/quotation-logo-*.mjs'
+      - 'tests/quotation-logo-*.test.mjs'
+      - 'docs/sql/quotation-logo-staging-candidate.sql'
+      - '.github/workflows/quotation-logo-unit-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quotation-logo-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quotation-logo-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax-check quotation logo modules
+        run: |
+          node --check public/js/quotation-logo-layout.mjs
+          node --check public/js/quotation-logo-editor.mjs
+          node --check public/js/quotation-logo-api-client.mjs
+          node --check server/quotation-logo-service.mjs
+          node --check server/quotation-logo-d1-r2-store.mjs
+          node --check server/quotation-logo-pdf.mjs
+          node --check server/quotation-logo-http.mjs
+      - name: Run quotation logo isolation, sizing and PDF tests
+        run: node --test tests/quotation-logo-*.test.mjs
