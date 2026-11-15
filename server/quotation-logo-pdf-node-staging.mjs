@@ -12,9 +12,10 @@
 import {createQuotationLogoStore} from "./quotation-logo-d1-r2-store.mjs";
 import {createApprovedQuotationTemplateProvider} from "./quotation-logo-template-provider.mjs";
 import {handleQuotationLogoPdfPreview} from "./quotation-logo-pdf-http.mjs";
+import {handleQuotationDraftPdfPreview} from "./quotation-draft-pdf-http.mjs";
 
 export function createNodeStagingQuotationPdfPreviewHandler({
- db,privateLogoBucket,privateTemplateBucket,approvedTemplates,authorization,pdfLib
+ db,privateLogoBucket,privateTemplateBucket,approvedTemplates,authorization,pdfLib,verifyMutation
 }={}){
  if(typeof authorization?.assertCompanyReader!=="function"||
     typeof authorization?.assertCompanyEditor!=="function"||
@@ -27,6 +28,12 @@ export function createNodeStagingQuotationPdfPreviewHandler({
   registry:approvedTemplates,privateStore:privateTemplateBucket
  });
  return async function previewRequest({request,actor,companyId}={}){
+  // Separate POST-only, CSRF-guarded non-issuing draft preview. Without a
+  // verifier this endpoint denies requests, while legacy GET remains intact.
+  if(request instanceof Request&&
+     new URL(request.url).pathname==="/api/quotation/draft/pdf-preview")
+   return handleQuotationDraftPdfPreview({request,actor,companyId,
+    authorization,verifyMutation,store,templates,pdfLib});
   return handleQuotationLogoPdfPreview({
    request,actor,companyId,authorization,store,templates,pdfLib
   });
