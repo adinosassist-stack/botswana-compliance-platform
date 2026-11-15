@@ -1,0 +1,103 @@
+name: Workspace Agent pinned-version secret provenance (read only)
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Exact current main SHA
+        type: string
+        required: true
+permissions: {}
+concurrency:
+  group: workspace-agent-pinned-version-provenance
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+    steps:
+      - name: Verify exact-main and independent reviewer protection
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          reviewer="$(gh api users/thusico --jq .id)"
+          envapi="repos/$GITHUB_REPOSITORY/environments/workspace-agent-private-staging"
+          gh api "$envapi" | jq -e --argjson reviewer "$reviewer" '
+            any(.protection_rules[]; .type == "required_reviewers" and
+              .prevent_self_review == true and
+              (.reviewers | length == 1) and
+              ([.reviewers[] | select(.type == "User") | .reviewer.id] == [$reviewer])) and
+              .deployment_branch_policy.custom_branch_policies == true' >/dev/null
+          gh api "$envapi/deployment-branch-policies" | jq -e '
+            .total_count == 1 and .branch_policies[0].name == "main" and
+            .branch_policies[0].type == "branch"' >/dev/null
+  inspect:
+    needs: verify
+    environment: workspace-agent-private-staging
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 6
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+      AUDIT_TOKEN: ${{ secrets.WORKSPACE_AGENT_STAGING_READONLY_CLOUDFLARE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Inspect explicit pinned and latest Worker versions
+        run: |
+          set -euo pipefail
+          test -n "$AUDIT_TOKEN"
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          tmp="$(mktemp -d)"
+          export PINNED_INSPECTION_TMP="$tmp"
+          trap 'rm -rf "$tmp"' EXIT
+          base="https://api.cloudflare.com/client/v4/accounts/b11d872b2660e76ca66323023b45b3ab"
+          script="bw-workspace-agent-staging"
+          fetch() {
+            if ! curl --fail --silent --show-error --max-time 30 \
+              -H "Authorization: Bearer $AUDIT_TOKEN" "$base/$1" > "$tmp/$2" 2>/dev/null; then
+              echo "::error::Version-specific read-only Cloudflare API request failed"
+              exit 1
+            fi
+          }
+          fetch "workers/workers/$script/versions/64d9bae9-2ea3-40c1-9a26-83cea97ad71c" pinned
+          fetch "workers/workers/$script/versions/latest" latest
+          fetch "workers/scripts/$script/deployments" deployed
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import {classifyPinnedVersion} from './scripts/workspace-agent-pinned-version-provenance.mjs';
+          const tmp=process.env.PINNED_INSPECTION_TMP;
+          let classification;
+          try {
+            const pinned=JSON.parse(readFileSync(tmp+'/pinned','utf8'));
+            const latest=JSON.parse(readFileSync(tmp+'/latest','utf8'));
+            const deployments=JSON.parse(readFileSync(tmp+'/deployed','utf8'));
+            classification=classifyPinnedVersion({pinned,latest,deployments});
+          } catch {
+            console.error('::error::Unreadable pinned version metadata');
+            process.exit(1);
+          }
+          if (!classification.valid) {
+            for (const reason of classification.issues) console.error('::error::'+reason);
+            process.exit(1);
+          }
+          console.log('PASS pinned_version_binding_identities');
+          if(classification.latestMatchesPinned)
+            console.log('PASS latest_equals_pinned');
+          else
+            console.log('BLOCK latest_version_secret_inheritance');
+          console.log('No Cloudflare configuration changes or secret values exported.');
+          NODE
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
