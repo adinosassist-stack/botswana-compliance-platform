@@ -114,6 +114,8 @@ test("multi-job portal, manager and API are wired without changing token or role
   assert.match(html,/id="reporterQualityGuide"/);
   assert.match(html,/data-job-field="scheduledDate"/);
   assert.match(browser,/function restoreCurrentJobs\(/);
+  assert.match(browser,/function restoreTodayDraft\(/);
+  assert.match(worker,/currentReportDraft:ownToday\?/);
   assert.match(browser,/function collectReportJobs\(/);
   assert.match(browser,/function selectReminderJob\(/);
   assert.match(browser,/payload\.kpis\.jobs=scheduled\.jobs/);
