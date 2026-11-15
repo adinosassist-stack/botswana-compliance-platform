@@ -5,6 +5,7 @@
  * Both template pages are branded; terms page uses a bounded, smaller logo.
  */
 import {getCompanyQuotationLogo} from "./quotation-logo-service.mjs";
+import {drawLovelyQuotationDraft} from "./quotation-draft-lovely-pdf.mjs";
 import {quotationLogoPageRect,inspectLogoSignature} from "../public/js/quotation-logo-layout.mjs";
 
 const deny=code=>{throw new Error(code)};
@@ -35,7 +36,7 @@ export function quotationLogoPdfPlacement({layout,aspectRatio,pageWidth,pageHeig
  * legacy PDF directly, because it has a baked-in original logo.
  */
 export async function renderCompanyQuotationLogoPdf({
- actor,companyId,authorization,store,templates,pdfLib
+ actor,companyId,authorization,store,templates,pdfLib,draft=null
 }={}) {
  if(typeof companyId!=="string"||!companyId||
     typeof templates?.getApprovedLogoFreeTemplate!=="function"||
@@ -86,6 +87,10 @@ export async function renderCompanyQuotationLogoPdf({
   await pdf.embedPng(asset.bytes):await pdf.embedJpg(asset.bytes);
  page.drawImage(image,rect);
  termsPage.drawImage(image,termsRect);
+ // Opt-in staging preview only; the draft is never saved or issued.
+ const validatedDraft=draft===null?null:await drawLovelyQuotationDraft({pdf,pdfLib,draft});
  return Object.freeze({bytes:new Uint8Array(await pdf.save()),templateId:template.id,
-  logoAssetId:state.settings.logoAssetId,placement:rect,termsPlacement:termsRect});
+  logoAssetId:state.settings.logoAssetId,placement:rect,termsPlacement:termsRect,
+  draftTotals:validatedDraft?Object.freeze({subtotalCents:validatedDraft.subtotalCents,
+    discountCents:validatedDraft.discountCents,grandTotalCents:validatedDraft.grandTotalCents}):null});
 }
