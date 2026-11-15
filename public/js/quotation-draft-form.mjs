@@ -4,7 +4,7 @@
  * Server independently authorizes tenant and recalculates submitted totals.
  */
 import {createQuotationDraftPreviewClient} from "./quotation-draft-api-client.mjs";
-import {prepareQuotationFormDraft,formatBwpCents} from "./quotation-draft-form-model.mjs";
+import {prepareQuotationFormDraft,formatBwpCents,parseBwpCents} from "./quotation-draft-form-model.mjs";
 const css=[
  ".thebe-qdf{font:14px/1.45 system-ui,sans-serif;color:#263342;max-width:900px;display:grid;gap:14px}",
  ".thebe-qdf *{box-sizing:border-box}",
@@ -131,10 +131,9 @@ export function mountQuotationDraftForm(root,{capability,fetchImpl,csrfToken,ini
   });
   row.addEventListener("input",()=>{
    try{
-    const one=prepareQuotationFormDraft({...values(),
-     items:[{description:entry.description.value,quantity:entry.quantity.value,
-      unitPrice:entry.unitPrice.value}],discount:"0"}).draft.items[0];
-    amount.textContent=formatBwpCents(one.quantity*one.unitPriceCents);
+    const quantity=entry.quantity.value.trim(),unitCents=parseBwpCents(entry.unitPrice.value);
+    if(!/^[1-9][0-9]{0,2}$/.test(quantity))throw Error("invalid_quantity");
+    amount.textContent=formatBwpCents(Number(quantity)*unitCents);
    }catch{amount.textContent="—"}
   });
  }
