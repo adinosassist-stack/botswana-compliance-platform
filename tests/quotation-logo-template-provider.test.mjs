@@ -13,7 +13,7 @@ function provider(override={},blob=sample){
   privateObjectKey:"quotation-templates/lovelyA/lovely_clean_v1",sha256:hash,pages,...override};
  return createApprovedQuotationTemplateProvider({
   registry:{lovelyA:entry},
-  privateStore:{get:async()=>({arrayBuffer:async()=>blob.buffer.slice(blob.byteOffset,blob.byteOffset+blob.byteLength)})}
+  privateStore:{get:async()=>({size:blob.byteLength,arrayBuffer:async()=>blob.buffer.slice(blob.byteOffset,blob.byteOffset+blob.byteLength)})}
  });
 }
 test("known company retrieves approved integrity-checked private bytes",async()=>{
