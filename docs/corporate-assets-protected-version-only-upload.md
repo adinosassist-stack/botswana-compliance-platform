@@ -1,5 +1,22 @@
 # Corporate Assets — protected version-only source upload
 
+## Protected write-concurrency separation
+
+An older [source-upload run #42719464957](https://github.com/adinosassist-stack/botswana-compliance-platform/actions/runs/42719464957)
+from 2026-11-09 remains **waiting** for independent `thusico` environment approval
+on an outdated source commit. It must not be approved as if it were current
+main, and it must not be cancelled automatically without separate direction.
+The static workflow-level concurrency group previously also blocked innocent
+PR-triggered **offline CI** from starting.
+
+The workflow now assigns **all write-capable `workflow_dispatch` attempts
+the same original single-writer group**, while each pull request's
+offline-only validation uses a distinct PR-specific concurrency group.
+This permits security tests and code review to progress **without**
+restarting or circumventing the pending protected operation. It does not
+change the protected environment, separate owner authorization, or independent
+review requirements.
+
 ## Authorization boundary
 
 This is a *write-capable workflow*, but this PR does not execute it. Manual `workflow_dispatch` must run from the exact live `main` commit with `mode=create-version-only` and `authorization=CREATE_ISOLATED_ASSETS_SOURCE_VERSION`. The dedicated `corporate-assets-staging-protected` environment requires independent `thusico` approval, prevents self-review and is main-only. The previous read-only approval **does not authorize this write**. A PR or default preflight dispatch cannot upload.
