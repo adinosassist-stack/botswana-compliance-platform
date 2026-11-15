@@ -150,7 +150,7 @@ async function wranglerUpload(name, minute, secret, directory) {
     const child=spawn(process.execPath,[ resolve('node_modules/wrangler/bin/wrangler.js'),
       'versions','upload','--strict','--config',configPath,'--secrets-file',secretPath,
       '--message','Protected synthetic Workspace Agent qualification; NOT permanent'],{
-      cwd:process.cwd(), env:{...process.env,WRANGLER_SEND_METRICS:'false'},stdio:['ignore','pipe','pipe'],
+      cwd:process.cwd(), env:{PATH:process.env.PATH,HOME:process.env.HOME,TMPDIR:process.env.TMPDIR,CI:'true',CLOUDFLARE_API_TOKEN:process.env.CLOUDFLARE_API_TOKEN,WRANGLER_SEND_METRICS:'false'},stdio:['ignore','pipe','pipe'],
     });
     // Don't emit Wrangler output because it may contain sensitive metadata.
     let stdoutLength=0,stderrLength=0;
@@ -216,9 +216,9 @@ export async function main(env=process.env) {
     if((await api.deployment(TARGET))?.versions?.[0]?.version_id!==INERT_VERSION)
       throw new Error('inert_target_changed_after_upload');
     await assertCurrentMain(env);
+    targetDeployed=true; // Cloudflare may commit a deployment before a timeout or response error.
     await api.call('POST',`${targetRoot}/deployments`,{strategy:'percentage',versions:[{version_id:candidateTarget,percentage:100}],
       annotations:{'workers/message':'Temporary private synthetic Workspace Agent qualification'}});
-    targetDeployed=true;
     const targetState=await api.call('GET',`${targetRoot}/settings`);
     if(targetState?.bindings?.find(b=>b.name==='WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED')?.text!=='true'||
       targetState?.bindings?.find(b=>b.name==='DB')?.type!=='d1'||
