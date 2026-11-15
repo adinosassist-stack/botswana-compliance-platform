@@ -1,8 +1,10 @@
 // Delivery / installation dates recorded on private daily reports.
-// No separate bearer privileges, external push, or employee-wide data access.
+// Reporter, tenant and location scope must always be checked by the calling API.
 const ISO_DATE=/^\d{4}-\d{2}-\d{2}$/;
 const JOB_TYPES=new Set(["delivery","installation"]);
 const JOB_STATUSES=new Set(["scheduled","completed","cancelled"]);
+export const MAX_REPORT_JOBS=8;
+export const MAX_OVERDUE_DAYS=7;
 
 export function validDate(value){
   if(typeof value!=="string"||!ISO_DATE.test(value))return false;
@@ -28,35 +30,62 @@ export function scheduleFieldsFromInput(input){
   if(!JOB_STATUSES.has(jobStatus))return {error:"invalid_delivery_installation_status"};
   return {fields:{jobReference,jobType,scheduledDate,jobStatus}};
 }
-export function parseReportSchedule(value){
-  let kpis=value;
-  if(typeof value==="string"){try{kpis=JSON.parse(value)}catch{return null}}
-  const checked=scheduleFieldsFromInput(kpis);
-  return checked.error||!checked.fields?.scheduledDate?null:checked.fields;
+
+// Backward compatible: old reports store one flat job; new reports may store
+// up to eight independently tracked jobs inside kpis.jobs, with no DB migration.
+export function scheduleEntriesFromInput(input){
+  const source=input&&typeof input==="object"&&!Array.isArray(input)?input:{};
+  if(!Object.prototype.hasOwnProperty.call(source,"jobs")){
+    const checked=scheduleFieldsFromInput(source);
+    return checked.error?checked:{fields:checked.fields,entries:checked.fields.scheduledDate?[checked.fields]:[]};
+  }
+  if(source.jobReference||source.jobType||source.scheduledDate||source.jobStatus)return {error:"conflicting_delivery_job_formats"};
+  if(!Array.isArray(source.jobs)||source.jobs.length>MAX_REPORT_JOBS)return {error:"invalid_delivery_jobs"};
+  const entries=[],seen=new Set();
+  for(const job of source.jobs){
+    if(!job||typeof job!=="object"||Array.isArray(job))return {error:"invalid_delivery_jobs"};
+    const checked=scheduleFieldsFromInput(job);
+    if(checked.error)return checked;
+    if(!checked.fields.scheduledDate)return {error:"incomplete_delivery_job"};
+    const key=[checked.fields.jobType,checked.fields.jobReference.toLocaleLowerCase("en")].join("|");
+    if(seen.has(key))return {error:"duplicate_delivery_job"};
+    seen.add(key);
+    entries.push(checked.fields);
+  }
+  return {fields:entries.length===0?{}:entries.length===1?entries[0]:{jobs:entries},entries};
 }
+export function parseReportSchedules(value){
+  let kpis=value;
+  if(typeof value==="string"){try{kpis=JSON.parse(value)}catch{return []}}
+  const checked=scheduleEntriesFromInput(kpis);
+  return checked.error?[]:checked.entries;
+}
+// Maintained for earlier callers.
+export function parseReportSchedule(value){return parseReportSchedules(value)[0]||null}
 export function dueRemindersFromRows(rows,today){
   if(!validDate(today))return [];
   const mostRecent=new Map();
+  // Caller must supply newest report rows first so status updates supersede old jobs.
   for(const r of rows||[]){
-    const job=parseReportSchedule(r.kpi_json);
-    if(!job)continue;
-    const key=[r.employee_id,r.location_id,job.jobType,job.jobReference.toLocaleLowerCase("en")].join("|");
-    if(mostRecent.has(key))continue;
-    mostRecent.set(key,{...job,employeeId:r.employee_id,employeeName:r.full_name||"",locationId:r.location_id,locationName:r.location_name||"",sourceReportId:r.id});
+    for(const job of parseReportSchedules(r.kpi_json)){
+      const key=[r.employee_id,r.location_id,job.jobType,job.jobReference.toLocaleLowerCase("en")].join("|");
+      if(mostRecent.has(key))continue;
+      mostRecent.set(key,{...job,employeeId:r.employee_id,employeeName:r.full_name||"",locationId:r.location_id,locationName:r.location_name||"",sourceReportId:r.id});
+    }
   }
   const items=[];
   for(const job of mostRecent.values()){
     if(job.jobStatus!=="scheduled")continue;
     const daysUntil=daysUntilDelivery(job.scheduledDate,today);
-    if(daysUntil===null||daysUntil>4||daysUntil<0)continue;
-    items.push({...job,daysUntil,urgency:daysUntil===0?"due_today":daysUntil===1?"tomorrow":"upcoming"});
+    if(daysUntil===null||daysUntil>4||daysUntil< -MAX_OVERDUE_DAYS)continue;
+    items.push({...job,daysUntil,urgency:daysUntil<0?"overdue":daysUntil===0?"due_today":daysUntil===1?"tomorrow":"upcoming"});
   }
+  // Overdue first, then due today and the next four days.
   return items.sort((a,b)=>a.daysUntil-b.daysUntil||a.scheduledDate.localeCompare(b.scheduledDate)||a.jobReference.localeCompare(b.jobReference)).slice(0,100);
 }
 export async function dueDeliveryReminders(env,{tenantId,employeeId=null,locationId=null,today}){
   if(!tenantId||!validDate(today))return [];
-  // Most recent report per job wins; completed/cancelled jobs suppress older scheduled copies.
-  // Tenant + employee/location filters apply inside SQL BEFORE any private rows are read.
+  // Tenant + employee/location filters apply inside SQL BEFORE private rows are read.
   const rows=await env.DB.prepare(`SELECT r.id,r.employee_id,r.location_id,r.report_date,r.updated_at,r.kpi_json,
       e.full_name,l.name AS location_name
     FROM daily_employee_reports r
