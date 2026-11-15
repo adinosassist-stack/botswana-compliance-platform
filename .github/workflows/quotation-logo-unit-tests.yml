@@ -7,6 +7,7 @@ on:
       - 'tests/quotation-draft-*.test.mjs'
       - 'server/quotation-logo-*.mjs'
       - 'server/quotation-draft-*.mjs'
+      - 'server/quotation-private-r2-read.mjs'
       - 'tests/quotation-logo-*.test.mjs'
       - 'docs/sql/quotation-logo-staging-candidate.sql'
       - '.github/workflows/quotation-logo-unit-tests.yml'
@@ -40,6 +41,7 @@ jobs:
           node --check public/js/quotation-draft-form.mjs
           node --check server/quotation-logo-service.mjs
           node --check server/quotation-logo-d1-r2-store.mjs
+          node --check server/quotation-private-r2-read.mjs
           node --check server/quotation-logo-pdf.mjs
           node --check server/quotation-draft-model.mjs
           node --check server/quotation-draft-lovely-pdf.mjs
