@@ -1,0 +1,107 @@
+name: Workspace Agent inert recovery diagnostics
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Exact main SHA (required, never infer from queued workflow)
+        required: true
+        type: string
+permissions: {}
+concurrency:
+  group: workspace-agent-inert-readonly-diagnostics
+  cancel-in-progress: false
+jobs:
+  verify-environment:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+    steps:
+      - name: Verify exact main and independent protected environment
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          env_api="repos/$GITHUB_REPOSITORY/environments/workspace-agent-private-staging"
+          reviewer_id="$(gh api users/thusico --jq .id)"
+          gh api "$env_api" | jq -e --argjson reviewer "$reviewer_id" '
+            any(.protection_rules[]; .type == "required_reviewers" and
+              .prevent_self_review == true and
+              (.reviewers | length == 1) and
+              ([.reviewers[] | select(.type == "User") | .reviewer.id] == [$reviewer])) and
+            .deployment_branch_policy.custom_branch_policies == true' >/dev/null
+          gh api "$env_api/deployment-branch-policies" | jq -e '
+            .total_count == 1 and .branch_policies[0].name == "main" and
+            .branch_policies[0].type == "branch"' >/dev/null
+  inspect:
+    needs: verify-environment
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    environment: workspace-agent-private-staging
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+      AUDIT_TOKEN: ${{ secrets.WORKSPACE_AGENT_STAGING_READONLY_CLOUDFLARE_TOKEN }}
+    steps:
+      - name: Read-only isolated inventory with redacted check names
+        run: |
+          set -euo pipefail
+          test -n "$AUDIT_TOKEN"
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          # Never print API responses, token values, resource settings, or identifiers beyond static names.
+          api="https://api.cloudflare.com/client/v4/accounts/b11d872b2660e76ca66323023b45b3ab"
+          worker="bw-workspace-agent-staging"
+          d1="fa317ccc-683d-4466-9e3a-e296872d58ba"
+          inert="64d9bae9-2ea3-40c1-9a26-83cea97ad71c"
+          fail=0
+          check() {
+            local name="$1" file="$2" predicate="$3"
+            if jq -e "$predicate" "$file" >/dev/null 2>&1; then
+              echo "PASS $name"
+            else
+              echo "::error::FAIL $name"
+              fail=1
+            fi
+          }
+          fetch() {
+            local path="$1" file="$2"
+            if ! curl --fail --silent --show-error --max-time 30 --header "Authorization: Bearer $AUDIT_TOKEN" "$api/$path" > "$file" 2>/dev/null; then
+              echo "::error::Read-only Cloudflare inventory endpoint failed"
+              exit 1
+            fi
+          }
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          # Private account must have no associated zones/ingress. Enforce complete listing.
+          if ! curl --fail --silent --show-error --max-time 30 \
+            --header "Authorization: Bearer $AUDIT_TOKEN" \
+            'https://api.cloudflare.com/client/v4/zones?account.id=b11d872b2660e76ca66323023b45b3ab&per_page=50' > "$tmp/zones" 2>/dev/null; then
+            echo "::error::Zone inventory request failed"
+            exit 1
+          fi
+          check isolated_account_zones "$tmp/zones" '.success == true and .result == [] and .result_info.total_count == 0 and (.result_info.total_pages == 0 or .result_info.total_pages == 1)'
+          fetch workers/scripts "$tmp/scripts"
+          check isolated_worker_only "$tmp/scripts" '.success == true and ([.result[].id] == ["bw-workspace-agent-staging"])'
+          fetch "workers/scripts/$worker/deployments" "$tmp/deployments"
+          check pinned_inert_100pct "$tmp/deployments" '.success == true and (.result.deployments[0].versions | length == 1 and .[0].version_id == "64d9bae9-2ea3-40c1-9a26-83cea97ad71c" and .[0].percentage == 100)'
+          fetch "workers/scripts/$worker/settings" "$tmp/settings"
+          check plain_text_only_no_resource_bindings "$tmp/settings" '.success == true and (.result.bindings | type == "array" and length == 8 and all(.[]; .type == "plain_text"))'
+          check advisory_shell_disabled "$tmp/settings" '.success == true and ([.result.bindings[] | select(.name == "WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED") | .text] == ["false"])'
+          fetch "workers/scripts/$worker/subdomain" "$tmp/subdomain"
+          check workers_dev_and_previews_disabled "$tmp/subdomain" '.success == true and .result.enabled == false and .result.previews_enabled == false'
+          fetch "workers/scripts/$worker/schedules" "$tmp/schedules"
+          check no_cron_triggers "$tmp/schedules" '.success == true and .result.schedules == []'
+          fetch "workers/domains?service=$worker" "$tmp/domains"
+          check no_worker_custom_domains "$tmp/domains" '.success == true and .result == []'
+          fetch "d1/database/$d1" "$tmp/db"
+          check dedicated_d1_empty "$tmp/db" '.success == true and .result.uuid == "fa317ccc-683d-4466-9e3a-e296872d58ba" and .result.name == "bw-workspace-agent-staging" and .result.num_tables == 0'
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          test "$fail" -eq 0
