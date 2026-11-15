@@ -51,7 +51,8 @@ export async function qualifyPrivateWorkspaceAgent({DB: db, TARGET: target, SESS
   check(typeof secret === "string" && secret.length >= 32, "synthetic_session_secret_required");
   check(await emptyDatabase(db), "qualification_database_not_empty");
   const sessions = await fixtureSessions(secret);
-  const fixtureResults = await db.batch([
+  try {
+    const fixtureResults = await db.batch([
     db.prepare("CREATE TABLE users(id TEXT, email TEXT, session_generation INTEGER)"),
     db.prepare("CREATE TABLE memberships(tenant_id TEXT, user_id TEXT, role TEXT, status TEXT)"),
     db.prepare("CREATE TABLE sessions(token_hash TEXT, user_id TEXT, tenant_id TEXT, csrf_token TEXT, session_generation INTEGER, expires_at TEXT)"),
@@ -67,7 +68,6 @@ export async function qualifyPrivateWorkspaceAgent({DB: db, TARGET: target, SESS
       ),
     ]),
   ]);
-  try {
     check(fixtureResults.every(result => result.success), "fixture_setup_failed");
     const before = await snapshot(db);
     const results = [];
@@ -102,7 +102,7 @@ export async function qualifyPrivateWorkspaceAgent({DB: db, TARGET: target, SESS
   } finally {
     // Setup is one transactional D1 batch. Run cleanup only after that batch
     // returned, so a second invocation that failed setup cannot drop fixtures.
-    const cleanup = await db.batch(fixtureTables.map(name => db.prepare("DROP TABLE " + name)));
+    const cleanup = await db.batch(fixtureTables.map(name => db.prepare("DROP TABLE IF EXISTS " + name)));
     check(cleanup.every(result => result.success) && await emptyDatabase(db), "fixture_cleanup_failed");
   }
 }
