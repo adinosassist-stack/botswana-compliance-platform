@@ -42,7 +42,10 @@ async function readDraft(request){
  for(const chunk of chunks){all.set(chunk,i);i+=chunk.length}
  try{
   const parsed=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(all));
-  return validateQuotationDraft(parsed);
+  validateQuotationDraft(parsed);
+  // Rendering revalidates the original allowed input; do not forward the
+  // normalized totals as extra request fields.
+  return parsed;
  }catch(e){
   if(e?.message?.startsWith("invalid_quotation")||
      e?.message==="unsupported_quotation_field"||
