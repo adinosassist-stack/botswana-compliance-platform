@@ -11,7 +11,7 @@ function localDate(){
   return `${p.year}-${p.month}-${p.day}`;
 }
 function label(item){
-  const time=item.daysUntil===0?"Today":item.daysUntil===1?"Tomorrow":`In ${item.daysUntil} days`;
+  const time=item.daysUntil<0?`Overdue ${Math.abs(item.daysUntil)} day${item.daysUntil===-1?"":"s"}`:item.daysUntil===0?"Today":item.daysUntil===1?"Tomorrow":`In ${item.daysUntil} days`;
   return `${item.jobType==="installation"?"Installation":"Delivery"} · ${time}`;
 }
 function createReminder(item){
@@ -45,9 +45,10 @@ function updateWorkspace(items){
   let box=byId("thebeDeliveryWorkspace");
   if(!box){box=document.createElement("section");box.id="thebeDeliveryWorkspace";box.className="thebe-delivery-workspace";section.prepend(box)}
   box.replaceChildren();
-  const heading=document.createElement("h3");heading.textContent=`Delivery / installation: ${items.length} due in the next 4 days`;
+  const heading=document.createElement("h3");const overdue=items.filter(x=>x.daysUntil<0).length;
+  heading.textContent=`Delivery / installation: ${items.length} needing attention${overdue?` · ${overdue} overdue`:""}`;
   box.append(heading);
-  if(!items.length){const empty=document.createElement("p");empty.textContent="No scheduled deliveries or installations due in the next 4 days.";box.append(empty);return}
+  if(!items.length){const empty=document.createElement("p");empty.textContent="No scheduled deliveries or installations due in the next 4 days, and no overdue items in the last 7 days.";box.append(empty);return}
   for(const item of items.slice(0,12))box.append(createReminder(item));
 }
 function render(items){

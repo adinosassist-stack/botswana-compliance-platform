@@ -77,6 +77,7 @@ jobs:
         run: |
           node --check public/js/workspace-readiness-v305.js
           node tests/report-attachment-selection.mjs
+          node --check public/js/employee-reporting-portal.js
           node --check public/js/delivery-reminders-manager.js
           node --test tests/delivery-installation-reminders.test.mjs
           node tests/people-ux-audit-20261015.mjs
