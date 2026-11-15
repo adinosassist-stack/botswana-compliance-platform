@@ -1,0 +1,26 @@
+name: Workspace Agent pinned-version offline contract
+on:
+  pull_request:
+    paths:
+      - 'scripts/workspace-agent-pinned-version-provenance.mjs'
+      - 'tests/workspace-agent-pinned-version-provenance.test.mjs'
+      - '.github/workflows/workspace-agent-pinned-version-provenance.yml'
+      - '.github/workflows/workspace-agent-pinned-version-offline.yml'
+  push:
+    paths:
+      - 'scripts/workspace-agent-pinned-version-provenance.mjs'
+      - 'tests/workspace-agent-pinned-version-provenance.test.mjs'
+      - '.github/workflows/workspace-agent-pinned-version-offline.yml'
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate fail-closed pinned-version response handling
+        run: node --test tests/workspace-agent-pinned-version-provenance.test.mjs
