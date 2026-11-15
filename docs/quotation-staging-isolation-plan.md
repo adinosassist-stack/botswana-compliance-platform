@@ -36,3 +36,24 @@ The production frontend is served primarily through a Cloudflare Worker using D1
 The preflight only checks supplied isolation IDs, explicit exposure flags, available D1 schema and private R2 list permissions. It performs a SELECT and private bucket list operations; no writes. A successful result is NOT proof that the IDs were correctly sourced, the template is approved, the user/session pipeline is integrated or deployment is authorized. deploymentAuthorized is always false.
 
 Production databases, payments, routes and customer data must remain unchanged.
+
+## Read-only inventory runner (added 2026-11-15)
+
+The operator may invoke the manually dispatched, main-only GitHub Action
+`.github/workflows/quotation-staging-inventory.yml` after the PR is reviewed and
+merged. It calls only Cloudflare D1/R2 metadata GET endpoints. The workflow
+requires these configuration items to be set by a privileged administrator:
+
+- secret `QUOTATION_STAGING_READ_TOKEN`: read-only Cloudflare token scoped to the selected account (D1 Read and Workers R2 Storage Read only)
+- variable `QUOTATION_CF_ACCOUNT_ID`: Cloudflare's exact 32-character account ID
+- variable `QUOTATION_PRODUCTION_D1_ID`: known production D1 UUID used to forbid reuse
+- variable `QUOTATION_PRODUCTION_R2_NAMES`: comma-separated known production bucket names; this list is mandatory and must be reviewed for completeness
+
+The workflow supplies its own exact GitHub SHA and never accepts an input token
+or client-provided tenant ID. The script returns exit code 2 while any dedicated
+quotation resource is absent; this is an expected blocker, not permission to
+create resources. It never stores API response bodies as artifacts or logs
+credential values. A positive inventory result only confirms resource presence
+and nonidentical **listed** IDs/names; it does not verify bucket public-access
+settings, Worker routes, staging schema, private template approval or deployment
+authorization. Do not enable any production or public route based on that result.
