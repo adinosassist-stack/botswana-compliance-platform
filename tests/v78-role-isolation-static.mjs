@@ -35,7 +35,13 @@ ok('business protection score is leadership only', worker.includes('if(url.pathn
 ok('billing status is owner only at worker', worker.includes('if(url.pathname==="/api/billing/status"&&req.method==="GET"){if(!roleAllowed(a,"owner"))'));
 ok('entitlement/plan internals are owner only', worker.includes('if(url.pathname==="/api/entitlements"&&req.method==="GET"){\n        if(!roleAllowed(a,"owner"))'));
 ok('AI credit ledger is owner/manager only', worker.includes('if(url.pathname==="/api/ai/credits"&&req.method==="GET"){\n        if(!roleAllowed(a,"owner","manager"))'));
-ok('employee reporter access stays scoped to own identity, location and reminders', worker.includes('return json({employee:{name:access.full_name,roleTitle:access.role_title||""},location:{id:access.location_id,name:access.location_name,code:access.location_code||"",town:access.town||""},companyName:access.company_name,reportDate:gaboroneDate(),expiresAt:access.expires_at,deliveryReminders:await dueDeliveryReminders(env,{tenantId:access.tenant_id,employeeId:access.employee_id,locationId:access.location_id,today:gaboroneDate()})}'));
+ok('employee reporter access stays scoped to own identity, location, report draft and reminders',
+  worker.includes('WHERE tenant_id=? AND employee_id=? AND location_id=? AND report_date=? LIMIT 1') &&
+  worker.includes('.bind(access.tenant_id,access.employee_id,access.location_id,reportingToday).first()') &&
+  worker.includes('currentReportJobs:parseReportSchedules(ownToday?.kpi_json)') &&
+  worker.includes('currentReportDraft:ownToday?{workSummary:ownToday.work_summary||""') &&
+  worker.includes('deliveryReminders:await dueDeliveryReminders(env,{tenantId:access.tenant_id,employeeId:access.employee_id,locationId:access.location_id,today:reportingToday})')
+);
 ok('employee reporter token is scoped to employee and location', worker.includes('JOIN employees e ON e.id=a.employee_id AND e.tenant_id=a.tenant_id') && worker.includes('JOIN operating_locations l ON l.id=a.location_id AND l.tenant_id=a.tenant_id'));
 
 ok('Node state endpoint is explicitly workspace-role gated', server.includes('app.get("/api/state",auth,roles("owner","manager","reviewer","auditor")'));

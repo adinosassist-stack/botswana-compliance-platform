@@ -156,6 +156,123 @@ async function serializeAttachments(){
   for(const item of attachmentState){const buffer=await item.file.arrayBuffer();result.push({name:item.file.name,type:item.file.type,size:item.file.size,source:item.source,data:bytesToBase64(buffer)})}
   return result;
 }
+const MAX_REPORT_JOBS=8;
+function jobRows(){return Array.from(byId("reporterJobs")?.querySelectorAll(".thebe-delivery-job")||[])}
+function createJobRow(){
+  const row=document.createElement("div");row.className="thebe-delivery-job";
+  const heading=document.createElement("div");heading.className="thebe-delivery-job-heading";
+  const name=document.createElement("strong");name.textContent="Additional job";
+  const remove=document.createElement("button");remove.type="button";remove.textContent="Remove job";remove.className="thebe-remove-job";
+  remove.addEventListener("click",()=>{row.remove();updateJobCount()});
+  heading.append(name,remove);row.append(heading);
+  const grid=document.createElement("div");grid.className="thebe-delivery-grid";
+  function field(key,title,kind,options=[]){
+    const box=document.createElement("div");box.className="field";
+    const label=document.createElement("label");label.textContent=title;
+    const input=document.createElement(kind==="select"?"select":"input");input.dataset.jobField=key;
+    if(kind==="select"){for(const [value,text] of options){const option=document.createElement("option");option.value=value;option.textContent=text;input.append(option)}}
+    else{input.type=kind; if(key==="jobReference"){input.maxLength=80;input.autocomplete="off";input.placeholder="e.g. LT-1025"}}
+    label.append(input);box.append(label);grid.append(box);
+  }
+  field("jobReference","Order / job reference","text");
+  field("jobType","Work type","select",[["","Select type"],["delivery","Delivery"],["installation","Installation"]]);
+  field("scheduledDate","Scheduled delivery / installation date","date");
+  field("jobStatus","Job status","select",[["scheduled","Scheduled"],["completed","Completed"],["cancelled","Cancelled"]]);
+  row.append(grid);return row;
+}
+function updateJobCount(){
+  const n=jobRows().length,add=byId("reporterAddJob");
+  if(add)add.disabled=n>=MAX_REPORT_JOBS;
+  const status=byId("reporterJobCount");
+  if(status)status.textContent=`${n} of ${MAX_REPORT_JOBS} job entries available. Leave an entry blank when there is no job to report.`;
+}
+function collectReportJobs(){
+  const jobs=[],seen=new Set();
+  for(const row of jobRows()){
+    const val=key=>String(row.querySelector(`[data-job-field="${key}"]`)?.value||"").trim();
+    const jobReference=val("jobReference"),jobType=val("jobType"),scheduledDate=val("scheduledDate"),jobStatus=val("jobStatus")||"scheduled";
+    if(!jobReference&&!jobType&&!scheduledDate&&jobStatus==="scheduled")continue;
+    if(!jobReference||!jobType||!scheduledDate)return {error:"For each delivery or installation, enter a job reference, work type and scheduled date."};
+    const key=jobType+"|"+jobReference.toLocaleLowerCase("en");
+    if(seen.has(key))return {error:"This job reference and work type is entered twice. Keep only one update per job."};
+    seen.add(key);jobs.push({jobReference,jobType,scheduledDate,jobStatus});
+  }
+  return {jobs};
+}
+function fillJobRow(row,job){
+  for(const field of ["jobReference","jobType","scheduledDate","jobStatus"]){
+    const node=row.querySelector(`[data-job-field="${field}"]`);
+    if(node)node.value=String(job?.[field]|| (field==="jobStatus"?"scheduled":""));
+  }
+}
+function restoreTodayDraft(draft){
+  if(!draft||typeof draft!=="object")return;
+  const fields={
+    reporterWorkSummary:draft.workSummary,reporterWins:draft.wins,reporterBlockers:draft.blockers,
+    reporterIncidents:draft.incidents,reporterNextPlan:draft.nextPlan,
+    reporterTasks:draft.kpis?.tasksCompleted,reporterCustomers:draft.kpis?.customersHandled,
+    reporterRevenue:draft.kpis?.revenueBwp,reporterIncidentCount:draft.kpis?.incidentsCount,
+    reporterCustomLabel:draft.kpis?.customLabel,reporterCustomValue:draft.kpis?.customValue
+  };
+  for(const [id,value] of Object.entries(fields)){
+    const input=byId(id);if(input&&value!==null&&value!==undefined)input.value=String(value);
+  }
+  const attention=byId("reporterNeedsAttention");if(attention)attention.checked=Boolean(draft.needsAttention);
+  if(Number(draft.revisionCount)>=7)setMessage("reporterPortalError","This day's report has nearly reached its correction limit. Review all entries carefully before another submission.");
+  updateQualityGuide();
+}
+function restoreCurrentJobs(jobs){
+  if(!Array.isArray(jobs)||!jobs.length)return;
+  for(let i=0;i<Math.min(jobs.length,MAX_REPORT_JOBS);i++){
+    const row=i===0?jobRows()[0]:createJobRow();
+    if(!row)continue;
+    if(i>0)byId("reporterJobs")?.append(row);
+    fillJobRow(row,jobs[i]);
+  }
+  updateJobCount();
+}
+function selectReminderJob(item){
+  const rows=jobRows();
+  const key=String(item.jobReference||"").trim().toLocaleLowerCase("en");
+  let row=rows.find(candidate=>
+    String(candidate.querySelector('[data-job-field="jobReference"]')?.value||"").trim().toLocaleLowerCase("en")===key&&
+    candidate.querySelector('[data-job-field="jobType"]')?.value===item.jobType
+  );
+  if(!row)row=rows.find(candidate=>{
+    const ref=candidate.querySelector('[data-job-field="jobReference"]')?.value||"";
+    return !String(ref).trim();
+  });
+  if(!row&&rows.length<MAX_REPORT_JOBS){row=createJobRow();byId("reporterJobs")?.append(row)}
+  if(!row){setMessage("reporterPortalError","The report already has eight job entries. Remove an unused entry before updating this job.");return}
+  fillJobRow(row,{...item,jobStatus:"scheduled"});
+  updateJobCount();
+  row.querySelector('[data-job-field="jobStatus"]')?.focus();
+  row.scrollIntoView({block:"center",behavior:"smooth"});
+}
+function updateQualityGuide(){
+  const summary=String(byId("reporterWorkSummary")?.value||"").trim();
+  const next=String(byId("reporterNextPlan")?.value||"").trim();
+  const blockers=String(byId("reporterBlockers")?.value||"").trim();
+  const incidents=String(byId("reporterIncidents")?.value||"").trim();
+  const count=[summary.length>=20,next.length>=12,Boolean(blockers||incidents)].filter(Boolean).length;
+  const guide=byId("reporterQualityGuide");
+  if(!guide)return;
+  const remaining=[];
+  if(summary.length<20)remaining.push("explain completed work");
+  if(next.length<12)remaining.push("state the next action");
+  if(!blockers&&!incidents)remaining.push("state blockers or write 'None' when applicable");
+  guide.textContent=count===3?"Report guide complete — check that the details are accurate.":`Reporting guide ${count}/3: ${remaining.join("; ")}.`;
+}
+function bindJobsAndQuality(){
+  byId("reporterAddJob")?.addEventListener("click",()=>{
+    const parent=byId("reporterJobs");if(!parent||jobRows().length>=MAX_REPORT_JOBS)return;
+    const row=createJobRow();parent.append(row);updateJobCount();row.querySelector("[data-job-field=jobReference]")?.focus();
+  });
+  for(const id of ["reporterWorkSummary","reporterNextPlan","reporterBlockers","reporterIncidents"]){
+    byId(id)?.addEventListener("input",updateQualityGuide);
+  }
+  updateJobCount();updateQualityGuide();
+}
 function renderDeliveryReminders(items){
   const target=byId("reporterDeliveryReminders");if(!target)return;
   target.replaceChildren();
@@ -164,14 +281,16 @@ function renderDeliveryReminders(items){
     line.dataset.urgent=String(item.daysUntil<=1);
     const copy=document.createElement("div");
     const heading=document.createElement("strong");
-    const day=item.daysUntil===0?"Due today":item.daysUntil===1?"Due tomorrow":`Due in ${item.daysUntil} days`;
+    const day=item.daysUntil<0?`Overdue by ${Math.abs(item.daysUntil)} day${item.daysUntil===-1?"":"s"}`:item.daysUntil===0?"Due today":item.daysUntil===1?"Due tomorrow":`Due in ${item.daysUntil} days`;
     heading.textContent=`${item.jobType==="installation"?"Installation":"Delivery"} · ${day}`;
     const details=document.createElement("small");
     details.textContent=`${item.jobReference||"Job"} · ${item.scheduledDate||""} · ${item.locationName||"Assigned location"}`;
     copy.append(heading,details);
+    const update=document.createElement("button");update.type="button";update.className="thebe-reminder-update";update.textContent="Update";update.setAttribute("aria-label",`Update ${item.jobReference||"job"} status in today's report`);
+    update.addEventListener("click",()=>selectReminderJob(item));
     const dismiss=document.createElement("button");dismiss.type="button";dismiss.textContent="×";dismiss.setAttribute("aria-label","Dismiss this reminder");
     dismiss.addEventListener("click",()=>{line.remove();if(!target.children.length)target.hidden=true});
-    line.append(copy,dismiss);target.appendChild(line);
+    line.append(copy,update,dismiss);target.appendChild(line);
   }
   target.hidden=!target.children.length;
 }
@@ -189,7 +308,7 @@ async function initialize(){
     const data=await request("/public/daily-reporting/access",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token:reporterToken})});
     byId("reporterEmployeeName").textContent=(data.employee?.name||"Employee")+(data.employee?.roleTitle?" · "+data.employee.roleTitle:"");
     byId("reporterLocationName").textContent=(data.location?.name||"Location")+(data.location?.town?" · "+data.location.town:"");
-    byId("reporterCompanyName").textContent=data.companyName||"Company";byId("reporterDate").value=data.reportDate||"";byId("reporterDailyForm").hidden=false;renderDeliveryReminders(data.deliveryReminders);
+    byId("reporterCompanyName").textContent=data.companyName||"Company";byId("reporterDate").value=data.reportDate||"";byId("reporterDailyForm").hidden=false;restoreTodayDraft(data.currentReportDraft);restoreCurrentJobs(data.currentReportJobs);renderDeliveryReminders(data.deliveryReminders);
   }catch(error){setMessage("reporterPortalError",errorMessage(error))}
 }
 async function submit(event){
@@ -201,14 +320,10 @@ async function submit(event){
     token:reporterToken,reportDate:byId("reporterDate").value,workSummary:byId("reporterWorkSummary").value,wins:byId("reporterWins").value,blockers:byId("reporterBlockers").value,incidents:byId("reporterIncidents").value,nextPlan:byId("reporterNextPlan").value,needsAttention:byId("reporterNeedsAttention").checked,
     kpis:{tasksCompleted:byId("reporterTasks").value,customersHandled:byId("reporterCustomers").value,revenueBwp:byId("reporterRevenue").value,incidentsCount:byId("reporterIncidentCount").value,customLabel:byId("reporterCustomLabel").value,customValue:byId("reporterCustomValue").value}
   };
-  const jobReference=byId("reporterJobReference").value.trim();
-  const jobType=byId("reporterJobType").value;
-  const scheduledDate=byId("reporterScheduledDate").value;
-  const jobStatus=byId("reporterJobStatus").value||"scheduled";
-  if(jobReference||jobType||scheduledDate||jobStatus!=="scheduled"){
-    if(!jobReference||!jobType||!scheduledDate){setMessage("reporterPortalError","For a delivery or installation, enter the job reference, work type and scheduled date.");return}
-    payload.kpis.jobReference=jobReference;payload.kpis.jobType=jobType;payload.kpis.scheduledDate=scheduledDate;payload.kpis.jobStatus=jobStatus;
-  }
+  const scheduled=collectReportJobs();
+  if(scheduled.error){setMessage("reporterPortalError",scheduled.error);return}
+  if(scheduled.jobs.length===1)Object.assign(payload.kpis,scheduled.jobs[0]);
+  else if(scheduled.jobs.length>1)payload.kpis.jobs=scheduled.jobs;
   if(![payload.workSummary,payload.wins,payload.blockers,payload.incidents,payload.nextPlan].some(value=>String(value||"").trim())){setMessage("reporterPortalError","Add at least one report note before sending.");return}
   const hasAttachments=attachmentState.length>0;submitting=true;updateAttachmentControls();button.textContent="Sending report…";
   try{
@@ -247,5 +362,5 @@ function bindAttachments(){
   byId("reportFileInput")?.addEventListener("change",async event=>{const input=event.currentTarget;await addFiles(input.files,"file");input.value=""});
 }
 window.addEventListener("online",networkStatus);window.addEventListener("offline",networkStatus);window.addEventListener("pagehide",event=>{if(!event.persisted)attachmentState.forEach(revokeItem)});
-document.addEventListener("DOMContentLoaded",()=>{byId("reporterDailyForm")?.addEventListener("submit",submit);bindAttachments();initialize();if(typeof setInterval==="function")setInterval(refreshDeliveryReminders,60*60*1000);document.addEventListener("visibilitychange",()=>{if(!document.hidden)refreshDeliveryReminders()})});
+document.addEventListener("DOMContentLoaded",()=>{byId("reporterDailyForm")?.addEventListener("submit",submit);bindAttachments();bindJobsAndQuality();initialize();if(typeof setInterval==="function")setInterval(refreshDeliveryReminders,60*60*1000);document.addEventListener("visibilitychange",()=>{if(!document.hidden)refreshDeliveryReminders()})});
 })();

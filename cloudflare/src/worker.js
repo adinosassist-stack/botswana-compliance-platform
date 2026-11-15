@@ -14,7 +14,7 @@ import {inspectFoundationSourceMetadata,publicFoundationSourcePreflight,updateUn
 import {inspectActiveLegacyVatRules,publicActiveLegacyVatRules,isLegacyVat25DayDefinition} from "./regulatory-foundation-legacy-vat.js";
 import {handleEmployeeWorkflowRequest} from "./employee-workflow-api.js";
 import {handleStaffPublic,handleStaffManager} from "./employee-self-service.js";
-import {scheduleFieldsFromInput,dueDeliveryReminders} from "./delivery-installation-reminders.js";
+import {scheduleEntriesFromInput,parseReportSchedules,dueDeliveryReminders} from "./delivery-installation-reminders.js";
 import {handleEmployeeProposalReviewRequest} from "./employee-proposal-review-api.js";
 import {purgeDailyReportAttachments} from "./report-attachments-entry.js";
 import {handleFinanceRequest,financeSummary} from "./finance-core.js";
@@ -100,7 +100,7 @@ async function versionRuntimeResponse(response,request,url){
   headers.set("cache-control","no-store, max-age=0");headers.set("cdn-cache-control","no-store");headers.set("x-thebe-client-release",CLIENT_RUNTIME_RELEASE);
   if(request.method==="HEAD")return new Response(null,{status:response.status,statusText:response.statusText,headers});
   const html=await response.text(),versioned=html.replace(/src="(\/?js\/[^"?]+\.js)(?:\?[^"]*)?"/g,`src="$1?v=${CLIENT_RUNTIME_RELEASE}"`);
-  const reminderAssets='<link rel="stylesheet" href="/assets/delivery-reminder-notifications.css?v=20261115"><script defer src="/js/delivery-reminders-manager.js?v=20261115"></script>';
+  const reminderAssets='<link rel="stylesheet" href="/assets/delivery-reminder-notifications.css?v=20261115-multijob"><script defer src="/js/delivery-reminders-manager.js?v=20261115-multijob"></script>';
   return new Response(versioned.replace("</body>",reminderAssets+"</body>"),{status:response.status,statusText:response.statusText,headers});
 }
 
@@ -5546,7 +5546,10 @@ export default {
       const access=await reporterAccessFromToken(env,token);
       if(!access)return json({error:"reporting_link_invalid_or_expired"},404,PASSPORT_PUBLIC_HEADERS);
       const reportEnt=await entitlement(env,access.tenant_id,"operating_locations");if(!reportEnt.enabled)return json({error:"daily_reporting_not_in_active_plan"},402,PASSPORT_PUBLIC_HEADERS);
-      return json({employee:{name:access.full_name,roleTitle:access.role_title||""},location:{id:access.location_id,name:access.location_name,code:access.location_code||"",town:access.town||""},companyName:access.company_name,reportDate:gaboroneDate(),expiresAt:access.expires_at,deliveryReminders:await dueDeliveryReminders(env,{tenantId:access.tenant_id,employeeId:access.employee_id,locationId:access.location_id,today:gaboroneDate()})},200,PASSPORT_PUBLIC_HEADERS);
+      const reportingToday=gaboroneDate();
+      const ownToday=await env.DB.prepare("SELECT work_summary,wins,blockers,incidents,next_plan,kpi_json,needs_attention,revision_count FROM daily_employee_reports WHERE tenant_id=? AND employee_id=? AND location_id=? AND report_date=? LIMIT 1")
+        .bind(access.tenant_id,access.employee_id,access.location_id,reportingToday).first();
+      return json({employee:{name:access.full_name,roleTitle:access.role_title||""},location:{id:access.location_id,name:access.location_name,code:access.location_code||"",town:access.town||""},companyName:access.company_name,reportDate:reportingToday,expiresAt:access.expires_at,currentReportJobs:parseReportSchedules(ownToday?.kpi_json),currentReportDraft:ownToday?{workSummary:ownToday.work_summary||"",wins:ownToday.wins||"",blockers:ownToday.blockers||"",incidents:ownToday.incidents||"",nextPlan:ownToday.next_plan||"",kpis:safeJson(ownToday.kpi_json,{}),needsAttention:!!ownToday.needs_attention,revisionCount:Number(ownToday.revision_count||0)}:null,deliveryReminders:await dueDeliveryReminders(env,{tenantId:access.tenant_id,employeeId:access.employee_id,locationId:access.location_id,today:reportingToday})},200,PASSPORT_PUBLIC_HEADERS);
     }
     if(url.pathname==="/public/daily-reporting/submit"&&req.method==="POST"){
       if(!requestOriginAllowed(req,env))return json({error:"origin_failed"},403,PASSPORT_PUBLIC_HEADERS);
@@ -5562,7 +5565,7 @@ export default {
       if(reportDate>today||reportDate<oldestDate)return json({error:"report_date_outside_allowed_window",allowedFrom:oldestDate,allowedTo:today},409,PASSPORT_PUBLIC_HEADERS);
       const workSummary=boundedReportText(body.workSummary,2400),wins=boundedReportText(body.wins,1600),blockers=boundedReportText(body.blockers,1600),incidents=boundedReportText(body.incidents,1600),nextPlan=boundedReportText(body.nextPlan,1600);
       if(!workSummary&&!wins&&!blockers&&!incidents&&!nextPlan)return json({error:"report_content_required"},400,PASSPORT_PUBLIC_HEADERS);
-      const scheduleValidation=scheduleFieldsFromInput(body?.kpis);
+      const scheduleValidation=scheduleEntriesFromInput(body?.kpis);
       if(scheduleValidation.error)return json({error:scheduleValidation.error},400,PASSPORT_PUBLIC_HEADERS);
       const kpis={tasksCompleted:numericReportKpi(body?.kpis?.tasksCompleted,100000),customersHandled:numericReportKpi(body?.kpis?.customersHandled,1000000),revenueBwp:numericReportKpi(body?.kpis?.revenueBwp,100000000),incidentsCount:numericReportKpi(body?.kpis?.incidentsCount,10000),customLabel:boundedReportText(body?.kpis?.customLabel,60),customValue:numericReportKpi(body?.kpis?.customValue,100000000),...scheduleValidation.fields};
       const payload={workSummary,wins,blockers,incidents,nextPlan,kpis,needsAttention:!!body.needsAttention};
