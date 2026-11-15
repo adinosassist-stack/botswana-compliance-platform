@@ -1,0 +1,25 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+import {normalizeQuotationLogoLayout,validateLogoUploadMetadata,inspectLogoSignature} from "../public/js/quotation-logo-layout.mjs";
+import {mountQuotationLogoEditor} from "../public/js/quotation-logo-editor.mjs";
+const source=readFileSync(new URL("../public/js/quotation-logo-editor.mjs",import.meta.url),"utf8");
+test("editor imports without DOM access and refuses missing root",()=>{
+ assert.equal(typeof mountQuotationLogoEditor,"function");
+ assert.throws(()=>mountQuotationLogoEditor(null),/invalid_logo_editor_root/);
+});
+test("upload, resize, move, reset, save and keyboard controls wired",()=>{
+ for(const token of ["type:'file'","type:'range'","pointerdown","pointermove","pointercancel","ArrowLeft","ArrowRight","Reset position","onUpload(file)","onSave(settings)"])
+  assert.ok(source.includes(token),"expected control "+token);
+});
+test("file metadata and geometry guards remain active",()=>{
+ assert.equal(validateLogoUploadMetadata({type:"image/webp",size:1000,width:800,height:400}).aspectRatio,2);
+ assert.throws(()=>inspectLogoSignature(new Uint8Array(20),"image/png"),/invalid_logo_signature/);
+ const rect=normalizeQuotationLogoLayout({xPercent:99,yPercent:99,widthPercent:60},612.24,858.96,2);
+ assert.ok(rect.xPercent+rect.widthPercent<=100);
+ assert.ok(rect.yPercent+rect.heightPercent<=100);
+});
+test("no silent uploads or storage of private company logo",()=>{
+ assert.doesNotMatch(source,/localStorage|sessionStorage|fetch\(/);
+ assert.match(source,/typeof options.onUpload!=='function'/);
+});
