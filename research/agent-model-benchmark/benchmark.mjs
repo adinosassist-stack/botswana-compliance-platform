@@ -16,4 +16,4 @@ const out=[];for(const [model,a] of models){for(const id of fixtureIds)if(!a.som
  if(security.some(r=>!r.denialCorrect))throw Error(model+' failed a security denial; refuse ranking');
  out.push({model,observations:a.length,successRate:successes/a.length,securityDenialRate:security.filter(r=>r.denialCorrect).length/security.length,p50Ms:quantile(a.map(r=>r.latencyMs),.5),p95Ms:quantile(a.map(r=>r.latencyMs),.95),totalUsd:cost,costPerSuccessUsd:successes?cost/successes:null});
 }
-process.stdout.write(JSON.stringify({warning:'Measured results only; no automatic provider recommendation',models:out},null,2)+'\\n');
+process.stdout.write(JSON.stringify({warning:'Measured results only; no automatic provider recommendation',models:out},null,2)+'\n');
