@@ -5,6 +5,11 @@ on:
   pull_request:
     paths:
       - 'public/js/employee-reporting-portal.js'
+      - 'public/report/index.html'
+      - 'public/js/delivery-reminders-manager.js'
+      - 'public/assets/delivery-reminder-notifications.css'
+      - 'cloudflare/src/delivery-installation-reminders.js'
+      - 'tests/delivery-installation-reminders.test.mjs'
       - 'tests/report-attachment-selection.mjs'
       - 'public/assets/people-ux-audit-20261015.css'
       - 'public/js/people-directory-ux-20261015.js'
@@ -25,6 +30,11 @@ on:
     branches: [main]
     paths:
       - 'public/js/employee-reporting-portal.js'
+      - 'public/report/index.html'
+      - 'public/js/delivery-reminders-manager.js'
+      - 'public/assets/delivery-reminder-notifications.css'
+      - 'cloudflare/src/delivery-installation-reminders.js'
+      - 'tests/delivery-installation-reminders.test.mjs'
       - 'tests/report-attachment-selection.mjs'
       - 'public/assets/people-ux-audit-20261015.css'
       - 'public/js/people-directory-ux-20261015.js'
@@ -67,6 +77,8 @@ jobs:
         run: |
           node --check public/js/workspace-readiness-v305.js
           node tests/report-attachment-selection.mjs
+          node --check public/js/delivery-reminders-manager.js
+          node --test tests/delivery-installation-reminders.test.mjs
           node tests/people-ux-audit-20261015.mjs
           node tests/v305-workspace-readiness-order.mjs
           node tests/v337-people-location-rebind.mjs
