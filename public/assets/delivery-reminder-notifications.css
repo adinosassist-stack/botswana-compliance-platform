@@ -20,3 +20,17 @@
 .thebe-delivery-workspace{margin:12px 0;padding:12px;border:1px solid #dae6f5;border-radius:12px;background:#fff}
 .thebe-delivery-workspace h3{font-size:15px;margin:0 0 8px}
 @media(max-width:620px){.thebe-delivery-grid{grid-template-columns:1fr}.thebe-delivery-manager-popup{right:10px;top:64px;width:calc(100vw - 20px);max-height:65vh}.thebe-delivery-manager-bell{right:10px;bottom:10px}}
+
+/* Repeatable job records: thumb-friendly, visible progress and no button overlap. */
+.thebe-delivery-jobs{display:grid;gap:12px}
+.thebe-delivery-job{border:1px solid #d6e3f2;border-radius:10px;padding:12px;background:#f9fbfe;min-width:0}
+.thebe-delivery-job-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+.thebe-delivery-job-heading strong{font-size:13px;color:#173455}
+.thebe-add-job,.thebe-remove-job{border:1px solid #abc9ed;border-radius:9px;background:#eaf3ff;color:#12447d;padding:9px 12px;min-height:44px;font-weight:700;cursor:pointer}
+.thebe-add-job{margin-top:12px;width:100%}
+.thebe-add-job:disabled{cursor:not-allowed;opacity:.55}
+.thebe-remove-job{background:#fff;color:#7c2e2e;border-color:#e5c8c8}
+.thebe-delivery-count{font-size:12px;margin:7px 0 0;color:#55677c}
+.thebe-report-quality-guide{margin:14px 0;padding:12px;border:1px solid #bfd7f4;border-radius:10px;background:#f0f7ff;color:#1a4772;font-size:13px;line-height:1.5}
+.thebe-delivery-reminders[hidden]{display:none}
+@media(max-width:620px){.thebe-delivery-job{padding:10px}.thebe-delivery-job-heading{flex-wrap:wrap}.thebe-remove-job{margin-left:auto}}
