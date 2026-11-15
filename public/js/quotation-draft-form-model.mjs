@@ -26,10 +26,21 @@ export function prepareQuotationFormDraft(values) {
   error("invalid_quotation_form");
  const fields=["quoteNumber","issueDate","customerName","customerContact"];
  const draft={};
+ const allowedText=(value,max)=>value.length>0&&value.length<=max&&/^[\x20-\x7e]+$/.test(value);
  for(const key of fields){
   if(typeof values[key]!=="string")error("invalid_quotation_"+key);
   draft[key]=values[key].trim();
+  if(key!=="issueDate"&&!allowedText(draft[key],key==="customerName"?60:40))
+   error("invalid_quotation_"+key);
  }
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(draft.issueDate)||
+    Number.isNaN(Date.parse(draft.issueDate+"T00:00:00Z"))||
+    new Date(draft.issueDate+"T00:00:00Z").toISOString().slice(0,10)!==draft.issueDate)
+  error("invalid_quotation_issue_date");
+ if(values.paymentMethod!==undefined&&values.paymentMethod!==""&&
+    (typeof values.paymentMethod!=="string"||
+     !allowedText(values.paymentMethod.trim(),55)))
+  error("invalid_quotation_paymentMethod");
  if(typeof values.paymentMethod==="string"&&values.paymentMethod.trim())
   draft.paymentMethod=values.paymentMethod.trim();
  if(!Array.isArray(values.items)||values.items.length<1||values.items.length>8)
@@ -39,6 +50,7 @@ export function prepareQuotationFormDraft(values) {
   if(!item||typeof item.description!=="string"||
      !/^[1-9][0-9]{0,2}$/.test(String(item.quantity).trim()))
    error("invalid_quotation_item");
+  if(!allowedText(item.description.trim(),60))error("invalid_quotation_item");
   const quantity=Number(String(item.quantity).trim());
   const unitPriceCents=parseBwpCents(item.unitPrice);
   const lineTotalCents=quantity*unitPriceCents;
