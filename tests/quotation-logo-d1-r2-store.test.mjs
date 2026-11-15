@@ -11,7 +11,7 @@ function fixture(){
  const objects=new Map(),assets=new Map(),settings=new Map(),log=[];
  const bucket={
   async put(k,b){objects.set(k,b);log.push(["put",k])},
-  async get(k){const b=objects.get(k);return b?{arrayBuffer:async()=>b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength)}:null},
+  async get(k){const b=objects.get(k);return b?{size:b.byteLength,arrayBuffer:async()=>b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength)}:null},
   async delete(k){objects.delete(k);log.push(["delete",k])}
  };
  const db={prepare(sql){
