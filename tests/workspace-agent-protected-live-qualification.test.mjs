@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import test from 'node:test';
-import {requireGate,verifyBaseline,assertReceipt,completeZoneRoutes,wranglerArgs,INERT_VERSION,DB,TARGET,PHRASE} from '../scripts/workspace-agent-protected-live-qualification.mjs';
+import {requireGate,verifyBaseline,assertReceipt,completeZoneRoutes,wranglerArgs,cloudflareApiUrl,ACCOUNT,INERT_VERSION,DB,TARGET,PHRASE} from '../scripts/workspace-agent-protected-live-qualification.mjs';
 const path=new URL('../.github/workflows/workspace-agent-protected-live-qualification.yml',import.meta.url);
 const yaml=readFileSync(path,'utf8');
 function baseline(){return {targetDeployment:{versions:[{version_id:INERT_VERSION,percentage:100}]},
@@ -82,4 +82,15 @@ test('route inventory is unpaginated or provably complete, with strict shape',()
     {success:true,result:[{...route,script:42}]},
     {success:true,result:null},
   ]) assert.throws(()=>completeZoneRoutes(bad),/zone_routes_(invalid|incomplete)/);
+});
+
+test('Cloudflare route inventory calls global zone endpoint, while Worker and D1 remain account scoped',()=>{
+  const zoneId='a'.repeat(32);
+  assert.equal(cloudflareApiUrl(`/zones/${zoneId}/workers/routes`),
+    `https://api.cloudflare.com/client/v4/zones/${zoneId}/workers/routes`);
+  assert.equal(cloudflareApiUrl('/workers/scripts/bw-workspace-agent-staging/settings'),
+    `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/workers/scripts/bw-workspace-agent-staging/settings`);
+  assert.equal(cloudflareApiUrl('/d1/database/fb0c7c32-6e0a-42cf-89c3-971529e583db'),
+    `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/d1/database/fb0c7c32-6e0a-42cf-89c3-971529e583db`);
+  assert.throws(()=>cloudflareApiUrl('https://example.invalid'),/invalid_cloudflare_api_path/);
 });
