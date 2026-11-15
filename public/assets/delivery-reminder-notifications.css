@@ -34,3 +34,7 @@
 .thebe-report-quality-guide{margin:14px 0;padding:12px;border:1px solid #bfd7f4;border-radius:10px;background:#f0f7ff;color:#1a4772;font-size:13px;line-height:1.5}
 .thebe-delivery-reminders[hidden]{display:none}
 @media(max-width:620px){.thebe-delivery-job{padding:10px}.thebe-delivery-job-heading{flex-wrap:wrap}.thebe-remove-job{margin-left:auto}}
+
+.thebe-delivery-reminder .thebe-reminder-update{margin-left:auto;border:1px solid #87b0dc;border-radius:8px;background:#fff;color:#174978;font-size:12px;font-weight:700;padding:6px 9px;white-space:nowrap;min-height:36px}
+.thebe-delivery-reminder .thebe-reminder-update+button{margin-left:0}
+@media(max-width:420px){.thebe-delivery-reminder{flex-wrap:wrap}.thebe-delivery-reminder>div:first-child{flex:1 1 100%}}
