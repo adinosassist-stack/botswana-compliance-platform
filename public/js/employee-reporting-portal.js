@@ -205,6 +205,22 @@ function fillJobRow(row,job){
     if(node)node.value=String(job?.[field]|| (field==="jobStatus"?"scheduled":""));
   }
 }
+function restoreTodayDraft(draft){
+  if(!draft||typeof draft!=="object")return;
+  const fields={
+    reporterWorkSummary:draft.workSummary,reporterWins:draft.wins,reporterBlockers:draft.blockers,
+    reporterIncidents:draft.incidents,reporterNextPlan:draft.nextPlan,
+    reporterTasks:draft.kpis?.tasksCompleted,reporterCustomers:draft.kpis?.customersHandled,
+    reporterRevenue:draft.kpis?.revenueBwp,reporterIncidentCount:draft.kpis?.incidentsCount,
+    reporterCustomLabel:draft.kpis?.customLabel,reporterCustomValue:draft.kpis?.customValue
+  };
+  for(const [id,value] of Object.entries(fields)){
+    const input=byId(id);if(input&&value!==null&&value!==undefined)input.value=String(value);
+  }
+  const attention=byId("reporterNeedsAttention");if(attention)attention.checked=Boolean(draft.needsAttention);
+  if(Number(draft.revisionCount)>=7)setMessage("reporterPortalError","This day's report has nearly reached its correction limit. Review all entries carefully before another submission.");
+  updateQualityGuide();
+}
 function restoreCurrentJobs(jobs){
   if(!Array.isArray(jobs)||!jobs.length)return;
   for(let i=0;i<Math.min(jobs.length,MAX_REPORT_JOBS);i++){
@@ -292,7 +308,7 @@ async function initialize(){
     const data=await request("/public/daily-reporting/access",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token:reporterToken})});
     byId("reporterEmployeeName").textContent=(data.employee?.name||"Employee")+(data.employee?.roleTitle?" · "+data.employee.roleTitle:"");
     byId("reporterLocationName").textContent=(data.location?.name||"Location")+(data.location?.town?" · "+data.location.town:"");
-    byId("reporterCompanyName").textContent=data.companyName||"Company";byId("reporterDate").value=data.reportDate||"";byId("reporterDailyForm").hidden=false;restoreCurrentJobs(data.currentReportJobs);renderDeliveryReminders(data.deliveryReminders);
+    byId("reporterCompanyName").textContent=data.companyName||"Company";byId("reporterDate").value=data.reportDate||"";byId("reporterDailyForm").hidden=false;restoreTodayDraft(data.currentReportDraft);restoreCurrentJobs(data.currentReportJobs);renderDeliveryReminders(data.deliveryReminders);
   }catch(error){setMessage("reporterPortalError",errorMessage(error))}
 }
 async function submit(event){
