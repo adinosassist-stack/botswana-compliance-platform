@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {evaluateV4ReadOnlyQualification,SECRET_CANDIDATE_V4,LEGACY_SOURCE_SHA}
+import {evaluateV4ReadOnlyQualification,inspectV4ReadOnlyQualification,SECRET_CANDIDATE_V4,LEGACY_SOURCE_SHA}
  from '../scripts/corporate-assets-v4-readonly-qualification.mjs';
 import {DB,ROLLBACK,CANDIDATE,WORKER}
  from '../scripts/corporate-assets-v3-predeployment-attestation.mjs';
@@ -102,4 +102,55 @@ test('never emit secret values, even if upstream metadata includes accidental se
  const encoded=JSON.stringify(evaluateV4ReadOnlyQualification(f));
  assert.equal(encoded.includes('highly-sensitive-synthetic-test-value'),false);
  assert.equal(encoded.includes('other-highly-sensitive-synthetic-test-value'),false);
+});
+
+test('protected runner makes only four Worker metadata GETs and isolated account exposure read',async()=>{
+ const f=fixture();const calls=[];
+ const data={
+  '/versions?page=1&per_page=100':f.versionInventory,
+  ['/versions/'+SECRET_CANDIDATE_V4]:{success:true,result:f.candidateVersion},
+  ['/versions/'+ROLLBACK]:{success:true,result:f.activeVersion},
+  '/deployments?page=1&per_page=100':f.deployments
+ };
+ const read=async(url,opts)=>{
+  calls.push({url,method:opts.method,authorization:opts.headers.authorization});
+  assert.equal(opts.method,'GET');
+  const suffix=url.split('/workers/scripts/'+WORKER)[1];
+  const result=data[suffix];
+  if(!result)throw Error('unexpected GET: '+suffix);
+  return {ok:true,json:async()=>result};
+ };
+ let accountReaderCalls=0;
+ const exposure=async({token,accountToken,request})=>{
+  accountReaderCalls++;
+  assert.equal(token,'synthetic-worker-read-token');
+  assert.equal(accountToken,'synthetic-account-read-token');
+  assert.equal(request,read);
+  return f.privateExposure;
+ };
+ const receipt=await inspectV4ReadOnlyQualification({
+  expectedMainSha:main,repository:'adinosassist-stack/botswana-compliance-platform',
+  ref:'refs/heads/main',githubSha:main,token:'synthetic-worker-read-token',
+  accountToken:'synthetic-account-read-token',request:read,readExposure:exposure
+ });
+ assert.equal(calls.length,4);
+ assert.equal(accountReaderCalls,1);
+ assert.equal(receipt.candidateMetadataVerified,true);
+ assert.equal(receipt.exactSourceProvenanceVerified,false);
+ assert.equal(receipt.stagingDeploymentAuthorized,false);
+ assert.ok(calls.every(x=>x.authorization==='Bearer synthetic-worker-read-token'));
+ assert.equal(JSON.stringify(receipt).includes('synthetic-worker-read-token'),false);
+});
+test('protected runner refuses non-main, malformed credentials and failed metadata',async()=>{
+ const good={expectedMainSha:main,repository:'adinosassist-stack/botswana-compliance-platform',
+  ref:'refs/heads/main',githubSha:main,token:'synthetic-worker-read-token',
+  accountToken:'synthetic-account-read-token',request:async()=>{throw Error('should not call')},
+  readExposure:async()=>{throw Error('should not call')}};
+ for(const change of [
+  c=>c.ref='refs/heads/feature',c=>c.githubSha='a'.repeat(40),
+  c=>c.expectedMainSha='notsha',c=>c.token='Bearer token',
+  c=>c.accountToken='',c=>c.accountToken='contains whitespace'
+ ]){const c={...good};change(c);await assert.rejects(()=>inspectV4ReadOnlyQualification(c));}
+ await assert.rejects(()=>inspectV4ReadOnlyQualification({...good,
+  request:async()=>({ok:false,status:403})}),/v4_metadata_read_denied_403/);
 });
