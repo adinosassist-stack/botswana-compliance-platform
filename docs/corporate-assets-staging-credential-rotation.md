@@ -108,3 +108,43 @@ reviewed/merged with fresh exact-head CI and independent `thusico` approval.
 Owner can independently verify token with Cloudflare's token Verify endpoint and
 correct the protected GitHub secret *directly* if the value was miscopied, without
 sharing its bytes in GitHub comments, Actions logs, or chat.
+
+
+## 15 November 2026 — version-only secret candidate workflow hardening
+
+Latest protected exact-main read-only run
+[#43697633873](https://github.com/adinosassist-stack/botswana-compliance-platform/actions/runs/43697633873)
+was approved by `thusico`; the offline gate passed and the protected
+evidence gate correctly failed with
+`active_version_credential_safety_not_verified`. Version 2 still receives
+100% of the private staging deployment and still has `plain_text`
+credential-binding **types**. Read-only Cloudflare checks continue to show
+that `workers.dev`, preview URLs, and Assets write/activation flags are off.
+Do not assert that current active credentials were repaired.
+
+The existing `corporate-assets-protected-secret-candidate.yml` is a
+**separately authorized write-capable workflow**, NOT the read-only preflight.
+Its protected job must receive the dedicated account-read token, verify all
+known zone routes and Worker domains before and after, confirm the active
+legacy version's exact staging source marker and isolated D1, and prove that
+exactly one new **undeployed** candidate was created with `secret_text`
+types, inert flags, unchanged traffic, and no new public exposure.
+
+The Wrangler child receives only the Cloudflare Worker token and minimal OS
+variables. GitHub credentials, independent account inventory credentials,
+and other ambient secrets must not be inherited by the child. Neither
+secrets nor source bytes may appear in logs or artifacts.
+
+**Owner and reviewer authorization required separately:** no secret candidate
+may be created from a generic `GO`, prior read-only approval, PR CI, or the
+older `CREATE_ISOLATED_ASSETS_SOURCE_VERSION` permission. The
+`CREATE_PRIVATE_ASSET_SECRET_CANDIDATE` operation requires a fresh
+exact-main owner dispatch and independent `thusico` protected environment
+approval. No existing workflow is being dispatched by this code-only
+hardening work.
+
+A secret candidate version does **not** make the active version safe until
+a separately reviewed and authorized staging deployment. Even after
+staging credential remediation, current-main compiled source provenance
+and a subsequent exact-source version upload remain distinct release gates.
+Keep routes, previews, customer writes, D1 mutation and production off.
