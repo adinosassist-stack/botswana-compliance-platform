@@ -52,13 +52,18 @@ export async function mountCompanyQuotationLogoEditor(root,{companyId,capability
   deny("quotation_logo_feature_disabled");
  const api=createQuotationLogoHttpClient({fetchImpl,csrfToken,enabled:true});
  const current=await api.load();
+ let verifiedAspectRatio=current.aspectRatio;
  const editor=mountQuotationLogoEditor(root,{
   companyId,logoAssetId:current.settings?.logoAssetId,
   initialLayout:current.settings?.layout,
   // Existing image preview requires a separate authorized binary endpoint.
   // Until that is available, saving layout without a newly uploaded image is
   // possible only when UI receives a verified asset image via another adapter.
-  onUpload:api.upload,onSave:api.save
+  onUpload:async file=>{const uploaded=await api.upload(file);verifiedAspectRatio=uploaded.aspectRatio;return uploaded},
+  onSave:async settings=>{
+   if(!Number.isFinite(verifiedAspectRatio)||verifiedAspectRatio<=0)deny('logo_aspect_ratio_unavailable');
+   return api.save({...settings,aspectRatio:verifiedAspectRatio});
+  }
  });
  return Object.freeze({editor,initialState:current});
 }
