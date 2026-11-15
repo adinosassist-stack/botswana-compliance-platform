@@ -35,6 +35,7 @@ jobs:
           node --check server/quotation-logo-service.mjs
           node --check server/quotation-logo-d1-r2-store.mjs
           node --check server/quotation-logo-pdf.mjs
+          node --check server/quotation-logo-template-provider.mjs
           node --check server/quotation-logo-http.mjs
       - name: Run quotation logo isolation, sizing and PDF tests
         run: node --test tests/quotation-logo-*.test.mjs
