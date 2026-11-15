@@ -1,7 +1,7 @@
 /** Thebe Desk quotation logo editor. Safe UI only; requires authenticated persistence adapter. */
 import {
   DEFAULT_QUOTE_LOGO_LAYOUT, validateLogoUploadMetadata, inspectLogoSignature,
-  normalizeQuotationLogoLayout, quotationLogoSettings, MAX_LOGO_BYTES
+  normalizeQuotationLogoLayout, quotationLogoSettings, MAX_LOGO_BYTES, QUOTE_LOGO_MAX_WIDTH_PERCENT, QUOTE_LOGO_MAX_HEIGHT_PERCENT
 } from './quotation-logo-layout.mjs';
 
 const PAGE_W=612.24, PAGE_H=858.96;
@@ -50,10 +50,11 @@ export function mountQuotationLogoEditor(root,options={}) {
  const controls=el('div',null,{class:'qle-controls'});
  const fileLabel=el('label','Upload company logo (PNG, JPG, WebP)');
  const input=el('input',null,{type:'file',accept:'image/png,image/jpeg,image/webp'});fileLabel.append(input);
- const sizeLabel=el('label','Logo width');const slider=el('input',null,{type:'range',min:'8',max:'88',step:'1',value:'34','aria-label':'Logo width'});sizeLabel.append(slider);
+ const sizeLabel=el('label','Logo width');const slider=el('input',null,{type:'range',min:'4',max:String(QUOTE_LOGO_MAX_WIDTH_PERCENT),step:'1',value:'34','aria-label':'Logo width'});sizeLabel.append(slider);
+ const heightLabel=el('label','Logo height');const heightSlider=el('input',null,{type:'range',min:'1',max:String(QUOTE_LOGO_MAX_HEIGHT_PERCENT),step:'1',value:'12','aria-label':'Logo height'});heightLabel.append(heightSlider);
  const reset=el('button','Reset position',{type:'button'});
  const save=el('button','Save company logo',{type:'button','data-primary':''});save.disabled=true;
- controls.append(fileLabel,sizeLabel,reset,save);
+ controls.append(fileLabel,sizeLabel,heightLabel,reset,save);
  const preview=el('div',null,{class:'qle-page','aria-label':'Quotation page one logo preview'});
  const logo=el('div',null,{class:'qle-logo',tabindex:'0','aria-label':'Move logo with arrow keys; use width slider to resize'});
  const image=el('img',null,{alt:'Company logo preview'});
@@ -70,6 +71,7 @@ export function mountQuotationLogoEditor(root,options={}) {
   logo.style.left=p.xPercent+'%';logo.style.top=p.yPercent+'%';
   logo.style.width=p.widthPercent+'%';logo.style.height=p.heightPercent+'%';
   slider.value=String(Math.round(p.widthPercent));
+  heightSlider.value=String(Math.round(p.heightPercent));
   save.disabled=!(dirty&&typeof options.onSave==='function'&&(assetId||file));
  }
  function markChanged(){dirty=true;paint();setStatus('Unsaved changes.');}
@@ -90,6 +92,11 @@ export function mountQuotationLogoEditor(root,options={}) {
  }
  input.addEventListener('change',changeFile);
  slider.addEventListener('input',()=>{layout={...layout,widthPercent:Number(slider.value)};markChanged()});
+ heightSlider.addEventListener('input',()=>{
+  // Convert desired physical height to proportional width to avoid image distortion.
+  const width=Number(heightSlider.value)*PAGE_H*ratio/PAGE_W;
+  layout={...layout,widthPercent:width};markChanged();
+ });
  reset.addEventListener('click',()=>{layout=normalizeQuotationLogoLayout(DEFAULT_QUOTE_LOGO_LAYOUT,PAGE_W,PAGE_H,ratio);markChanged()});
  logo.addEventListener('keydown',e=>{
   const delta={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];if(!delta)return;
