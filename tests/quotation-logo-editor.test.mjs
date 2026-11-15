@@ -23,3 +23,9 @@ test("no silent uploads or storage of private company logo",()=>{
  assert.doesNotMatch(source,/localStorage|sessionStorage|fetch\(/);
  assert.match(source,/typeof options.onUpload!=='function'/);
 });
+test("width and height readouts reflect clamped geometry and save requires upload adapter",()=>{
+ assert.match(source,/dimensions\.textContent=/);
+ assert.match(source,/Width .*60%.*Height .*30%/);
+ assert.match(source,/typeof options\.onUpload==='function'/);
+ assert.match(source,/proportions locked/);
+});
