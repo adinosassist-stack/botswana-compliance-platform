@@ -80,10 +80,15 @@ export async function handleQuotationLogoHttp({request,actor,companyId,authoriza
  if(!((method==="PUT"&&pathname==="/api/quotation/logo")||
        (method==="POST"&&pathname==="/api/quotation/logo/upload")))
   return invalid("method_not_allowed",405);
- // No permissive fallback when CSRF authorization is absent.
- if(typeof verifyMutation!=="function"||await verifyMutation({request,actor,companyId})!==true)
-  return invalid("logo_mutation_denied",403);
+ // Perform authorization and CSRF checks before body decoding or costly raster
+ // processing. Domain services independently re-check scope before writes.
  try{
+  if(typeof authorization.assertCompanyEditor!=="function"||
+     await authorization.assertCompanyEditor({actor,companyId})!==true)
+   return invalid("logo_access_denied",403);
+  if(typeof verifyMutation!=="function"||
+     await verifyMutation({request,actor,companyId})!==true)
+   return invalid("logo_mutation_denied",403);
   if(method==="POST"){
    if(typeof decodeAndSanitizeLogo!=="function")return invalid("logo_image_processor_unavailable",503);
    const type=request.headers.get("content-type")?.toLowerCase().split(";")[0].trim();
@@ -112,6 +117,7 @@ export async function handleQuotationLogoHttp({request,actor,companyId,authoriza
  }catch(e){
   const code=e?.message||"logo_request_failed";
   if(code==="logo_access_denied")return invalid(code,403);
+  if(code==="logo_mutation_denied")return invalid(code,403);
   if(["invalid_logo_file","invalid_money","invalid_logo_settings",
       "invalid_logo_layout","invalid_logo_asset_reference","logo_aspect_ratio_mismatch",
       "invalid_logo_signature","unsupported_logo_file","unsupported_logo_dimensions"].includes(code))
