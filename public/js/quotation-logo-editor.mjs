@@ -55,7 +55,8 @@ export function mountQuotationLogoEditor(root,options={}) {
  const dimensions=el('output','',{class:'qle-note','aria-live':'polite','aria-label':'Current logo dimensions'});
  const reset=el('button','Reset position',{type:'button'});
  const save=el('button','Save company logo',{type:'button','data-primary':''});save.disabled=true;
- controls.append(fileLabel,sizeLabel,heightLabel,dimensions,reset,save);
+ const previewPdf=el('button','Download PDF preview',{type:'button'});previewPdf.disabled=true;
+ controls.append(fileLabel,sizeLabel,heightLabel,dimensions,reset,save,previewPdf);
  const preview=el('div',null,{class:'qle-page','aria-label':'Quotation page one logo preview'});
  const logo=el('div',null,{class:'qle-logo',tabindex:'0','aria-label':'Move logo with arrow keys; use width slider to resize'});
  const image=el('img',null,{alt:'Company logo preview'});
@@ -66,7 +67,7 @@ export function mountQuotationLogoEditor(root,options={}) {
  let disposed=false,objectUrl=null,file=null,assetId=options.logoAssetId||null,ratio=options.initialAspectRatio||2;
  let layout=normalizeQuotationLogoLayout(options.initialLayout||DEFAULT_QUOTE_LOGO_LAYOUT,PAGE_W,PAGE_H,ratio);
  let dragging=null,dirty=false;
- let saving=false;
+ let saving=false,previewing=false;
  const setStatus=(message)=>{if(!disposed)status.textContent=message};
  function paint(){
   const p=normalizeQuotationLogoLayout(layout,PAGE_W,PAGE_H,ratio);layout=p;
@@ -76,6 +77,7 @@ export function mountQuotationLogoEditor(root,options={}) {
   heightSlider.value=String(Math.round(p.heightPercent));
   dimensions.textContent=`Width ${p.widthPercent.toFixed(1)}% / 60% · Height ${p.heightPercent.toFixed(1)}% / 30% · proportions locked`;
   save.disabled=saving||!(dirty&&typeof options.onSave==='function'&&(assetId||(!file?false:typeof options.onUpload==='function')));
+  previewPdf.disabled=dirty||saving||previewing||!assetId||typeof options.onPreviewPdf!=='function';
  }
  function markChanged(){dirty=true;paint();setStatus('Unsaved changes.');}
  async function changeFile(){
@@ -134,6 +136,26 @@ export function mountQuotationLogoEditor(root,options={}) {
   markChanged();
  });
  const stop=()=>{dragging=null};logo.addEventListener('pointerup',stop);logo.addEventListener('pointercancel',stop);
+ previewPdf.addEventListener('click',async()=>{
+  if(dirty||saving||previewing||!assetId||typeof options.onPreviewPdf!=='function')return;
+  previewing=true;paint();setStatus('Preparing two-page PDF preview…');
+  let url=null;
+  try{
+   const blob=await options.onPreviewPdf();
+   if(!(blob instanceof Blob)||blob.type!=='application/pdf')throw Error('invalid_quotation_pdf_preview');
+   if(disposed)return;
+   url=URL.createObjectURL(blob);
+   const link=document.createElement('a');
+   link.href=url;link.download='quotation-logo-preview.pdf';
+   link.hidden=true;area.append(link);
+   try{link.click()}finally{link.remove()}
+   setStatus('PDF preview prepared.');
+  }catch(e){setStatus('PDF preview unavailable: '+(e?.message||'unknown error'))}
+  finally{
+   if(url)URL.revokeObjectURL(url);
+   previewing=false;paint();
+  }
+ });
  save.addEventListener('click',async()=>{
   if(!dirty||typeof options.onSave!=='function')return;
   saving=true;paint();setStatus('Saving logo settings…');
