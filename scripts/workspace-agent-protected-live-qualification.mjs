@@ -46,6 +46,30 @@ export function verifyBaseline(data) {
   return true;
 }
 
+export function completeZoneRoutes(envelope) {
+  if (envelope?.success !== true || !Array.isArray(envelope.result))
+    throw new Error('zone_routes_invalid');
+  if (Object.hasOwn(envelope,'result_info')) {
+    const page=envelope.result_info;
+    const count=envelope.result.length;
+    if (!page || page.page !== 1 ||
+        (page.total_pages !== undefined && page.total_pages !== 1) ||
+        (page.total_count !== undefined && page.total_count !== count) ||
+        (page.count !== undefined && page.count !== count) ||
+        (page.total_pages === undefined && page.total_count === undefined))
+      throw new Error('zone_routes_incomplete');
+  }
+  const ids=new Set();
+  for (const route of envelope.result) {
+    if (!route || typeof route.id !== 'string' || !route.id.trim() ||
+        typeof route.pattern !== 'string' || !route.pattern.trim() ||
+        (route.script !== undefined && route.script !== null && typeof route.script !== 'string') ||
+        ids.has(route.id)) throw new Error('zone_routes_invalid');
+    ids.add(route.id);
+  }
+  return envelope.result;
+}
+
 export function assertReceipt(receipt) {
   if (receipt?.event !== 'workspace_agent_qualification' || receipt.fixturesRemoved !== true ||
       receipt.mutationDenied !== true || receipt.unrelatedPathDenied !== true ||
@@ -72,6 +96,7 @@ class Cloudflare {
     if (response.status === 204) return {};
     const json = await response.json();
     if (json.success !== true) throw new Error(`cloudflare_${method}_unsuccessful`);
+    if (path.endsWith('/workers/routes')) return completeZoneRoutes(json);
     return json.result;
   }
   async deployment(name) {
