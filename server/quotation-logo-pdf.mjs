@@ -52,8 +52,14 @@ export async function renderCompanyQuotationLogoPdf({
  if(asset.mimeType!=="image/png"&&asset.mimeType!=="image/jpeg")
     deny("logo_pdf_requires_png_or_jpeg");
  inspectLogoSignature(asset.bytes,asset.mimeType);
- if(!Number.isFinite(asset.aspectRatio)||asset.aspectRatio<=0||
-    Math.abs(asset.aspectRatio-state.aspectRatio)>0.0001)deny("company_logo_dimension_mismatch");
+ // Stored dimensions are a tenant-scoped claim, not proof of the R2 bytes.
+ // The PDF engine must decode the PNG/JPEG and confirm those exact dimensions.
+ if(!Number.isSafeInteger(asset.width)||!Number.isSafeInteger(asset.height)||
+    asset.width<30||asset.width>5000||asset.height<20||asset.height>5000||
+    !Number.isFinite(asset.aspectRatio)||asset.aspectRatio<=0||
+    Math.abs(asset.width/asset.height-asset.aspectRatio)>0.0001||
+    Math.abs(asset.aspectRatio-state.aspectRatio)>0.0001)
+   deny("company_logo_dimension_mismatch");
  const pdf=await pdfLib.PDFDocument.load(template.bytes);
  const pages=pdf.getPages();
  if(pages.length!==2)deny("invalid_quotation_pdf_page_count");
@@ -85,6 +91,11 @@ export async function renderCompanyQuotationLogoPdf({
  }
  const image=asset.mimeType==="image/png"?
   await pdf.embedPng(asset.bytes):await pdf.embedJpg(asset.bytes);
+ // Guard against swapped/corrupted private objects whose signature remains
+ // valid but whose decoded raster disagrees with the D1 tenant metadata.
+ if(!Number.isSafeInteger(image?.width)||!Number.isSafeInteger(image?.height)||
+    image.width!==asset.width||image.height!==asset.height)
+   deny("company_logo_content_dimension_mismatch");
  page.drawImage(image,rect);
  termsPage.drawImage(image,termsRect);
  // Opt-in staging preview only; the draft is never saved or issued.
