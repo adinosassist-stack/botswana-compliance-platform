@@ -1,0 +1,29 @@
+name: Quotation Private Staging Inventory
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  read-only-cloudflare-inventory:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Read D1/R2 metadata only; never provision or deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.QUOTATION_STAGING_READ_TOKEN }}
+          QUOTATION_CF_ACCOUNT_ID: ${{ vars.QUOTATION_CF_ACCOUNT_ID }}
+          QUOTATION_PRODUCTION_D1_ID: ${{ vars.QUOTATION_PRODUCTION_D1_ID }}
+          QUOTATION_PRODUCTION_R2_NAMES: ${{ vars.QUOTATION_PRODUCTION_R2_NAMES }}
+          QUOTATION_EXACT_MAIN_SHA: ${{ github.sha }}
+        run: |
+          node --check scripts/quotation-staging-resource-inventory.mjs
+          node scripts/quotation-staging-resource-inventory.mjs
