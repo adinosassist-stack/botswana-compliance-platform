@@ -6,7 +6,7 @@
  * any token. Does NOT assert an environment is approved or deployable.
  *
  * CLI: CLOUDFLARE_API_TOKEN=<read-only-token>
- *      QUOTATION_CF_ACCOUNT_ID=<account-uuid>
+ *      QUOTATION_CF_ACCOUNT_ID=<32-character-account-hex-id>
  *      node scripts/quotation-staging-resource-inventory.mjs
  */
 const DB_NAME="bw-quotation-staging";
@@ -15,6 +15,7 @@ const TEMPLATE_BUCKET="bw-quotation-template-private-staging";
 const deny=code=>{throw Error(code)};
 const isUuid=x=>typeof x==="string"&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x);
 const isHex40=x=>typeof x==="string"&&/^[0-9a-f]{40}$/i.test(x);
+const isAccountId=x=>typeof x==="string"&&/^[0-9a-f]{32}$/i.test(x);
 const isSafe=x=>typeof x==="string"&&/^[a-z0-9][a-z0-9-]{2,90}$/.test(x);
 const safeNameList=items=>Array.isArray(items)&&items.every(x=>isSafe(x?.name));
 
@@ -22,7 +23,8 @@ export function summarizeQuotationStagingInventory({
  databases,buckets,productionD1Id,productionBucketNames=[],exactMainSha
 }={}){
  if(!safeNameList(databases)||!safeNameList(buckets)||!isUuid(productionD1Id)||
-    !Array.isArray(productionBucketNames)||productionBucketNames.some(x=>!isSafe(x))||
+    !Array.isArray(productionBucketNames)||productionBucketNames.length===0||
+    productionBucketNames.some(x=>!isSafe(x))||
     !isHex40(exactMainSha))
   deny("quotation_resource_inventory_invalid");
  const desired=[DB_NAME,LOGO_BUCKET,TEMPLATE_BUCKET];
@@ -62,7 +64,7 @@ export async function inspectQuotationCloudflareResources({
  fetchImpl,apiToken,accountId,productionD1Id,productionBucketNames,exactMainSha
 }={}){
  if(typeof fetchImpl!=="function"||typeof apiToken!=="string"||apiToken.length<10||
-    !isUuid(accountId)||!isUuid(productionD1Id)||!isHex40(exactMainSha))
+    !isAccountId(accountId)||!isUuid(productionD1Id)||!isHex40(exactMainSha))
   deny("quotation_inventory_client_unconfigured");
  const root="https://api.cloudflare.com/client/v4/accounts/"+accountId;
  const fetchJSON=async(url)=>{
