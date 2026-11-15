@@ -11,6 +11,7 @@
  */
 const err=code=>{throw Error(code)};
 const hex40=x=>typeof x==="string"&&/^[0-9a-f]{40}$/i.test(x);
+const d1Uuid=x=>typeof x==="string"&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x);
 const validName=x=>typeof x==="string"&&/^[a-z0-9][a-z0-9-]{2,90}$/.test(x);
 const requiredTables=Object.freeze(["quotation_logo_assets","quotation_logo_settings"]);
 
@@ -19,17 +20,19 @@ export async function qualifyQuotationPrivateStaging({
  d1,d1Id,productionD1Id,
  privateLogoBucket,logoBucketName,
  privateTemplateBucket,templateBucketName,
- productionBucketNames=[],
- routes=[],workersDevEnabled=false,previewUrlsEnabled=false
+ productionBucketNames,
+ routes,workersDevEnabled,previewUrlsEnabled
 }={}){
  // Do not silently degrade from a private qualification into a live service.
  if(environment!=="quotation-private-staging"||
     !hex40(sourceSha)||!hex40(expectedSourceSha)||
     sourceSha.toLowerCase()!==expectedSourceSha.toLowerCase())
   err("quotation_staging_exact_source_required");
- if(!hex40(d1Id)||!hex40(productionD1Id)||d1Id===productionD1Id)
+ if(!d1Uuid(d1Id)||!d1Uuid(productionD1Id)||d1Id===productionD1Id)
   err("quotation_staging_d1_must_be_distinct");
- if(!validName(logoBucketName)||!validName(templateBucketName)||
+ if(!Array.isArray(productionBucketNames)||productionBucketNames.length===0||
+    productionBucketNames.some(name=>!validName(name))||
+    !validName(logoBucketName)||!validName(templateBucketName)||
     logoBucketName===templateBucketName||
     productionBucketNames.includes(logoBucketName)||
     productionBucketNames.includes(templateBucketName))
