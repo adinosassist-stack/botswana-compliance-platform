@@ -67,3 +67,28 @@ test("PDF preview only accepts authenticated bounded PDF response",async()=>{
   fetchImpl:async()=>new Response(pdf,{headers:{"content-type":"text/html"}})});
  await assert.rejects(wrongMime.previewPdf(),/invalid_quotation_pdf_type/);
 });
+
+test("unknown-length PDF stream is rejected as soon as it crosses the cap",async()=>{
+ let cancelled=false;
+ const stream=new ReadableStream({
+  pull(controller){
+   controller.enqueue(new Uint8Array(6*1024*1024));
+  },
+  cancel(){cancelled=true}
+ });
+ const api=createQuotationLogoHttpClient({enabled:true,csrfToken:token,
+  fetchImpl:async()=>new Response(stream,{headers:{"content-type":"application/pdf"}})});
+ await assert.rejects(api.previewPdf(),/download_exceeds_limit/);
+ assert.equal(cancelled,true);
+});
+test("saved image streaming enforces size cap without Content-Length",async()=>{
+ const stream=new ReadableStream({start(c){c.enqueue(new Uint8Array(2*1024*1024+1));c.close()}});
+ const api=createQuotationLogoHttpClient({enabled:true,csrfToken:token,
+  fetchImpl:async()=>new Response(stream,{headers:{"content-type":"image/png"}})});
+ await assert.rejects(api.loadImage(),/download_exceeds_limit/);
+});
+test("WebP cannot silently go to PNG-only API if browser conversion is absent",async()=>{
+ const api=createQuotationLogoHttpClient({enabled:true,csrfToken:token,
+  fetchImpl:async()=>{throw Error("upload_should_not_run")}});
+ await assert.rejects(api.upload(new Blob([new Uint8Array(64)],{type:"image/webp"})),/webp_conversion_unavailable/);
+});
