@@ -77,3 +77,34 @@ test("real engine refuses a template with content-sized logo exclusion zone",asy
   templates:{getApprovedLogoFreeTemplate:async()=>approved}
  }),/logo_outside_approved_template_zone/);
 });
+
+test("actual PDF-Lib renders an opt-in quote draft with integer BWP totals",async()=>{
+ const approved=await template();
+ const draft={
+  quoteNumber:"QT-2026-001",issueDate:"2026-11-15",
+  customerName:"Synthetic Customer",customerContact:"Gaborone",
+  items:[{description:"Granite memorial",quantity:2,unitPriceCents:125050},
+         {description:"Installation",quantity:1,unitPriceCents:350000}],
+  discountCents:10050,paymentMethod:"Bank transfer"
+ };
+ const result=await renderCompanyQuotationLogoPdf({
+  actor,companyId:tenant,authorization:auth,store,pdfLib:engine,draft,
+  templates:{getApprovedLogoFreeTemplate:async()=>approved}
+ });
+ assert.deepEqual(result.draftTotals,{
+  subtotalCents:600100,discountCents:10050,grandTotalCents:590050
+ });
+ const rendered=await engine.PDFDocument.load(result.bytes);
+ assert.equal(rendered.getPageCount(),2);
+ assert.ok(result.bytes.length>approved.bytes.length);
+ assert.deepEqual(rendered.getPage(1).getSize(),{width:841.92,height:1190.64});
+});
+test("real renderer refuses overfull eight-line table rather than clipping",async()=>{
+ const approved=await template();
+ const draft={quoteNumber:"X1",issueDate:"2026-11-15",customerName:"Fixture",
+  customerContact:"Test",items:Array.from({length:9},()=>({description:"Item",quantity:1,unitPriceCents:100}))};
+ await assert.rejects(renderCompanyQuotationLogoPdf({
+  actor,companyId:tenant,authorization:auth,store,pdfLib:engine,draft,
+  templates:{getApprovedLogoFreeTemplate:async()=>approved}
+ }),/invalid_quotation_item_count/);
+});
