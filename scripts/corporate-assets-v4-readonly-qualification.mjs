@@ -99,12 +99,11 @@ export function evaluateV4ReadOnlyQualification({reviewedMainSha,versionInventor
   candidateHistoricalSourceSha:LEGACY_SOURCE_SHA,
   candidateMetadataVerified:errors.length===0,
   privateExposureVerified:privateExposure?.privateExposureVerified===true,
-  candidateBindingTypesSafe:check.ready&&falseFlags.every(n=>plain(candidateBindings,n)==='false'),
+  candidateBindingTypesSafe:check.ready&&falseFlags.every(n=>plain(candidateBindings,n)==='false')&&
+   plain(candidateBindings,'PAYMENT_PROVIDER')==='none'&&
+   plain(candidateBindings,'REGISTRATION_MODE')==='hold',
   activeCredentialRisk:!activeCredentialsSafe,
-  candidateUndeployed:!errors.includes('candidate_v4_must_remain_undeployed')&&
-   !errors.includes('complete_deployments_required')&&
-   !errors.includes('unambiguous_deployment_inventory_required')&&
-   !errors.includes('active_v2_100_percent_required'),
+  candidateUndeployed:errors.length===0,
   credentialValuesVerified:false,uploadedSourceBytesVerified:false,
   exactSourceProvenanceVerified:false,stagingDeploymentAuthorized:false,
   productionChanged:false,errors:Object.freeze([...new Set(errors)]),
