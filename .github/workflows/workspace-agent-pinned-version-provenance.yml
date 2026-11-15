@@ -74,30 +74,36 @@ jobs:
           }
           fetch "workers/workers/$script/versions/64d9bae9-2ea3-40c1-9a26-83cea97ad71c" pinned
           fetch "workers/workers/$script/versions/latest" latest
+          fetch "workers/scripts/$script/settings" service-settings
           fetch "workers/scripts/$script/deployments" deployed
           node --input-type=module <<'NODE'
           import {readFileSync} from 'node:fs';
-          import {classifyPinnedVersion} from './scripts/workspace-agent-pinned-version-provenance.mjs';
+          import {compareWorkerSettingsSources} from './scripts/workspace-agent-settings-source-comparison.mjs';
           const tmp=process.env.PINNED_INSPECTION_TMP;
-          let classification;
+          let result;
           try {
-            const pinned=JSON.parse(readFileSync(tmp+'/pinned','utf8'));
-            const latest=JSON.parse(readFileSync(tmp+'/latest','utf8'));
-            const deployments=JSON.parse(readFileSync(tmp+'/deployed','utf8'));
-            classification=classifyPinnedVersion({pinned,latest,deployments});
+            result=compareWorkerSettingsSources({
+              version:JSON.parse(readFileSync(tmp+'/pinned','utf8')),
+              script:JSON.parse(readFileSync(tmp+'/service-settings','utf8')),
+              latest:JSON.parse(readFileSync(tmp+'/latest','utf8')),
+              deployments:JSON.parse(readFileSync(tmp+'/deployed','utf8'))
+            });
           } catch {
-            console.error('::error::Unreadable pinned version metadata');
+            console.error('::error::Unreadable Worker settings metadata');
             process.exit(1);
           }
-          if (!classification.valid) {
-            for (const reason of classification.issues) console.error('::error::'+reason);
+          if(!result.verified){
+            for(const reason of result.issues)console.error('::error::'+reason);
             process.exit(1);
           }
-          console.log('PASS pinned_version_binding_identities');
-          if(classification.latestMatchesPinned)
-            console.log('PASS latest_equals_pinned');
-          else
-            console.log('BLOCK latest_version_secret_inheritance');
-          console.log('No Cloudflare configuration changes or secret values exported.');
+          for(const [name,source] of [['pinned_version',result.pinnedVersion],['service_settings',result.scriptSettings]]){
+            console.log('CLASS '+name+' secret='+source.sessionSecret+' d1='+source.d1+
+              ' advisory='+source.advisoryFlag+' bindings_count='+source.numberOfBindings);
+          }
+          if(result.sourcesDiffer)console.log('BLOCK per_version_service_settings_mismatch');
+          if(!result.latestIsPinned)console.log('BLOCK latest_secret_inheritance_unsafe');
+          if(result.repairBlocked)console.log('BLOCK configuration_mutation_requires_independent_reconciliation');
+          else console.log('PASS version_and_service_settings_consistent');
+          console.log('No Cloudflare writes or secret values exported.');
           NODE
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
