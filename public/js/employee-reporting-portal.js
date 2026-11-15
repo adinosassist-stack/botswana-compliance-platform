@@ -156,6 +156,32 @@ async function serializeAttachments(){
   for(const item of attachmentState){const buffer=await item.file.arrayBuffer();result.push({name:item.file.name,type:item.file.type,size:item.file.size,source:item.source,data:bytesToBase64(buffer)})}
   return result;
 }
+function renderDeliveryReminders(items){
+  const target=byId("reporterDeliveryReminders");if(!target)return;
+  target.replaceChildren();
+  for(const item of (Array.isArray(items)?items:[]).slice(0,10)){
+    const line=document.createElement("div");line.className="thebe-delivery-reminder";
+    line.dataset.urgent=String(item.daysUntil<=1);
+    const copy=document.createElement("div");
+    const heading=document.createElement("strong");
+    const day=item.daysUntil===0?"Due today":item.daysUntil===1?"Due tomorrow":`Due in ${item.daysUntil} days`;
+    heading.textContent=`${item.jobType==="installation"?"Installation":"Delivery"} · ${day}`;
+    const details=document.createElement("small");
+    details.textContent=`${item.jobReference||"Job"} · ${item.scheduledDate||""} · ${item.locationName||"Assigned location"}`;
+    copy.append(heading,details);
+    const dismiss=document.createElement("button");dismiss.type="button";dismiss.textContent="×";dismiss.setAttribute("aria-label","Dismiss this reminder");
+    dismiss.addEventListener("click",()=>{line.remove();if(!target.children.length)target.hidden=true});
+    line.append(copy,dismiss);target.appendChild(line);
+  }
+  target.hidden=!target.children.length;
+}
+async function refreshDeliveryReminders(){
+  if(!reporterToken||document.visibilityState==="hidden")return;
+  try{
+    const data=await request("/public/daily-reporting/access",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token:reporterToken})});
+    renderDeliveryReminders(data.deliveryReminders);
+  }catch{/* Keep private reports available even if reminder refresh fails. */}
+}
 async function initialize(){
   reporterToken=readToken();networkStatus();renderAttachments();
   if(reporterToken.length<32||reporterToken.length>128){setMessage("reporterPortalError","This reporting link is incomplete. Open the full private link sent by your manager.");return}
@@ -163,7 +189,7 @@ async function initialize(){
     const data=await request("/public/daily-reporting/access",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token:reporterToken})});
     byId("reporterEmployeeName").textContent=(data.employee?.name||"Employee")+(data.employee?.roleTitle?" · "+data.employee.roleTitle:"");
     byId("reporterLocationName").textContent=(data.location?.name||"Location")+(data.location?.town?" · "+data.location.town:"");
-    byId("reporterCompanyName").textContent=data.companyName||"Company";byId("reporterDate").value=data.reportDate||"";byId("reporterDailyForm").hidden=false;
+    byId("reporterCompanyName").textContent=data.companyName||"Company";byId("reporterDate").value=data.reportDate||"";byId("reporterDailyForm").hidden=false;renderDeliveryReminders(data.deliveryReminders);
   }catch(error){setMessage("reporterPortalError",errorMessage(error))}
 }
 async function submit(event){
@@ -175,6 +201,14 @@ async function submit(event){
     token:reporterToken,reportDate:byId("reporterDate").value,workSummary:byId("reporterWorkSummary").value,wins:byId("reporterWins").value,blockers:byId("reporterBlockers").value,incidents:byId("reporterIncidents").value,nextPlan:byId("reporterNextPlan").value,needsAttention:byId("reporterNeedsAttention").checked,
     kpis:{tasksCompleted:byId("reporterTasks").value,customersHandled:byId("reporterCustomers").value,revenueBwp:byId("reporterRevenue").value,incidentsCount:byId("reporterIncidentCount").value,customLabel:byId("reporterCustomLabel").value,customValue:byId("reporterCustomValue").value}
   };
+  const jobReference=byId("reporterJobReference").value.trim();
+  const jobType=byId("reporterJobType").value;
+  const scheduledDate=byId("reporterScheduledDate").value;
+  const jobStatus=byId("reporterJobStatus").value;
+  if(jobReference||jobType||scheduledDate||jobStatus!=="scheduled"){
+    if(!jobReference||!jobType||!scheduledDate){setMessage("reporterPortalError","For a delivery or installation, enter the job reference, work type and scheduled date.");return}
+    payload.kpis.jobReference=jobReference;payload.kpis.jobType=jobType;payload.kpis.scheduledDate=scheduledDate;payload.kpis.jobStatus=jobStatus;
+  }
   if(![payload.workSummary,payload.wins,payload.blockers,payload.incidents,payload.nextPlan].some(value=>String(value||"").trim())){setMessage("reporterPortalError","Add at least one report note before sending.");return}
   const hasAttachments=attachmentState.length>0;submitting=true;updateAttachmentControls();button.textContent="Sending report…";
   try{
@@ -202,6 +236,7 @@ async function submit(event){
       }
     }
     setMessage("reporterPortalSuccess",message);
+    refreshDeliveryReminders();
     window.dispatchEvent(new CustomEvent("thebe:daily-report-submitted",{detail:{reportDate:payload.reportDate,reportId:data.reportId||data.id||null,attachmentsStored}}));
     window.scrollTo({top:0,behavior:"smooth"});
   }catch(err){setMessage("reporterPortalError",errorMessage(err))}
@@ -212,5 +247,5 @@ function bindAttachments(){
   byId("reportFileInput")?.addEventListener("change",async event=>{const input=event.currentTarget;await addFiles(input.files,"file");input.value=""});
 }
 window.addEventListener("online",networkStatus);window.addEventListener("offline",networkStatus);window.addEventListener("pagehide",event=>{if(!event.persisted)attachmentState.forEach(revokeItem)});
-document.addEventListener("DOMContentLoaded",()=>{byId("reporterDailyForm")?.addEventListener("submit",submit);bindAttachments();initialize()});
+document.addEventListener("DOMContentLoaded",()=>{byId("reporterDailyForm")?.addEventListener("submit",submit);bindAttachments();initialize();setInterval(refreshDeliveryReminders,60*60*1000);document.addEventListener("visibilitychange",()=>{if(!document.hidden)refreshDeliveryReminders()})});
 })();
