@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {requireVersionOnlyContext,checkVersionInventory,verifyStableDeployment,
  assertInertVersionBindings,assertVersionOnlyResult,minimalWranglerEnvironment,
@@ -132,4 +133,13 @@ test('mutable latest settings do not make active v2 eligible for source upload',
   createVersionAuthorized:false,deploymentAuthorized:false};
  assert.throws(()=>assertDeployedCredentialSafetyForSourceUpload(observedActiveV2),
   /active_deployed_credential_safety_not_verified/);
+});
+
+test('offline PR checks cannot consume protected source-version write concurrency slots',()=>{
+ const yaml=readFileSync(new URL('../.github/workflows/corporate-assets-protected-source-version-upload.yml',import.meta.url),'utf8');
+ assert.ok(yaml.includes("github.event_name == 'workflow_dispatch' && 'corporate-assets-protected-source-version-creation'"));
+ assert.ok(yaml.includes("format('corporate-assets-source-upload-pr-{0}', github.event.pull_request.number)"));
+ assert.ok(yaml.includes('cancel-in-progress: false'));
+ assert.ok(yaml.includes('environment: corporate-assets-staging-protected'));
+ assert.ok(yaml.includes("inputs.authorization == 'CREATE_ISOLATED_ASSETS_SOURCE_VERSION'"));
 });
