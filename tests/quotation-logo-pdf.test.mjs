@@ -29,13 +29,13 @@ test("PNG placement renders on both pages of approved blank template",async()=>{
  const auth={assertCompanyReader:async()=>true,assertCompanyEditor:async()=>true};
  const settings={companyId:"a",logoAssetId:"l1",layout:{xPercent:4,yPercent:2,widthPercent:34}};
  const store={
-  readPrivateAsset:async()=>({bytes:b,mimeType:"image/png",aspectRatio:2}),
+  readPrivateAsset:async()=>({bytes:b,mimeType:"image/png",width:200,height:100,aspectRatio:2}),
   getCompanyLogoSettings:async()=>settings,writePrivateAsset:async()=>({logoAssetId:"l1"}),upsertCompanyLogoSettings:async()=>{}
  };
  const calls=[];const pdf={
   getPages:()=>[{getSize:()=>({width:612.24,height:858.96}),drawImage:(_,r)=>calls.push(r)},
    {getSize:()=>({width:841.92,height:1190.64}),drawImage:(_,r)=>calls.push(r)}],
-  embedPng:async()=>({}),save:async()=>Uint8Array.from([37,80,68,70])
+  embedPng:async()=>({width:200,height:100}),save:async()=>Uint8Array.from([37,80,68,70])
  };
  const result=await renderCompanyQuotationLogoPdf({actor:{},companyId:"a",authorization:auth,store,
   templates:{getApprovedLogoFreeTemplate:async()=>({id:"lovely-clean-v1",logoFree:true,pageCount:2,pages:[{width:612.24,height:858.96,logoZone:{x:0,y:0,width:612.24,height:858.96}},{width:841.92,height:1190.64,logoZone:{x:0,y:0,width:252.576,height:300}}],bytes:Uint8Array.from([37,80,68,70])})},
@@ -51,7 +51,7 @@ test("PNG placement renders on both pages of approved blank template",async()=>{
 test("renderer refuses logo covering non-logo content zone",async()=>{
  const b=Uint8Array.from([137,80,78,71,13,10,26,10,0,0,0,0]);
  const auth={assertCompanyReader:async()=>true,assertCompanyEditor:async()=>true};
- const store={readPrivateAsset:async()=>({bytes:b,mimeType:"image/png",aspectRatio:2}),
+ const store={readPrivateAsset:async()=>({bytes:b,mimeType:"image/png",width:200,height:100,aspectRatio:2}),
   getCompanyLogoSettings:async()=>({companyId:"a",logoAssetId:"l1",layout:{xPercent:50,yPercent:50,widthPercent:34}}),
   writePrivateAsset:async()=>({}),upsertCompanyLogoSettings:async()=>{}};
  const pdf={getPages:()=>[{getSize:()=>({width:612.24,height:858.96}),drawImage:()=>{throw Error("must_not_draw")}},
