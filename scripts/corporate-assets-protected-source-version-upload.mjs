@@ -11,7 +11,7 @@ import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 import {inspectProtectedProvenance} from './corporate-assets-protected-provenance-preflight.mjs';
-import {inspectAssetStagingExposure} from './corporate-assets-v3-private-exposure-attestation.mjs';
+import {inspectAssetStagingExposure,assertOpaqueReadToken} from './corporate-assets-v3-private-exposure-attestation.mjs';
 import {runIndependentDryRuns} from './corporate-assets-compiled-reproducibility.mjs';
 import {renderCorporateAssetsStagingConfig} from './render-corporate-assets-staging-config.mjs';
 import {checkAssetStagingBindingMetadata} from './corporate-assets-staging-binding-preflight.mjs';
@@ -32,13 +32,16 @@ export function minimalWranglerEnvironment(token,processEnv={}){
  }
  return Object.freeze(e);
 }
-export function requireVersionOnlyContext({mode,authorization,repo,ref,sha,expectedSha,actor,githubReadToken,cloudflareToken}={}){
+export function requireVersionOnlyContext({mode,authorization,repo,ref,sha,expectedSha,actor,githubReadToken,cloudflareToken,cloudflareAccountReadToken}={}){
  if(mode!=='create-version-only'||authorization!=='CREATE_ISOLATED_ASSETS_SOURCE_VERSION')
   throw Error('independent_version_only_owner_authorization_required');
  if(repo!==REPO||ref!=='refs/heads/main'||!SHA.test(expectedSha||'')||sha!==expectedSha)
   throw Error('exact_current_main_required');
  if(!actor||actor.toLowerCase()==='thusico')throw Error('independent_reviewer_must_not_initiate');
- if(!githubReadToken||!cloudflareToken)throw Error('dedicated_protected_credentials_required');
+ if(!githubReadToken||!cloudflareToken||!cloudflareAccountReadToken)throw Error('dedicated_protected_credentials_required');
+ // The account-wide inventory uses a separate least-privilege credential.
+ // Validate format before any protected API request or write attempt.
+ assertOpaqueReadToken(cloudflareAccountReadToken,'account_inventory');
  return true;
 }
 export function checkVersionInventory(response,{newVersion=false,priorIds=[]}={}){
@@ -149,18 +152,19 @@ function uploadWithWrangler(expectedSha,token){
 export async function createProtectedVersionOnly({
  expectedSha=process.env.EXPECTED_MAIN_SHA,
  githubReadToken=process.env.ASSETS_STAGING_GITHUB_READ_TOKEN,
- cloudflareToken=process.env.ASSETS_STAGING_CLOUDFLARE_TOKEN}={}){
+ cloudflareToken=process.env.ASSETS_STAGING_CLOUDFLARE_TOKEN,
+ cloudflareAccountReadToken=process.env.ASSETS_STAGING_CLOUDFLARE_ACCOUNT_READ_TOKEN}={}){
  requireVersionOnlyContext({mode:process.env.ASSETS_SOURCE_VERSION_MODE,
   authorization:process.env.ASSETS_SOURCE_VERSION_AUTHORIZATION,
   repo:process.env.GITHUB_REPOSITORY,ref:process.env.GITHUB_REF,
   sha:process.env.GITHUB_SHA,expectedSha,actor:process.env.GITHUB_ACTOR,
-  githubReadToken,cloudflareToken});
+  githubReadToken,cloudflareToken,cloudflareAccountReadToken});
  const context={expectedSha,repository:REPO,ref:'refs/heads/main',githubSha:expectedSha,
   githubToken:githubReadToken,cloudflareToken};
  const preflight=await inspectProtectedProvenance(context);
  if(preflight.mainSha!==expectedSha||preflight.exactSourceUploadVerified!==false)
   throw Error('protected_provenance_failed');
- const exposureBefore=await inspectAssetStagingExposure({token:cloudflareToken});
+ const exposureBefore=await inspectAssetStagingExposure({token:cloudflareToken,accountToken:cloudflareAccountReadToken});
  if(!exposureBefore.privateExposureVerified)throw Error('private_exposure_required');
  const beforeInventory=await getInventory(cloudflareToken);
  const beforeIds=checkVersionInventory(beforeInventory);
@@ -184,7 +188,7 @@ export async function createProtectedVersionOnly({
  const newId=checkVersionInventory(afterInventory,{newVersion:true,priorIds:beforeIds});
  const [version,afterDeployments,exposureAfter]=await Promise.all([
   cfGet(prefix+'/versions/'+newId,cloudflareToken),getDeployments(cloudflareToken),
-  inspectAssetStagingExposure({token:cloudflareToken})]);
+  inspectAssetStagingExposure({token:cloudflareToken,accountToken:cloudflareAccountReadToken})]);
  return assertVersionOnlyResult({beforeIds,afterIds:afterInventory,beforeDeployments,
   afterDeployments,newVersion:version.result,expectedSha,
   exposureBefore,exposureAfter,reproducibility});

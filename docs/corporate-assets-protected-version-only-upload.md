@@ -4,6 +4,30 @@
 
 This is a *write-capable workflow*, but this PR does not execute it. Manual `workflow_dispatch` must run from the exact live `main` commit with `mode=create-version-only` and `authorization=CREATE_ISOLATED_ASSETS_SOURCE_VERSION`. The dedicated `corporate-assets-staging-protected` environment requires independent `thusico` approval, prevents self-review and is main-only. The previous read-only approval **does not authorize this write**. A PR or default preflight dispatch cannot upload.
 
+## Required protected credentials and current blocker
+
+The version-only workflow requires three **separate existing** GitHub environment
+secrets: `ASSETS_STAGING_GITHUB_READ_TOKEN`,
+`ASSETS_STAGING_CLOUDFLARE_TOKEN`, and
+`ASSETS_STAGING_CLOUDFLARE_ACCOUNT_READ_TOKEN`.
+The account-wide Worker domains and zone inventory must use the dedicated
+account-read token, and the Worker route inventory must remain read-only.
+Missing or malformed account-read credentials fail before any source upload.
+
+**The current active staging Worker is NOT ready for a version-only upload.**
+The protected read-only run #43697633873 on 2026-11-15 failed with
+`active_version_credential_safety_not_verified`: active version
+`5497120e-4ae6-4665-b96f-4b040d32a249` retains `plain_text`
+binding types for `SESSION_SECRET` and `AUDIT_INTEGRITY_SECRET`.
+The existing version-only upload code intentionally checks the current Worker
+settings for `secret_text` and must refuse the write until independently
+qualified credential remediation is authorized and verified. Do not bypass
+this gate or treat a dormant older version as an eligible replacement.
+
+This change ONLY fixes which credential the independent private-exposure
+inspection receives. It does **not** execute the workflow, change Worker
+settings, roll or access secret values, or authorize deployment.
+
 ## Exact steps in the protected job
 
 1. Verify protected GitHub policy and exact live current main SHA; inspect existing historical v3 and full account-wide zone/Worker private exposure inventory via GET.
