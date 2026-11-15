@@ -50,6 +50,10 @@ jobs:
       EXPECTED_SHA: ${{ inputs.expected_main_sha }}
       AUDIT_TOKEN: ${{ secrets.WORKSPACE_AGENT_STAGING_READONLY_CLOUDFLARE_TOKEN }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
       - name: Read-only isolated inventory with redacted check names
         run: |
           set -euo pipefail
@@ -79,6 +83,7 @@ jobs:
             fi
           }
           tmp="$(mktemp -d)"
+          export WORKSPACE_AUDIT_TEMP="$tmp"
           trap 'rm -rf "$tmp"' EXIT
           # Private account must have no associated zones/ingress. Enforce complete listing.
           if ! curl --fail --silent --show-error --max-time 30 \
@@ -92,9 +97,42 @@ jobs:
           check isolated_worker_only "$tmp/scripts" '.success == true and ([.result[].id] == ["bw-workspace-agent-staging"])'
           fetch "workers/scripts/$worker/deployments" "$tmp/deployments"
           check pinned_inert_100pct "$tmp/deployments" '.success == true and (.result.deployments[0].versions | length == 1 and .[0].version_id == "64d9bae9-2ea3-40c1-9a26-83cea97ad71c" and .[0].percentage == 100)'
+          # The script-level settings endpoint may describe a newer uploaded version
+          # rather than the pinned Worker actually receiving traffic. Check BOTH.
           fetch "workers/scripts/$worker/settings" "$tmp/settings"
-          check plain_text_only_no_resource_bindings "$tmp/settings" '.success == true and (.result.bindings | type == "array" and length == 8 and all(.[]; .type == "plain_text"))'
-          check advisory_shell_disabled "$tmp/settings" '.success == true and ([.result.bindings[] | select(.name == "WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED") | .text] == ["false"])'
+          fetch "workers/workers/$worker/versions/$inert" "$tmp/effective"
+          fetch "workers/workers/$worker/versions/latest" "$tmp/latest"
+          if node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import {qualifyInertSurfaces} from './scripts/workspace-agent-effective-inert-readiness.mjs';
+          const path=process.env.WORKSPACE_AUDIT_TEMP;
+          let r;
+          try {
+            const read=name=>JSON.parse(readFileSync(path+'/'+name,'utf8'));
+            r=qualifyInertSurfaces({
+              pinned:read('effective'),service:read('settings'),
+              latest:read('latest'),deployments:read('deployments')
+            });
+          } catch {
+            console.error('::error::Inert Worker API metadata unreadable');
+            process.exit(1);
+          }
+          if(r.runtimeSafetyQualified) console.log('PASS effective_deployed_inert_bindings_and_advisory_disabled');
+          else console.error('::error::FAIL effective_deployed_inert_bindings_and_advisory_disabled');
+          if(r.serviceMatchesPinned) console.log('PASS service_settings_match_pinned_inert');
+          else console.error('::error::FAIL service_settings_match_pinned_inert');
+          if(r.latestMatchesPinned) console.log('PASS latest_upload_matches_deployed_inert');
+          else console.error('::error::FAIL latest_upload_matches_deployed_inert');
+          if(!r.fullStagingQualified) {
+            console.log('BLOCK full_staging_qualification_requires_settings_reconciliation');
+            process.exit(1);
+          }
+          NODE
+          then
+            echo "PASS full_staging_settings_qualification"
+          else
+            fail=1
+          fi
           fetch "workers/scripts/$worker/subdomain" "$tmp/subdomain"
           check workers_dev_and_previews_disabled "$tmp/subdomain" '.success == true and .result.enabled == false and .result.previews_enabled == false'
           fetch "workers/scripts/$worker/schedules" "$tmp/schedules"

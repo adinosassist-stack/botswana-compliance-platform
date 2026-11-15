@@ -1,5 +1,7 @@
 # Workspace Agent — protected configuration remediation
 
+> **Superseding protected findings (15 November 2026):** The remediation plan below was written before the version-specific inspection. Protected [run #43775078243](https://github.com/adinosassist-stack/botswana-compliance-platform/actions/runs/43775078243) confirmed the **100%-deployed pinned inert version** has 8 bindings, no `SESSION_SECRET`, no D1 `DB` binding, and `WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED=false`. The script-level settings endpoint returned 11 bindings, including `SESSION_SECRET`, `DB`, and advisory flag `true`. Protected [run #43772625760](https://github.com/adinosassist-stack/botswana-compliance-platform/actions/runs/43772625760) separately confirmed the latest uploaded version differs from deployed pinned inert. Therefore the previous assumption that the *deployed* Worker needs a D1/flag correction is **superseded**. Do not PATCH or redeploy the pinned inert version to fix the script-level discrepancy. Keep the full staging qualification **blocked** until the divergent script-level settings / stranded upload are reconciled under a separately reviewed version-aware plan. Never infer `SESSION_SECRET` is attached to the pinned version from the settings page. No Cloudflare writes are authorized by this note.
+
 ## Evidence and scope
 
 Protected run [43766828535](https://github.com/adinosassist-stack/botswana-compliance-platform/actions/runs/43766828535) on exact main `b476e6cdbf9f5a3a48a2fc69efb9c395c84679a3` passed:
