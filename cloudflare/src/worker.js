@@ -14,7 +14,7 @@ import {inspectFoundationSourceMetadata,publicFoundationSourcePreflight,updateUn
 import {inspectActiveLegacyVatRules,publicActiveLegacyVatRules,isLegacyVat25DayDefinition} from "./regulatory-foundation-legacy-vat.js";
 import {handleEmployeeWorkflowRequest} from "./employee-workflow-api.js";
 import {handleStaffPublic,handleStaffManager} from "./employee-self-service.js";
-import {scheduleEntriesFromInput,dueDeliveryReminders} from "./delivery-installation-reminders.js";
+import {scheduleEntriesFromInput,parseReportSchedules,dueDeliveryReminders} from "./delivery-installation-reminders.js";
 import {handleEmployeeProposalReviewRequest} from "./employee-proposal-review-api.js";
 import {purgeDailyReportAttachments} from "./report-attachments-entry.js";
 import {handleFinanceRequest,financeSummary} from "./finance-core.js";
@@ -5546,7 +5546,10 @@ export default {
       const access=await reporterAccessFromToken(env,token);
       if(!access)return json({error:"reporting_link_invalid_or_expired"},404,PASSPORT_PUBLIC_HEADERS);
       const reportEnt=await entitlement(env,access.tenant_id,"operating_locations");if(!reportEnt.enabled)return json({error:"daily_reporting_not_in_active_plan"},402,PASSPORT_PUBLIC_HEADERS);
-      return json({employee:{name:access.full_name,roleTitle:access.role_title||""},location:{id:access.location_id,name:access.location_name,code:access.location_code||"",town:access.town||""},companyName:access.company_name,reportDate:gaboroneDate(),expiresAt:access.expires_at,deliveryReminders:await dueDeliveryReminders(env,{tenantId:access.tenant_id,employeeId:access.employee_id,locationId:access.location_id,today:gaboroneDate()})},200,PASSPORT_PUBLIC_HEADERS);
+      const reportingToday=gaboroneDate();
+      const ownToday=await env.DB.prepare("SELECT kpi_json FROM daily_employee_reports WHERE tenant_id=? AND employee_id=? AND location_id=? AND report_date=? LIMIT 1")
+        .bind(access.tenant_id,access.employee_id,access.location_id,reportingToday).first();
+      return json({employee:{name:access.full_name,roleTitle:access.role_title||""},location:{id:access.location_id,name:access.location_name,code:access.location_code||"",town:access.town||""},companyName:access.company_name,reportDate:reportingToday,expiresAt:access.expires_at,currentReportJobs:parseReportSchedules(ownToday?.kpi_json),deliveryReminders:await dueDeliveryReminders(env,{tenantId:access.tenant_id,employeeId:access.employee_id,locationId:access.location_id,today:reportingToday})},200,PASSPORT_PUBLIC_HEADERS);
     }
     if(url.pathname==="/public/daily-reporting/submit"&&req.method==="POST"){
       if(!requestOriginAllowed(req,env))return json({error:"origin_failed"},403,PASSPORT_PUBLIC_HEADERS);
