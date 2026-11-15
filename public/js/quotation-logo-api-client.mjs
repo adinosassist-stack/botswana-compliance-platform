@@ -45,6 +45,22 @@ export function createQuotationLogoHttpClient({fetchImpl,csrfToken,enabled=false
    if(typeof result.logoAssetId!=="string"||!result.logoAssetId)deny("invalid_logo_upload_response");
    return {logoAssetId:result.logoAssetId,aspectRatio:result.aspectRatio};
   },
+  async previewPdf(){
+   // PDF preview is deliberately read-only: never issues a customer quotation.
+   const result=await fetchImpl(endpoint+"/pdf-preview",{method:"GET",
+    credentials:"same-origin",cache:"no-store",redirect:"error"});
+   if(!result.ok)deny("quotation_pdf_preview_unavailable");
+   const mime=(result.headers.get("content-type")||"").split(";")[0].trim().toLowerCase();
+   if(mime!=="application/pdf")deny("invalid_quotation_pdf_type");
+   // Bound size before allocating if the server supplied a content length.
+   const declared=Number(result.headers.get("content-length")||0);
+   if(declared>10*1024*1024)deny("quotation_pdf_preview_too_large");
+   const bytes=new Uint8Array(await result.arrayBuffer());
+   if(bytes.length<5||bytes.length>10*1024*1024||
+      bytes[0]!==37||bytes[1]!==80||bytes[2]!==68||bytes[3]!==70||bytes[4]!==45)
+    deny("invalid_quotation_pdf_payload");
+   return new Blob([bytes],{type:"application/pdf"});
+  },
   async save(settings){
    if(!settings||!settings.logoAssetId||!settings.layout)deny("invalid_logo_settings");
    await api(endpoint,{method:"PUT",headers:{"content-type":"application/json","x-csrf-token":csrfToken},
@@ -69,6 +85,7 @@ export async function mountCompanyQuotationLogoEditor(root,{companyId,capability
   initialLayout:current.settings?.layout,
   initialLogoBlob:savedLogoBlob,initialAspectRatio:verifiedAspectRatio,
   onUpload:async file=>{const uploaded=await api.upload(file);verifiedAspectRatio=uploaded.aspectRatio;return uploaded},
+  onPreviewPdf:()=>api.previewPdf(),
   onSave:async settings=>{
    if(!Number.isFinite(verifiedAspectRatio)||verifiedAspectRatio<=0)deny('logo_aspect_ratio_unavailable');
    return api.save({...settings,aspectRatio:verifiedAspectRatio});
