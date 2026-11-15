@@ -36,3 +36,11 @@ test("editor supports authenticated image reload and disables save during active
  assert.match(source,/saving=true/);
  assert.match(source,/finally\{saving=false;paint\(\)\}/);
 });
+
+test("PDF preview is explicitly user initiated and disabled for unsaved changes",()=>{
+ assert.match(source,/Download PDF preview/);
+ assert.match(source,/previewPdf\.disabled=dirty\|\|saving\|\|previewing/);
+ assert.match(source,/previewPdf\.addEventListener\('click'/);
+ assert.match(source,/typeof options\.onPreviewPdf/);
+ assert.match(source,/quotation-logo-preview\.pdf/);
+});
