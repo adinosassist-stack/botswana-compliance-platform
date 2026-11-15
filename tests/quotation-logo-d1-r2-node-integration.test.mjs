@@ -55,7 +55,7 @@ function emulator({failInsert=false}={}){
  }};
  const bucket={
   async put(key,bytes){objects.set(key,bytes.slice());events.push("put");return {key}},
-  async get(key){events.push("get");const bytes=objects.get(key);return bytes?{arrayBuffer:async()=>bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.length)}:null},
+  async get(key){events.push("get");const bytes=objects.get(key);return bytes?{size:bytes.byteLength,arrayBuffer:async()=>bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.length)}:null},
   async delete(key){events.push("delete");objects.delete(key)}
  };
  return {db,bucket,assets,settings,objects,events};
