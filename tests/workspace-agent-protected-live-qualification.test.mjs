@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import test from 'node:test';
-import {requireGate,verifyBaseline,assertReceipt,INERT_VERSION,DB,TARGET,PHRASE} from '../scripts/workspace-agent-protected-live-qualification.mjs';
+import {requireGate,verifyBaseline,assertReceipt,completeZoneRoutes,wranglerArgs,INERT_VERSION,DB,TARGET,PHRASE} from '../scripts/workspace-agent-protected-live-qualification.mjs';
 const path=new URL('../.github/workflows/workspace-agent-protected-live-qualification.yml',import.meta.url);
 const yaml=readFileSync(path,'utf8');
 function baseline(){return {targetDeployment:{versions:[{version_id:INERT_VERSION,percentage:100}]},
@@ -55,4 +55,31 @@ test('receipt requires all seven exact authorization results and cleanup',()=>{
    assert.throws(()=>assertReceipt({...good,[key]:false}));
  assert.throws(()=>assertReceipt({...good,results:good.results.slice(1)}));
  assert.throws(()=>assertReceipt({...good,results:good.results.map((r,i)=>i? r : {...r,status:403})}));
+});
+
+test('Wrangler invocation uses an actual resolved executable and version-only upload',()=>{
+  const argv=wranglerArgs('/tmp/synthetic-caller.json','/tmp/synthetic-secrets.json');
+  assert.ok(argv.every(a=>typeof a==='string' && a.length>0));
+  assert.match(argv[0],/node_modules[\\/]wrangler[\\/]bin[\\/]wrangler\\.js$/);
+  assert.deepEqual(argv.slice(1,3),['versions','upload']);
+  assert.ok(argv.includes('--strict'));
+  assert.deepEqual(argv.slice(argv.indexOf('--config'),argv.indexOf('--config')+2),
+    ['--config','/tmp/synthetic-caller.json']);
+  assert.deepEqual(argv.slice(argv.indexOf('--secrets-file'),argv.indexOf('--secrets-file')+2),
+    ['--secrets-file','/tmp/synthetic-secrets.json']);
+  assert.ok(!argv.includes('deploy'));
+});
+test('route inventory is unpaginated or provably complete, with strict shape',()=>{
+  const route={id:'r123',pattern:'thebedesk.com/*',script:'unrelated-worker'};
+  assert.deepEqual(completeZoneRoutes({success:true,result:[route]}),[route]);
+  assert.deepEqual(completeZoneRoutes({success:true,result:[],result_info:{page:1,total_pages:1,total_count:0,count:0}}),[]);
+  for(const bad of [
+    {success:true,result:[],result_info:{page:1,total_pages:2,count:0,total_count:1}},
+    {success:true,result:[],result_info:{page:1,count:0,total_count:1}},
+    {success:true,result:[],result_info:null},
+    {success:true,result:[{}]},
+    {success:true,result:[route,route]},
+    {success:true,result:[{...route,script:42}]},
+    {success:true,result:null},
+  ]) assert.throws(()=>completeZoneRoutes(bad),/zone_routes_(invalid|incomplete)/);
 });
