@@ -59,3 +59,22 @@ test("oversized settings payload and malformed JSON return structured errors",as
  assert.equal(broken.status,400);
  assert.equal((await broken.json()).error,"invalid_logo_settings");
 });
+
+test("saved image read is private and scoped to authenticated company",async()=>{
+ const imageStore={...store,
+  getCompanyLogoSettings:async()=>({companyId,logoAssetId:"asset1",
+   layout:{xPercent:4,yPercent:2,widthPercent:34}})};
+ const result=await call("/api/quotation/logo/image",{method:"GET"},{store:imageStore});
+ assert.equal(result.status,200);
+ assert.equal(result.headers.get("content-type"),"image/png");
+ assert.equal(result.headers.get("cache-control"),"private, no-store");
+ assert.equal(result.headers.get("x-content-type-options"),"nosniff");
+ assert.deepEqual(new Uint8Array(await result.arrayBuffer()),asset.bytes);
+ const denied=await call("/api/quotation/logo/image",{method:"GET"},{store:imageStore,
+  authorization:{...authorization,assertCompanyReader:async()=>false}});
+ assert.equal(denied.status,403);
+ const other=await call("/api/quotation/logo/image",{method:"GET"},{store:{
+  ...imageStore,getCompanyLogoSettings:async()=>({companyId:"other",logoAssetId:"asset1",
+   layout:{xPercent:4,yPercent:2,widthPercent:34}})}});
+ assert.equal(other.status,500);
+});
