@@ -29,7 +29,7 @@ test("wraps a long invoice description over two lines without losing any charact
   ...draft(),items:[{description,quantity:2,unitPriceCents:125050}]
  }});
  assert.equal(out.grandTotalCents,240050);
- const rowTexts=written.filter(v=>v.y===858.96-337||v.y===858.96-348);
+ const rowTexts=written.filter(v=>(v.y===858.96-337||v.y===858.96-348)&&v.x===42);
  assert.deepEqual(rowTexts.map(v=>v.v),lines);
  assert.ok(written.some(v=>v.v==="P2,401.00"));
 });
@@ -50,7 +50,7 @@ test("customer name that cannot fit is rejected rather than silently truncated",
 test("description that cannot fit two rows fails instead of shortening contract details",async()=>{
  const {pdf,pdfLib}=harness(1.3);
  await assert.rejects(drawLovelyQuotationDraft({pdf,pdfLib,draft:{
-  ...draft(),items:[{description:"W".repeat(60),quantity:1,unitPriceCents:100}]
+  ...draft(),discountCents:0,items:[{description:"W".repeat(60),quantity:1,unitPriceCents:100}]
  }}),/quotation_draft_field_overflow/);
 });
 test("unused banking fields cannot be silently ignored on a PDF preview",async()=>{
