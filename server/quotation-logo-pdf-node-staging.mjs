@@ -19,6 +19,7 @@ export function createNodeStagingQuotationPdfPreviewHandler({
 }={}){
  if(typeof authorization?.assertCompanyReader!=="function"||
     typeof authorization?.assertCompanyEditor!=="function"||
+    typeof verifyMutation!=="function"||
     typeof pdfLib?.PDFDocument?.load!=="function"||
     !db?.prepare||!privateLogoBucket?.get||!privateLogoBucket?.put||
     !privateTemplateBucket?.get||!approvedTemplates||typeof approvedTemplates!=="object")
@@ -28,8 +29,8 @@ export function createNodeStagingQuotationPdfPreviewHandler({
   registry:approvedTemplates,privateStore:privateTemplateBucket
  });
  return async function previewRequest({request,actor,companyId}={}){
-  // Separate POST-only, CSRF-guarded non-issuing draft preview. Without a
-  // verifier this endpoint denies requests, while legacy GET remains intact.
+  // Separate POST-only, CSRF-guarded non-issuing draft preview.
+  // Startup refuses to serve either preview when no CSRF verifier is configured.
   if(request instanceof Request&&
      new URL(request.url).pathname==="/api/quotation/draft/pdf-preview")
    return handleQuotationDraftPdfPreview({request,actor,companyId,
