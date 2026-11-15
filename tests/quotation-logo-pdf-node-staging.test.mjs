@@ -59,7 +59,8 @@ function harness({tamper=false}={}){
   })),embedPng:async()=>({}),save:async()=>pdf};
  }}};
  const preview=createNodeStagingQuotationPdfPreviewHandler({
-  db,privateLogoBucket,privateTemplateBucket,approvedTemplates,authorization,pdfLib
+  db,privateLogoBucket,privateTemplateBucket,approvedTemplates,authorization,pdfLib,
+  verifyMutation:async()=>true
  });
  const request=(companyId=COMPANY,a=actor)=>preview({
   actor:a,companyId,
@@ -98,4 +99,13 @@ test("missing PDF engine, templates or D1/R2 bindings fails closed at startup",(
  ];
  for(const args of bads)assert.throws(
   ()=>createNodeStagingQuotationPdfPreviewHandler(args),/staging_unconfigured/);
+});
+
+test("PDF staging composition requires a trusted mutation verifier at startup",()=>{
+ assert.throws(()=>createNodeStagingQuotationPdfPreviewHandler({
+  db:{prepare(){}},privateLogoBucket:{get(){},put(){}},
+  privateTemplateBucket:{get(){}},approvedTemplates:{},
+  authorization:{assertCompanyReader(){},assertCompanyEditor(){}},
+  pdfLib:{PDFDocument:{load(){}}}
+ }),/quotation_pdf_staging_unconfigured/);
 });
