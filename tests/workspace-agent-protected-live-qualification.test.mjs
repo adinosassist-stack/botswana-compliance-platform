@@ -90,7 +90,7 @@ test('Cloudflare route inventory calls global zone endpoint, while Worker and D1
     `https://api.cloudflare.com/client/v4/zones/${zoneId}/workers/routes`);
   assert.equal(cloudflareApiUrl('/workers/scripts/bw-workspace-agent-staging/settings'),
     `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/workers/scripts/bw-workspace-agent-staging/settings`);
-  assert.equal(cloudflareApiUrl('/d1/database/fb0c7c32-6e0a-42cf-89c3-971529e583db'),
-    `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/d1/database/fb0c7c32-6e0a-42cf-89c3-971529e583db`);
+  assert.equal(cloudflareApiUrl('/d1/database/fa317ccc-683d-4466-9e3a-e296872d58ba'),
+    `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/d1/database/fa317ccc-683d-4466-9e3a-e296872d58ba`);
   assert.throws(()=>cloudflareApiUrl('https://example.invalid'),/invalid_cloudflare_api_path/);
 });
