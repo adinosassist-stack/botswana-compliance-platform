@@ -64,6 +64,25 @@ const complete=(data,code)=>{
     (p.total_count!==undefined&&p.total_count!==n))error(code+'_incomplete');
  return data.result;
 };
+// GET /zones/{zone_id}/workers/routes has no pagination parameters and its
+// documented success envelope returns the complete route array without
+// result_info. Do not weaken the pagination proof for /workers/domains or
+// /zones: those collection endpoints MUST still supply complete result_info.
+// If route pagination ever appears, accept only a provably complete page.
+const completeRoutes=(payload)=>{
+ const routes=Object.hasOwn(payload,'result_info')?complete(payload,'zone_routes'):payload?.result;
+ if(!Array.isArray(routes))error('zone_routes_invalid');
+ const seen=new Set();
+ for(const route of routes){
+  if(!route||typeof route!=='object'||Array.isArray(route)||
+     typeof route.id!=='string'||!route.id.trim()||
+     typeof route.pattern!=='string'||!route.pattern.trim()||
+     (route.script!==undefined&&route.script!==null&&typeof route.script!=='string')||
+     seen.has(route.id))error('zone_routes_invalid');
+  seen.add(route.id);
+ }
+ return routes;
+};
 export function checkAssetStagingExposure({subdomain,domains,zones,zoneRoutes}={}){
  const errors=[];
  if(subdomain?.enabled!==false||subdomain?.previews_enabled!==false)errors.push('worker_subdomain_or_preview_enabled');
@@ -107,7 +126,7 @@ export async function inspectAssetStagingExposure({token,accountToken,request=fe
  const zoneRoutes=await Promise.all(EXPECTED_ZONES.map(async zone=>{
   const payload=await get('/zones/'+zone+'/workers/routes','zone_worker_routes');
   if(!Array.isArray(payload.result))error('zone_routes_invalid');
-  return {zone,routes:complete(payload,'zone_routes')};
+  return {zone,routes:completeRoutes(payload)};
  }));
  return checkAssetStagingExposure({subdomain:sub,domains,zones,zoneRoutes});
 }
