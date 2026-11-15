@@ -27,7 +27,7 @@ function setup(){
   readPrivateAsset:async({companyId:id,logoAssetId})=>{
    calls.reader++;
    return id===companyId&&logoAssetId==="logoA"?{
-    bytes:logo,mimeType:"image/png",aspectRatio:32/24
+    bytes:logo,mimeType:"image/png",width:32,height:24,aspectRatio:32/24
    }:null;
   }
  };
@@ -40,7 +40,7 @@ function setup(){
   rgb:(r,g,b)=>({r,g,b}),
   PDFDocument:{load:async()=>{calls.load++;return {
    getPages:()=>pages,
-   embedPng:async()=>({}),embedJpg:async()=>({}),
+   embedPng:async()=>({width:32,height:24}),embedJpg:async()=>({width:32,height:24}),
    embedFont:async()=>({widthOfTextAtSize:(s,size)=>s.length*size*.45}),
    save:async()=>new Uint8Array(Buffer.from("%PDF-1.7\nSYNTHETIC PREVIEW"))
   }}}
