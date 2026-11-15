@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
  summarizeQuotationStagingInventory,inspectQuotationCloudflareResources
 } from "../scripts/quotation-staging-resource-inventory.mjs";
-const accountId="ddd23cab-3192-4a4b-8b3d-4998df9b26d1";
+const accountId="ddd23cab31928a4bb3d4998df9b26d1d";
 const productionD1Id="8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce";
 const stageId="11111111-2222-4333-8444-555555555555";
 const sha="f".repeat(40);
