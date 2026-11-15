@@ -41,3 +41,21 @@ test("no access with missing authenticated actor",async()=>{
  const response=await call("/api/quotation/logo",{method:"GET"},{actor:null});
  assert.equal(response.status,403);
 });
+
+test("oversized streaming upload rejected before image processor receives bytes",async()=>{
+ let processed=false;
+ const huge=new Uint8Array(2*1024*1024+10);
+ huge.set(asset.bytes);
+ const reply=await call("/api/quotation/logo/upload",{method:"POST",headers:{"content-type":"image/png"},body:huge},{
+  decodeAndSanitizeLogo:async()=>{processed=true;throw Error("should_not_process")}
+ });
+ assert.equal(reply.status,413);
+ assert.equal(processed,false);
+});
+test("oversized settings payload and malformed JSON return structured errors",async()=>{
+ const huge=await call("/api/quotation/logo",{method:"PUT",headers:{"content-type":"application/json"},body:"x".repeat(5000)});
+ assert.equal(huge.status,413);
+ const broken=await call("/api/quotation/logo",{method:"PUT",headers:{"content-type":"application/json"},body:'{"logoAssetId":'});
+ assert.equal(broken.status,400);
+ assert.equal((await broken.json()).error,"invalid_logo_settings");
+});
