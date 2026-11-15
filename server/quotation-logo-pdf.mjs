@@ -9,6 +9,14 @@ import {quotationLogoPageRect,inspectLogoSignature} from "../public/js/quotation
 
 const deny=code=>{throw new Error(code)};
 const bytes=v=>v instanceof Uint8Array?v:null;
+function withinReservedZone(pdfRect,pageHeight,zone) {
+ if(!zone||![zone.x,zone.y,zone.width,zone.height].every(Number.isFinite))return false;
+ const topY=pageHeight-pdfRect.y-pdfRect.height;
+ return pdfRect.x>=zone.x-0.001&&topY>=zone.y-0.001&&
+  pdfRect.x+pdfRect.width<=zone.x+zone.width+0.001&&
+  topY+pdfRect.height<=zone.y+zone.height+0.001;
+}
+
 export function quotationLogoPdfPlacement({layout,aspectRatio,pageWidth,pageHeight}={}) {
  const p=quotationLogoPageRect(layout,pageWidth,pageHeight,aspectRatio);
  if(![p.x,p.y,p.width,p.height].every(Number.isFinite)||p.width<=0||p.height<=0||
@@ -36,6 +44,7 @@ export async function renderCompanyQuotationLogoPdf({
  if(!state)deny("company_logo_not_configured");
  const template=await templates.getApprovedLogoFreeTemplate({companyId});
  if(template?.logoFree!==true||template?.pageCount!==2||!bytes(template.bytes)||
+    !Array.isArray(template.pages)||template.pages.length!==2||
     !template.id||typeof template.id!=="string")deny("unapproved_logo_pdf_template");
  const asset=await store.readPrivateAsset({companyId,logoAssetId:state.settings.logoAssetId});
  if(!asset||!bytes(asset.bytes))deny("company_logo_not_found");
@@ -65,8 +74,14 @@ export async function renderCompanyQuotationLogoPdf({
  });
  // Fixed reserved zone for the two-page Lovely reference: up to 30% width.
  // Template approval must verify the area is blank before this code runs.
- if(termsRect.x+termsRect.width>termsSize.width*0.30+0.001)
-  deny("terms_logo_overlaps_heading_zone");
+ if(!withinReservedZone(rect,height,template.pages[0].logoZone)||
+    !withinReservedZone(termsRect,termsSize.height,template.pages[1].logoZone))
+   deny("logo_outside_approved_template_zone");
+ for(const [i,size] of [{width,height},termsSize].entries()){
+  if(Math.abs(template.pages[i].width-size.width)>0.1||
+     Math.abs(template.pages[i].height-size.height)>0.1)
+   deny("quotation_template_page_size_mismatch");
+ }
  const image=asset.mimeType==="image/png"?
   await pdf.embedPng(asset.bytes):await pdf.embedJpg(asset.bytes);
  page.drawImage(image,rect);
