@@ -1,0 +1,111 @@
+name: Workspace Agent stranded-version retirement eligibility (read only)
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Exact current main SHA (40 lowercase hex characters)
+        required: true
+        type: string
+permissions: {}
+concurrency:
+  group: workspace-agent-stranded-version-retirement-readonly
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+    steps:
+      - name: Verify exact-main and independent protected staging gate
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          envapi="repos/$GITHUB_REPOSITORY/environments/workspace-agent-private-staging"
+          reviewer="$(gh api users/thusico --jq .id)"
+          gh api "$envapi" | jq -e --argjson reviewer "$reviewer" '
+            any(.protection_rules[]; .type == "required_reviewers" and
+              .prevent_self_review == true and
+              (.reviewers | length == 1) and
+              ([.reviewers[] | select(.type == "User") | .reviewer.id] == [$reviewer])) and
+              .deployment_branch_policy.protected_branches == false and
+              .deployment_branch_policy.custom_branch_policies == true' >/dev/null
+          gh api "$envapi/deployment-branch-policies" | jq -e '
+            .total_count == 1 and .branch_policies[0].name == "main" and
+            .branch_policies[0].type == "branch"' >/dev/null
+  inspect:
+    needs: verify
+    runs-on: ubuntu-24.04
+    environment: workspace-agent-private-staging
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+      READ_TOKEN: ${{ secrets.WORKSPACE_AGENT_STAGING_READONLY_CLOUDFLARE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Classify retirement eligibility without changing any Cloudflare resources
+        run: |
+          set -euo pipefail
+          test -n "$READ_TOKEN"
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          tmp="$(mktemp -d)"
+          export WORKSPACE_RETIREMENT_TMP="$tmp"
+          trap 'rm -rf "$tmp"' EXIT
+          base="https://api.cloudflare.com/client/v4/accounts/b11d872b2660e76ca66323023b45b3ab"
+          worker="bw-workspace-agent-staging"
+          fetch() {
+            if ! curl --fail --silent --show-error --max-time 30 \
+              -H "Authorization: Bearer $READ_TOKEN" "$1" > "$tmp/$2" 2>/dev/null; then
+              echo "::error::Protected read-only inventory API request failed"; exit 1
+            fi
+          }
+          fetch "$base/workers/scripts/$worker/versions?per_page=100&page=1" versionsPage1
+          fetch "$base/workers/scripts/$worker/versions?per_page=100&page=2" versionsPage2
+          fetch "$base/workers/workers/$worker/versions/64d9bae9-2ea3-40c1-9a26-83cea97ad71c" pinned
+          fetch "$base/workers/workers/$worker/versions/latest" latest
+          fetch "$base/workers/scripts/$worker/settings" settings
+          fetch "$base/workers/scripts/$worker/deployments" deployments
+          fetch "https://api.cloudflare.com/client/v4/zones?account.id=b11d872b2660e76ca66323023b45b3ab&per_page=50" zones
+          fetch "$base/workers/scripts" scripts
+          fetch "$base/workers/scripts/$worker/subdomain" subdomain
+          fetch "$base/workers/scripts/$worker/schedules" schedules
+          fetch "$base/workers/domains?service=$worker" domains
+          fetch "$base/d1/database/fa317ccc-683d-4466-9e3a-e296872d58ba" database
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import {assessStrandedRetirement} from './scripts/workspace-agent-stranded-retirement-eligibility.mjs';
+          const names=['versionsPage1','versionsPage2','pinned','latest','settings',
+            'deployments','zones','scripts','subdomain','schedules','domains','database'];
+          let result;
+          try {
+            const snapshots=Object.fromEntries(names.map(name=>[
+              name,JSON.parse(readFileSync(process.env.WORKSPACE_RETIREMENT_TMP+'/'+name,'utf8'))
+            ]));
+            result=assessStrandedRetirement(snapshots);
+          } catch {
+            console.error('::error::Inventory unavailable or unreadable');process.exit(1);
+          }
+          if(!result.eligibleForSeparateOwnerDecision) {
+            for(const blocker of result.blockers)console.error('::error::BLOCK '+blocker);
+            process.exit(1);
+          }
+          console.log('PASS retirement_candidate_is_undeployed_and_isolated');
+          console.log('PASS preserved_pinned_inert_version_and_empty_d1');
+          console.log('PASS isolated_private_network_and_candidate_source_topology');
+          console.log('NO_ACTION owner_destructive_approval_and_independent_review_still_required');
+          console.log('No Worker version deletion, deployment, configuration change, secret access, or D1 write.');
+          NODE
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
