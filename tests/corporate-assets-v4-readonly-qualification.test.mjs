@@ -107,10 +107,10 @@ test('never emit secret values, even if upstream metadata includes accidental se
 test('protected runner makes only four Worker metadata GETs and isolated account exposure read',async()=>{
  const f=fixture();const calls=[];
  const data={
-  '/versions?page=1&per_page=100':f.versionInventory,
+  '/versions?page=1&per_page=100':{...f.versionInventory,success:true},
   ['/versions/'+SECRET_CANDIDATE_V4]:{success:true,result:f.candidateVersion},
   ['/versions/'+ROLLBACK]:{success:true,result:f.activeVersion},
-  '/deployments?page=1&per_page=100':f.deployments
+  '/deployments?page=1&per_page=100':{...f.deployments,success:true}
  };
  const read=async(url,opts)=>{
   calls.push({url,method:opts.method,authorization:opts.headers.authorization});
