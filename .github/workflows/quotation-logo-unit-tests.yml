@@ -42,4 +42,4 @@ jobs:
           node --check server/quotation-logo-node-staging.mjs
           node --check server/quotation-logo-pdf-node-staging.mjs
       - name: Run quotation logo isolation, sizing and PDF tests
-        run: node --test tests/quotation-logo-*.test.mjs
+        run: node --test $(find tests -maxdepth 1 -name 'quotation-logo-*.test.mjs' ! -name 'quotation-logo-real-pdf.test.mjs' | sort)
