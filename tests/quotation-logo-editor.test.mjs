@@ -29,3 +29,10 @@ test("width and height readouts reflect clamped geometry and save requires uploa
  assert.match(source,/typeof options\.onUpload==='function'/);
  assert.match(source,/proportions locked/);
 });
+
+test("editor supports authenticated image reload and disables save during active request",()=>{
+ assert.match(source,/options\.initialLogoBlob/);
+ assert.match(source,/Saved company logo loaded/);
+ assert.match(source,/saving=true/);
+ assert.match(source,/finally\{saving=false;paint\(\)\}/);
+});
