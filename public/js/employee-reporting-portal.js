@@ -204,7 +204,7 @@ async function submit(event){
   const jobReference=byId("reporterJobReference").value.trim();
   const jobType=byId("reporterJobType").value;
   const scheduledDate=byId("reporterScheduledDate").value;
-  const jobStatus=byId("reporterJobStatus").value;
+  const jobStatus=byId("reporterJobStatus").value||"scheduled";
   if(jobReference||jobType||scheduledDate||jobStatus!=="scheduled"){
     if(!jobReference||!jobType||!scheduledDate){setMessage("reporterPortalError","For a delivery or installation, enter the job reference, work type and scheduled date.");return}
     payload.kpis.jobReference=jobReference;payload.kpis.jobType=jobType;payload.kpis.scheduledDate=scheduledDate;payload.kpis.jobStatus=jobStatus;
