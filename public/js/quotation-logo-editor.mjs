@@ -52,14 +52,15 @@ export function mountQuotationLogoEditor(root,options={}) {
  const input=el('input',null,{type:'file',accept:'image/png,image/jpeg,image/webp'});fileLabel.append(input);
  const sizeLabel=el('label','Logo width');const slider=el('input',null,{type:'range',min:'4',max:String(QUOTE_LOGO_MAX_WIDTH_PERCENT),step:'1',value:'34','aria-label':'Logo width'});sizeLabel.append(slider);
  const heightLabel=el('label','Logo height');const heightSlider=el('input',null,{type:'range',min:'1',max:String(QUOTE_LOGO_MAX_HEIGHT_PERCENT),step:'1',value:'12','aria-label':'Logo height'});heightLabel.append(heightSlider);
+ const dimensions=el('output','',{class:'qle-note','aria-live':'polite','aria-label':'Current logo dimensions'});
  const reset=el('button','Reset position',{type:'button'});
  const save=el('button','Save company logo',{type:'button','data-primary':''});save.disabled=true;
- controls.append(fileLabel,sizeLabel,heightLabel,reset,save);
+ controls.append(fileLabel,sizeLabel,heightLabel,dimensions,reset,save);
  const preview=el('div',null,{class:'qle-page','aria-label':'Quotation page one logo preview'});
  const logo=el('div',null,{class:'qle-logo',tabindex:'0','aria-label':'Move logo with arrow keys; use width slider to resize'});
  const image=el('img',null,{alt:'Company logo preview'});
  const handle=el('span',null,{class:'qle-handle','aria-label':'Resize logo'});logo.append(image,handle);preview.append(logo);
- const note=el('div','Page 1 · Drag the logo to move it. Arrow keys move by 1%. Logo proportions are preserved.',{class:'qle-note'});
+ const note=el('div','Page 1 · Drag the logo to move it. Arrow keys move by 1%. Both width and height are capped; the original proportions are preserved.',{class:'qle-note'});
  const status=el('div','Choose a logo to start.',{class:'qle-status',role:'status','aria-live':'polite'});
  area.append(controls,preview,note,status);root.replaceChildren(style,area);
  let disposed=false,objectUrl=null,file=null,assetId=options.logoAssetId||null,ratio=2;
@@ -72,7 +73,8 @@ export function mountQuotationLogoEditor(root,options={}) {
   logo.style.width=p.widthPercent+'%';logo.style.height=p.heightPercent+'%';
   slider.value=String(Math.round(p.widthPercent));
   heightSlider.value=String(Math.round(p.heightPercent));
-  save.disabled=!(dirty&&typeof options.onSave==='function'&&(assetId||file));
+  dimensions.textContent=`Width ${p.widthPercent.toFixed(1)}% / 60% · Height ${p.heightPercent.toFixed(1)}% / 30% · proportions locked`;
+  save.disabled=!(dirty&&typeof options.onSave==='function'&&(assetId||(!file?false:typeof options.onUpload==='function')));
  }
  function markChanged(){dirty=true;paint();setStatus('Unsaved changes.');}
  async function changeFile(){
