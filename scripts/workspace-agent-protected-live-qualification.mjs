@@ -18,6 +18,13 @@ export const DB = 'fb0c7c32-6e0a-42cf-89c3-971529e583db';
 export const INERT_VERSION = 'dfb71693-9031-44d3-958b-e13ba8cf7594';
 export const PHRASE = 'QUALIFY_PRIVATE_WORKSPACE_AGENT_ONCE';
 const BASE = `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}`;
+const API_ROOT = 'https://api.cloudflare.com/client/v4';
+
+// Zone routes are a global API endpoint, not an account-relative Workers endpoint.
+export function cloudflareApiUrl(path) {
+  if (typeof path !== 'string' || !path.startsWith('/')) throw new Error('invalid_cloudflare_api_path');
+  return (path.startsWith('/zones/') ? API_ROOT : BASE) + path;
+}
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SHA = /^[0-9a-f]{40}$/;
 
@@ -84,7 +91,7 @@ export function assertReceipt(receipt) {
 class Cloudflare {
   constructor(token) { this.token=token; }
   async call(method, path, body, allow404=false) {
-    const response = await fetch(BASE + path, {
+    const response = await fetch(cloudflareApiUrl(path), {
       method,
       headers:{Authorization:`Bearer ${this.token}`, ...(body===undefined?{}:{'Content-Type':'application/json'})},
       ...(body===undefined?{}:{body:JSON.stringify(body)}),
