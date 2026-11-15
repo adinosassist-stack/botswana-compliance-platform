@@ -2,6 +2,7 @@
  * Strict company logo placement for a verified two-page quotation PDF template.
  * Does not issue quotes, authorize persistence or replace the original logo.
  * Only accepts an approved LOGO-FREE background for the current tenant.
+ * Both template pages are branded; terms page uses a bounded, smaller logo.
  */
 import {getCompanyQuotationLogo} from "./quotation-logo-service.mjs";
 import {quotationLogoPageRect,inspectLogoSignature} from "../public/js/quotation-logo-layout.mjs";
@@ -46,14 +47,30 @@ export async function renderCompanyQuotationLogoPdf({
  const pdf=await pdfLib.PDFDocument.load(template.bytes);
  const pages=pdf.getPages();
  if(pages.length!==2)deny("invalid_quotation_pdf_page_count");
- const page=pages[0];const {width,height}=page.getSize();
- if(width<100||height<100)deny("invalid_quotation_pdf_geometry");
+ const page=pages[0];const termsPage=pages[1];
+ const {width,height}=page.getSize();
+ const termsSize=termsPage.getSize();
+ if(width<100||height<100||termsSize.width<100||termsSize.height<100)
+  deny("invalid_quotation_pdf_geometry");
  const rect=quotationLogoPdfPlacement({
   layout:state.settings.layout,aspectRatio:asset.aspectRatio,pageWidth:width,pageHeight:height
  });
+ // The approved terms template must reserve a logo zone at the top left,
+ // separated from the terms heading. Never draw over source document text.
+ const termsLayout={xPercent:4,yPercent:2,widthPercent:Math.min(24,
+  30*termsSize.height*asset.aspectRatio/termsSize.width)};
+ const termsRect=quotationLogoPdfPlacement({
+  layout:termsLayout,aspectRatio:asset.aspectRatio,
+  pageWidth:termsSize.width,pageHeight:termsSize.height
+ });
+ // Fixed reserved zone for the two-page Lovely reference: up to 30% width.
+ // Template approval must verify the area is blank before this code runs.
+ if(termsRect.x+termsRect.width>termsSize.width*0.30+0.001)
+  deny("terms_logo_overlaps_heading_zone");
  const image=asset.mimeType==="image/png"?
   await pdf.embedPng(asset.bytes):await pdf.embedJpg(asset.bytes);
  page.drawImage(image,rect);
+ termsPage.drawImage(image,termsRect);
  return Object.freeze({bytes:new Uint8Array(await pdf.save()),templateId:template.id,
-  logoAssetId:state.settings.logoAssetId,placement:rect});
+  logoAssetId:state.settings.logoAssetId,placement:rect,termsPlacement:termsRect});
 }
