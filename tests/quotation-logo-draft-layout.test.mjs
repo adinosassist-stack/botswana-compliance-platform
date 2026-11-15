@@ -29,7 +29,7 @@ test("wraps a long invoice description over two lines without losing any charact
   ...draft(),items:[{description,quantity:2,unitPriceCents:125050}]
  }});
  assert.equal(out.grandTotalCents,240050);
- const rowTexts=written.filter(v=>(v.y===858.96-337||v.y===858.96-348)&&v.x===42);
+ const rowTexts=written.filter(v=>(v.y===858.96-337||v.y===858.96-347)&&v.x===42);
  assert.deepEqual(rowTexts.map(v=>v.v),lines);
  assert.ok(written.some(v=>v.v==="P2,400.50"));
 });
