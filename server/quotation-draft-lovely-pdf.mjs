@@ -9,12 +9,34 @@ import {moneyBwp,validateQuotationDraft} from "./quotation-draft-model.mjs";
 const fail=code=>{throw Error(code)};
 const xAscii=s=>String(s);
 const sizeString=(font,s,max,size)=>font.widthOfTextAtSize(s,size)<=max;
-const trimText=(font,s,width,size)=>{
- if(sizeString(font,s,width,size))return s;
- let out=s;
- while(out.length>1&&!sizeString(font,out+"...",width,size))out=out.slice(0,-1);
- return out+"...";
-};
+// Never silently abbreviate customer-facing contract descriptions.
+// Descriptions have room for two lines per 40pt row. Fail closed if both
+// available lines cannot accommodate the complete supplied text.
+export function wrapQuotationDescription(font,value,maxWidth,size=8){
+ const words=value.split(" ");
+ const lines=[];
+ let current="";
+ for(const word of words){
+  const proposed=current?current+" "+word:word;
+  if(sizeString(font,proposed,maxWidth,size)){current=proposed;continue}
+  if(current){lines.push(current);current=""}
+  if(sizeString(font,word,maxWidth,size)){current=word;continue}
+  // Break very long unspaced words only at exact glyph boundaries.
+  let part="";
+  for(const character of word){
+   if(part&&!sizeString(font,part+character,maxWidth,size)){
+    lines.push(part);part="";
+   }
+   if(!sizeString(font,character,maxWidth,size))
+    throw Error("quotation_draft_field_overflow");
+   part+=character;
+  }
+  current=part;
+ }
+ if(current)lines.push(current);
+ if(lines.length>2||lines.length===0)throw Error("quotation_draft_field_overflow");
+ return lines;
+}
 export async function drawLovelyQuotationDraft({pdf,pdfLib,draft}={}){
  if(!pdf?.getPages||!pdf?.embedFont||!pdfLib?.StandardFonts?.Helvetica)
   fail("quotation_draft_pdf_unconfigured");
@@ -40,12 +62,13 @@ export async function drawLovelyQuotationDraft({pdf,pdfLib,draft}={}){
  text("Date: "+checked.issueDate,471,251,113,8);
  // Customer block is in the otherwise blank upper-left page-one body area.
  text("CUSTOMER",42,204,160,8,bold);
- text(trimText(font,checked.customerName,325,10),42,223,325,10,bold);
- text(trimText(font,checked.customerContact,325,8),42,240,325,8);
+ text(checked.customerName,42,223,325,10,bold);
+ text(checked.customerContact,42,240,325,8);
  // 8 fixed-height rows, never expand outside the reviewed template's table.
  checked.items.forEach((item,i)=>{
   const top=337+i*40;
-  text(trimText(font,item.description,226,8),42,top,226,8);
+  const lines=wrapQuotationDescription(font,item.description,226,8);
+  lines.forEach((line,index)=>text(line,42,top+index*11,226,8));
   text(String(item.quantity),292,top,48,9);
   text(moneyBwp(item.unitPriceCents),376,top,101,9);
   text(moneyBwp(item.lineTotalCents),502,top,89,9);
@@ -53,7 +76,7 @@ export async function drawLovelyQuotationDraft({pdf,pdfLib,draft}={}){
  text(moneyBwp(checked.subtotalCents),506,655,85,8);
  text("-"+moneyBwp(checked.discountCents),506,682,85,8);
  text(moneyBwp(checked.grandTotalCents),503,711,83,9,bold,white);
- if(checked.paymentMethod)text(trimText(font,checked.paymentMethod,230,8),140,701,230,8);
+ if(checked.paymentMethod)text(checked.paymentMethod,140,701,230,8);
  // Banking fields intentionally NOT drawn over static placeholder lines;
  // use a separately reviewed fully dynamic form before printing accounts.
  return checked;
