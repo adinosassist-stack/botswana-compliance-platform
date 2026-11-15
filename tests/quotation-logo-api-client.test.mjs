@@ -29,3 +29,18 @@ test("rejects SVG and bad server responses",async()=>{
  await assert.rejects(api.upload(new Blob([new Uint8Array(64)],{type:"image/svg+xml"})),/unsupported_logo_type/);
  await assert.rejects(api.load(),/invalid_logo_api_response/);
 });
+
+test("private image loading requires proper binary type and bounded size",async()=>{
+ const bytes=new Uint8Array(64);
+ const api=createQuotationLogoHttpClient({enabled:true,csrfToken:token,
+  fetchImpl:async(url,options)=>{
+   assert.equal(url,"/api/quotation/logo/image");
+   assert.equal(options.credentials,"same-origin");
+   return new Response(bytes,{headers:{"content-type":"image/png","cache-control":"no-store"}});
+  }});
+ const blob=await api.loadImage();
+ assert.equal(blob.type,"image/png");assert.equal(blob.size,64);
+ const bad=createQuotationLogoHttpClient({enabled:true,csrfToken:token,
+  fetchImpl:async()=>new Response(bytes,{headers:{"content-type":"text/html"}})});
+ await assert.rejects(bad.loadImage(),/invalid_saved_logo_type/);
+});
