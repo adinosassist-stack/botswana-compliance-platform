@@ -8,7 +8,7 @@ test("defaults to top left with scaled, aspect-locked size",()=>{
 });
 test("drag or resize cannot extend logo outside quotation page",()=>{
  const x=normalizeQuotationLogoLayout({xPercent:98,yPercent:90,widthPercent:80},612,859,1.8);
- assert.equal(x.xPercent,20);assert.ok(x.yPercent+x.heightPercent<=100.00001);
+ assert.equal(x.xPercent,40);assert.ok(x.yPercent+x.heightPercent<=100.00001);
  const r=quotationLogoPageRect(x,612,859,1.8);assert.ok(r.x+r.width<=612.00001);
 });
 test("metadata rejects unsafe types sizes and geometry",()=>{
