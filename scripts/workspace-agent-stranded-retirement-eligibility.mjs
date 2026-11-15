@@ -11,6 +11,11 @@ const inertVars=Object.freeze({
  THEBE_INTERNAL_AUTONOMY_ENABLED:'false',THEBE_LIVE_VOICE_ENABLED:'false',
  WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED:'false'
 });
+const unsafeVars=Object.freeze({
+ ...inertVars,
+ WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED:'true',
+ WORKSPACE_AGENT_ADVISORY_STAGING_HOST:'workspace-agent-staging.thebedesk.com'
+});
 function checkInert(bindings) {
  return Array.isArray(bindings)&&bindings.length===Object.keys(inertVars).length&&
   new Set(bindings.map(b=>b?.name)).size===bindings.length&&
@@ -45,7 +50,8 @@ export function assessStrandedRetirement(s={}){
    unsafe.filter(x=>x?.type==='secret_text'&&x?.name==='SESSION_SECRET').length===1&&
    unsafe.filter(x=>x?.type==='d1'&&x?.name==='DB'&&x.id===STAGING_D1).length===1&&
    unsafe.filter(x=>x?.type==='plain_text').length===9&&
-   unsafe.some(x=>x?.type==='plain_text'&&x?.name==='WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED'&&x.text==='true')&&
+   unsafe.filter(x=>x?.type==='plain_text').every(x=>
+      Object.hasOwn(unsafeVars,x.name)&&x.text===unsafeVars[x.name])&&
    unsafe.every(x=>['secret_text','d1','plain_text'].includes(x?.type))&&
    new Set(unsafe.map(x=>x?.name)).size===11,
    'stranded_version_topology_unverified');
