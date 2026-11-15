@@ -79,7 +79,7 @@ test("add/remove rows cannot exceed eight and invalid rows disable preview",asyn
   await add.fire("click");
   assert.equal(preview.disabled,true);
   assert.throws(()=>api.getDraft(),/invalid_quotation_item|invalid_bwp_amount/);
-  const remove=getButton(root,"Remove");
+  const remove=getAll(root,n=>n.tagName==="BUTTON"&&n.textContent==="Remove").at(-1);
   await remove.fire("click");
   assert.equal(preview.disabled,false);
   for(let i=1;i<8;i++)await add.fire("click");
