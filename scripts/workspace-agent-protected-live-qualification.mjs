@@ -142,14 +142,18 @@ function config(name, minute) {
     triggers:{crons:[]}};
 }
 
+export function wranglerArgs(configPath,secretPath) {
+  return [resolve('node_modules/wrangler/bin/wrangler.js'),
+    'versions','upload','--strict','--config',configPath,'--secrets-file',secretPath,
+    '--message','Protected synthetic Workspace Agent qualification; NOT permanent'];
+}
+
 async function wranglerUpload(name, minute, secret, directory) {
   const configPath=join(directory,`${name}.json`), secretPath=join(directory,`${name}.secret.json`);
   writeFileSync(configPath,JSON.stringify(config(name,minute)),{mode:0o600});
   writeFileSync(secretPath,JSON.stringify({SESSION_SECRET:secret}),{mode:0o600});
-  await new Promise((resolve,reject) => {
-    const child=spawn(process.execPath,[ resolve('node_modules/wrangler/bin/wrangler.js'),
-      'versions','upload','--strict','--config',configPath,'--secrets-file',secretPath,
-      '--message','Protected synthetic Workspace Agent qualification; NOT permanent'],{
+  await new Promise((complete,reject) => {
+    const child=spawn(process.execPath,wranglerArgs(configPath,secretPath),{
       cwd:process.cwd(), env:{PATH:process.env.PATH,HOME:process.env.HOME,TMPDIR:process.env.TMPDIR,CI:'true',CLOUDFLARE_API_TOKEN:process.env.CLOUDFLARE_API_TOKEN,WRANGLER_SEND_METRICS:'false'},stdio:['ignore','pipe','pipe'],
     });
     // Don't emit Wrangler output because it may contain sensitive metadata.
@@ -157,7 +161,7 @@ async function wranglerUpload(name, minute, secret, directory) {
     child.stdout.on('data',chunk=>{stdoutLength+=chunk.length;if(stdoutLength>1024*1024)child.kill();});
     child.stderr.on('data',chunk=>{stderrLength+=chunk.length;if(stderrLength>1024*1024)child.kill();});
     child.once('error',()=>reject(new Error(`wrangler_${name}_failed`)));
-    child.once('exit',code=>code===0?resolve():reject(new Error(`wrangler_${name}_failed`)));
+    child.once('exit',code=>code===0?complete():reject(new Error(`wrangler_${name}_failed`)));
   });
 }
 
