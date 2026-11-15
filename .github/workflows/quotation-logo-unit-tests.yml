@@ -4,6 +4,7 @@ on:
     paths:
       - 'public/js/quotation-logo-*.mjs'
       - 'server/quotation-logo-*.mjs'
+      - 'server/quotation-draft-*.mjs'
       - 'tests/quotation-logo-*.test.mjs'
       - 'docs/sql/quotation-logo-staging-candidate.sql'
       - '.github/workflows/quotation-logo-unit-tests.yml'
@@ -37,6 +38,7 @@ jobs:
           node --check server/quotation-logo-pdf.mjs
           node --check server/quotation-draft-model.mjs
           node --check server/quotation-draft-lovely-pdf.mjs
+          node --check server/quotation-draft-pdf-http.mjs
           node --check server/quotation-logo-template-provider.mjs
           node --check server/quotation-logo-http.mjs
           node --check server/quotation-logo-pdf-http.mjs
