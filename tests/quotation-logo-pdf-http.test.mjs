@@ -15,7 +15,7 @@ const store={
   companyId:company,logoAssetId:"logo1",layout:{xPercent:4,yPercent:2,widthPercent:20}
  }:null,
  readPrivateAsset:async({companyId:company})=>company==="lovelyA"?{
-  bytes:png,mimeType:"image/png",aspectRatio:2
+  bytes:png,mimeType:"image/png",width:200,height:100,aspectRatio:2
  }:null,
  writePrivateAsset:async()=>({}),upsertCompanyLogoSettings:async()=>{}
 };
@@ -32,7 +32,7 @@ const pdfLib={PDFDocument:{load:async()=>{
  return {getPages:()=>[
   {getSize:()=>({width:612.24,height:858.96}),drawImage:(_,rect)=>draws.push(rect)},
   {getSize:()=>({width:841.92,height:1190.64}),drawImage:(_,rect)=>draws.push(rect)}
- ],embedPng:async()=>({}),save:async()=>pdfBytes};
+ ],embedPng:async()=>({width:200,height:100}),save:async()=>pdfBytes};
 }}};
 const call=(method="GET",more={})=>handleQuotationLogoPdfPreview({
  request:new Request(url,{method}),actor,companyId,authorization:approval,
@@ -64,7 +64,7 @@ test("malformed PDF output is never downloaded as if valid",async()=>{
   getPages:()=>[
    {getSize:()=>({width:612.24,height:858.96}),drawImage:()=>{}},
    {getSize:()=>({width:841.92,height:1190.64}),drawImage:()=>{}}
-  ],embedPng:async()=>({}),save:async()=>Uint8Array.from([1,2,3,4,5])
+  ],embedPng:async()=>({width:200,height:100}),save:async()=>Uint8Array.from([1,2,3,4,5])
  })}};
  const res=await call("GET",{pdfLib:bad});assert.equal(res.status,500);
  assert.equal(res.headers.get("content-type"),"application/json; charset=utf-8");
@@ -87,7 +87,7 @@ test("PDF output larger than 10 MiB is rejected by server before response",async
   getPages:()=>[
    {getSize:()=>({width:612.24,height:858.96}),drawImage:()=>{}},
    {getSize:()=>({width:841.92,height:1190.64}),drawImage:()=>{}}
-  ],embedPng:async()=>({}),save:async()=>big
+  ],embedPng:async()=>({width:200,height:100}),save:async()=>big
  })}};
  const res=await call("GET",{pdfLib:oversized});
  assert.equal(res.status,500);
