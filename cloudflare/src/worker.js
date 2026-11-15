@@ -14,7 +14,7 @@ import {inspectFoundationSourceMetadata,publicFoundationSourcePreflight,updateUn
 import {inspectActiveLegacyVatRules,publicActiveLegacyVatRules,isLegacyVat25DayDefinition} from "./regulatory-foundation-legacy-vat.js";
 import {handleEmployeeWorkflowRequest} from "./employee-workflow-api.js";
 import {handleStaffPublic,handleStaffManager} from "./employee-self-service.js";
-import {scheduleFieldsFromInput,dueDeliveryReminders} from "./delivery-installation-reminders.js";
+import {scheduleEntriesFromInput,dueDeliveryReminders} from "./delivery-installation-reminders.js";
 import {handleEmployeeProposalReviewRequest} from "./employee-proposal-review-api.js";
 import {purgeDailyReportAttachments} from "./report-attachments-entry.js";
 import {handleFinanceRequest,financeSummary} from "./finance-core.js";
@@ -5562,7 +5562,7 @@ export default {
       if(reportDate>today||reportDate<oldestDate)return json({error:"report_date_outside_allowed_window",allowedFrom:oldestDate,allowedTo:today},409,PASSPORT_PUBLIC_HEADERS);
       const workSummary=boundedReportText(body.workSummary,2400),wins=boundedReportText(body.wins,1600),blockers=boundedReportText(body.blockers,1600),incidents=boundedReportText(body.incidents,1600),nextPlan=boundedReportText(body.nextPlan,1600);
       if(!workSummary&&!wins&&!blockers&&!incidents&&!nextPlan)return json({error:"report_content_required"},400,PASSPORT_PUBLIC_HEADERS);
-      const scheduleValidation=scheduleFieldsFromInput(body?.kpis);
+      const scheduleValidation=scheduleEntriesFromInput(body?.kpis);
       if(scheduleValidation.error)return json({error:scheduleValidation.error},400,PASSPORT_PUBLIC_HEADERS);
       const kpis={tasksCompleted:numericReportKpi(body?.kpis?.tasksCompleted,100000),customersHandled:numericReportKpi(body?.kpis?.customersHandled,1000000),revenueBwp:numericReportKpi(body?.kpis?.revenueBwp,100000000),incidentsCount:numericReportKpi(body?.kpis?.incidentsCount,10000),customLabel:boundedReportText(body?.kpis?.customLabel,60),customValue:numericReportKpi(body?.kpis?.customValue,100000000),...scheduleValidation.fields};
       const payload={workSummary,wins,blockers,incidents,nextPlan,kpis,needsAttention:!!body.needsAttention};
