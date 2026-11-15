@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
 import {validDate,daysUntilDelivery,scheduleFieldsFromInput,scheduleEntriesFromInput,parseReportSchedules,MAX_REPORT_JOBS,MAX_OVERDUE_DAYS,dueRemindersFromRows,dueDeliveryReminders} from "../cloudflare/src/delivery-installation-reminders.js";
 
 test("Botswana calendar day window is inclusive D-4 to due date",()=>{
@@ -100,4 +101,25 @@ test("overdue reminders stop after seven days and never resurrect cancelled work
   assert.deepEqual(reminders.map(x=>x.jobReference),["LT-7"]);
   assert.equal(reminders[0].urgency,"overdue");
   assert.equal(reminders[0].daysUntil,-7);
+});
+
+test("multi-job portal, manager and API are wired without changing token or role scope",()=>{
+  const read=path=>readFileSync(new URL(path,import.meta.url),"utf8");
+  const html=read("../public/report/index.html");
+  const browser=read("../public/js/employee-reporting-portal.js");
+  const manager=read("../public/js/delivery-reminders-manager.js");
+  const worker=read("../cloudflare/src/worker.js");
+  assert.match(html,/id="reporterJobs"/);
+  assert.match(html,/id="reporterAddJob"/);
+  assert.match(html,/id="reporterQualityGuide"/);
+  assert.match(html,/data-job-field="scheduledDate"/);
+  assert.match(browser,/function restoreCurrentJobs\(/);
+  assert.match(browser,/function collectReportJobs\(/);
+  assert.match(browser,/function selectReminderJob\(/);
+  assert.match(browser,/payload\.kpis\.jobs=scheduled\.jobs/);
+  assert.match(manager,/Overdue/);
+  assert.match(worker,/const scheduleValidation=scheduleEntriesFromInput\(body\?\.kpis\)/);
+  assert.match(worker,/currentReportJobs:parseReportSchedules\(ownToday\?\.kpi_json\)/);
+  assert.match(worker,/tenant_id=\? AND employee_id=\? AND location_id=\? AND report_date=\?/);
+  assert.match(worker,/roleAllowed\(a,"owner","manager"\)/);
 });
