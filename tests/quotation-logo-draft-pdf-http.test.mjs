@@ -61,7 +61,7 @@ function setup(){
   }),
   actor,companyId,authorization,verifyMutation,store,templates,pdfLib,...overrides
  });
- return {call,calls};
+ return {call,calls,store};
 }
 test("POST renders two-page branded draft without writes and with server-recomputed totals",async()=>{
  const {call,calls}=setup();
@@ -116,4 +116,19 @@ test("an absent CSRF verifier is always denied",async()=>{
  const {call,calls}=setup();
  assert.equal((await call(undefined,{verifyMutation:undefined})).status,403);
  assert.equal(calls.reader,0);
+});
+
+test("private logo with altered but proportional metadata cannot be downloaded in draft PDF",async()=>{
+ const {call,calls,store}=setup();
+ const forgedStore={...store,
+  readPrivateAsset:async args=>{
+   const original=await store.readPrivateAsset(args);
+   return original?{...original,width:64,height:48}:original;
+  }
+ };
+ const result=await call(undefined,{store:forgedStore});
+ assert.equal(result.status,422);
+ assert.equal((await result.json()).error,"quotation_draft_pdf_preview_unavailable");
+ assert.equal(calls.image,0,"no images drawn when bytes disagree with saved dimensions");
+ assert.equal(calls.write,0,"preview never overwrites the logo asset or settings");
 });
