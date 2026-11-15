@@ -5,6 +5,7 @@
  * Do not mount as a production endpoint without security review.
  */
 import {randomUUID} from "node:crypto";
+import {readPrivateQuotationR2Bytes} from "./quotation-private-r2-read.mjs";
 const err=code=>{throw Error(code)};
 const safe=v=>typeof v==="string"&&/^[A-Za-z0-9_-]{1,100}$/.test(v);
 export function createQuotationLogoStore({db,bucket,namespace="quotation-logos"}={}) {
@@ -34,8 +35,9 @@ export function createQuotationLogoStore({db,bucket,namespace="quotation-logos"}
    // Refuse malformed or cross-tenant object keys; never use arbitrary user URL.
    if(row.object_key!==namespace+"/"+companyId+"/"+logoAssetId)err("invalid_logo_object_key");
    const object=await bucket.get(row.object_key);if(!object)return null;
-   const bytes=new Uint8Array(await object.arrayBuffer());
-   if(bytes.byteLength<12||bytes.byteLength>2*1024*1024)err("invalid_logo_object");
+   const bytes=await readPrivateQuotationR2Bytes(object,{
+    maxBytes:2*1024*1024,minBytes:12,errorCode:"invalid_logo_object"
+   });
    return {bytes,mimeType:row.mime_type,width:row.width,height:row.height,aspectRatio:row.aspect_ratio};
   },
   async upsertCompanyLogoSettings({companyId,settings}){
