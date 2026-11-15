@@ -36,6 +36,8 @@ jobs:
           node --check public/js/quotation-logo-editor.mjs
           node --check public/js/quotation-logo-api-client.mjs
           node --check public/js/quotation-draft-api-client.mjs
+          node --check public/js/quotation-draft-form-model.mjs
+          node --check public/js/quotation-draft-form.mjs
           node --check server/quotation-logo-service.mjs
           node --check server/quotation-logo-d1-r2-store.mjs
           node --check server/quotation-logo-pdf.mjs
