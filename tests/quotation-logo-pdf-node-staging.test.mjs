@@ -38,14 +38,14 @@ function harness({tamper=false}={}){
  const privateLogoBucket={
   async put(){throw Error("pdf_preview_must_not_write")},
   async get(k){calls.logo++;return k===key?{
-   arrayBuffer:async()=>image.buffer.slice(image.byteOffset,image.byteOffset+image.byteLength)
+   size:image.byteLength,arrayBuffer:async()=>image.buffer.slice(image.byteOffset,image.byteOffset+image.byteLength)
   }:null}
  };
  const privateTemplateBucket={async get(k){
   calls.template++;
   if(k!=="quotation-templates/"+COMPANY+"/approved_v1")return null;
   const b=tamper?Uint8Array.from(Buffer.from("%PDF-1.7\nTAMPERED")):pdf;
-  return {arrayBuffer:async()=>b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength)}
+  return {size:b.byteLength,arrayBuffer:async()=>b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength)}
  }};
  const authorization={
   assertCompanyReader:async({actor:a,companyId})=>a===actor&&companyId===COMPANY,
