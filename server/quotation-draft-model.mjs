@@ -14,7 +14,7 @@ export const moneyBwp=amount=>{
 };
 export function validateQuotationDraft(data){
  if(!data||typeof data!=="object"||Array.isArray(data))deny("invalid_quotation_draft");
- const keys=["quoteNumber","issueDate","customerName","customerContact","items","discountCents","paymentMethod","bankName","bankAccount"];
+ const keys=["quoteNumber","issueDate","customerName","customerContact","items","discountCents","paymentMethod"];
  if(Object.keys(data).some(key=>!keys.includes(key)))deny("unsupported_quotation_field");
  for(const field of ["quoteNumber","customerName","customerContact"]){
   if(!text(data[field],field==="customerName"?60:40))deny("invalid_quotation_"+field);
@@ -23,7 +23,7 @@ export function validateQuotationDraft(data){
     Number.isNaN(Date.parse(data.issueDate+"T00:00:00Z"))||
     new Date(data.issueDate+"T00:00:00Z").toISOString().slice(0,10)!==data.issueDate)
     deny("invalid_quotation_issue_date");
- for(const key of ["paymentMethod","bankName","bankAccount"]){
+ for(const key of ["paymentMethod"]){
   if(data[key]!==undefined&&data[key]!==""&&!text(data[key],55))deny("invalid_quotation_"+key);
  }
  if(!Array.isArray(data.items)||data.items.length<1||data.items.length>8)
@@ -47,7 +47,6 @@ export function validateQuotationDraft(data){
   quoteNumber:data.quoteNumber.trim(),issueDate:data.issueDate,
   customerName:data.customerName.trim(),customerContact:data.customerContact.trim(),
   paymentMethod:data.paymentMethod?.trim()||"",
-  bankName:data.bankName?.trim()||"",bankAccount:data.bankAccount?.trim()||"",
   items:Object.freeze(items),subtotalCents:subtotal,discountCents,
   grandTotalCents:subtotal-discountCents,currency:"BWP"
  });
