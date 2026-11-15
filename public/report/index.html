@@ -11,9 +11,10 @@
 <title>Daily Report | Thebe Desk</title>
 <link rel="icon" type="image/png" sizes="512x512" href="/assets/thebe-desk-favicon-512.png">
 <link rel="stylesheet" href="/assets/employee-reporting-portal.css?v=20261015-camera-attachments">
+<link rel="stylesheet" href="/assets/delivery-reminder-notifications.css?v=20261115">
 <script id="reporter-browser-recovery">(()=>{try{if("serviceWorker"in navigator)navigator.serviceWorker.getRegistrations().then(items=>items.forEach(item=>item.unregister())).catch(()=>{});if("caches"in globalThis)caches.keys().then(keys=>Promise.all(keys.filter(key=>String(key).startsWith("thebe-desk-")).map(key=>caches.delete(key)))).catch(()=>{})}catch{}})();</script>
 <script src="/js/api-client.js?v=20260920a" defer></script>
-<script src="/js/employee-reporting-portal.js?v=20261015-camera-attachments" defer></script>
+<script src="/js/employee-reporting-portal.js?v=20261115-delivery-reminders" defer></script>
 </head>
 <body>
 <main class="reporter-portal" id="reporterPortal">
@@ -33,6 +34,7 @@
         <span id="reporterCompanyName">Checking company…</span>
       </div>
 
+      <div id="reporterDeliveryReminders" class="thebe-delivery-reminders" role="status" aria-live="polite" hidden></div>
       <div id="reporterPortalError" class="reporter-message error" role="alert" hidden></div>
       <div id="reporterPortalSuccess" class="reporter-message success" role="status" hidden></div>
 
@@ -41,6 +43,17 @@
           <label for="reporterDate">Report date</label>
           <input id="reporterDate" type="date" required>
         </div>
+
+        <fieldset class="thebe-delivery-fields">
+          <legend>Upcoming delivery / installation</legend>
+          <p>Optional. Add the date and job reference so you and your manager get daily reminders from 4 days before. Update the same job reference to mark it completed.</p>
+          <div class="thebe-delivery-grid">
+            <div class="field"><label for="reporterJobReference">Order / job reference</label><input id="reporterJobReference" maxlength="80" placeholder="e.g. LT-1024" autocomplete="off"></div>
+            <div class="field"><label for="reporterJobType">Work type</label><select id="reporterJobType"><option value="">Select type</option><option value="delivery">Delivery</option><option value="installation">Installation</option></select></div>
+            <div class="field"><label for="reporterScheduledDate">Scheduled delivery / installation date</label><input id="reporterScheduledDate" type="date"></div>
+            <div class="field"><label for="reporterJobStatus">Job status</label><select id="reporterJobStatus"><option value="scheduled">Scheduled</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></div>
+          </div>
+        </fieldset>
 
         <div class="field">
           <label for="reporterWorkSummary">Work completed / main activity</label>
