@@ -34,8 +34,9 @@ test('marker SQL is idempotent and never relabels a different staging database',
  const d=new DatabaseSync(':memory:');
  try{
   d.exec(sql);
-  assert.deepEqual(d.prepare('SELECT database_id,environment FROM corporate_assets_staging_identity WHERE id=1').get(),
-   {database_id:staging,environment:'corporate-assets-isolated'});
+  const created=d.prepare('SELECT database_id,environment FROM corporate_assets_staging_identity WHERE id=1').get();
+  assert.equal(created.database_id,staging);
+  assert.equal(created.environment,'corporate-assets-isolated');
   d.exec(sql);
   assert.equal(d.prepare('SELECT COUNT(*) total FROM corporate_assets_staging_identity').get().total,1);
   const other='11111111-1111-4111-8111-111111111111';
