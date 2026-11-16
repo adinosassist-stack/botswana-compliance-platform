@@ -15,7 +15,7 @@ function isolatedDb(limit=1000){
      const [tenant,period,id,amount]=args,key=tenant+":"+period+":"+id;
      if(state.reservations.has(key)||state.reserved+amount>state.limit)throw Error("budget_denied");
      state.reservations.add(key);state.reserved+=amount;
-    }else if(sql.includes("INSERT OR IGNORE INTO ai_usage_journal")){
+    }else if(sql.includes("INSERT INTO ai_usage_journal")){
      const [tenant,id]=args;const key=tenant+":"+id;
      if(!state.usage.has(key))state.usage.set(key,args);
     }else if(sql.includes("INSERT INTO ai_budget_reconciliation")){
