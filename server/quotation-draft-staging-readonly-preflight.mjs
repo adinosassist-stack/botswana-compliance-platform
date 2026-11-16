@@ -41,8 +41,12 @@ const expectedObjects=Object.freeze([
  "quotation_logo_assets","quotation_logo_settings","quotation_drafts",
  "idx_quotation_drafts_tenant_updated"
 ]);
+// Cloudflare D1 owns these two internal tables. Ignore *only* these names;
+// any other foreign table/index, including an unknown _cf_* name, fails shut.
+const knownD1SystemTables=new Set(["_cf_KV","_cf_METADATA"]);
 const userSchemaSql="SELECT name,type,sql FROM sqlite_master WHERE "+
- "((type='table' AND name NOT LIKE 'sqlite_%') "+
+ "((type='table' AND name NOT LIKE 'sqlite_%' "+
+ "AND name NOT IN ('_cf_KV','_cf_METADATA')) "+
  "OR (type='index' AND sql IS NOT NULL))";
 
 /**
@@ -64,8 +68,12 @@ export async function qualifyQuotationDraftPrivateStaging(config={}){
  if(!Array.isArray(rows)||rows.some(row=>!row||typeof row.name!=="string"||
     !["table","index"].includes(row.type)))
   throw Error("quotation_draft_staging_schema_read_failed");
+ // Defence-in-depth for adapters that return unfiltered sqlite_master rows:
+ // ignore only built-in *table* names, never an index with the same name.
+ const appRows=rows.filter(row=>
+  !(row.type==="table"&&knownD1SystemTables.has(row.name)));
  const collisions=new Set(),seen=new Set(),unexpectedObjects=[];
- for(const row of rows){
+ for(const row of appRows){
   const id=row.type+":"+row.name;
   if(seen.has(id))collisions.add(row.name);
   seen.add(id);
@@ -75,7 +83,7 @@ export async function qualifyQuotationDraftPrivateStaging(config={}){
    unexpectedObjects.push(row.name);
  }
  unexpectedObjects.push(...collisions);
- const byName=name=>rows.filter(row=>row.name===name);
+ const byName=name=>appRows.filter(row=>row.name===name);
  const foundTable=byName("quotation_drafts")[0];
  const foundIndex=byName("idx_quotation_drafts_tenant_updated")[0];
  const missingTables=[...base.missingTables];

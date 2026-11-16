@@ -15,6 +15,7 @@ import {Miniflare,convertV4MiniflareOptions} from "miniflare";
 import {splitSqliteMigrationStatements} from "../scripts/sqlite-migration-statements.mjs";
 import {createQuotationLogoStore} from "../server/quotation-logo-d1-r2-store.mjs";
 import {createQuotationDraftD1Store} from "../server/quotation-draft-d1-store.mjs";
+import {qualifyQuotationDraftPrivateStaging} from "../server/quotation-draft-staging-readonly-preflight.mjs";
 
 const APPROVED=Object.freeze([
  {path:"../docs/sql/quotation-logo-staging-candidate.sql",
@@ -150,4 +151,43 @@ test("draft adapter uses real D1 optimistic CAS and preserves company separation
  await assert.rejects(db.prepare(
   "INSERT INTO quotation_drafts (tenant_id,id,revision,draft_json) VALUES (?,?,?,?)"
  ).bind("tenantA","corrupt",1,"{broken JSON").run());
+});
+
+
+test("post-migration exact local D1 read-only staging preflight recognizes Cloudflare internals",async t=>{
+ const db=await fixture(t);
+ await applyExactly(db);
+ const reads=[];
+ const logoBucket={list:async(opts)=>{reads.push(["logo",opts.prefix]);return {objects:[]}}};
+ const templateBucket={list:async(opts)=>{reads.push(["template",opts.prefix]);return {objects:[]}}};
+ const sourceSha="c8cb4f2ec5e5ad026aed01791aae8a57b7d3a2de";
+ const config={
+  environment:"quotation-private-staging",
+  sourceSha,expectedSourceSha:sourceSha,
+  d1:db,d1Id:"aec227e9-b0f2-4b00-8de0-105465c4e2d6",
+  productionD1Id:"8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce",
+  privateLogoBucket:logoBucket,
+  logoBucketName:"bw-quotation-logo-private-staging",
+  privateTemplateBucket:templateBucket,
+  templateBucketName:"bw-quotation-template-private-staging",
+  productionBucketNames:["bw-compliance-ops-backups"],
+  routes:[],workersDevEnabled:false,previewUrlsEnabled:false
+ };
+ const result=await qualifyQuotationDraftPrivateStaging(config);
+ assert.equal(result.schemaReady,true,"real workerd internal tables cannot cause false failure");
+ assert.equal(result.draftSchemaExactlyMatched,true,"reviewed exact SQL matches actual sqlite_master DDL");
+ assert.deepEqual(result.unexpectedObjects,[]);
+ assert.deepEqual(result.missingTables,[]);
+ assert.deepEqual(result.missingIndexes,[]);
+ assert.deepEqual(reads,[
+  ["logo","quotation-logos/"],["template","quotation-templates/"]
+ ]);
+ assert.equal(result.migrationAuthorized,false);
+ assert.equal(result.deploymentAuthorized,false);
+ assert.equal(result.templateUploadAuthorized,false);
+ await db.prepare("CREATE TABLE surprise_customer_table(id TEXT)").run();
+ const unexpected=await qualifyQuotationDraftPrivateStaging(config);
+ assert.equal(unexpected.schemaReady,false);
+ assert.deepEqual(unexpected.unexpectedObjects,["surprise_customer_table"]);
+ assert.equal(unexpected.readyForSeparateQualificationApproval,false);
 });
