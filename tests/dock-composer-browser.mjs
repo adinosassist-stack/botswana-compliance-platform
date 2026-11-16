@@ -56,6 +56,7 @@ try{
     for(const [width,height] of [[320,900],[360,900],[390,900],[390,430],[768,900],[1100,900],[1440,960]]){
       await page.setViewportSize({width,height});
       await page.waitForFunction(({width,height})=>innerWidth===width&&innerHeight===height,{width,height});
+      assert(await dock.evaluate(el=>Number.parseFloat(el.style.getPropertyValue('--thebe-visible-height'))>0),'dock keeps a positive visible viewport height after resize');
       // Let the resize listener apply its intentional desktop-to-mobile collapse.
       await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
       if(await dock.isHidden())await page.locator('#thebeAiDockPill').click();

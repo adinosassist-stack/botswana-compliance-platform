@@ -96,6 +96,25 @@
     dock.dataset.geminiNarrowV274="1";
     dock.dataset.geminiNarrowRelease=RELEASE;
     dock.dataset.geminiNarrowExpanded=expanded?"1":"0";
+    // The public maximized Dock is a viewport mode, not a wider market sidebar.
+    // The narrow geometry manager owns !important inline styles, so CSS alone
+    // cannot override it. Explicitly release the marketing lane in this mode.
+    if(expanded){
+      setImportant(dock,"left","0px");
+      setImportant(dock,"right","0px");
+      setImportant(dock,"top","0px");
+      setImportant(dock,"bottom","0px");
+      setImportant(dock,"width","100vw");
+      setImportant(dock,"min-width","0");
+      setImportant(dock,"max-width","none");
+      setImportant(dock,"height","100dvh");
+      setImportant(dock,"min-height","0");
+      setImportant(dock,"max-height","100dvh");
+      setImportant(dock,"border-radius","0px");
+      setImportant(dock,"box-sizing","border-box");
+      setImportant(gate,"padding-right","0px");
+      return true;
+    }
     setImportant(dock,"left","auto");
     setImportant(dock,"right",`${size.edge}px`);
     setImportant(dock,"top",`${size.edge}px`);
