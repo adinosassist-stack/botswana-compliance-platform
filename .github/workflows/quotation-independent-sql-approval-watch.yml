@@ -1,0 +1,56 @@
+name: Quotation Independent SQL Approval Watch
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    paths:
+      - 'scripts/quotation-sql-approval-watch.mjs'
+      - 'tests/quotation-sql-approval-watch.test.mjs'
+      - '.github/workflows/quotation-independent-sql-approval-watch.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quotation-sql-approval-watch-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  inert-offline-tests:
+    if: github.event_name != 'issue_comment'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate independent approval watcher
+        run: |
+          node --check scripts/quotation-sql-approval-watch.mjs
+          node --test tests/quotation-sql-approval-watch.test.mjs
+
+  notify-only-if-reviewer-exactly-approves:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 2504 &&
+      github.event.comment.user.login == 'thusico'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check exact two-blob independent approval and post one notice
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/quotation-sql-approval-watch.mjs
