@@ -54,3 +54,58 @@ test('main drift fails before inventory and before any write',async()=>{
  assert.equal(urls.length,1);
  assert.equal(urls[0].method,'GET');
 });
+
+import {expectedOwnerStatement} from '../scripts/workspace-agent-stranded-retirement-owner-acceptance.mjs';
+
+// Synthetic HTTP fixtures: never connect to GitHub or Cloudflare.
+function mockReadOnlyHttp({owner='valid',inventory='invalid',main='same'}={}){
+ const calls=[];
+ const http=async(url,options)=>{
+  calls.push({url,method:options.method});
+  if(options.method!=='GET')throw Error('TEST FAILED: unexpected write operation');
+  const json=(value,ok=true)=>({ok,json:async()=>value});
+  if(url.endsWith('/git/ref/heads/main')){
+   return json({object:{sha:main==='same'?expected.EXPECTED_SHA:'f'.repeat(40)}});
+  }
+  if(url.includes('/issues/comments/')){
+   const comment={
+    id:Number(expected.OWNER_COMMENT),
+    user:{login:owner==='wrong_author'?'untrusted': 'adinosassist-stack'},
+    issue_url:'https://api.github.com/repos/adinosassist-stack/botswana-compliance-platform/issues/2505',
+    created_at:'2026-11-16T00:00:00Z',
+    updated_at:owner==='edited'?'2026-11-16T00:01:00Z':'2026-11-16T00:00:00Z',
+    body:owner==='stale'?expectedOwnerStatement('f'.repeat(40)):expectedOwnerStatement(expected.EXPECTED_SHA)
+   };
+   return json(comment);
+  }
+  if(inventory==='http_error')return json({success:false},false);
+  if(inventory==='invalid')return json({success:false,result:{}});
+  throw Error('unknown synthetic inventory mode');
+ };
+ return {http,calls};
+}
+for(const owner of ['wrong_author','edited','stale']){
+ test('rejects '+owner+' approval before Cloudflare inventory or DELETE',async()=>{
+  const m=mockReadOnlyHttp({owner});
+  await assert.rejects(executeVersionRetirement({env:expected,fetchImpl:m.http}),/BLOCK owner_authorization_invalid/);
+  assert.equal(m.calls.length,2);
+  assert.ok(m.calls.every(x=>x.method==='GET'));
+  assert.ok(m.calls.every(x=>!x.url.includes('cloudflare.com')));
+ });
+}
+test('rejects malformed live Cloudflare inventory without DELETE',async()=>{
+ const m=mockReadOnlyHttp({inventory:'invalid'});
+ await assert.rejects(executeVersionRetirement({env:expected,fetchImpl:m.http}),/BLOCK live_eligibility_invalid/);
+ assert.ok(m.calls.length>2);
+ assert.ok(m.calls.every(x=>x.method==='GET'));
+});
+test('fails closed on a Cloudflare read-only API error with no DELETE',async()=>{
+ const m=mockReadOnlyHttp({inventory:'http_error'});
+ await assert.rejects(executeVersionRetirement({env:expected,fetchImpl:m.http}),/BLOCK remote_request_failed/);
+ assert.ok(m.calls.every(x=>x.method==='GET'));
+});
+test('fails before Cloudflare on initial main drift',async()=>{
+ const m=mockReadOnlyHttp({main:'changed'});
+ await assert.rejects(executeVersionRetirement({env:expected,fetchImpl:m.http}),/BLOCK main_drift/);
+ assert.deepEqual(m.calls.map(x=>x.method),['GET']);
+});
