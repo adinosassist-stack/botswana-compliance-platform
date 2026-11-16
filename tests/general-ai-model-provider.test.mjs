@@ -40,3 +40,26 @@ test("rejects model endpoints with URL credentials, alternate ports, or fragment
   "https://api.openai.com/v1/chat/completions#fragment"
  ])assert.throws(()=>createGeneralAiModelProvider({apiKey:"test",model:"test-model",endpoint}),/unsupported_model_endpoint/);
 });
+
+test("private usage hook receives bounded token counts without customer content",async()=>{
+ const events=[];
+ const model=createGeneralAiModelProvider({apiKey:"secret",model:"gpt-4.1-mini",onUsage:event=>events.push(event),
+  fetchImpl:async()=>new Response(JSON.stringify({choices:[{message:{content:"Private answer"}}],usage:{prompt_tokens:120,completion_tokens:30,prompt_tokens_details:{cached_tokens:20}}}),{status:200})});
+ assert.equal(await model({question:"private question"}),"Private answer");
+ assert.deepEqual(events,[{provider:"openai",model:"gpt-4.1-mini",usageKnown:true,inputTokens:120,outputTokens:30,cachedInputTokens:20}]);
+ assert.doesNotMatch(JSON.stringify(events),/secret|private question|Private answer/);
+});
+test("missing or malformed provider usage is unknown, never free",async()=>{
+ const events=[];
+ const model=createGeneralAiModelProvider({apiKey:"secret",model:"gpt-4.1-mini",onUsage:event=>events.push(event),
+  fetchImpl:async()=>new Response(JSON.stringify({choices:[{message:{content:"ok"}}],usage:{prompt_tokens:-1,completion_tokens:"10"}}),{status:200})});
+ assert.equal(await model({question:"Hello"}),"ok");
+ assert.equal(events[0].usageKnown,false);
+ assert.equal(events[0].inputTokens,null);
+ assert.equal(events[0].outputTokens,null);
+});
+test("accounting hook failure prevents untracked success",async()=>{
+ const model=createGeneralAiModelProvider({apiKey:"secret",model:"gpt-4.1-mini",onUsage:()=>{throw Error("ledger_unavailable")},
+  fetchImpl:async()=>new Response(JSON.stringify({choices:[{message:{content:"ok"}}],usage:{prompt_tokens:1,completion_tokens:1}}),{status:200})});
+ await assert.rejects(()=>model({question:"Hello"}),/ledger_unavailable/);
+});
