@@ -72,6 +72,35 @@ test("mount renders valid quote with live BWP totals without any network call",(
   assert.ok(getAll(root,n=>n.textContent.includes("Nothing is saved or issued.")).length>0);
  }finally{restore()}
 });
+test("line totals render on initial load, follow edits and reject excessive amounts",async()=>{
+ const {root,restore}=mount();
+ try{
+  const lines=()=>getAll(root,n=>n.tagName==="OUTPUT"&&n.attributes.class==="qdf-line");
+  assert.equal(lines()[0].textContent,"P1,200.00");
+  assert.equal(getButton(root,"Remove").disabled,true);
+  const quantity=getInput(root,"Qty");
+  quantity.value="2";await quantity.fire("input");
+  assert.equal(lines()[0].textContent,"P2,400.00");
+  const unitPrice=getInput(root,"Unit price (P)");
+  unitPrice.value="10000000";await unitPrice.fire("input");
+  assert.equal(lines()[0].textContent,"—");
+  assert.equal(getButton(root,"Download PDF preview").disabled,true);
+ }finally{restore()}
+});
+test("required remaining line cannot be removed but multi-line removal is allowed",async()=>{
+ const {root,restore}=mount();
+ try{
+  const add=getButton(root,"Add item");
+  await add.fire("click");
+  const removes=()=>getAll(root,n=>n.tagName==="BUTTON"&&n.textContent==="Remove");
+  assert.equal(removes().length,2);
+  assert.equal(removes()[0].disabled,false);
+  assert.equal(removes()[1].disabled,false);
+  await removes()[1].fire("click");
+  assert.equal(removes().length,1);
+  assert.equal(removes()[0].disabled,true);
+ }finally{restore()}
+});
 test("add/remove rows cannot exceed eight and invalid rows disable preview",async()=>{
  const {root,api,restore}=mount();
  try{
