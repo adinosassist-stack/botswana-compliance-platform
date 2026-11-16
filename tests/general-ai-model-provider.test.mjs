@@ -63,3 +63,16 @@ test("accounting hook failure prevents untracked success",async()=>{
   fetchImpl:async()=>new Response(JSON.stringify({choices:[{message:{content:"ok"}}],usage:{prompt_tokens:1,completion_tokens:1}}),{status:200})});
  await assert.rejects(()=>model({question:"Hello"}),/ledger_unavailable/);
 });
+
+test("partial token counts normalize to wholly unknown and can be journaled",async()=>{
+ const events=[];
+ const model=createGeneralAiModelProvider({apiKey:"secret",model:"gpt-4.1-mini",
+  onUsage:event=>events.push(event),
+  fetchImpl:async()=>new Response(JSON.stringify({
+   choices:[{message:{content:"ok"}}],
+   usage:{prompt_tokens:70,completion_tokens:"invalid",prompt_tokens_details:{cached_tokens:20}}
+  }),{status:200})});
+ assert.equal(await model({question:"Hello"}),"ok");
+ assert.deepEqual(events,[{provider:"openai",model:"gpt-4.1-mini",
+  usageKnown:false,inputTokens:null,outputTokens:null,cachedInputTokens:null}]);
+});
