@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {createHmac} from "node:crypto";
 import {createQuotationPrivateD1SessionVerifier} from "../server/quotation-private-d1-session-verifier.mjs";
-const tenant="f00d46fb-a818-4605-93a0-2c9e30b6f57f";
+import {createQuotationPrivateHostSessionGate} from "../server/quotation-private-host-session-gate.mjs";
+const tenant="123e4567-e89b-42d3-a456-426614174000";
 const other="11111111-1111-4111-8111-111111111111";
 const user="22222222-2222-4222-8222-222222222222";
 const secret="synthetic-private-session-secret-that-is-not-real";
@@ -98,4 +99,39 @@ test("unavailable auth DB denies reads and writes without leaking errors",async(
  const x=fixture({throwDb:true});
  assert.equal(await x.auth.verifyMutation({request:x.request(),actor:x.actor,companyId:tenant}),false);
  assert.equal(await x.auth.readVerifiedSession({request:x.request()}),null);
+});
+
+test("full synthetic host integration enforces tenant and CSRF before delegation",async()=>{
+ const x=fixture();
+ const origin="https://quotation-private.example.test";
+ const calls=[];
+ const gate=createQuotationPrivateHostSessionGate({
+  environment:"quotation-private-staging",enabled:true,expectedTenantId:tenant,
+  allowedPrivateOrigin:origin,
+  readVerifiedSession:x.auth.readVerifiedSession,
+  verifyActiveMembership:x.auth.verifyActiveMembership,
+  verifyMutation:x.auth.verifyMutation,
+  quotationHandlers:{async handle(context){
+   calls.push(context);
+   return new Response("synthetic-passed");
+  }}
+ });
+ const good=new Request(origin+"/api/quotation/drafts?companyId="+other,{
+  method:"POST",headers:{
+   cookie:"__Host-bw_session="+token,origin,"x-csrf-token":csrf
+  }
+ });
+ assert.equal((await gate.handle(good)).status,200);
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].companyId,tenant);
+ const wrong=new Request(origin+"/api/quotation/drafts",{
+  method:"POST",headers:{
+   cookie:"__Host-bw_session="+token,
+   origin:"https://other.example.test","x-csrf-token":csrf
+  }
+ });
+ assert.equal((await gate.handle(wrong)).status,403);
+ const anonymous=new Request(origin+"/api/quotation/drafts");
+ assert.equal((await gate.handle(anonymous)).status,401);
+ assert.equal(calls.length,1);
 });
