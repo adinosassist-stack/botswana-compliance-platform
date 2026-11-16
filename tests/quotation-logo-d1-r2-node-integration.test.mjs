@@ -42,12 +42,12 @@ function emulator({failInsert=false}={}){
      if(failInsert)throw Error("simulated_d1_error");
      const [id,tenant,object_key,mime_type,width,height,aspect_ratio]=values;
      assets.set(tenant+":"+id,{id,object_key,mime_type,width,height,aspect_ratio});
-     events.push("insert_asset");return {success:true};
+     events.push("insert_asset");return {success:true,meta:{changes:1}};
     }
     if(query.startsWith("INSERT INTO quotation_logo_settings")){
      const [tenant,asset,x,y,width]=values;
      settings.set(tenant,{tenant_id:tenant,asset_id:asset,x_percent:x,y_percent:y,width_percent:width});
-     events.push("save_settings");return {success:true};
+     events.push("save_settings");return {success:true,meta:{changes:1}};
     }
     throw Error("unexpected_insert");
    }

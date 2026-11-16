@@ -6,12 +6,25 @@
  * The registry must be supplied by privileged server configuration; never accept
  * these values from a customer request or editable company settings.
  */
-import {createHash,timingSafeEqual} from "node:crypto";
 import {readPrivateQuotationR2Bytes} from "./quotation-private-r2-read.mjs";
 const fail=(code)=>{throw Error(code)};
 const valid=x=>typeof x==="string"&&/^[a-zA-Z0-9_-]{1,100}$/.test(x);
-const digest=b=>createHash("sha256").update(b).digest();
-const same=(a,b)=>a.length===b.length&&timingSafeEqual(a,b);
+// Web Crypto is available in Node 22 and the Workers runtime. No node:crypto
+// dependency is needed for private, immutable SHA-256-pinned templates.
+const digest=async bytes=>{
+ const subtle=globalThis.crypto?.subtle;
+ if(typeof subtle?.digest!=="function")fail("quotation_template_crypto_unavailable");
+ try{return new Uint8Array(await subtle.digest("SHA-256",bytes))}
+ catch{fail("quotation_template_integrity_failed")}
+};
+const hexBytes=hex=>Uint8Array.from(hex.match(/.{2}/g),pair=>parseInt(pair,16));
+// SHA-256 is a public integrity value, not an authentication secret. Do not
+// short-circuit comparisons, including across repeated template reads.
+const same=(a,b)=>{
+ if(a.length!==b.length)return false;
+ let difference=0;for(let i=0;i<a.length;i++)difference|=a[i]^b[i];
+ return difference===0;
+};
 const acceptableRect=(r,w,h)=>r&&[r.x,r.y,r.width,r.height].every(Number.isFinite)&&
  r.x>=0&&r.y>=0&&r.width>0&&r.height>0&&r.x+r.width<=w&&r.y+r.height<=h;
 const approvedPage=p=>p&&Number.isFinite(p.width)&&Number.isFinite(p.height)&&
@@ -40,7 +53,7 @@ export function createApprovedQuotationTemplateProvider({registry,privateStore}=
    const source=await readPrivateQuotationR2Bytes(object,{
     maxBytes:10*1024*1024,minBytes:5,errorCode:"quotation_template_integrity_failed"
    });
-   if(!same(digest(source),Buffer.from(entry.sha256,"hex")))
+   if(!same(await digest(source),hexBytes(entry.sha256)))
     fail("quotation_template_integrity_failed");
    if(source[0]!==37||source[1]!==80||source[2]!==68||source[3]!==70||source[4]!==45)
     fail("quotation_template_invalid_pdf");
