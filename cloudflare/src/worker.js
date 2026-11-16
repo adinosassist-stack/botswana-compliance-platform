@@ -8592,3 +8592,5 @@ export const __v782194Test=Object.freeze({oauthStateCookieName,oauthStateCookie}
 export const __v782195Test=Object.freeze({fetchMetadataAllowsBrowserMutation,requestOriginAllowed});
 
 export {auth as authenticateWorkspaceSession};
+// Direct synthetic-only regression coverage of canonical audit key rollover.
+export {verifyAuditChain as verifyAuditChainForTests};
