@@ -14,6 +14,7 @@ import {createRequire} from "node:module";
 import {createQuotationLogoStore} from "../server/quotation-logo-d1-r2-store.mjs";
 import {createNodeStagingQuotationLogoHandler} from "../server/quotation-logo-node-staging.mjs";
 import {createNodeStagingQuotationPdfPreviewHandler} from "../server/quotation-logo-pdf-node-staging.mjs";
+import {createPortableQuotationPrivateHandlers} from "../server/quotation-portable-private-staging.mjs";
 
 const prefix=process.env.QUOTATION_PDF_ENGINE_ROOT;
 if(!prefix)throw Error("quotation_full_private_e2e_requires_real_pdf_engine");
@@ -71,12 +72,12 @@ async function fixture(){
    if(sql.startsWith("INSERT INTO quotation_logo_assets")){
     const [id,tenant,object_key,mime_type,width,height,aspect_ratio]=values;
     assets.set(tenant+":"+id,{id,object_key,mime_type,width,height,aspect_ratio});
-    events.push("d1_insert_logo");return {success:true};
+    events.push("d1_insert_logo");return {success:true,meta:{changes:1}};
    }
    if(sql.startsWith("INSERT INTO quotation_logo_settings")){
     const [tenant,asset,x,y,w]=values;
     settings.set(tenant,{tenant_id:tenant,asset_id:asset,x_percent:x,y_percent:y,width_percent:w});
-    events.push("d1_upsert_settings");return {success:true};
+    events.push("d1_upsert_settings");return {success:true,meta:{changes:1}};
    }
    throw Error("unexpected_d1_write");
   }
@@ -116,11 +117,15 @@ async function fixture(){
   db,privateLogoBucket,privateTemplateBucket,approvedTemplates,
   authorization:auth,pdfLib,verifyMutation
  });
+ const portable=createPortableQuotationPrivateHandlers({
+  enabled:true,db,privateLogoBucket,privateTemplateBucket,approvedTemplates,
+  authorization:auth,pdfLib,verifyMutation
+ });
  const call=(handler,path,init={},identity={})=>handler({
   request:new Request("https://thebedesk.com"+path,init),
   actor,companyId:company,...identity
  });
- return {call,upload,preview,events,logoObjects,assets,settings,
+ return {call,upload,preview,portable:portable.handle,events,logoObjects,assets,settings,
   tamperTemplate:()=>{privateTemplateData=new Uint8Array(Buffer.from("%PDF-1.7\nTAMPERED"))}};
 }
 async function setupLogo(f){
@@ -199,4 +204,55 @@ test("tampering with approved PDF bytes denies preview without saving anything",
  assert.equal(denied.status,422);
  assert.equal((await denied.json()).error,"quotation_draft_pdf_preview_unavailable");
  assert.equal(f.events.slice(before).filter(x=>/put|insert|upsert|delete/.test(x)).length,0);
+});
+
+test("portable isolated pipeline: Web PNG upload, D1+R2, logo settings and real two-page PDF",async()=>{
+ const f=await fixture();
+ const upload=await f.call(f.portable,"/api/quotation/logo/upload",{
+  method:"POST",headers:{"content-type":"image/png","x-csrf-token":csrf},
+  body:logoPng()
+ });
+ assert.equal(upload.status,201,await upload.clone().text());
+ const logo=await upload.json();
+ assert.equal(logo.aspectRatio,32/24);
+ assert.equal(f.assets.size,1);
+ assert.equal(f.logoObjects.size,1);
+ assert.deepEqual([...f.logoObjects.values()][0].subarray(0,8),Uint8Array.from([137,80,78,71,13,10,26,10]));
+ assert.ok([...f.logoObjects.values()][0].length<=2*1024*1024);
+ const saved=await f.call(f.portable,"/api/quotation/logo",{
+  method:"PUT",headers:{"content-type":"application/json","x-csrf-token":csrf},
+  body:JSON.stringify({logoAssetId:logo.logoAssetId,
+   aspectRatio:logo.aspectRatio,layout:{xPercent:4,yPercent:2,widthPercent:20}})
+ });
+ assert.equal(saved.status,200,await saved.clone().text());
+ const before=f.events.length;
+ const response=await f.call(f.portable,"/api/quotation/draft/pdf-preview",
+  requestBody());
+ assert.equal(response.status,200,await response.clone().text().then(x=>x.slice(0,250)));
+ assert.equal(response.headers.get("content-type"),"application/pdf");
+ const pdf=await pdfLib.PDFDocument.load(new Uint8Array(await response.arrayBuffer()));
+ assert.equal(pdf.getPageCount(),2);
+ assert.deepEqual(pdf.getPage(0).getSize(),{width:612.24,height:858.96});
+ assert.deepEqual(pdf.getPage(1).getSize(),{width:841.92,height:1190.64});
+ assert.equal(f.events.slice(before).filter(x=>/put|insert|upsert|delete/.test(x)).length,0);
+ const denied=await f.call(f.portable,"/api/quotation/draft/pdf-preview",
+  requestBody(),{companyId:"otherTenant"});
+ assert.equal(denied.status,403);
+ const deniedCsrf=await f.call(f.portable,"/api/quotation/draft/pdf-preview",
+  requestBody(draft(),"invalid"));
+ assert.equal(deniedCsrf.status,403);
+ const jpeg=await f.call(f.portable,"/api/quotation/logo/upload",{
+  method:"POST",headers:{"content-type":"image/jpeg","x-csrf-token":csrf},
+  body:logoPng()
+ });
+ assert.equal(jpeg.status,415,"portable PNG-only image processor must reject JPEG");
+ const missing=await f.call(f.portable,"/api/quotation/issue",{method:"POST",
+  headers:{"x-csrf-token":csrf},body:"{}"});
+ assert.equal(missing.status,404,"issue route must not exist");
+});
+test("portable composition cannot be created without explicit opt-in and host adapters",async()=>{
+ await assert.rejects(async()=>createPortableQuotationPrivateHandlers({}),
+  /quotation_portable_staging_disabled/);
+ await assert.rejects(async()=>createPortableQuotationPrivateHandlers({enabled:true}),
+  /quotation_portable_staging_unconfigured/);
 });
