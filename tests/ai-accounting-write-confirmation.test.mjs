@@ -11,7 +11,7 @@ const reconciliation={tenantId:"tenant-a",period:"2026-11",requestId:"r1",state:
 
 test("usage accounting rejects unconfirmed database write",async()=>{
  for(const result of [undefined,{success:false}])
-  await assert.rejects(()=>recordAiUsage(dbWithResult(result),"tenant-a",usage),/write_unconfirmed/);
+  await assert.rejects(()=>recordAiUsage(dbWithResult(result),"tenant-a",usage),/write_failed/);
 });
 test("budget reservation rejects unconfirmed database write",async()=>{
  for(const result of [undefined,{success:false}])
