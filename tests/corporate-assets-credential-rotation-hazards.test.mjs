@@ -7,7 +7,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHmac} from 'node:crypto';
 import {readFileSync} from 'node:fs';
-import {authenticateWorkspaceSession} from '../cloudflare/src/worker.js';
+import {authenticateWorkspaceSession,verifyAuditChainForTests} from '../cloudflare/src/worker.js';
 
 const oldSessionKey='synthetic-old-session-key-'+('a'.repeat(32));
 const newSessionKey='synthetic-new-session-key-'+('b'.repeat(32));
@@ -116,4 +116,72 @@ test('synthetic secret values are never included in an acceptance receipt',()=>{
  for(const flag of ['liveSessionAcceptanceVerified','liveAuditIntegrityVerified',
   'rollbackAcceptanceVerified','sourceUploadProvenanceVerified','stagingDeploymentAuthorized'])
   assert.equal(receipt[flag],false);
+});
+
+function auditVerifyFixture(rows,expectedTenant='synthetic-tenant'){
+ const writes=[],reads=[];
+ const DB={prepare(sql){
+  if(sql.startsWith('SELECT count(*) c FROM audit_events')){
+   return {bind(tenantId){
+    assert.equal(tenantId,expectedTenant);
+    return {first:async()=>({c:0})};
+   }};
+  }
+  if(sql.includes('FROM audit_events WHERE tenant_id=? AND tenant_seq>?')){
+   return {bind(tenantId,afterSeq){
+    assert.equal(tenantId,expectedTenant);
+    reads.push(afterSeq);
+    return {all:async()=>({results:rows.filter(r=>r.tenant_seq>afterSeq).slice(0,500)})};
+   }};
+  }
+  if(sql.startsWith('INSERT INTO audit_integrity_checks')){
+   return {bind(...args){
+    writes.push(args);
+    assert.equal(args[1],expectedTenant);
+    return {run:async()=>({success:true})};
+   }};
+  }
+  throw Error('unexpected_audit_database_operation');
+ }};
+ return {DB,writes,reads};
+}
+test('canonical audit verifier accepts synthetic sealed event with the original key',async()=>{
+ const sealed=hmac(oldAuditKey,canonical(auditInput));
+ const row={id:'synthetic-event',actor_user_id:auditInput.actorUserId,
+  event_type:auditInput.eventType,entity_type:auditInput.entityType,
+  entity_id:auditInput.entityId,event_data:canonical(auditInput.eventData),
+  occurred_at:auditInput.occurredAt,tenant_seq:1,prev_hash:'GENESIS',
+  event_hash:sealed,integrity_version:1};
+ const f=auditVerifyFixture([row]);
+ const result=await verifyAuditChainForTests({AUDIT_INTEGRITY_SECRET:oldAuditKey,DB:f.DB},'synthetic-tenant');
+ assert.equal(result.status,'valid');
+ assert.equal(result.checkedEvents,1);
+ assert.equal(result.lastHash,sealed);
+ assert.equal(result.firstInvalidSeq,null);
+ assert.equal(f.writes.length,1);
+ assert.equal(f.writes[0][2],'valid');
+ assert.deepEqual(f.reads,[0]);
+});
+test('canonical audit verifier rejects old sealed event after synthetic key rotation',async()=>{
+ const row={id:'synthetic-event',actor_user_id:auditInput.actorUserId,
+  event_type:auditInput.eventType,entity_type:auditInput.entityType,
+  entity_id:auditInput.entityId,event_data:canonical(auditInput.eventData),
+  occurred_at:auditInput.occurredAt,tenant_seq:1,prev_hash:'GENESIS',
+  event_hash:hmac(oldAuditKey,canonical(auditInput)),integrity_version:1};
+ const f=auditVerifyFixture([row]);
+ const result=await verifyAuditChainForTests({AUDIT_INTEGRITY_SECRET:newAuditKey,DB:f.DB},'synthetic-tenant');
+ assert.equal(result.status,'invalid');
+ assert.equal(result.checkedEvents,0);
+ assert.equal(result.firstInvalidSeq,1);
+ assert.equal(f.writes.length,1);
+ assert.equal(f.writes[0][2],'invalid');
+});
+test('canonical audit verifier fails closed when audit key is missing',async()=>{
+ const f=auditVerifyFixture([]);
+ const result=await verifyAuditChainForTests({AUDIT_INTEGRITY_SECRET:'',DB:f.DB},'synthetic-tenant');
+ assert.equal(result.status,'invalid');
+ assert.equal(result.error,'audit_integrity_secret_not_configured');
+ assert.equal(result.firstInvalidSeq,1);
+ assert.deepEqual(f.reads,[]);
+ assert.equal(f.writes.length,1);
 });
