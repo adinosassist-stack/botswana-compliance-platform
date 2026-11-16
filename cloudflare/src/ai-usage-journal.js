@@ -23,15 +23,21 @@ export function normalizeAiUsageRecord(record,tenantId){
 export async function recordAiUsage(db,tenantId,record){
   if(!db||typeof db.prepare!=="function")throw Error("ai_usage_ledger_unavailable");
   const item=normalizeAiUsageRecord(record,tenantId);
-  // UNIQUE (tenant_id, request_id) makes replay safe. Never overwrite the
-  // original usage with later guesses, including an apparent zero-token result.
-  const query=db.prepare(`INSERT OR IGNORE INTO ai_usage_journal
+  // Plain INSERT deliberately rejects duplicate request IDs. Silently
+  // ignoring a conflicting replay would report a successful journal write
+  // while preserving different original usage data.
+  const query=db.prepare(`INSERT INTO ai_usage_journal
     (tenant_id,request_id,provider,model,usage_known,input_tokens,output_tokens,cached_input_tokens)
     VALUES (?,?,?,?,?,?,?,?)`);
-  const result=await query.bind(item.tenantId,item.requestId,item.provider,item.model,
-    item.usageKnown?1:0,item.inputTokens,item.outputTokens,item.cachedInputTokens).run();
-  if(result?.success!==true)throw Error("ai_usage_write_unconfirmed");
-  return {recorded:true};
+  try{
+    const result=await query.bind(item.tenantId,item.requestId,item.provider,item.model,
+      item.usageKnown?1:0,item.inputTokens,item.outputTokens,item.cachedInputTokens).run();
+    if(result?.success!==true)throw Error("ai_usage_write_unconfirmed");
+    return {recorded:true};
+  }catch{
+    // Treat duplicates, storage errors, and unknown outcomes conservatively.
+    throw Error("ai_usage_write_failed");
+  }
 }
 export async function getTenantAiUsage(db,tenantId){
   if(!ID.test(String(tenantId||""))||!db||typeof db.prepare!=="function")throw Error("ai_usage_ledger_unavailable");
