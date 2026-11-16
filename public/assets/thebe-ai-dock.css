@@ -2105,3 +2105,26 @@ body.thebe-ai-dock-open .thebe-ai-mode-rail:has([data-thebe-mode="goal_plan"]:no
     border-radius: 28px;
   }
 }
+
+/* Mobile Thebe composer: one clean charcoal border, no nested focus rectangles. */
+@media (max-width: 767px) {
+  #thebeAiDock .thebe-ai-compose {
+    border: 1px solid #454c56;
+    box-shadow: none;
+    outline: none;
+  }
+  #thebeAiDock .thebe-ai-compose textarea,
+  #thebeAiDock .thebe-ai-compose textarea:focus,
+  #thebeAiDock .thebe-ai-compose textarea:focus-visible {
+    border: 0 !important;
+    outline: 0 !important;
+    box-shadow: none !important;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  #thebeAiDock .thebe-ai-compose:focus-within {
+    border-color: #0b66d6;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+}
