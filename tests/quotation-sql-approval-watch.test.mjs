@@ -69,7 +69,7 @@ test("hourly fallback reports exact previously posted approval once, without SQL
  const calls=[];
  globalThis.fetch=async(url,init={})=>{
   calls.push({url:String(url),method:init.method,body:init.body});
-  assert.match(String(url),/api\\.github\\.com\\/repos\\/adinosassist-stack\\/botswana-compliance-platform\\/issues\\/2504\\/comments/);
+  assert.ok(String(url).startsWith("https://api.github.com/repos/adinosassist-stack/botswana-compliance-platform/issues/2504/comments"));
   if(init.method==="GET")return new Response(JSON.stringify(comments),{
    status:200,headers:{"content-type":"application/json"}});
   if(init.method==="POST"){
