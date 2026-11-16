@@ -2186,3 +2186,9 @@ body.thebe-voice-active #thebeAiDock :is(button,textarea):focus-visible {
     top:0!important;
   }
 }
+
+/* Voice controls must remain above the immersive dock; the dialog is non-modal
+   so the underlying composer stays editable during live voice. */
+html body dialog#thebeVoiceScreen[open] {
+  z-index:10001!important;
+}
