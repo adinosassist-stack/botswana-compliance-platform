@@ -161,6 +161,117 @@ try{
  await page.getByText('Save accepted, but the register could not be refreshed. Use Refresh to verify your record.').waitFor();
  await page.getByRole('button',{name:'Export view',exact:true}).click();
  await page.getByText('Export is unavailable until the asset register loads. Use Refresh to retry.').waitFor();
+
+ // When list refresh fails after an acknowledged save, an exact-ID asset GET
+ // must still establish persistence without making the register writable.
+ await page.evaluate(()=>{
+  window.apiJson=window.savedAssetsApi;
+ });
+ await page.getByRole('button',{name:'Refresh',exact:true}).click();
+ await page.getByText('TR-001',{exact:true}).waitFor();
+ await page.evaluate(()=>{
+  const base=window.apiJson;
+  let saved=null,failList=false;
+  window.apiJson=(path,opts={})=>{
+   if(opts.method==='POST'&&path==='/api/corporate-assets'){
+    const b=JSON.parse(opts.body);
+    saved={id:b.id,name:b.name,category:b.category,branch:b.branch,
+     serial:b.serial,custodian:b.custodian,acquisition_date:b.acquisitionDate,
+     acquisition_cost_minor:b.acquisitionCostMinor,book_value_minor:b.bookValueMinor,
+     status:b.status,revision:1};
+    failList=true;
+    return Promise.resolve({ok:true,id:b.id});
+   }
+   if(path.startsWith('/api/corporate-assets?')&&failList)
+    return Promise.reject(Object.assign(Error('assets_unavailable'),{code:'assets_unavailable'}));
+   if(/^\/api\/corporate-assets\/[a-f0-9-]{36}$/i.test(path))
+    return Promise.resolve({item:saved?.id===path.split('/').at(-1)?saved:null});
+   return base(path,opts);
+  };
+ });
+ await page.getByRole('button',{name:'Register asset',exact:true}).click();
+ await page.getByLabel('Asset name',{exact:true}).fill('Confirmed field generator');
+ await page.getByLabel('Branch / location',{exact:true}).fill('Maun');
+ await page.getByLabel('Acquisition date',{exact:true}).fill('2026-10-01');
+ await page.getByLabel('Acquisition cost (BWP)',{exact:true}).fill('4500');
+ await page.getByLabel('Recorded book value (BWP)',{exact:true}).fill('4000');
+ await page.getByRole('button',{name:'Save',exact:true}).click();
+ await page.getByText('Save verified by exact record ID, but the asset register could not reload. Use Refresh before further changes.').waitFor();
+ await page.getByRole('button',{name:'Register asset',exact:true}).click();
+ await page.getByText('Cannot register an asset yet: the asset service is still loading or unavailable. Use Refresh to retry. No asset has been saved.').waitFor();
+ assert.equal(await page.locator('.corporate-asset-dialog').count(),0);
+ await page.evaluate(()=>{window.apiJson=window.savedAssetsApi});
+ await page.getByRole('button',{name:'Refresh',exact:true}).click();
+ await page.getByText('TR-001',{exact:true}).waitFor();
+
+ // The service audit-history readback must also be attempted if the list API
+ // fails after an accepted service entry.
+ await page.evaluate(()=>{
+  const base=window.apiJson;
+  let savedService=null,failList=false;
+  window.apiJson=(path,opts={})=>{
+   if(opts.method==='POST'&&path.endsWith('/services')){
+    savedService=JSON.parse(opts.body);failList=true;
+    return Promise.resolve({ok:true,id:savedService.id});
+   }
+   if(path.startsWith('/api/corporate-assets?')&&failList)
+    return Promise.reject(Object.assign(Error('assets_unavailable'),{code:'assets_unavailable'}));
+   if(path.endsWith('/history'))return Promise.resolve({items:savedService?[{
+    event_type:'CORPORATE_ASSET_SERVICE_RECORDED',event_data:JSON.stringify(savedService),
+    occurred_at:'2026-11-16T00:00:00Z'
+   }]:[]});
+   return base(path,opts);
+  };
+ });
+ await page.getByRole('button',{name:'Service / renewal',exact:true}).click();
+ await page.getByLabel('Service / record date',{exact:true}).fill('2026-11-01');
+ await page.getByLabel('Next due date',{exact:true}).fill('2026-12-30');
+ await page.getByLabel('Description',{exact:true}).fill('Synthetic annual inspection');
+ await page.getByRole('button',{name:'Save',exact:true}).click();
+ await page.getByText('Save verified by exact record ID, but the asset register could not reload. Use Refresh before further changes.').waitFor();
+ await page.evaluate(()=>{window.apiJson=window.savedAssetsApi});
+ await page.getByRole('button',{name:'Refresh',exact:true}).click();
+ await page.getByText('TR-001',{exact:true}).waitFor();
+ console.log('PASS exact asset and service readback when post-save register refresh fails');
+
+ // A second save while a different dialog is awaiting server response must
+ // show a useful message instead of doing nothing.
+ await page.evaluate(()=>{
+  window.deferredSaveResolve=null;
+  window.apiJson=(path,opts={})=>{
+   if(opts.method==='POST')return new Promise(resolve=>{window.deferredSaveResolve=resolve});
+   return window.savedAssetsApi(path,opts);
+  };
+ });
+ await page.getByRole('button',{name:'Register asset',exact:true}).click();
+ await page.getByLabel('Asset name',{exact:true}).fill('Waiting generator');
+ await page.getByLabel('Branch / location',{exact:true}).fill('Gaborone');
+ await page.getByLabel('Acquisition date',{exact:true}).fill('2026-11-01');
+ await page.getByLabel('Acquisition cost (BWP)',{exact:true}).fill('1000');
+ await page.getByLabel('Recorded book value (BWP)',{exact:true}).fill('900');
+ await page.getByRole('button',{name:'Save',exact:true}).click();
+ await page.getByText('Saving…').waitFor();
+ // Force a second pending dialog via its existing registered click handler:
+ // the first modal makes background toolbar controls intentionally inert to users.
+ await page.evaluate(()=>{
+  document.querySelector('#corporateassets [data-asset-write]')
+   .dispatchEvent(new MouseEvent('click',{bubbles:true}));
+ });
+ const dialogs=page.locator('dialog.corporate-asset-dialog');
+ assert.equal(await dialogs.count(),2);
+ const second=dialogs.nth(1);
+ await second.locator('[name="name"]').fill('Second generator');
+ await second.locator('[name="branch"]').fill('Palapye');
+ await second.locator('[name="acquisitionDate"]').fill('2026-11-01');
+ await second.locator('[name="cost"]').fill('1000');
+ await second.locator('[name="book"]').fill('900');
+ await second.getByRole('button',{name:'Save',exact:true}).click();
+ await second.getByText('Another asset save is still being verified. Try again when it finishes.').waitFor();
+ await page.evaluate(()=>{window.deferredSaveResolve?.({ok:false})});
+ await dialogs.first().getByText('The server did not confirm this save. Refresh before trying again.').waitFor();
+ await page.evaluate(()=>{document.querySelectorAll('dialog.corporate-asset-dialog').forEach(d=>d.close())});
+ await page.evaluate(()=>{window.apiJson=window.savedAssetsApi});
+
  // Malformed list payload fails closed without making the register writable.
  await page.evaluate(()=>{window.apiJson=async()=>({items:null,summary:{},nextCursor:null})});
  await page.getByRole('button',{name:'Refresh',exact:true}).click();
