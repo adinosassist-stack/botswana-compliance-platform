@@ -63,7 +63,7 @@ function syntheticPng({metadata=false,invalidFilter=false}={}){
 }
 async function setup(t){
  const mf=new Miniflare(convertV4MiniflareOptions({
-  modules:true,script:workerSource,compatibilityDate:"2026-11-16"
+  modules:true,script:workerSource,compatibilityDate:"2026-09-25"
  }));
  t.after(()=>mf.dispose());
  return mf;
