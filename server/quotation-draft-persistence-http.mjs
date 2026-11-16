@@ -46,7 +46,15 @@ function validEnvelope(data){
     !validId(data.draftId)||!Number.isSafeInteger(data.revision)||
     data.revision<0||data.revision>2_147_483_647)
   throw Error("invalid_draft_envelope");
- return {draftId:data.draftId,revision:data.revision,draft:validateQuotationDraft(data.draft)};
+ const validated=validateQuotationDraft(data.draft);
+ // Persist only the editable draft contract; derived line totals, subtotal,
+ // grand total and currency must always be recomputed, never stored as input.
+ const draft={quoteNumber:validated.quoteNumber,issueDate:validated.issueDate,
+  customerName:validated.customerName,customerContact:validated.customerContact,
+  paymentMethod:validated.paymentMethod,
+  items:validated.items.map(({description,quantity,unitPriceCents})=>({description,quantity,unitPriceCents})),
+  discountCents:validated.discountCents};
+ return {draftId:data.draftId,revision:data.revision,draft};
 }
 /**
  * store.read({companyId,draftId}) => null | {revision,draft}
