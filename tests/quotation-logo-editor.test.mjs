@@ -44,3 +44,12 @@ test("PDF preview is explicitly user initiated and disabled for unsaved changes"
  assert.match(source,/typeof options\.onPreviewPdf/);
  assert.match(source,/quotation-logo-preview\.pdf/);
 });
+
+test("asynchronous logo save snapshots layout and never clears newer edits",()=>{
+ assert.match(source,/const revision=editRevision,selectedFile=file,savedLayout=\{\.\.\.layout\},savedRatio=ratio/);
+ assert.match(source,/await options\.onUpload\(selectedFile\)/);
+ assert.match(source,/layout:savedLayout,aspectRatio:savedRatio/);
+ assert.match(source,/if\(editRevision===revision\)/);
+ assert.match(source,/Newer logo changes are not saved\. Save again\./);
+ assert.match(source,/if\(!dirty\|\|saving\|\|typeof options\.onSave/);
+});
