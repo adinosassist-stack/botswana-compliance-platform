@@ -36,7 +36,7 @@ function fixture({insertResult={success:true,meta:{changes:1}},
    if(sql.startsWith("INSERT INTO quotation_logo_assets")){
     log.push("d1_insert");
     const [id,tenant,key,mime_type,width,height,aspect_ratio]=args;
-    if(insertResult?.success===true||commitOnThrow)
+    if((insertResult?.success===true&&insertResult?.meta?.changes===1)||commitOnThrow)
      records.set(tenant+"|"+id,{id,object_key:key,mime_type,width,height,aspect_ratio});
     if(commitOnThrow)throw Error("synthetic_response_lost_after_commit");
     if(insertResult instanceof Error)throw insertResult;
