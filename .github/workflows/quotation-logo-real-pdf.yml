@@ -15,6 +15,7 @@ on:
       - 'server/quotation-logo-web-png-sanitizer.mjs'
       - 'server/quotation-portable-private-staging.mjs'
       - 'tests/quotation-logo-web-png-sanitizer.test.mjs'
+      - 'tests/quotation-logo-web-png-workerd.test.mjs'
       - '.github/workflows/quotation-logo-real-pdf.yml'
   workflow_dispatch:
 
@@ -44,3 +45,19 @@ jobs:
         env:
           QUOTATION_PDF_ENGINE_ROOT: ${{ runner.temp }}/quotation-pdf-engine
         run: node --test tests/quotation-logo-real-pdf.test.mjs tests/quotation-logo-real-private-e2e.test.mjs tests/quotation-logo-web-crypto-portability.test.mjs tests/quotation-logo-web-png-sanitizer.test.mjs
+
+  workerd-png-portability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked runtime emulation toolchain (no scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify sanitizer against actual local workerd engine
+        run: node --test tests/quotation-logo-web-png-workerd.test.mjs
