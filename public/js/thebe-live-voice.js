@@ -1987,6 +1987,11 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     };
     global.visualViewport?.addEventListener("resize",syncKeyboard,{passive:true});
     global.visualViewport?.addEventListener("scroll",syncKeyboard,{passive:true});
+    // Apply viewport geometry on first render and when the virtual keyboard opens.
+    // A focus event may precede visualViewport.resize on some Android browsers.
+    input?.addEventListener("focus",syncKeyboard,{passive:true});
+    input?.addEventListener("blur",syncKeyboard,{passive:true});
+    syncKeyboard();
     dock.addEventListener("keydown",event=>{
       if(event.key!=="Escape")return;
       event.preventDefault();
