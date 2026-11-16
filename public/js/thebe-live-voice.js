@@ -1051,7 +1051,7 @@ html body dialog#thebeVoiceScreen[open]{
  position:fixed!important;inset:auto 18px 92px auto!important;
  width:180px!important;height:auto!important;min-width:0!important;max-width:calc(100vw - 24px)!important;
  min-height:0!important;max-height:calc(100dvh - 110px)!important;
- margin:0!important;padding:12px!important;z-index:990!important;
+ margin:0!important;padding:12px!important;z-index:10001!important;
  display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:center!important;
  gap:8px!important;overflow:visible!important;
  border:1px solid rgba(123,176,230,.48)!important;border-radius:22px!important;
