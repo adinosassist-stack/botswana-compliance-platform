@@ -4,12 +4,20 @@ on:
     paths:
       - 'docs/sql/quotation-logo-staging-candidate.sql'
       - 'tests/quotation-staging-schema.test.py'
+      - 'docs/sql/quotation-drafts-staging-candidate.sql'
+      - 'tests/quotation-staging-exact-sql-workerd-d1.test.mjs'
+      - 'server/quotation-draft-staging-readonly-preflight.mjs'
+      - 'tests/quotation-draft-staging-readonly-preflight.test.mjs'
       - '.github/workflows/quotation-staging-sql-contract.yml'
       - 'server/quotation-logo-d1-r2-store.mjs'
   push:
     paths:
       - 'docs/sql/quotation-logo-staging-candidate.sql'
       - 'tests/quotation-staging-schema.test.py'
+      - 'docs/sql/quotation-drafts-staging-candidate.sql'
+      - 'tests/quotation-staging-exact-sql-workerd-d1.test.mjs'
+      - 'server/quotation-draft-staging-readonly-preflight.mjs'
+      - 'tests/quotation-draft-staging-readonly-preflight.test.mjs'
       - '.github/workflows/quotation-staging-sql-contract.yml'
 
 permissions:
@@ -29,3 +37,20 @@ jobs:
           python-version: '3.12'
       - name: Run in-memory SQLite schema contract with zero Cloudflare credentials
         run: python tests/quotation-staging-schema.test.py -v
+
+  workerd-exact-sql-contract:
+    name: Local D1 exact-blob / tenant / draft CAS contract only
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install pinned local workerd emulator, never Cloudflare credentials
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Apply reviewed SQL ONLY to ephemeral local D1 and verify tenant isolation
+        run: node --test tests/quotation-staging-exact-sql-workerd-d1.test.mjs tests/quotation-draft-staging-readonly-preflight.test.mjs

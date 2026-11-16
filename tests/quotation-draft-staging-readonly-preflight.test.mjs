@@ -114,3 +114,29 @@ test("the preflight's strict draft DDL is pinned to the reviewed SQL file",()=>{
  assert.equal(canonicalQuotationSchemaSql(index),
   canonicalQuotationSchemaSql(quotationDraftExpectedSchema.index));
 });
+
+
+test("Cloudflare D1 internal tables are ignored but unknown application objects stay blocked",async()=>{
+ const system=[
+  {name:"_cf_KV",type:"table",sql:"CREATE TABLE _cf_KV (key TEXT)"},
+  {name:"_cf_METADATA",type:"table",sql:"CREATE TABLE _cf_METADATA (key TEXT)"}
+ ];
+ const valid=fixture([...validRows(),...system]);
+ const result=await qualifyQuotationDraftPrivateStaging(valid.config);
+ assert.equal(result.schemaReady,true,"built-in D1 tables are not application schema");
+ assert.equal(result.draftSchemaExactlyMatched,true);
+ assert.equal(result.readyForSeparateQualificationApproval,true);
+ assert.equal(result.migrationAuthorized,false);
+ assert.equal(result.deploymentAuthorized,false);
+ for(const unknown of [
+  {name:"_cf_UNRECOGNISED",type:"table",sql:"CREATE TABLE _cf_UNRECOGNISED (id TEXT)"},
+  {name:"extra_app_table",type:"table",sql:"CREATE TABLE extra_app_table (id TEXT)"},
+  {name:"_cf_METADATA",type:"index",sql:"CREATE INDEX _cf_METADATA ON quotation_drafts(id)"}
+ ]){
+  const unexpected=fixture([...validRows(),...system,unknown]);
+  const blocked=await qualifyQuotationDraftPrivateStaging(unexpected.config);
+  assert.equal(blocked.schemaReady,false,unknown.name);
+  assert.equal(blocked.readyForSeparateQualificationApproval,false,unknown.name);
+  assert.ok(blocked.unexpectedObjects.includes(unknown.name),unknown.name);
+ }
+});
