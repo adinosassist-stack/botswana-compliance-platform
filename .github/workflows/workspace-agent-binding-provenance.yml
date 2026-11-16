@@ -1,0 +1,91 @@
+name: Workspace Agent secret-safe binding provenance
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Exact current main SHA (40 lowercase hex characters)
+        required: true
+        type: string
+permissions: {}
+concurrency:
+  group: workspace-agent-secret-safe-readonly
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+    steps:
+      - name: Enforce exact main and sole independent thusico approval
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          reviewer="$(gh api users/thusico --jq .id)"
+          envapi="repos/$GITHUB_REPOSITORY/environments/workspace-agent-private-staging"
+          gh api "$envapi" | jq -e --argjson reviewer "$reviewer" '
+            any(.protection_rules[]; .type == "required_reviewers" and
+            .prevent_self_review == true and
+            (.reviewers | length == 1) and
+            ([.reviewers[] | select(.type == "User") | .reviewer.id] == [$reviewer])) and
+            .deployment_branch_policy.protected_branches == false and
+            .deployment_branch_policy.custom_branch_policies == true' >/dev/null
+          gh api "$envapi/deployment-branch-policies" | jq -e '
+            .total_count == 1 and .branch_policies[0].name == "main" and
+            .branch_policies[0].type == "branch"' >/dev/null
+  inspect:
+    needs: verify
+    runs-on: ubuntu-24.04
+    environment: workspace-agent-private-staging
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+      AUDIT_TOKEN: ${{ secrets.WORKSPACE_AGENT_STAGING_READONLY_CLOUDFLARE_TOKEN }}
+    steps:
+      - name: Classify binding provenance without exporting values
+        run: |
+          set -euo pipefail
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          test -n "$AUDIT_TOKEN"
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          api="https://api.cloudflare.com/client/v4/accounts/b11d872b2660e76ca66323023b45b3ab/workers/scripts/bw-workspace-agent-staging"
+          for endpoint in settings deployments; do
+            curl --fail --silent --show-error --max-time 30 \
+              -H "Authorization: Bearer $AUDIT_TOKEN" "$api/$endpoint" > "$tmp/$endpoint" 2>/dev/null || {
+              echo "::error::Cloudflare read-only inventory request failed"; exit 1;
+            }
+          done
+          jq -e '.success == true and (.result.bindings | type == "array")' "$tmp/settings" >/dev/null
+          jq -e '.success == true and (.result.deployments[0].versions | length == 1 and
+            .[0].version_id == "64d9bae9-2ea3-40c1-9a26-83cea97ad71c" and
+            .[0].percentage == 100)' "$tmp/deployments" >/dev/null || {
+            echo "::error::Pinned inert deployment differs; stop"; exit 1;
+          }
+          check() {
+            if jq -e "$2" "$tmp/settings" >/dev/null 2>&1; then
+              echo "PASS $1"
+            else
+              echo "::error::FAIL $1"; failure=1
+            fi
+          }
+          failure=0
+          check exactly_one_known_d1_binding '.result.bindings | ([.[] | select(.type == "d1" and .name == "DB" and .id == "fa317ccc-683d-4466-9e3a-e296872d58ba")] | length == 1) and ([.[] | select(.type == "d1")] | length == 1)'
+          check advisory_flag_currently_true '[.result.bindings[] | select(.name == "WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED" and .type == "plain_text" and .text == "true")] | length == 1'
+          check session_secret_present_only '[.result.bindings[] | select(.type == "secret_text") | .name] == ["SESSION_SECRET"]'
+          check no_unknown_binding_types '[.result.bindings[] | select(.type != "plain_text" and .type != "d1" and .type != "secret_text")] | length == 0'
+          check unique_binding_names '[.result.bindings[].name] | length == (unique | length)'
+          # Classified evidence only: never print the raw binding data (especially secrets).
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          test "$failure" -eq 0
+          echo "Classified binding topology only. No Cloudflare writes, remediation payload, or deployment."

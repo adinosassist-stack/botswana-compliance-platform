@@ -3,6 +3,8 @@ import {answerGeneralQuestion} from "./general-ai-research-orchestrator.js";
 import {planGeneralAiRequest} from "./general-ai-research-policy.js";
 import {createGeneralAiModelProvider} from "./general-ai-model-provider.js";
 import {createGeneralAiSearchProvider} from "./general-ai-search-provider.js";
+import {reserveAiBudget} from "./ai-budget-reservation.js";
+import {recordAiUsage} from "./ai-usage-journal.js";
 
 export const generalAiResultStatus=result=>result?.ok?200:result?.error==="authorization_required"||result?.error==="action_request_not_supported"?403:result?.error==="research_sources_unavailable"||result?.error==="model_unavailable"?503:400;
 const reply=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"}});
@@ -42,12 +44,35 @@ export async function handleGeneralAiRoute({request,path,env,auth}={}){
     const limit=await env.GENERAL_AI_RATE_LIMITER.limit({key:String(auth.tenant_id)+":"+String(auth.user_id)});
     if(limit?.success!==true)return reply({error:"rate_limit_exceeded"},429);
   }catch{return reply({error:"rate_limit_unavailable"},503)}
+  const guarded=env.THEBE_AI_BUDGET_ENFORCEMENT_ENABLED==="true";
+  const amount=Number(env.THEBE_AI_BUDGET_RESERVATION_MICRO_USD);
+  if(guarded&&(!env.AI_BUDGET_DB?.prepare||!Number.isSafeInteger(amount)||amount<=0))
+    return reply({error:"ai_budget_unavailable"},503);
   let model;
-  try{model=createGeneralAiModelProvider({apiKey:env.OPENAI_API_KEY,model:env.THEBE_GENERAL_AI_MODEL})}
+  try{model=createGeneralAiModelProvider({
+    apiKey:env.OPENAI_API_KEY,model:env.THEBE_GENERAL_AI_MODEL,
+    ...(guarded?{onUsage:async usage=>{
+      await recordAiUsage(env.AI_BUDGET_DB,String(auth.tenant_id),{
+        ...usage,requestId:budgetRequestId
+      });
+      usageRecorded=true;
+    }}:{})
+  })}
   catch{return reply({error:"model_unavailable"},503)}
+  let budgetRequestId="",usageRecorded=false;
+  if(guarded){
+    const period=new Date().toISOString().slice(0,7);
+    budgetRequestId=crypto.randomUUID();
+    try{
+      await reserveAiBudget(env.AI_BUDGET_DB,{
+        tenantId:String(auth.tenant_id),period,requestId:budgetRequestId,amountMicroUsd:amount
+      });
+    }catch{return reply({error:"ai_budget_denied"},429)}
+  }
   const search=researchEnabled?createGeneralAiSearchProvider({apiKey:env.BRAVE_SEARCH_API_KEY}):undefined;
   try{
     const result=await answerGeneralQuestion({question:body.question,model,search,researchEnabled,authorized:false});
+    if(guarded&&result.ok&&!usageRecorded)return reply({error:"ai_usage_unconfirmed"},503);
     return reply(result,generalAiResultStatus(result));
   }catch{return reply({error:"ai_provider_unavailable"},503)}
 }

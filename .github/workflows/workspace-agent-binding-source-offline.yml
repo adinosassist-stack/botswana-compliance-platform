@@ -1,0 +1,26 @@
+name: Workspace Agent binding source matrix offline contract
+on:
+  pull_request:
+    paths:
+      - 'scripts/workspace-agent-binding-source-matrix.mjs'
+      - 'tests/workspace-agent-binding-source-matrix.test.mjs'
+      - '.github/workflows/workspace-agent-binding-source-reconciliation.yml'
+      - '.github/workflows/workspace-agent-binding-source-offline.yml'
+  push:
+    paths:
+      - 'scripts/workspace-agent-binding-source-matrix.mjs'
+      - 'tests/workspace-agent-binding-source-matrix.test.mjs'
+      - '.github/workflows/workspace-agent-binding-source-offline.yml'
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate three-source read-only binding classification
+        run: node --test tests/workspace-agent-binding-source-matrix.test.mjs

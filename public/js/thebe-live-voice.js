@@ -1051,7 +1051,7 @@ html body dialog#thebeVoiceScreen[open]{
  position:fixed!important;inset:auto 18px 92px auto!important;
  width:180px!important;height:auto!important;min-width:0!important;max-width:calc(100vw - 24px)!important;
  min-height:0!important;max-height:calc(100dvh - 110px)!important;
- margin:0!important;padding:12px!important;z-index:990!important;
+ margin:0!important;padding:12px!important;z-index:10001!important;
  display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:center!important;
  gap:8px!important;overflow:visible!important;
  border:1px solid rgba(123,176,230,.48)!important;border-radius:22px!important;
@@ -1140,8 +1140,11 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       if(optionsToggle)optionsToggle.setAttribute("aria-expanded","false");
       const mute=voiceScreen.querySelector('[aria-pressed]');mute.setAttribute("aria-pressed","false");mute.textContent="Mute microphone";
       voiceScreen.show();
+      // Keep the underlying dock immersive for the entire voice session.
+      document.body.classList.add("thebe-voice-active");
       // Keep the composer editable while the voice session remains live.
-      if(voiceReturnFocus?.isConnected)voiceReturnFocus.focus({preventScroll:true});
+      // Do not move focus outside the visible voice controls.
+      voiceScreen.querySelector(".thebe-voice-float-toggle")?.focus({preventScroll:true});
     }
   }
   function closeVoiceScreen(stopSession=false){
@@ -1751,8 +1754,8 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       const expanded=dock.dataset.expanded!=="true";
       dock.dataset.expanded=String(expanded);
       expand.setAttribute("aria-pressed",String(expanded));
-      expand.setAttribute("aria-label",expanded?"Restore Thebe panel width":"Expand Thebe panel");
-      expand.title=expanded?"Restore Thebe width":"Expand Thebe";
+      expand.setAttribute("aria-label",expanded?"Restore Thebe panel":"Maximize Thebe panel");
+      expand.title=expanded?"Restore Thebe panel":"Maximize Thebe panel";
       syncVisibility();
     });
     headActions.append(attentionButton,clearButton,expand,minimize);head.append(title,headActions);
@@ -1809,10 +1812,12 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     orb.append(wave,core);
     orbButton.append(orb);
     orbButton.addEventListener("click",()=>{
+      // Open on direct user gesture; existing browser UX tests require immediate feedback.
+      // Every missing-runtime and rejected-start path closes the overlay.
       openVoiceScreen();
       const liveApi=global.ThebeLiveVoice;
       if(!shellVisible()){
-        if(!liveApi){responseMessage("The public voice sample is not available in this browser right now.","error");return}
+        if(!liveApi){responseMessage("The public voice sample is not available in this browser right now.","error");closeVoiceScreen();return}
         const liveState=liveApi.status?.().state||"idle";
         if(liveState==="connected"||liveState==="connecting"||liveState==="closing"){liveApi.stop();return}
         responseMessage("Opening a short Thebe voice sample…","thinking");
@@ -1912,9 +1917,15 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     compose.append(attachButton,fileInput,composeBody,audioButton,conversationVoiceButton,sendButton);
     compose.addEventListener("submit",event=>{event.preventDefault();const value=input.value,files=[...pendingFiles];if(textBusy||(!clean(value,MAX_QUESTION).length&&!files.length))return;input.value="";syncComposerHeight();syncComposerState();void ask(assistantMode,value,files)});
     input.addEventListener("input",()=>{syncComposerHeight();syncComposerState()});
+    input.setAttribute("enterkeyhint",mobileDockMode()?"enter":"send");
     input.addEventListener("focus",()=>setMascotFocus("compose"));
     input.addEventListener("blur",()=>setMascotFocus("ambient"));
-    input.addEventListener("keydown",event=>{if(event.key==="Enter"&&!event.shiftKey&&!event.isComposing){event.preventDefault();compose.requestSubmit()}});
+    // Desktop Enter sends; mobile virtual keyboards keep Enter for multiline drafting.
+    input.addEventListener("keydown",event=>{
+      if(event.key!=="Enter"||event.shiftKey||event.isComposing||event.keyCode===229)return;
+      if(mobileDockMode())return;
+      event.preventDefault();compose.requestSubmit();
+    });
     syncComposerHeight();
     syncComposerState();
 
@@ -1966,6 +1977,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       // Recompute the composer cap after desktop/mobile and virtual keyboard transitions.
       // This changes presentation only; never reset the draft or conversation.
       syncComposerHeight();
+      input?.setAttribute("enterkeyhint",mobileDockMode()?"enter":"send");
       const viewport=global.visualViewport;
       if(!viewport)return;
       const inset=Math.max(0,global.innerHeight-viewport.height-viewport.offsetTop);
@@ -1975,7 +1987,18 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     };
     global.visualViewport?.addEventListener("resize",syncKeyboard,{passive:true});
     global.visualViewport?.addEventListener("scroll",syncKeyboard,{passive:true});
-    dock.addEventListener("keydown",event=>{if(event.key==="Escape"){event.preventDefault();setCollapsed(true)}});
+    dock.addEventListener("keydown",event=>{
+      if(event.key!=="Escape")return;
+      event.preventDefault();
+      if(dock.dataset.expanded==="true"){
+        dock.dataset.expanded="false";
+        const expandButton=dock.querySelector(".thebe-ai-expand");
+        expandButton?.setAttribute("aria-pressed","false");
+        expandButton?.setAttribute("aria-label","Expand Thebe panel");
+        if(expandButton)expandButton.title="Expand Thebe";
+        syncVisibility();
+      }else setCollapsed(true);
+    });
     global.addEventListener("resize",()=>{syncVisibility();syncKeyboard()},{passive:true});
     global.addEventListener("keydown",event=>{
       if(event.altKey&&!event.ctrlKey&&!event.metaKey&&String(event.key||"").toLowerCase()==="t"){
@@ -1996,6 +2019,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const marketing=event?.detail?.mode==="marketing"||surfaceMode()==="public";
     if(next==="connecting"||next==="connected")openVoiceScreen();
     if(next==="idle")closeVoiceScreen();
+    if(next==="error"||next==="failed")closeVoiceScreen();
     if(next==="connecting"){voiceInput="";voiceOutput="";renderVoiceTranscript();setPhase("connecting","Connecting…",marketing?"Opening the 60-second sample":"Opening the secure voice session")}
     else if(next==="connected")setPhase("ready","Voice connected",marketing?"Ask me about Thebe Desk":"Speak naturally — you can interrupt Thebe");
     else if(next==="closing")setPhase("thinking","Ending voice…","Closing the voice session");

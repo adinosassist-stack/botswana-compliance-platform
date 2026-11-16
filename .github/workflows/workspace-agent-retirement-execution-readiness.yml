@@ -1,0 +1,147 @@
+name: Workspace Agent version-retirement execution readiness (NO DELETE)
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Exact current main SHA
+        type: string
+        required: true
+      expected_candidate_id:
+        description: Exact full undeployed Worker version UUID
+        type: string
+        required: true
+      owner_approval_comment_id:
+        description: Numeric GitHub comment ID containing explicit owner scope acceptance
+        type: string
+        required: true
+permissions: {}
+concurrency:
+  group: workspace-agent-stranded-version-execution-readiness
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main' && github.actor == 'adinosassist-stack'
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+      CANDIDATE: ${{ inputs.expected_candidate_id }}
+      OWNER_COMMENT: ${{ inputs.owner_approval_comment_id }}
+    steps:
+      - name: Verify exact main, owner and independent protected reviewer
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$CANDIDATE" = "9ba41e62-9efc-49c5-9d4e-d667057e43fb"
+          [[ "$OWNER_COMMENT" =~ ^[0-9]{1,18}$ ]]
+          if [[ "$GITHUB_SHA" != "$EXPECTED_SHA" ]]; then
+            echo "::error::BLOCK dispatched_sha_mismatch — rerun only after a fresh exact-main owner acceptance"
+            exit 1
+          fi
+          actual_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          if [[ "$actual_main" != "$EXPECTED_SHA" ]]; then
+            echo "::error::BLOCK main_sha_drift — owner authorization is stale; do not retry or delete"
+            exit 1
+          fi
+          envapi="repos/$GITHUB_REPOSITORY/environments/workspace-agent-private-staging"
+          reviewer="$(gh api users/thusico --jq .id)"
+          gh api "$envapi" | jq -e --argjson reviewer "$reviewer" '
+            any(.protection_rules[]; .type == "required_reviewers" and
+              .prevent_self_review == true and
+              (.reviewers | length == 1) and
+              ([.reviewers[] | select(.type == "User") | .reviewer.id] == [$reviewer])) and
+              .deployment_branch_policy.protected_branches == false and
+              .deployment_branch_policy.custom_branch_policies == true' >/dev/null
+          gh api "$envapi/deployment-branch-policies" | jq -e '
+            .total_count == 1 and .branch_policies[0].name == "main" and
+            .branch_policies[0].type == "branch"' >/dev/null
+  dry-run:
+    needs: verify
+    environment: workspace-agent-private-staging
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+      CANDIDATE: ${{ inputs.expected_candidate_id }}
+      OWNER_COMMENT: ${{ inputs.owner_approval_comment_id }}
+      AUDIT_TOKEN: ${{ secrets.WORKSPACE_AGENT_STAGING_READONLY_CLOUDFLARE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Check owner authorization and full live eligibility (read-only)
+        run: |
+          set -euo pipefail
+          test -n "$AUDIT_TOKEN"
+          [[ "$OWNER_COMMENT" =~ ^[0-9]{1,18}$ ]]
+          test "$CANDIDATE" = "9ba41e62-9efc-49c5-9d4e-d667057e43fb"
+          if [[ "$GITHUB_SHA" != "$EXPECTED_SHA" ]]; then
+            echo "::error::BLOCK dispatched_sha_mismatch — rerun only after a fresh exact-main owner acceptance"
+            exit 1
+          fi
+          actual_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          if [[ "$actual_main" != "$EXPECTED_SHA" ]]; then
+            echo "::error::BLOCK main_sha_drift — owner authorization is stale; do not retry or delete"
+            exit 1
+          fi
+          tmp="$(mktemp -d)"
+          export WORKSPACE_AGENT_RETIREMENT_READINESS_TMP="$tmp"
+          trap 'rm -rf "$tmp"' EXIT
+          gh api "repos/$GITHUB_REPOSITORY/issues/comments/$OWNER_COMMENT" > "$tmp/owner"
+          base="https://api.cloudflare.com/client/v4/accounts/b11d872b2660e76ca66323023b45b3ab"
+          worker="bw-workspace-agent-staging"
+          fetch() {
+            if ! curl --fail --silent --show-error --max-time 30 \
+              -H "Authorization: Bearer $AUDIT_TOKEN" "$1" > "$tmp/$2" 2>/dev/null; then
+              echo "::error::Protected read-only inventory request failed"; exit 1
+            fi
+          }
+          fetch "$base/workers/scripts/$worker/versions?per_page=100&page=1" versionsPage1
+          fetch "$base/workers/scripts/$worker/versions?per_page=100&page=2" versionsPage2
+          fetch "$base/workers/workers/$worker/versions/64d9bae9-2ea3-40c1-9a26-83cea97ad71c" pinned
+          fetch "$base/workers/workers/$worker/versions/latest" latest
+          fetch "$base/workers/scripts/$worker/settings" settings
+          fetch "$base/workers/scripts/$worker/deployments" deployments
+          fetch "https://api.cloudflare.com/client/v4/zones?account.id=b11d872b2660e76ca66323023b45b3ab&per_page=50" zones
+          fetch "$base/workers/scripts" scripts
+          fetch "$base/workers/scripts/$worker/subdomain" subdomain
+          fetch "$base/workers/scripts/$worker/schedules" schedules
+          fetch "$base/workers/domains?service=$worker" domains
+          fetch "$base/d1/database/fa317ccc-683d-4466-9e3a-e296872d58ba" database
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import {assessOwnerStatement} from './scripts/workspace-agent-stranded-retirement-owner-acceptance.mjs';
+          import {assessStrandedRetirement} from './scripts/workspace-agent-stranded-retirement-eligibility.mjs';
+          const dir=process.env.WORKSPACE_AGENT_RETIREMENT_READINESS_TMP;
+          const read=name=>JSON.parse(readFileSync(dir+'/'+name,'utf8'));
+          let owner,eligibility;
+          try {
+            owner=assessOwnerStatement({comment:read('owner'),
+              sha:process.env.EXPECTED_SHA,actor:process.env.GITHUB_ACTOR});
+            const names=['versionsPage1','versionsPage2','pinned','latest','settings',
+              'deployments','zones','scripts','subdomain','schedules','domains','database'];
+            eligibility=assessStrandedRetirement(Object.fromEntries(names.map(name=>[name,read(name)])));
+          } catch {
+            console.error('::error::Read-only retirement readiness sources unreadable');
+            process.exit(1);
+          }
+          if(!owner.statementVerified) {
+            for(const reason of owner.reasons)console.error('::error::BLOCK '+reason);
+            process.exit(1);
+          }
+          if(!eligibility.eligibleForSeparateOwnerDecision) {
+            for(const reason of eligibility.blockers)console.error('::error::BLOCK '+reason);
+            process.exit(1);
+          }
+          console.log('PASS exact_sha_owner_acceptance_and_current_retirement_eligibility');
+          console.log('NO_DELETE read_only_execution_preflight_completed');
+          console.log('BLOCK any_write_requires_separate_exact_scope_review_and_protected_execution');
+          NODE
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
