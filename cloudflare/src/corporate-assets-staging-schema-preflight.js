@@ -1,14 +1,22 @@
 // Read-only schema and identity preflight for the isolated Corporate Assets staging D1.
 // It neither creates sessions nor changes business records.
+// Require the columns actually accessed by the canonical asset registration,
+// service, sealed-audit append and verification paths. A table that merely
+// exists with a partial schema must never authorize authenticated staging.
 export const ASSET_STAGING_REQUIRED_COLUMNS=Object.freeze({
  tenants:['id','name'],users:['id','email','password_hash','session_generation'],
  memberships:['tenant_id','user_id','role','status'],
  auth_rate_limits:['key_hash','scope','count','window_start','expires_at'],
  sessions:['token_hash','user_id','tenant_id','role','session_generation','csrf_token','expires_at'],
- audit_events:['tenant_id','actor_user_id','event_type','entity_type','entity_id','tenant_seq','prev_hash','event_hash','integrity_version'],
- audit_chain_state:['tenant_id','last_hash','event_count'],
- corporate_assets:['id','tenant_id','revision','book_value_minor'],
- corporate_asset_services:['id','tenant_id','asset_id','due_on']
+ audit_events:['tenant_id','actor_user_id','event_type','entity_type','entity_id',
+  'event_data','occurred_at','tenant_seq','prev_hash','event_hash','integrity_version','write_source'],
+ audit_chain_state:['tenant_id','last_event_id','last_hash','event_count','updated_at'],
+ audit_write_failures:['id','tenant_id','actor_user_id','event_type','error_message','event_data'],
+ audit_integrity_checks:['id','tenant_id','status','checked_events','legacy_events','first_invalid_seq','details_json'],
+ corporate_assets:['id','tenant_id','name','category','branch','serial','custodian',
+  'acquisition_date','acquisition_cost_minor','book_value_minor','status','revision','created_at','updated_at'],
+ corporate_asset_services:['id','tenant_id','asset_id','kind','serviced_on','due_on',
+  'cost_minor','provider','description','created_at']
 });
 const validId=s=>/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(String(s||''));
 export async function corporateAssetsStagingSchemaPreflight(env){
