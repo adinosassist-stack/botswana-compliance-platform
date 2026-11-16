@@ -2105,3 +2105,39 @@ body.thebe-ai-dock-open .thebe-ai-mode-rail:has([data-thebe-mode="goal_plan"]:no
     border-radius: 28px;
   }
 }
+
+/* Immersive dock: voice session or user-selected maximized window. */
+body.thebe-voice-active #thebeAiDock,
+#thebeAiDock[data-expanded="true"] {
+  position:fixed!important;
+  inset:0!important;
+  top:0!important;
+  right:0!important;
+  bottom:0!important;
+  left:0!important;
+  width:100vw!important;
+  max-width:none!important;
+  min-width:0!important;
+  height:100dvh!important;
+  min-height:0!important;
+  max-height:100dvh!important;
+  margin:0!important;
+  border-radius:0!important;
+  border:0!important;
+  transform:none!important;
+  z-index:9999!important;
+}
+body.thebe-voice-active #thebeAiDock > .thebe-ai-dock-scroll,
+#thebeAiDock[data-expanded="true"] > .thebe-ai-dock-scroll {
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+}
+@media(max-width:1023px) {
+  body.thebe-voice-active #thebeAiDock[data-keyboard="true"],
+  #thebeAiDock[data-expanded="true"][data-keyboard="true"] {
+    height:var(--thebe-visible-height,100dvh)!important;
+    max-height:var(--thebe-visible-height,100dvh)!important;
+  }
+  #thebeAiDock .thebe-ai-expand{display:grid!important;place-items:center}
+}
