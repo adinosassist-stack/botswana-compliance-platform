@@ -99,6 +99,8 @@ try{
     await input.fill('');assert(await audio.isVisible(),'clearing restores voice');
     await page.evaluate(()=>{window.voiceStarts=[];window.ThebeLiveVoice={status:()=>({state:'idle'}),start:async options=>{window.voiceStarts.push(options)},stop:()=>{}}});
     await audio.click();await page.locator('#thebeVoiceScreen').waitFor({state:'visible'});
+     const voiceStack=await page.evaluate(()=>({dialog:Number.parseInt(getComputedStyle(document.querySelector('#thebeVoiceScreen')).zIndex,10),dock:Number.parseInt(getComputedStyle(document.querySelector('#thebeAiDock')).zIndex,10)}));
+     assert(voiceStack.dialog>voiceStack.dock,'voice controls must stack above the immersive dock: '+JSON.stringify(voiceStack));
     await page.waitForFunction(()=>window.voiceStarts.length===1);
     assert.equal(await page.evaluate(()=>voiceStarts[0].mode),workspace?'workspace':'marketing');
     await input.fill('I can continue typing during voice');
