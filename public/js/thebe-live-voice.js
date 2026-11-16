@@ -1148,10 +1148,13 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     }
   }
   function closeVoiceScreen(stopSession=false){
+    const restoreFocus=Boolean(voiceScreen?.open && voiceScreen.contains(document.activeElement));
     if(stopSession)global.ThebeLiveVoice?.stop?.();
     if(voiceScreen?.open)voiceScreen.close();
     document.body.classList.remove("thebe-voice-active");
-    if(voiceReturnFocus?.isConnected)voiceReturnFocus.focus({preventScroll:true});
+    // Do not steal composer focus during redundant cleanup or when the user
+    // deliberately switched from voice controls back to the editable chat.
+    if(restoreFocus && voiceReturnFocus?.isConnected)voiceReturnFocus.focus({preventScroll:true});
   }
   function setPhase(phase,label,sub){
     voicePhase=phase||"idle";
@@ -1282,6 +1285,10 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       chip.append(el("span","",file.name));
       const remove=el("button","","×");remove.type="button";remove.disabled=textBusy;
       remove.setAttribute("aria-label",`Remove ${file.name}`);
+      remove.title=`Remove ${file.name}`;
+      const size=el("span","thebe-ai-file-size",`${Math.max(1,Math.ceil(file.size/1024))} KB`);
+      size.setAttribute("aria-label",`File size ${Math.max(1,Math.ceil(file.size/1024))} kilobytes`);
+      chip.append(size);
       remove.addEventListener("click",()=>{pendingFiles=pendingFiles.filter(item=>item!==file);renderAttachmentTray();syncComposerState()});
       chip.append(remove);attachmentTray.append(chip);
     }
@@ -1987,6 +1994,11 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     };
     global.visualViewport?.addEventListener("resize",syncKeyboard,{passive:true});
     global.visualViewport?.addEventListener("scroll",syncKeyboard,{passive:true});
+    // Apply viewport geometry on first render and when the virtual keyboard opens.
+    // A focus event may precede visualViewport.resize on some Android browsers.
+    input?.addEventListener("focus",syncKeyboard,{passive:true});
+    input?.addEventListener("blur",syncKeyboard,{passive:true});
+    syncKeyboard();
     dock.addEventListener("keydown",event=>{
       if(event.key!=="Escape")return;
       event.preventDefault();
