@@ -1751,8 +1751,8 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       const expanded=dock.dataset.expanded!=="true";
       dock.dataset.expanded=String(expanded);
       expand.setAttribute("aria-pressed",String(expanded));
-      expand.setAttribute("aria-label",expanded?"Restore Thebe panel width":"Expand Thebe panel");
-      expand.title=expanded?"Restore Thebe width":"Expand Thebe";
+      expand.setAttribute("aria-label",expanded?"Restore Thebe panel":"Maximize Thebe panel");
+      expand.title=expanded?"Restore Thebe panel":"Maximize Thebe panel";
       syncVisibility();
     });
     headActions.append(attentionButton,clearButton,expand,minimize);head.append(title,headActions);
@@ -1914,7 +1914,12 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     input.addEventListener("input",()=>{syncComposerHeight();syncComposerState()});
     input.addEventListener("focus",()=>setMascotFocus("compose"));
     input.addEventListener("blur",()=>setMascotFocus("ambient"));
-    input.addEventListener("keydown",event=>{if(event.key==="Enter"&&!event.shiftKey&&!event.isComposing){event.preventDefault();compose.requestSubmit()}});
+    // Desktop Enter sends; mobile virtual keyboards keep Enter for multiline drafting.
+    input.addEventListener("keydown",event=>{
+      if(event.key!=="Enter"||event.shiftKey||event.isComposing||event.keyCode===229)return;
+      if(mobileDockMode())return;
+      event.preventDefault();compose.requestSubmit();
+    });
     syncComposerHeight();
     syncComposerState();
 
@@ -1975,7 +1980,18 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     };
     global.visualViewport?.addEventListener("resize",syncKeyboard,{passive:true});
     global.visualViewport?.addEventListener("scroll",syncKeyboard,{passive:true});
-    dock.addEventListener("keydown",event=>{if(event.key==="Escape"){event.preventDefault();setCollapsed(true)}});
+    dock.addEventListener("keydown",event=>{
+      if(event.key!=="Escape")return;
+      event.preventDefault();
+      if(dock.dataset.expanded==="true"){
+        dock.dataset.expanded="false";
+        const expandButton=dock.querySelector(".thebe-ai-expand");
+        expandButton?.setAttribute("aria-pressed","false");
+        expandButton?.setAttribute("aria-label","Expand Thebe panel");
+        if(expandButton)expandButton.title="Expand Thebe";
+        syncVisibility();
+      }else setCollapsed(true);
+    });
     global.addEventListener("resize",()=>{syncVisibility();syncKeyboard()},{passive:true});
     global.addEventListener("keydown",event=>{
       if(event.altKey&&!event.ctrlKey&&!event.metaKey&&String(event.key||"").toLowerCase()==="t"){
