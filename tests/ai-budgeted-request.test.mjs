@@ -25,3 +25,22 @@ test("journal outage fails closed after provider response",async()=>{
 test("missing dependency fails before provider",async()=>{
  await assert.rejects(()=>runBudgetedAiRequest({...base,provider:async()=>{}}),/pipeline_unavailable/);
 });
+
+test("usage callback must finish durable write before request can succeed",async()=>{
+ let finishWrite;
+ const writePending=new Promise(resolve=>{finishWrite=resolve});
+ await assert.rejects(()=>runBudgetedAiRequest({...base,
+  reserve:async()=>{},
+  provider:async({onUsage})=>{void onUsage({usageKnown:false});return "premature answer"},
+  recordUsage:async()=>{await writePending}
+ }),/not_recorded/);
+ finishWrite();
+});
+test("repeated usage callback is rejected before duplicate journal writes",async()=>{
+ let writes=0;
+ await assert.rejects(()=>runBudgetedAiRequest({...base,reserve:async()=>{},
+  provider:async({onUsage})=>{await onUsage({usageKnown:false});await onUsage({usageKnown:false});return "answer"},
+  recordUsage:async()=>{writes++}
+ }),/duplicate_callback/);
+ assert.equal(writes,1);
+});
