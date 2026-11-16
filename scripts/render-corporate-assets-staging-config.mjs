@@ -29,9 +29,12 @@ export function renderCorporateAssetsStagingConfig(env){
   d1_databases:[{binding:'DB',database_name:ASSETS_STAGING_DATABASE,database_id:databaseId}]
  };
 }
+// The identity marker must never relabel an existing D1. A mismatched marker
+// remains mismatched, so the read-only staging entry/preflight deny access.
+// SQL rendering is not permission to execute it against any Cloudflare D1.
 export function corporateAssetsStagingMarkerSql(env){
  const c=renderCorporateAssetsStagingConfig(env);
- return `CREATE TABLE IF NOT EXISTS corporate_assets_staging_identity(id INTEGER PRIMARY KEY CHECK(id=1),database_id TEXT NOT NULL,environment TEXT NOT NULL CHECK(environment='corporate-assets-isolated'));\nINSERT INTO corporate_assets_staging_identity(id,database_id,environment) VALUES(1,'${c.vars.ASSETS_STAGING_D1_ID}','corporate-assets-isolated') ON CONFLICT(id) DO UPDATE SET database_id=excluded.database_id,environment=excluded.environment;\n`;
+ return `CREATE TABLE IF NOT EXISTS corporate_assets_staging_identity(id INTEGER PRIMARY KEY CHECK(id=1),database_id TEXT NOT NULL,environment TEXT NOT NULL CHECK(environment='corporate-assets-isolated'));\nINSERT INTO corporate_assets_staging_identity(id,database_id,environment) VALUES(1,'${c.vars.ASSETS_STAGING_D1_ID}','corporate-assets-isolated') ON CONFLICT(id) DO NOTHING;\n`;
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
  try{process.stdout.write(process.argv[2]==='--marker-sql'?corporateAssetsStagingMarkerSql(process.env):JSON.stringify(renderCorporateAssetsStagingConfig(process.env),null,2)+'\\n')}
