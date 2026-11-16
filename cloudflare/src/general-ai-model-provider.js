@@ -4,7 +4,7 @@ import {readBoundedProviderJson} from "./general-ai-bounded-json.js";
  * implicit network tools and no business-system execution. Feature-gated by caller.
  */
 const MODEL_RE=/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,90}$/;
-export function createGeneralAiModelProvider({apiKey,model,endpoint="https://api.openai.com/v1/chat/completions",fetchImpl=globalThis.fetch}={}){
+export function createGeneralAiModelProvider({apiKey,model,endpoint="https://api.openai.com/v1/chat/completions",fetchImpl=globalThis.fetch,onUsage}={}){
   if(!apiKey||!MODEL_RE.test(String(model||"")))throw Error("model_provider_not_configured");
   const url=new URL(endpoint);
   if(url.protocol!=="https:"||url.hostname!=="api.openai.com"||url.pathname!=="/v1/chat/completions"||url.search||url.hash||url.username||url.password||url.port)throw Error("unsupported_model_endpoint");
@@ -30,6 +30,17 @@ export function createGeneralAiModelProvider({apiKey,model,endpoint="https://api
       });
       if(!response.ok)throw Error("model_provider_unavailable");
       const data=await readBoundedProviderJson(response);
+      // Optional private instrumentation hook. Missing usage is unknown, not zero.
+      // Never pass prompts, answers, credentials or tenant data to the hook.
+      if(typeof onUsage==="function"){
+        const usage=data?.usage;
+        const valid=n=>Number.isSafeInteger(n)&&n>=0;
+        const input=usage?.prompt_tokens,output=usage?.completion_tokens;
+        const cached=usage?.prompt_tokens_details?.cached_tokens;
+        await onUsage({provider:"openai",model,usageKnown:valid(input)&&valid(output),
+          inputTokens:valid(input)?input:null,outputTokens:valid(output)?output:null,
+          cachedInputTokens:valid(cached)&&valid(input)&&cached<=input?cached:null});
+      }
       const answer=data?.choices?.[0]?.message?.content;
       if(typeof answer!=="string"||!answer.trim())throw Error("model_provider_empty_response");
       return answer;
