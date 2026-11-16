@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {mountQuotationDraftForm} from "../public/js/quotation-draft-form.mjs";
+import {mountQuotationDraftWorkspace} from "../public/js/quotation-draft-workspace.mjs";
 
 /** Small deterministic DOM event emulator for opt-in form mounting tests.
  * No browser network, storage or real customer data are used.
@@ -146,4 +147,79 @@ test("invalid entered Pula amount prevents submission and makes no requests",asy
   assert.equal(getButton(root,"Download PDF preview").disabled,true);
   assert.equal(requests,0);
  }finally{restore()}
+});
+
+test("authenticated stored draft applies atomically and recalculates BWP totals",()=>{
+ const {root,api,restore}=mount();
+ try{
+  const candidate={quoteNumber:"QT-NEW",issueDate:"2026-11-16",
+   customerName:"Other Synthetic",customerContact:"Francistown",
+   paymentMethod:"Manual transfer",
+   items:[{description:"Headstone",quantity:2,unitPriceCents:125000},
+    {description:"Installation",quantity:1,unitPriceCents:35000}],
+   discountCents:1500};
+  api.applyDraft(candidate);
+  const applied=api.getDraft();
+  assert.equal(applied.customerName,"Other Synthetic");
+  assert.equal(applied.items.length,2);
+  assert.equal(applied.items[0].unitPriceCents,125000);
+  assert.equal(applied.discountCents,1500);
+  assert.equal(getInput(root,"Payment method (optional)").value,"Manual transfer");
+  assert.ok(getAll(root,n=>n.textContent==="P2,835.00").length>0);
+ }finally{restore()}
+});
+test("invalid reopened drafts preserve every existing editor field",()=>{
+ const {api,restore}=mount();
+ try{
+  const before=api.getDraft();
+  const invalid={...before,customerName:"Should Not Replace",
+   items:[{description:"Item",quantity:2,unitPriceCents:-5}]};
+  assert.throws(()=>api.applyDraft(invalid));
+  assert.deepEqual(api.getDraft(),before);
+  assert.throws(()=>api.applyDraft({...before,companyId:"forgedTenant"}));
+  assert.deepEqual(api.getDraft(),before);
+ }finally{restore()}
+});
+
+test("opt-in composed draft workspace saves and reopens only after explicit confirmation",async()=>{
+ const previous=globalThis.document;
+ globalThis.document={createElement:tag=>new Element(tag),querySelector:()=>null};
+ const root=new Element("div"),requests=[];
+ let persisted=null;
+ const storageCap={...cap,canStoreQuotationDrafts:true};
+ assert.throws(()=>mountQuotationDraftWorkspace(new Element("div"),{
+  capability:cap
+ }),/quotation_draft_workspace_disabled/);
+ const session=mountQuotationDraftWorkspace(root,{
+  capability:storageCap,csrfToken:"verified-session-token",initialDraft:start,
+  fetchImpl:async(path,init)=>{
+   requests.push({path,init});
+   if(path==="/api/quotation/drafts"&&init.method==="PUT"){
+    const body=JSON.parse(init.body);
+    persisted={draftId:body.draftId,revision:body.revision+1,
+     draft:{...body.draft,customerName:"Saved and reopened"}};
+    return new Response(JSON.stringify({ok:true,...persisted}),{
+     headers:{"content-type":"application/json"}});
+   }
+   if(path.startsWith("/api/quotation/drafts?id="))
+    return new Response(JSON.stringify({ok:true,...persisted}),{
+     headers:{"content-type":"application/json"}});
+   throw Error("unexpected_endpoint");
+  }
+ });
+ try{
+  assert.equal(requests.length,0);
+  const ref=getInput(root,"Draft reference");
+  ref.value="draft01";await ref.fire("input");
+  await getButton(root,"Save Draft").fire("click");
+  assert.equal(requests.length,1);
+  assert.equal(requests[0].init.credentials,"same-origin");
+  assert.equal(session.getRevision().revision,1);
+  await getButton(root,"Open Draft").fire("click");
+  assert.equal(requests.length,2);
+  assert.equal(session.getDraft().customerName,"Synthetic Person");
+  await getButton(root,"Confirm Open").fire("click");
+  assert.equal(session.getDraft().customerName,"Saved and reopened");
+  assert.equal(session.getRevision().revision,1);
+ }finally{session.destroy();globalThis.document=previous}
 });
