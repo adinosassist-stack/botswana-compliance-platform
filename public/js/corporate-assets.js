@@ -98,14 +98,24 @@
   }catch{return false}
  }
  async function commit(dialogInfo,path,method,body,who){
-  if(busy)return;busy=true;dialogInfo.submit.disabled=true;dialogInfo.message.textContent='Saving…';
+  if(busy){dialogInfo.message.textContent='Another asset save is still being verified. Try again when it finishes.';return}busy=true;dialogInfo.submit.disabled=true;dialogInfo.message.textContent='Saving…';
   try{if(who!==key()||!allowed())throw Error('Your workspace session changed. Close this form and reload.');
    const acknowledgement=await api(path,{method,body:JSON.stringify(body)});
    if(acknowledgement?.ok!==true||acknowledgement.id!==undefined&&acknowledgement.id!==body.id)
     throw Error('The server did not confirm this save. Refresh before trying again.');
    if(who!==key()||!allowed())return;dialogInfo.d.close();const refreshed=await load({reset:true});
    if(who!==key()||!root?.classList.contains('active'))return;
-   if(!refreshed){status('Save accepted, but the register could not be refreshed. Use Refresh to verify your record.');return}
+   if(!refreshed){
+    // Do not mistake a failed list refresh for a failed save. An authenticated
+    // exact-ID readback can still establish persistence while writes remain
+    // disabled until the register itself successfully loads again.
+    const token=epoch,verified=path.endsWith('/services')?
+     await serviceReadbackVerified(path,body.id):await verifyExactAssetReadback(body,method);
+    if(token!==epoch||who!==key()||!root?.classList.contains('active'))return;
+    status(verified?'Save verified by exact record ID, but the asset register could not reload. Use Refresh before further changes.':
+     'Save accepted, but the register could not be refreshed. Use Refresh to verify your record.');
+    return;
+   }
    if(path.endsWith('/services')){
     const token=epoch,verified=await serviceReadbackVerified(path,body.id);
     if(token===epoch&&who===key()&&root?.classList.contains('active'))status(verified?'Service / renewal saved and verified in asset history.':'Save accepted, but service history readback could not be verified. Open History or refresh to confirm.');
