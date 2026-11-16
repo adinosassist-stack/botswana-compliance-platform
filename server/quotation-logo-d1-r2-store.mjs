@@ -4,7 +4,7 @@
  * bucket with public URLs, routes, and unauthenticated reads disabled.
  * Do not mount as a production endpoint without security review.
  */
-import {randomUUID} from "node:crypto";
+// Standard Web Crypto UUID works in Node 22 and Workers without nodejs_compat.
 import {readPrivateQuotationR2Bytes} from "./quotation-private-r2-read.mjs";
 const err=code=>{throw Error(code)};
 const safe=v=>typeof v==="string"&&/^[A-Za-z0-9_-]{1,100}$/.test(v);
@@ -21,7 +21,9 @@ export function createQuotationLogoStore({db,bucket,namespace="quotation-logos"}
      !(bytes instanceof Uint8Array)||bytes.byteLength<12||bytes.byteLength>2*1024*1024||
      !Number.isSafeInteger(width)||!Number.isSafeInteger(height)||width<30||width>5000||height<20||height>5000)
      err("invalid_logo_asset");
-   const logoAssetId=randomUUID().replaceAll("-",""), key=namespace+"/"+companyId+"/"+logoAssetId;
+   const uuid=globalThis.crypto?.randomUUID;
+   if(typeof uuid!=="function")err("quotation_logo_secure_random_unavailable");
+   const logoAssetId=uuid.call(globalThis.crypto).replaceAll("-",""),key=namespace+"/"+companyId+"/"+logoAssetId;
    // Unpublished private key; metadata insertion must succeed, otherwise delete blob.
    await bucket.put(key,bytes,{httpMetadata:{contentType:mimeType}});
    try {
