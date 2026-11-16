@@ -93,9 +93,6 @@ export async function executeVersionRetirement({env,fetchImpl=fetch,onAudit=()=>
  return {verified:true,deleteAttempts:1,postflightVerified:true};
 }
 
-if(process.argv[1]&&import.meta.url==='file://'+process.argv[1]){
- executeVersionRetirement({env:process.env,onAudit:line=>console.log(line)})
- .then(()=>console.log('PASS protected_staging_version_retirement_completed'))
- .catch(error=>{console.error(error?.message?.startsWith('BLOCK')||error?.message?.startsWith('INCIDENT')
-   ?error.message:'INCIDENT unexpected_error_no_retry');process.exitCode=1;});
-}
+// Intentionally no CLI entry point. This module must never self-execute.
+// A separate independently reviewed, protected workflow is required before
+// any future invocation; that workflow is not implemented here.
