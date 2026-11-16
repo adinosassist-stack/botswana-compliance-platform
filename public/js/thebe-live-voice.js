@@ -1151,7 +1151,9 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     if(stopSession)global.ThebeLiveVoice?.stop?.();
     if(voiceScreen?.open)voiceScreen.close();
     document.body.classList.remove("thebe-voice-active");
-    if(voiceReturnFocus?.isConnected)voiceReturnFocus.focus({preventScroll:true});
+    // Restore focus only after a voice overlay actually closes; preserve the
+    // user's composer focus when a redundant stop/cleanup event arrives.
+    if(voiceReturnFocus?.isConnected && !voiceScreen?.open && document.activeElement?.closest?.("#thebeVoiceScreen"))voiceReturnFocus.focus({preventScroll:true});
   }
   function setPhase(phase,label,sub){
     voicePhase=phase||"idle";
