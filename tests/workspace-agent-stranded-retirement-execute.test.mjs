@@ -109,3 +109,17 @@ test('fails before Cloudflare on initial main drift',async()=>{
  await assert.rejects(executeVersionRetirement({env:expected,fetchImpl:m.http}),/BLOCK main_drift/);
  assert.deepEqual(m.calls.map(x=>x.method),['GET']);
 });
+
+test('executor cannot be invoked by direct CLI without protected workflow',async()=>{
+ const {spawnSync}=await import('node:child_process');
+ const {fileURLToPath}=await import('node:url');
+ const script=fileURLToPath(new URL('../scripts/workspace-agent-stranded-retirement-execute.mjs',import.meta.url));
+ const out=spawnSync(process.execPath,[script],{
+  env:{PATH:process.env.PATH||'',NODE_ENV:'test'},
+  encoding:'utf8',
+  timeout:5000
+ });
+ assert.equal(out.status,0,'direct CLI invocation must not execute or throw');
+ assert.equal(out.stdout,'','direct CLI invocation must not log execution');
+ assert.equal(out.stderr,'','direct CLI invocation must not log an attempted deletion');
+});
