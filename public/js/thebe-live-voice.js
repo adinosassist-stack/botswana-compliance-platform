@@ -1143,7 +1143,8 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       // Keep the underlying dock immersive for the entire voice session.
       document.body.classList.add("thebe-voice-active");
       // Keep the composer editable while the voice session remains live.
-      if(voiceReturnFocus?.isConnected)voiceReturnFocus.focus({preventScroll:true});
+      // Do not move focus outside the visible voice controls.
+      voiceScreen.querySelector(".thebe-voice-float-toggle")?.focus({preventScroll:true});
     }
   }
   function closeVoiceScreen(stopSession=false){
@@ -1811,10 +1812,11 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     orb.append(wave,core);
     orbButton.append(orb);
     orbButton.addEventListener("click",()=>{
-      openVoiceScreen();
+      // Only show immersive voice after the runtime reports connecting/connected.
+      // This avoids a stranded overlay when permissions or startup fail.
       const liveApi=global.ThebeLiveVoice;
       if(!shellVisible()){
-        if(!liveApi){responseMessage("The public voice sample is not available in this browser right now.","error");return}
+        if(!liveApi){responseMessage("The public voice sample is not available in this browser right now.","error");closeVoiceScreen();return}
         const liveState=liveApi.status?.().state||"idle";
         if(liveState==="connected"||liveState==="connecting"||liveState==="closing"){liveApi.stop();return}
         responseMessage("Opening a short Thebe voice sample…","thinking");
@@ -2015,7 +2017,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const next=event?.detail?.state||"idle";
     const marketing=event?.detail?.mode==="marketing"||surfaceMode()==="public";
     if(next==="connecting"||next==="connected")openVoiceScreen();
-    if(next==="idle")closeVoiceScreen();
+    if(next==="idle"||next==="error"||next==="failed")closeVoiceScreen();
     if(next==="connecting"){voiceInput="";voiceOutput="";renderVoiceTranscript();setPhase("connecting","Connecting…",marketing?"Opening the 60-second sample":"Opening the secure voice session")}
     else if(next==="connected")setPhase("ready","Voice connected",marketing?"Ask me about Thebe Desk":"Speak naturally — you can interrupt Thebe");
     else if(next==="closing")setPhase("thinking","Ending voice…","Closing the voice session");
