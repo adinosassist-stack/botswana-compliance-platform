@@ -66,7 +66,7 @@ export function mountQuotationLogoEditor(root,options={}) {
  area.append(controls,preview,note,status);root.replaceChildren(style,area);
  let disposed=false,objectUrl=null,file=null,assetId=options.logoAssetId||null,ratio=options.initialAspectRatio||2;
  let layout=normalizeQuotationLogoLayout(options.initialLayout||DEFAULT_QUOTE_LOGO_LAYOUT,PAGE_W,PAGE_H,ratio);
- let dragging=null,dirty=false;
+ let dragging=null,dirty=false,editRevision=0;
  let saving=false,previewing=false;
  const setStatus=(message)=>{if(!disposed)status.textContent=message};
  function paint(){
@@ -79,7 +79,7 @@ export function mountQuotationLogoEditor(root,options={}) {
   save.disabled=saving||!(dirty&&typeof options.onSave==='function'&&(assetId||(!file?false:typeof options.onUpload==='function')));
   previewPdf.disabled=dirty||saving||previewing||!assetId||typeof options.onPreviewPdf!=='function';
  }
- function markChanged(){dirty=true;paint();setStatus('Unsaved changes.');}
+ function markChanged(){editRevision++;dirty=true;paint();setStatus('Unsaved changes.');}
  async function changeFile(){
   const selected=input.files?.[0];if(!selected)return;
   try {
@@ -157,19 +157,28 @@ export function mountQuotationLogoEditor(root,options={}) {
   }
  });
  save.addEventListener('click',async()=>{
-  if(!dirty||typeof options.onSave!=='function')return;
+  if(!dirty||saving||typeof options.onSave!=='function')return;
+  // Snapshot the exact state the user confirmed. Async upload/save may resolve
+  // after a subsequent resize, drag or replacement selection.
+  const revision=editRevision,selectedFile=file,savedLayout={...layout},savedRatio=ratio;
   saving=true;paint();setStatus('Saving logo settings…');
   try {
    let persistedId=assetId;
-   if(file){
+   if(selectedFile){
     if(typeof options.onUpload!=='function')throw Error('Authenticated logo upload is not connected.');
-    const result=await options.onUpload(file);
+    const result=await options.onUpload(selectedFile);
     if(!result?.logoAssetId)throw Error('Logo upload did not return an asset ID.');
     persistedId=result.logoAssetId;
    }
-   const settings=quotationLogoSettings({companyId:options.companyId,logoAssetId:persistedId,layout,aspectRatio:ratio,pageWidthPt:PAGE_W,pageHeightPt:PAGE_H});
+   const settings=quotationLogoSettings({companyId:options.companyId,logoAssetId:persistedId,layout:savedLayout,aspectRatio:savedRatio,pageWidthPt:PAGE_W,pageHeightPt:PAGE_H});
    await options.onSave(settings);if(disposed)return;
-   assetId=persistedId;file=null;dirty=false;setStatus('Logo settings saved.');
+   // A newer change must never be declared saved, nor may an older uploaded
+   // asset replace the current selection. The user can save the latest state.
+   if(editRevision===revision){
+    assetId=persistedId;file=null;dirty=false;setStatus('Logo settings saved.');
+   }else{
+    dirty=true;setStatus('Newer logo changes are not saved. Save again.');
+   }
   }catch(e){setStatus('Not saved: '+(e?.message||'unknown error'))}
   finally{saving=false;paint()}
  });
