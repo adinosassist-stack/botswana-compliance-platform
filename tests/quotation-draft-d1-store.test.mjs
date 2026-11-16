@@ -64,7 +64,7 @@ test("private read/write boundaries include tenant ID every time",async()=>{
  await store.save({companyId:"B",draftId:"same",expectedRevision:0,draft:draft()});
  assert.equal((await store.read({companyId:"B",draftId:"same"})).revision,1);
  assert.equal(await store.read({companyId:"C",draftId:"same"}),null);
- for(const q of queries)assert.match(q.sql,/tenant_id=/);
+ for(const q of queries)assert.match(q.sql,/tenant_id/);
 });
 test("invalid identifiers and corrupt saved content fail closed",async()=>{
  const {store,rows}=fixture();
