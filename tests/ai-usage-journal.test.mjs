@@ -5,10 +5,11 @@ const event=(requestId="req1")=>({requestId,provider:"openai",model:"gpt-5-mini"
 function fakeDb(){
  const records=new Map();
  return {records,prepare(sql){return {bind(...args){return {
-  async run(){if(!sql.includes("INSERT OR IGNORE"))throw Error("unexpected_sql");
+  async run(){if(!sql.includes("INSERT INTO ai_usage_journal"))throw Error("unexpected_sql");
    const [tenantId,requestId,provider,model,known,input,output,cached]=args;
    const key=tenantId+":"+requestId;
-   if(!records.has(key))records.set(key,{tenantId,requestId,provider,model,known,input,output,cached});
+   if(records.has(key))throw Error("duplicate");
+   records.set(key,{tenantId,requestId,provider,model,known,input,output,cached});
    return {success:true};
   },
   async first(){if(!sql.includes("WHERE tenant_id=?"))throw Error("missing_tenant_filter");
@@ -18,10 +19,10 @@ function fakeDb(){
     unknown_requests:rows.filter(x=>!x.known).length};
   }
  };}};}}}
-test("tenant isolation and idempotent replay",async()=>{
+test("tenant isolation and rejected duplicate replay",async()=>{
  const db=fakeDb();
  await recordAiUsage(db,"tenant-a",event());
- await recordAiUsage(db,"tenant-a",event());
+ await assert.rejects(()=>recordAiUsage(db,"tenant-a",event()),/write_failed/);
  await recordAiUsage(db,"tenant-b",event());
  assert.equal(db.records.size,2);
  assert.deepEqual(await getTenantAiUsage(db,"tenant-a"),{requests:1,inputTokens:120,outputTokens:20,unknownRequests:0});
