@@ -2,15 +2,19 @@
 
 **Status (16 Nov 2026):** The isolated quotation D1 schema is now migrated and verified in issue #2504 #6927692011. This checklist is still **PRIVATE TEMPLATE REVIEW ONLY** and does not confer owner/legal acceptance, R2 template-upload/registry approval, Worker-binding or production activation authority. It does not authorize any further Cloudflare writes.
 
+**Candidate-selection correction (16 Nov 2026):** The old email-corrected, bank-blank PDF is no longer the latest private review candidate. Two unapproved PDFs exist: **A** `18fb41f01fa0b20f501f7de984211a6b4421d452d7fb7a45840578e704d428e1` contains the owner's requested FNB details and short terms on page 1 with the old page-2 footer unchanged; **B** `8cdb4bf76230d04b8617f01d9c868ca00c518a2f75e10ed15e8ee1bbf332b87e` contains the same page 1 with a *proposed* Mahalapye/Gaborone/Palapye/Maun/Francistown page-2 footer. **Neither A nor B has owner/legal sign-off or independent R2-upload approval.** The owner must select a final PDF and confirm the office roster. Do not upload, register, issue, or deploy any candidate. Any PDF change requires a new hash and new approval.
+
 ## Immutable private review artifacts
 
 | Item | SHA-256 | Usage |
 | --- | --- | --- |
 | Owner-supplied original PDF | `8f4dd38265e9c1d7dc19717d746912eb639aaf99e454d90b4c03871681051823` | Comparison reference only; contains legacy quotation/customer and payment details |
 | Original logo-free candidate | `99e6ee33495f72411e4449f2689852ecf1cc69ab25927552187fb07d6673d025` | Superseded; had incomplete email |
-| Corrected logo-free candidate | `72891d473991dc1e0009a6bd417713ce79cce7bf05000d38c24da7d59db15c5f` | Current **private** review candidate, not approved/uploaded |
+| Email-corrected bank-blank baseline | `72891d473991dc1e0009a6bd417713ce79cce7bf05000d38c24da7d59db15c5f` | Superseded; not the current FNB quotation |
+| Candidate A — first-page FNB and terms | `18fb41f01fa0b20f501f7de984211a6b4421d452d7fb7a45840578e704d428e1` | Unapproved private option; old page-two footer retained |
+| Candidate B — first-page FNB, terms, five-office footer | `8cdb4bf76230d04b8617f01d9c868ca00c518a2f75e10ed15e8ee1bbf332b87e` | Unapproved private alternative; owner must confirm office list |
 
-The exact corrected private PDF bytes were re-hashed and inspected locally on 16 Nov 2026: **two pages**, expected sizes **612.24 × 858.96 pt** and **841.92 × 1190.64 pt**, `lovelystones26@gmail.com` and `+267 74 583 606` present on page one. The blank bank/account placeholders are intentionally unfilled. This is **technical evidence, not business/terms approval**.
+The original email-corrected bank-blank baseline bytes (not candidate A or B) were re-hashed and inspected locally on 16 Nov 2026: **two pages**, expected sizes **612.24 × 858.96 pt** and **841.92 × 1190.64 pt**, `lovelystones26@gmail.com` and `+267 74 583 606` present on page one. The baseline placeholders were blank; A and B instead contain the owner-supplied FNB payment instructions. This is **technical evidence, not business/terms approval**.
 
 The complete owner-confirmed contact address in the corrected PDF is
 `lovelystones26@gmail.com`. An earlier checksum (`bd5a4b2897...`)
@@ -56,13 +60,13 @@ customer PDFs or grant template approval.
   width/height limits and drag/resize behavior without overlaps
 - [ ] Owner verifies phone **+267 74 583 606**, email and all public
   company/location information against current approved business records
-- [ ] Owner verifies payment method and company bank account separately; legacy original PDF banking fields may **not** be assumed valid. The bank/account lines are presently blank in the corrected candidate.
+- [ ] Owner verifies payment method and company bank account separately; legacy original PDF banking fields may **not** be assumed valid. The superseded baseline has blank bank lines; A and B include the owner-supplied FNB information, which must be verified privately before acceptance. Do not publish account digits in GitHub.
 - [ ] Owner verifies the **page-two footer** which currently advertises Gaborone, Palapye, **Serowe**, Francistown, **Phikwe**, Maun; confirm whether the newer **Mahalapye** office needs to appear and whether those historical branches remain current. Do not edit the SHA-pinned binary without a new hash and review.
 - [ ] Owner confirms the **legal contracting issuer** (distinguish `Lovely Stones (Proprietary) Limited` from the `Lovely Tombstones` trading brand) and accurate public address/contact details
 - [ ] Legal reviewer approves all general terms, cancellation/refund clauses,
   installation obligations, timelines, customer declaration and Botswana
   commercial compliance in the complete corrected PDF
-- [ ] Owner and independent `thusico` accept the **exact current corrected PDF SHA-256 `72891d473991dc1e0009a6bd417713ce79cce7bf05000d38c24da7d59db15c5f`**, naming the file/version, dedicated private R2 bucket, and company-scoped key in a new approval for **private staging template registration/upload**; code PR approval and the generic `Approved` comment after SQL migration do not count
+- [ ] Owner explicitly selects **one final private two-page PDF** (A/B or a newly hashed revision), verifies its exact SHA-256, and separately secures legal sign-off and independent `thusico` approval naming the exact SHA, dedicated private R2 bucket and tenant-scoped key for **private staging template registration/upload**. Code PR approval and the old SQL approval do not authorize any upload
 - [ ] Quotation-specific staging Worker runtime, private bindings, security
   authorization and recovery plan separately accepted
 - [ ] Later customer-facing quotation issuance and production deployment

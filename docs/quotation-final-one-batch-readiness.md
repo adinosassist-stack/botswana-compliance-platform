@@ -1,5 +1,7 @@
 # Thebe Desk quotation — consolidated source completion and release gates
 
+**PDF candidate correction after PR #2534 (16 Nov 2026):** Baseline SHA-256 `72891d473991dc1e0009a6bd417713ce79cce7bf05000d38c24da7d59db15c5f` has empty bank placeholders and is superseded as a business-review option. **Candidate A** `18fb41f01fa0b20f501f7de984211a6b4421d452d7fb7a45840578e704d428e1` adds the requested page-one FNB/installation terms while keeping the original page-two footer; **candidate B** `8cdb4bf76230d04b8617f01d9c868ca00c518a2f75e10ed15e8ee1bbf332b87e` proposes a five-office footer. The owner has not yet selected A or B for final use. Both remain private, unapproved, and unregistered. Obtain owner/legal acceptance of the exact final two-page PDF (issuer, terms, bank details, office roster and logo), then obtain *separate* `thusico` approval naming the exact private R2 key and SHA before upload. No PDF bytes or account number are stored in this repo.
+
 **Status as of 16 November 2026:** The two exact-blob quotation staging SQL migrations **have been executed and post-verified** in isolated `bw-quotation-staging` (issue #2504 comment #6927692011); **do not re-run them**. The template and runtime remain unapproved/inactive.
 
 **Scope:** The Lovely-style, two-page quotation editor with configurable
@@ -66,8 +68,8 @@ service or authority to issue legally binding customer documents.
 
 ## Final PDF and business acceptance
 
-The verified private, logo-free, email-corrected Lovely template has
-SHA-256 `72891d473991dc1e0009a6bd417713ce79cce7bf05000d38c24da7d59db15c5f`.
+The superseded, bank-blank logo-free/email-corrected baseline has SHA-256
+`72891d473991dc1e0009a6bd417713ce79cce7bf05000d38c24da7d59db15c5f`. Newer review-only candidate hashes appear above; neither is authorized for upload.
 Printed contact email is `lovelystones26@gmail.com`. Do **not** use the
 earlier incorrect checksum `bd5a4b...` or the prior pre-email-correction
 candidate `99e6ee...`. Page-two wording and positions were checked
