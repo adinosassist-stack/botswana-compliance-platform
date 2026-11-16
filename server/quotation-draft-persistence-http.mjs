@@ -75,7 +75,14 @@ export async function handleQuotationDraftPersistence({
    if(!item)return reject(404,"quotation_draft_not_found");
    if(!Number.isSafeInteger(item.revision)||item.revision<1)
     return reject(500,"quotation_draft_store_invalid");
-   return reply(200,{ok:true,draftId,revision:item.revision,draft:copy(item.draft)});
+   // Do not disclose malformed or tampered saved data from the private store.
+   const verified=validateQuotationDraft(item.draft);
+   const draft={quoteNumber:verified.quoteNumber,issueDate:verified.issueDate,
+    customerName:verified.customerName,customerContact:verified.customerContact,
+    paymentMethod:verified.paymentMethod,
+    items:verified.items.map(({description,quantity,unitPriceCents})=>({description,quantity,unitPriceCents})),
+    discountCents:verified.discountCents};
+   return reply(200,{ok:true,draftId,revision:item.revision,draft:copy(draft)});
   }catch{return reject(500,"quotation_draft_read_failed")}
  }
  // Explicit edit right AND session-bound CSRF before reading any request body.
