@@ -1,0 +1,22 @@
+name: Quotation Draft Persistence Contract (offline)
+on:
+  pull_request:
+    paths:
+      - 'server/quotation-draft-persistence-http.mjs'
+      - 'server/quotation-draft-model.mjs'
+      - 'tests/quotation-draft-persistence-http.test.mjs'
+      - '.github/workflows/quotation-draft-persistence-offline.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Test unmounted quotation draft persistence contract
+        run: node --test tests/quotation-draft-persistence-http.test.mjs
