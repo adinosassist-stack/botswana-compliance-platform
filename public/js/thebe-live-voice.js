@@ -1148,12 +1148,13 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     }
   }
   function closeVoiceScreen(stopSession=false){
+    const restoreFocus=Boolean(voiceScreen?.open && voiceScreen.contains(document.activeElement));
     if(stopSession)global.ThebeLiveVoice?.stop?.();
     if(voiceScreen?.open)voiceScreen.close();
     document.body.classList.remove("thebe-voice-active");
-    // Restore focus only after a voice overlay actually closes; preserve the
-    // user's composer focus when a redundant stop/cleanup event arrives.
-    if(voiceReturnFocus?.isConnected && !voiceScreen?.open && document.activeElement?.closest?.("#thebeVoiceScreen"))voiceReturnFocus.focus({preventScroll:true});
+    // Do not steal composer focus during redundant cleanup or when the user
+    // deliberately switched from voice controls back to the editable chat.
+    if(restoreFocus && voiceReturnFocus?.isConnected)voiceReturnFocus.focus({preventScroll:true});
   }
   function setPhase(phase,label,sub){
     voicePhase=phase||"idle";
