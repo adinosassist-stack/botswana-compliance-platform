@@ -11,13 +11,14 @@ export async function runBudgetedAiRequest({
   await reserve(db,{tenantId,period,requestId,amountMicroUsd:maxCostMicroUsd});
   // If provider fails or accounting fails, do NOT release reservation:
   // billed tokens may have been consumed and must be reconciled separately.
-  let received=false;
+  let usageState="pending";
   const onUsage=async usage=>{
-    if(received)throw Error("ai_usage_duplicate_callback");
-    received=true;
+    if(usageState!=="pending")throw Error("ai_usage_duplicate_callback");
+    usageState="writing";
     await recordUsage(db,tenantId,{...usage,requestId});
+    usageState="recorded";
   };
   const result=await provider({onUsage});
-  if(!received)throw Error("ai_usage_not_recorded");
+  if(usageState!=="recorded")throw Error("ai_usage_not_recorded");
   return result;
 }
