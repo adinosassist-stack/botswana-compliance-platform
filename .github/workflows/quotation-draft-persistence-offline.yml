@@ -4,6 +4,8 @@ on:
     paths:
       - 'server/quotation-draft-persistence-http.mjs'
       - 'server/quotation-draft-model.mjs'
+      - 'public/js/quotation-draft-storage-client.mjs'
+      - 'tests/quotation-draft-storage-client.test.mjs'
       - 'tests/quotation-draft-persistence-http.test.mjs'
       - '.github/workflows/quotation-draft-persistence-offline.yml'
   workflow_dispatch:
@@ -19,4 +21,4 @@ jobs:
         with:
           node-version: '24'
       - name: Test unmounted quotation draft persistence contract
-        run: node --test tests/quotation-draft-persistence-http.test.mjs
+        run: node --test tests/quotation-draft-persistence-http.test.mjs tests/quotation-draft-storage-client.test.mjs
