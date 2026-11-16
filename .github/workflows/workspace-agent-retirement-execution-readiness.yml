@@ -37,8 +37,15 @@ jobs:
           [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
           test "$CANDIDATE" = "9ba41e62-9efc-49c5-9d4e-d667057e43fb"
           [[ "$OWNER_COMMENT" =~ ^[0-9]{1,18}$ ]]
-          test "$GITHUB_SHA" = "$EXPECTED_SHA"
-          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          if [[ "$GITHUB_SHA" != "$EXPECTED_SHA" ]]; then
+            echo "::error::BLOCK dispatched_sha_mismatch — rerun only after a fresh exact-main owner acceptance"
+            exit 1
+          fi
+          actual_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          if [[ "$actual_main" != "$EXPECTED_SHA" ]]; then
+            echo "::error::BLOCK main_sha_drift — owner authorization is stale; do not retry or delete"
+            exit 1
+          fi
           envapi="repos/$GITHUB_REPOSITORY/environments/workspace-agent-private-staging"
           reviewer="$(gh api users/thusico --jq .id)"
           gh api "$envapi" | jq -e --argjson reviewer "$reviewer" '
@@ -75,8 +82,15 @@ jobs:
           test -n "$AUDIT_TOKEN"
           [[ "$OWNER_COMMENT" =~ ^[0-9]{1,18}$ ]]
           test "$CANDIDATE" = "9ba41e62-9efc-49c5-9d4e-d667057e43fb"
-          test "$GITHUB_SHA" = "$EXPECTED_SHA"
-          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          if [[ "$GITHUB_SHA" != "$EXPECTED_SHA" ]]; then
+            echo "::error::BLOCK dispatched_sha_mismatch — rerun only after a fresh exact-main owner acceptance"
+            exit 1
+          fi
+          actual_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          if [[ "$actual_main" != "$EXPECTED_SHA" ]]; then
+            echo "::error::BLOCK main_sha_drift — owner authorization is stale; do not retry or delete"
+            exit 1
+          fi
           tmp="$(mktemp -d)"
           export WORKSPACE_AGENT_RETIREMENT_READINESS_TMP="$tmp"
           trap 'rm -rf "$tmp"' EXIT

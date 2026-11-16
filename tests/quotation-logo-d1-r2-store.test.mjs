@@ -23,11 +23,11 @@ function fixture(){
    },async run(){
     if(sql.includes("INSERT INTO quotation_logo_assets")){
      const [id,tenant,object_key,mime_type,width,height,aspect_ratio]=args;
-     assets.set(tenant+":"+id,{id,object_key,mime_type,width,height,aspect_ratio});return;
+     assets.set(tenant+":"+id,{id,object_key,mime_type,width,height,aspect_ratio});return {success:true,meta:{changes:1}};
     }
     if(sql.includes("INSERT INTO quotation_logo_settings")){
      const [tenant,asset,x,y,width]=args;
-     settings.set(tenant,{tenant_id:tenant,asset_id:asset,x_percent:x,y_percent:y,width_percent:width});return;
+     settings.set(tenant,{tenant_id:tenant,asset_id:asset,x_percent:x,y_percent:y,width_percent:width});return {success:true,meta:{changes:1}};
     }
     throw Error("unexpected_write_sql");
    }
