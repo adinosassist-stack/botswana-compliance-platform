@@ -27,7 +27,9 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: corporate-assets-protected-source-version-creation
+  # PR offline CI must not compete with a separately protected write dispatch.
+  # All workflow_dispatch runs keep their original single-writer group.
+  group: ${{ github.event_name == 'workflow_dispatch' && 'corporate-assets-protected-source-version-creation' || format('corporate-assets-source-upload-pr-{0}', github.event.pull_request.number) }}
   cancel-in-progress: false
 jobs:
   offline:
@@ -61,6 +63,7 @@ jobs:
       ASSETS_SOURCE_VERSION_AUTHORIZATION: ${{ inputs.authorization }}
       ASSETS_STAGING_GITHUB_READ_TOKEN: ${{ secrets.ASSETS_STAGING_GITHUB_READ_TOKEN }}
       ASSETS_STAGING_CLOUDFLARE_TOKEN: ${{ secrets.ASSETS_STAGING_CLOUDFLARE_TOKEN }}
+      ASSETS_STAGING_CLOUDFLARE_ACCOUNT_READ_TOKEN: ${{ secrets.ASSETS_STAGING_CLOUDFLARE_ACCOUNT_READ_TOKEN }}
     steps:
       - name: Reject stale, unapproved or invalid write request before checkout
         shell: bash
@@ -74,6 +77,7 @@ jobs:
           test "$ASSETS_SOURCE_VERSION_AUTHORIZATION" = CREATE_ISOLATED_ASSETS_SOURCE_VERSION
           test -n "$ASSETS_STAGING_GITHUB_READ_TOKEN"
           test -n "$ASSETS_STAGING_CLOUDFLARE_TOKEN"
+          test -n "$ASSETS_STAGING_CLOUDFLARE_ACCOUNT_READ_TOKEN"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ inputs.expected_main_sha }}

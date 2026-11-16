@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "public/js/market-refinement-v21.js"
+      - "public/js/market-growth-v20.js"
       - "public/assets/market-refinement-v21.css"
       - "public/js/reporter-link-redirect.js"
       - "tests/v250-market-refinement-v21-static.mjs"
@@ -13,6 +14,7 @@ on:
       - main
     paths:
       - "public/js/market-refinement-v21.js"
+      - "public/js/market-growth-v20.js"
       - "public/assets/market-refinement-v21.css"
       - "public/js/reporter-link-redirect.js"
       - "tests/v250-market-refinement-v21-static.mjs"
@@ -29,6 +31,6 @@ jobs:
         with:
           node-version: 22
       - name: Check JavaScript syntax
-        run: node --check public/js/market-refinement-v21.js && node --check public/js/reporter-link-redirect.js
+        run: node --check public/js/market-growth-v20.js && node --check public/js/market-refinement-v21.js && node --check public/js/reporter-link-redirect.js
       - name: Run market refinement regression
         run: node tests/v250-market-refinement-v21-static.mjs

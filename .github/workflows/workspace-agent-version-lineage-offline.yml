@@ -1,0 +1,26 @@
+name: Workspace Agent version lineage offline contract
+on:
+  pull_request:
+    paths:
+      - 'scripts/workspace-agent-version-lineage-audit.mjs'
+      - 'tests/workspace-agent-version-lineage-audit.test.mjs'
+      - '.github/workflows/workspace-agent-uploaded-version-provenance.yml'
+      - '.github/workflows/workspace-agent-version-lineage-offline.yml'
+  push:
+    paths:
+      - 'scripts/workspace-agent-version-lineage-audit.mjs'
+      - 'tests/workspace-agent-version-lineage-audit.test.mjs'
+      - '.github/workflows/workspace-agent-version-lineage-offline.yml'
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exercise safe API response parser
+        run: node --test tests/workspace-agent-version-lineage-audit.test.mjs

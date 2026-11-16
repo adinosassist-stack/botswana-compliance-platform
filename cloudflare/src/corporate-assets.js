@@ -51,6 +51,11 @@ export async function handleCorporateAssets({request,url=new URL(request.url),en
   const match=path.match(/^\/api\/corporate-assets\/([a-f0-9-]{36})(?:\/(services|history))?$/i);
   const assetId=match?.[1],action=match?.[2];
   if(match&&!UUID.test(assetId))return json({error:'asset_not_found'},404);
+  // Exact tenant-scoped readback: newly registered UUIDs may not appear on page 1.
+  if(match&&!action&&request.method==='GET'){
+   const item=await env.DB.prepare('SELECT * FROM corporate_assets WHERE tenant_id=? AND id=?').bind(tenant,assetId).first();
+   return item?json({item}):json({error:'asset_not_found'},404);
+  }
   if(action==='history'&&request.method==='GET'){
    const asset=await env.DB.prepare('SELECT id FROM corporate_assets WHERE tenant_id=? AND id=?').bind(tenant,assetId).first();if(!asset)return json({error:'asset_not_found'},404);
    const audit=await env.DB.prepare("SELECT event_type,event_data,occurred_at,actor_user_id FROM audit_events WHERE tenant_id=? AND entity_type='corporate_asset' AND entity_id=? ORDER BY tenant_seq DESC LIMIT 100").bind(tenant,assetId).all();

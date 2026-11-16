@@ -67,13 +67,55 @@
   control.value=String(value);control.required=required;wrap.append(control);form.append(wrap);return control;
  }
  function minor(value){if(!/^\d+(?:\.\d{1,2})?$/.test(value))throw Error('Enter a nonnegative BWP amount with at most two decimal places.');const [whole,part='']=value.split('.');const n=Number(whole)*100+Number(part.padEnd(2,'0'));if(!Number.isSafeInteger(n)||n>999999999999)throw Error('Amount exceeds the supported range.');return n}
+ // A successful HTTP acknowledgement alone is not evidence that the requested values persisted.
+ function assetReadbackMatches(asset,body,method){
+  if(!asset||asset.id!==body.id||asset.name!==body.name||asset.category!==body.category||asset.branch!==body.branch||
+    (asset.serial||'')!==(body.serial||'')||(asset.custodian||'')!==(body.custodian||'')||
+    asset.acquisition_date!==body.acquisitionDate||asset.acquisition_cost_minor!==body.acquisitionCostMinor||
+    asset.book_value_minor!==body.bookValueMinor||asset.status!==body.status)return false;
+  return method==='PUT'?Number(asset.revision)===body.revision+1:Number(asset.revision)===1;
+ }
+ async function verifyExactAssetReadback(body,method){
+  try{
+   const result=await api(ROOT+'/'+encodeURIComponent(body.id));
+   return assetReadbackMatches(result?.item,body,method);
+  }catch{return false}
+ }
+ // Service IDs belong to service rows, not the asset register. The sealed audit entry
+ // is committed atomically with the service row and provides an exact-ID readback.
+ async function serviceReadbackVerified(path,serviceId){
+  const assetId=path.match(/\/([a-f0-9-]{36})\/services$/i)?.[1];
+  if(!assetId)return false;
+  try{
+   const result=await api(ROOT+'/'+assetId+'/history');
+   if(!Array.isArray(result?.items))return false;
+   return result.items.some(event=>{
+    if(event?.event_type!=='CORPORATE_ASSET_SERVICE_RECORDED')return false;
+    let data=event.event_data;
+    if(typeof data==='string'){try{data=JSON.parse(data)}catch{return false}}
+    return data?.id===serviceId;
+   });
+  }catch{return false}
+ }
  async function commit(dialogInfo,path,method,body,who){
   if(busy)return;busy=true;dialogInfo.submit.disabled=true;dialogInfo.message.textContent='Saving…';
   try{if(who!==key()||!allowed())throw Error('Your workspace session changed. Close this form and reload.');
    const acknowledgement=await api(path,{method,body:JSON.stringify(body)});
-   if(acknowledgement?.ok!==true)throw Error('The server did not confirm this save. Refresh before trying again.');
+   if(acknowledgement?.ok!==true||acknowledgement.id!==undefined&&acknowledgement.id!==body.id)
+    throw Error('The server did not confirm this save. Refresh before trying again.');
    if(who!==key()||!allowed())return;dialogInfo.d.close();const refreshed=await load({reset:true});
-   if(who===key()&&root?.classList.contains('active'))status(!refreshed?'Save accepted, but the register could not be refreshed. Use Refresh to verify your record.':rows.some(asset=>asset.id===body.id)?'Saved and verified in your company register.':'Save accepted, but the saved asset was not found on the refreshed page. Search or refresh to verify the record.');}
+   if(who!==key()||!root?.classList.contains('active'))return;
+   if(!refreshed){status('Save accepted, but the register could not be refreshed. Use Refresh to verify your record.');return}
+   if(path.endsWith('/services')){
+    const token=epoch,verified=await serviceReadbackVerified(path,body.id);
+    if(token===epoch&&who===key()&&root?.classList.contains('active'))status(verified?'Service / renewal saved and verified in asset history.':'Save accepted, but service history readback could not be verified. Open History or refresh to confirm.');
+   }else{
+    const token=epoch;
+    const verified=rows.some(asset=>assetReadbackMatches(asset,body,method))||await verifyExactAssetReadback(body,method);
+    if(token===epoch&&who===key()&&root?.classList.contains('active'))
+     status(verified?'Saved and verified in your company register.':'Save accepted, but exact asset readback could not be verified. Refresh or search to confirm.');
+   }
+  }
   catch(e){dialogInfo.message.textContent=e.code==='asset_conflict'?'This asset changed in another session. Close this form and refresh before editing again.':e.message||'Save failed. Refresh before trying again.'}
   finally{busy=false;dialogInfo.submit.disabled=false}
  }

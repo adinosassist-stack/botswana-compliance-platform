@@ -1,0 +1,118 @@
+name: Workspace Agent protected private live qualification
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Exact reviewed current main commit SHA
+        required: true
+        type: string
+      preflight_run_id:
+        description: Successful protected read-only preflight run for this exact SHA
+        required: true
+        type: string
+      confirmation:
+        description: Type QUALIFY_PRIVATE_WORKSPACE_AGENT_ONCE
+        required: true
+        type: string
+
+permissions: {}
+concurrency:
+  group: workspace-agent-protected-private-live-qualification
+  cancel-in-progress: false
+
+jobs:
+  verify-scope:
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      actions: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify exact source, fresh protected preflight and independent environment policy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+          PREFLIGHT_RUN_ID: ${{ inputs.preflight_run_id }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$PREFLIGHT_RUN_ID" =~ ^[0-9]+$ ]]
+          test "$CONFIRMATION" = 'QUALIFY_PRIVATE_WORKSPACE_AGENT_ONCE'
+          test "$EXPECTED_SHA" = "$GITHUB_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PREFLIGHT_RUN_ID" | jq -e --arg sha "$EXPECTED_SHA" '
+            .head_sha == $sha and .event == "workflow_dispatch" and .status == "completed" and
+            .conclusion == "success" and .path == ".github/workflows/workspace-agent-no-route-preflight.yml"' > /dev/null
+          env_api="repos/$GITHUB_REPOSITORY/environments/workspace-agent-private-staging"
+          reviewer_id="$(gh api users/thusico --jq .id)"
+          gh api "$env_api" | jq -e --argjson reviewer "$reviewer_id" '
+            any(.protection_rules[]; .type == "required_reviewers" and .prevent_self_review == true and
+              ([.reviewers[] | select(.type == "User") | .reviewer.id] == [$reviewer]) and
+              (.reviewers | length == 1)) and
+            .deployment_branch_policy.protected_branches == false and
+            .deployment_branch_policy.custom_branch_policies == true' > /dev/null
+          gh api "$env_api/deployment-branch-policies" | jq -e '
+            .total_count == 1 and .branch_policies[0].name == "main" and
+            .branch_policies[0].type == "branch"' > /dev/null
+
+  private-qualification:
+    needs: verify-scope
+    if: github.ref == 'refs/heads/main'
+    environment: workspace-agent-private-staging
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact reviewed main
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Node runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Recheck exact main after independent approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+      - name: Rehearse caller and orchestrator offline
+        run: node --test tests/workspace-agent-private-service-binding.test.mjs tests/workspace-agent-protected-live-qualification.test.mjs
+      - name: Dry-run Worker and scheduled caller without Cloudflare writes
+        shell: bash
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          set -euo pipefail
+          npx --no-install wrangler deploy --dry-run --config cloudflare/wrangler.workspace-agent-staging.qualification.toml --outdir "$RUNNER_TEMP/workspace-agent-target-dry-run"
+          npx --no-install wrangler deploy --dry-run --config cloudflare/wrangler.workspace-agent-staging.qualification-caller.toml --outdir "$RUNNER_TEMP/workspace-agent-caller-dry-run"
+      - name: Run one bounded synthetic private qualification and restore inert Worker
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          WORKSPACE_AGENT_QUALIFICATION_ENVIRONMENT: workspace-agent-private-staging
+          CLOUDFLARE_API_TOKEN: ${{ secrets.WORKSPACE_AGENT_STAGING_QUALIFICATION_CLOUDFLARE_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          WRANGLER_SEND_METRICS: 'false'
+        run: node scripts/workspace-agent-protected-live-qualification.mjs
+      - name: Independently recheck inert rollback even after a failed qualification
+        if: always()
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          WORKSPACE_AGENT_QUALIFICATION_ENVIRONMENT: workspace-agent-private-staging
+          CLOUDFLARE_API_TOKEN: ${{ secrets.WORKSPACE_AGENT_STAGING_QUALIFICATION_CLOUDFLARE_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          WRANGLER_SEND_METRICS: 'false'
+        run: node scripts/workspace-agent-protected-live-qualification.mjs --verify-only

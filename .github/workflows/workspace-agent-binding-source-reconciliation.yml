@@ -1,0 +1,109 @@
+name: Workspace Agent three-source binding reconciliation (read only)
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Exact current main SHA
+        required: true
+        type: string
+permissions: {}
+concurrency:
+  group: workspace-agent-binding-sources-readonly
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+    steps:
+      - name: Verify exact-main and independent environment protection
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          envapi="repos/$GITHUB_REPOSITORY/environments/workspace-agent-private-staging"
+          reviewer="$(gh api users/thusico --jq .id)"
+          gh api "$envapi" | jq -e --argjson reviewer "$reviewer" '
+            any(.protection_rules[]; .type == "required_reviewers" and
+              .prevent_self_review == true and
+              (.reviewers | length == 1) and
+              ([.reviewers[] | select(.type == "User") | .reviewer.id] == [$reviewer])) and
+              .deployment_branch_policy.custom_branch_policies == true' >/dev/null
+          gh api "$envapi/deployment-branch-policies" | jq -e '
+            .total_count == 1 and .branch_policies[0].name == "main" and
+            .branch_policies[0].type == "branch"' >/dev/null
+  inspect:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    permissions:
+      contents: read
+    environment: workspace-agent-private-staging
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+      AUDIT_TOKEN: ${{ secrets.WORKSPACE_AGENT_STAGING_READONLY_CLOUDFLARE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Reconcile pinned, latest, and script metadata without logging secrets
+        run: |
+          set -euo pipefail
+          test -n "$AUDIT_TOKEN"
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          tmp="$(mktemp -d)"
+          export WORKSPACE_AGENT_SOURCE_TMP="$tmp"
+          trap 'rm -rf "$tmp"' EXIT
+          base="https://api.cloudflare.com/client/v4/accounts/b11d872b2660e76ca66323023b45b3ab"
+          script="bw-workspace-agent-staging"
+          fetch() {
+            if ! curl --fail --silent --show-error --max-time 30 \
+              -H "Authorization: Bearer $AUDIT_TOKEN" "$base/$1" > "$tmp/$2" 2>/dev/null; then
+              echo "::error::Read-only source reconciliation endpoint unavailable"
+              exit 1
+            fi
+          }
+          fetch "workers/workers/$script/versions/64d9bae9-2ea3-40c1-9a26-83cea97ad71c" pinned
+          fetch "workers/workers/$script/versions/latest" latest
+          fetch "workers/scripts/$script/settings" settings
+          fetch "workers/scripts/$script/deployments" deployments
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import {reconcileBindingSources} from './scripts/workspace-agent-binding-source-matrix.mjs';
+          let result;
+          try {
+            const dir=process.env.WORKSPACE_AGENT_SOURCE_TMP;
+            const read=f=>JSON.parse(readFileSync(dir+'/'+f,'utf8'));
+            result=reconcileBindingSources({
+              pinned:read('pinned'),latest:read('latest'),
+              scriptSettings:read('settings'),deployments:read('deployments')
+            });
+          } catch {
+            console.error('::error::Source metadata unreadable');
+            process.exit(1);
+          }
+          if(!result.valid) {
+            for(const reason of result.issues)console.error('::error::'+reason);
+            process.exit(1);
+          }
+          for(const [name,data] of Object.entries(result.sources)) {
+            console.log('SOURCE '+name+' binding_count='+data.bindingCount+
+              ' session_secret='+data.sessionSecret+' d1='+data.d1Binding+
+              ' advisory='+data.advisoryFlag+' other_resources='+data.unexpectedResourceCount);
+          }
+          console.log('SOURCE_TOPOLOGY script_pinned='+result.topologyMatches.scriptPinned+
+              ' script_latest='+result.topologyMatches.scriptLatest);
+          if(!result.latestEqualsPinned)
+            console.log('BLOCK secret_inheritance_from_latest_uploaded');
+          console.log('No Worker writes, secret contents, or deployment operations performed.');
+          NODE
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"

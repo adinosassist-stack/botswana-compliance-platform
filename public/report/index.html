@@ -11,9 +11,10 @@
 <title>Daily Report | Thebe Desk</title>
 <link rel="icon" type="image/png" sizes="512x512" href="/assets/thebe-desk-favicon-512.png">
 <link rel="stylesheet" href="/assets/employee-reporting-portal.css?v=20261015-camera-attachments">
+<link rel="stylesheet" href="/assets/delivery-reminder-notifications.css?v=20261115-multijob">
 <script id="reporter-browser-recovery">(()=>{try{if("serviceWorker"in navigator)navigator.serviceWorker.getRegistrations().then(items=>items.forEach(item=>item.unregister())).catch(()=>{});if("caches"in globalThis)caches.keys().then(keys=>Promise.all(keys.filter(key=>String(key).startsWith("thebe-desk-")).map(key=>caches.delete(key)))).catch(()=>{})}catch{}})();</script>
 <script src="/js/api-client.js?v=20260920a" defer></script>
-<script src="/js/employee-reporting-portal.js?v=20261015-camera-attachments" defer></script>
+<script src="/js/employee-reporting-portal.js?v=20261115-multijob" defer></script>
 </head>
 <body>
 <main class="reporter-portal" id="reporterPortal">
@@ -33,6 +34,7 @@
         <span id="reporterCompanyName">Checking company…</span>
       </div>
 
+      <div id="reporterDeliveryReminders" class="thebe-delivery-reminders" role="status" aria-live="polite" hidden></div>
       <div id="reporterPortalError" class="reporter-message error" role="alert" hidden></div>
       <div id="reporterPortalSuccess" class="reporter-message success" role="status" hidden></div>
 
@@ -41,6 +43,23 @@
           <label for="reporterDate">Report date</label>
           <input id="reporterDate" type="date" required>
         </div>
+
+        <fieldset class="thebe-delivery-fields">
+          <legend>Delivery / installation jobs</legend>
+          <p>Optional. Record up to 8 jobs per daily report. Each job is tracked separately. Both you and your manager see reminders from four days before its date, and overdue alerts for up to seven days. To close or reschedule a job, use the same reference and work type in a newer daily report.</p>
+          <div id="reporterJobs" class="thebe-delivery-jobs">
+            <div class="thebe-delivery-job">
+              <div class="thebe-delivery-grid">
+                <div class="field"><label for="reporterJobReference">Order / job reference</label><input id="reporterJobReference" data-job-field="jobReference" maxlength="80" placeholder="e.g. LT-1024" autocomplete="off"></div>
+                <div class="field"><label for="reporterJobType">Work type</label><select id="reporterJobType" data-job-field="jobType"><option value="">Select type</option><option value="delivery">Delivery</option><option value="installation">Installation</option></select></div>
+                <div class="field"><label for="reporterScheduledDate">Scheduled delivery / installation date</label><input id="reporterScheduledDate" data-job-field="scheduledDate" type="date"></div>
+                <div class="field"><label for="reporterJobStatus">Job status</label><select id="reporterJobStatus" data-job-field="jobStatus"><option value="scheduled">Scheduled</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></div>
+              </div>
+            </div>
+          </div>
+          <button id="reporterAddJob" class="thebe-add-job" type="button">+ Add another job</button>
+          <p id="reporterJobCount" class="thebe-delivery-count" aria-live="polite">Up to 8 jobs per report.</p>
+        </fieldset>
 
         <div class="field">
           <label for="reporterWorkSummary">Work completed / main activity</label>
@@ -63,6 +82,8 @@
           <div class="field"><label for="reporterRevenue">Sales / revenue (P)</label><input id="reporterRevenue" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Optional"></div>
           <div class="field"><label for="reporterIncidentCount">Incident count</label><input id="reporterIncidentCount" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></div>
         </div>
+
+        <p id="reporterQualityGuide" class="thebe-report-quality-guide" aria-live="polite">Reporting guide: include what you did, what happens next and any blockers. Add specific job references when available.</p>
 
         <div class="two-col">
           <div class="field"><label for="reporterCustomLabel">Other metric label</label><input id="reporterCustomLabel" maxlength="60" placeholder="e.g. quotations sent"></div>

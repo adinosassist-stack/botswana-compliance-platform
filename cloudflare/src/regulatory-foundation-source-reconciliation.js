@@ -41,9 +41,11 @@ const LOOKUP_BASE=`SELECT s.*,
   (SELECT COUNT(*) FROM regulatory_source_reviews rev WHERE rev.source_id=s.id) AS review_count
   FROM regulatory_sources s`;
 
-export async function inspectFoundationSourceMetadata(db,pack){
-  const items=[];
-  for(const src of pack.sources){
+// Limit concurrent D1 reads to avoid sequential per-source preflight timeouts.
+// This is a read-only performance bound, not permission to approve/import data.
+export const FOUNDATION_PREFLIGHT_MAX_CONCURRENT_READS=4;
+
+async function inspectFoundationSourceMetadataItem(db,pack,src){
     const seedKey=`source:${src.key}`,desired=foundationSourceDesired(src,pack.packKey);
     const registry=await db.prepare("SELECT entity_id,definition_hash FROM regulatory_seed_registry WHERE pack_key=? AND seed_key=? AND entity_type='source' LIMIT 1").bind(pack.packKey,seedKey).first();
     let row=registry?.entity_id
@@ -51,13 +53,26 @@ export async function inspectFoundationSourceMetadata(db,pack){
       :null;
     if(!row)row=await db.prepare(`${LOOKUP_BASE} WHERE s.source_url=? ORDER BY s.created_at,s.id LIMIT 1`).bind(src.url).first();
     const disposition=foundationSourceDisposition(row,desired);
-    items.push({
+    return {
       key:src.key,seedKey,sourceId:row?.id||null,registryHash:registry?.definition_hash||null,
       desired,observed:row||null,action:disposition.action,changedFields:disposition.fields,
       status:row?.status||null,verificationStatus:row?.verification_status||null,
       snapshotCount:Number(row?.snapshot_count||0),reviewCount:Number(row?.review_count||0)
-    });
-  }
+    };
+}
+
+export async function inspectFoundationSourceMetadata(db,pack){
+  const sources=pack.sources;
+  const items=new Array(sources.length);
+  let next=0;
+  // Four bounded workers share the source cursor. Assign by index so response
+  // order, source keys, and fail-closed drift classification stay unchanged.
+  await Promise.all(Array.from({length:Math.min(FOUNDATION_PREFLIGHT_MAX_CONCURRENT_READS,sources.length)},async()=>{
+    while(next<sources.length){
+      const index=next++;
+      items[index]=await inspectFoundationSourceMetadataItem(db,pack,sources[index]);
+    }
+  }));
   const counts={create:0,reuse:0,refresh_unreviewed:0,source_metadata_drift_requires_review:0};
   for(const item of items)counts[item.action]++;
   return {ok:counts.source_metadata_drift_requires_review===0,packKey:pack.packKey,version:pack.version,counts,items};

@@ -11,10 +11,11 @@ import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 import {inspectProtectedProvenance} from './corporate-assets-protected-provenance-preflight.mjs';
-import {inspectAssetStagingExposure} from './corporate-assets-v3-private-exposure-attestation.mjs';
+import {inspectAssetStagingExposure,assertOpaqueReadToken} from './corporate-assets-v3-private-exposure-attestation.mjs';
 import {runIndependentDryRuns} from './corporate-assets-compiled-reproducibility.mjs';
 import {renderCorporateAssetsStagingConfig} from './render-corporate-assets-staging-config.mjs';
 import {checkAssetStagingBindingMetadata} from './corporate-assets-staging-binding-preflight.mjs';
+import {inspectActiveAssetCredentialTypes} from './corporate-assets-active-credential-types.mjs';
 import {ACCOUNT,WORKER,DB,ROLLBACK,CANDIDATE} from './corporate-assets-v3-predeployment-attestation.mjs';
 const SHA=/^[0-9a-f]{40}$/;
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -23,6 +24,22 @@ const prefix='/accounts/'+ACCOUNT+'/workers/scripts/'+WORKER;
 const off=['EVIDENCE_UPLOADS_ENABLED','POP_UPLOAD_STAGING_ENABLED','THEBE_AI_EXPORTS_ENABLED',
  'THEBE_GENERAL_AI_ENABLED','THEBE_INTERNAL_AUTONOMY_ENABLED','THEBE_LIVE_VOICE_ENABLED'];
 const envSecrets=['SESSION_SECRET','AUDIT_INTEGRITY_SECRET'];
+/** Source-upload must never rely on latest mutable Worker settings for
+ * credential safety. Inspect the immutable 100%-deployed version instead.
+ * The v2-only rollback assumption is a separate mandatory baseline gate.
+ */
+export function assertDeployedCredentialSafetyForSourceUpload(evidence){
+ if(!evidence||
+    evidence.activeVersionId!==ROLLBACK||
+    evidence.immutableCredentialTypesVerified!==true||
+    evidence.activeCredentialRisk!==false||
+    evidence.deploymentAuthorized!==false||
+    evidence.createVersionAuthorized!==false||
+    !Array.isArray(evidence.errors)||
+    evidence.errors.length!==0)
+  throw Error('active_deployed_credential_safety_not_verified');
+ return true;
+}
 export function minimalWranglerEnvironment(token,processEnv={}){
  if(typeof token!=='string'||!token.trim())throw Error('dedicated_cloudflare_token_required');
  const e={CLOUDFLARE_API_TOKEN:token,CLOUDFLARE_ACCOUNT_ID:ACCOUNT,
@@ -32,13 +49,16 @@ export function minimalWranglerEnvironment(token,processEnv={}){
  }
  return Object.freeze(e);
 }
-export function requireVersionOnlyContext({mode,authorization,repo,ref,sha,expectedSha,actor,githubReadToken,cloudflareToken}={}){
+export function requireVersionOnlyContext({mode,authorization,repo,ref,sha,expectedSha,actor,githubReadToken,cloudflareToken,cloudflareAccountReadToken}={}){
  if(mode!=='create-version-only'||authorization!=='CREATE_ISOLATED_ASSETS_SOURCE_VERSION')
   throw Error('independent_version_only_owner_authorization_required');
  if(repo!==REPO||ref!=='refs/heads/main'||!SHA.test(expectedSha||'')||sha!==expectedSha)
   throw Error('exact_current_main_required');
  if(!actor||actor.toLowerCase()==='thusico')throw Error('independent_reviewer_must_not_initiate');
- if(!githubReadToken||!cloudflareToken)throw Error('dedicated_protected_credentials_required');
+ if(!githubReadToken||!cloudflareToken||!cloudflareAccountReadToken)throw Error('dedicated_protected_credentials_required');
+ // The account-wide inventory uses a separate least-privilege credential.
+ // Validate format before any protected API request or write attempt.
+ assertOpaqueReadToken(cloudflareAccountReadToken,'account_inventory');
  return true;
 }
 export function checkVersionInventory(response,{newVersion=false,priorIds=[]}={}){
@@ -149,23 +169,30 @@ function uploadWithWrangler(expectedSha,token){
 export async function createProtectedVersionOnly({
  expectedSha=process.env.EXPECTED_MAIN_SHA,
  githubReadToken=process.env.ASSETS_STAGING_GITHUB_READ_TOKEN,
- cloudflareToken=process.env.ASSETS_STAGING_CLOUDFLARE_TOKEN}={}){
+ cloudflareToken=process.env.ASSETS_STAGING_CLOUDFLARE_TOKEN,
+ cloudflareAccountReadToken=process.env.ASSETS_STAGING_CLOUDFLARE_ACCOUNT_READ_TOKEN}={}){
  requireVersionOnlyContext({mode:process.env.ASSETS_SOURCE_VERSION_MODE,
   authorization:process.env.ASSETS_SOURCE_VERSION_AUTHORIZATION,
   repo:process.env.GITHUB_REPOSITORY,ref:process.env.GITHUB_REF,
   sha:process.env.GITHUB_SHA,expectedSha,actor:process.env.GITHUB_ACTOR,
-  githubReadToken,cloudflareToken});
+  githubReadToken,cloudflareToken,cloudflareAccountReadToken});
  const context={expectedSha,repository:REPO,ref:'refs/heads/main',githubSha:expectedSha,
   githubToken:githubReadToken,cloudflareToken};
  const preflight=await inspectProtectedProvenance(context);
  if(preflight.mainSha!==expectedSha||preflight.exactSourceUploadVerified!==false)
   throw Error('protected_provenance_failed');
- const exposureBefore=await inspectAssetStagingExposure({token:cloudflareToken});
+ const exposureBefore=await inspectAssetStagingExposure({token:cloudflareToken,accountToken:cloudflareAccountReadToken});
  if(!exposureBefore.privateExposureVerified)throw Error('private_exposure_required');
  const beforeInventory=await getInventory(cloudflareToken);
  const beforeIds=checkVersionInventory(beforeInventory);
  const beforeDeployments=await getDeployments(cloudflareToken);
  verifyStableDeployment(beforeDeployments);
+ // This read-only check compares immutable deployed v2, not current settings
+ // or undeployed v4. Existing v2 is plain_text, so this is an intentional
+ // hard-stop until a separately authorized protected credential transition.
+ assertDeployedCredentialSafetyForSourceUpload(
+  await inspectActiveAssetCredentialTypes({token:cloudflareToken})
+ );
  const settings=(await cfGet(prefix+'/settings',cloudflareToken)).result;
  // Existing credentials must be stored as secret_text and D1 remains isolated.
  const existing=checkAssetStagingBindingMetadata(settings.bindings,{databaseId:DB,
@@ -178,13 +205,18 @@ export async function createProtectedVersionOnly({
  // Protected, independently reviewed job and a fresh *manual* authorization.
  // Live main/policy is checked a SECOND time immediately before any mutation.
  await inspectProtectedProvenance(context);
+ // Re-verify active immutable credential safety immediately before any
+ // version creation; a changed deployment or stale baseline fails closed.
+ assertDeployedCredentialSafetyForSourceUpload(
+  await inspectActiveAssetCredentialTypes({token:cloudflareToken})
+ );
  uploadWithWrangler(expectedSha,cloudflareToken);
  // On partial failure, a new undeployed version may exist; never retry blindly.
  const afterInventory=await getInventory(cloudflareToken);
  const newId=checkVersionInventory(afterInventory,{newVersion:true,priorIds:beforeIds});
  const [version,afterDeployments,exposureAfter]=await Promise.all([
   cfGet(prefix+'/versions/'+newId,cloudflareToken),getDeployments(cloudflareToken),
-  inspectAssetStagingExposure({token:cloudflareToken})]);
+  inspectAssetStagingExposure({token:cloudflareToken,accountToken:cloudflareAccountReadToken})]);
  return assertVersionOnlyResult({beforeIds,afterIds:afterInventory,beforeDeployments,
   afterDeployments,newVersion:version.result,expectedSha,
   exposureBefore,exposureAfter,reproducibility});

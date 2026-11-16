@@ -47,6 +47,67 @@ test('mocked Cloudflare read-only envelope and request coverage',async()=>{
  assert.ok(calls.filter(c=>c.url.endsWith('/domains')||c.url.includes('/zones?')).every(c=>c.authorization==='Bearer synthetic-account-token'));
  assert.ok(calls.filter(c=>!c.url.endsWith('/domains')&&!c.url.includes('/zones?')).every(c=>c.authorization==='Bearer synthetic-read-token'));
 });
+// Cloudflare GET /zones/{zone_id}/workers/routes is an unpaginated API: the
+// real 200 response is {success:true,result:[...]}, with NO result_info.
+const syntheticInventory=(routeRows=[],options={})=>async(url,requestOptions)=>{
+ assert.equal(requestOptions.method,'GET');
+ const sub=url.endsWith('/subdomain');
+ const route=url.endsWith('/workers/routes');
+ const domain=url.endsWith('/workers/domains');
+ const zoneInventory=url.includes('/zones?');
+ const result=sub?{enabled:false,previews_enabled:false}:
+  domain?[]:zoneInventory?EXPECTED_ZONES.map(id=>({id})):route?routeRows:null;
+ if(result===null)throw Error('unknown_inventory_endpoint');
+ const info=(!sub&&!route&&!(zoneInventory&&options.omitZonePagination))?
+  {result_info:{page:1,count:result.length,total_count:result.length}}:{};
+ return {ok:true,json:async()=>({success:true,result,...info,
+  ...(route&&options.routeResultInfo!==undefined?{result_info:options.routeResultInfo}:{})})};
+};
+test('documented unpaginated Worker route response verifies no routes without weakening other inventory',async()=>{
+ const evidence=await inspectAssetStagingExposure({token:'synthetic-worker',accountToken:'synthetic-account',
+  request:syntheticInventory()});
+ assert.equal(evidence.privateExposureVerified,true);
+ assert.equal(evidence.inspectedZoneCount,2);
+ assert.equal(evidence.deploymentAuthorized,false);
+ assert.equal(evidence.sourceProvenanceVerified,false);
+});
+test('unpaginated Worker route response identifies an exposed staging route',async()=>{
+ const evidence=await inspectAssetStagingExposure({token:'synthetic-worker',accountToken:'synthetic-account',
+  request:syntheticInventory([{id:'a'.repeat(32),pattern:'thebedesk.com/*',script:WORKER}])});
+ assert.equal(evidence.privateExposureVerified,false);
+ assert.ok(evidence.errors.includes('worker_zone_route_attached'));
+});
+test('malformed and duplicate unpaginated Worker routes fail closed',async()=>{
+ const valid={id:'a'.repeat(32),pattern:'thebedesk.com/*',script:'unrelated-worker'};
+ const malformed=[
+  [{}],[{id:valid.id,script:'unrelated-worker'}],
+  [{id:valid.id,pattern:valid.pattern,script:42}],
+  [valid,{...valid,pattern:'lovelycoffeehouse.com/*'}],
+  [{...valid,id:'  '}]
+ ];
+ for(const rows of malformed){
+  await assert.rejects(inspectAssetStagingExposure({token:'synthetic-worker',accountToken:'synthetic-account',
+    request:syntheticInventory(rows)}),/zone_routes_invalid/);
+ }
+});
+test('route pagination metadata, if returned, must prove completeness',async()=>{
+ for(const page of [
+  {page:1,count:0,total_count:1},
+  {page:1,count:0,total_pages:2},
+  {page:1,count:0},
+  null
+ ]){
+  await assert.rejects(inspectAssetStagingExposure({token:'synthetic-worker',accountToken:'synthetic-account',
+    request:syntheticInventory([],{routeResultInfo:page})}),/zone_routes_incomplete/);
+ }
+ const verified=await inspectAssetStagingExposure({token:'synthetic-worker',accountToken:'synthetic-account',
+  request:syntheticInventory([],{routeResultInfo:{page:1,count:0,total_pages:1}})});
+ assert.equal(verified.privateExposureVerified,true);
+});
+test('zone inventory still rejects missing pagination proof',async()=>{
+ await assert.rejects(inspectAssetStagingExposure({token:'synthetic-worker',accountToken:'synthetic-account',
+  request:syntheticInventory([],{omitZonePagination:true})}),/zones_inventory_incomplete/);
+});
 test('API error, malformed response and partial inventory must fail',async()=>{
  const request=async()=>({ok:false,status:403});
  await assert.rejects(inspectAssetStagingExposure({token:'synthetic',accountToken:'synthetic-account',request}),/cloudflare_exposure_read_failed_worker_subdomain_403/);
