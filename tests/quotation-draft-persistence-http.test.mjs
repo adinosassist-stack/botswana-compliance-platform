@@ -107,3 +107,15 @@ test("unconfigured store and bad draft IDs fail closed",async()=>{
   draftId:"bad/id",revision:0,draft:validDraft()
  }})).status,400);
 });
+
+test("corrupted private rows fail closed without leaking saved content",async()=>{
+ const {run,rows}=setup();
+ rows.set("companyA|draft01",{revision:1,draft:{...validDraft(),items:[
+  {description:"Tampered",quantity:1,unitPriceCents:-99}
+ ]}});
+ const result=await run();
+ assert.equal(result.status,500);
+ const payload=await result.json();
+ assert.equal(payload.ok,false);
+ assert.equal(Object.hasOwn(payload,"draft"),false);
+});
