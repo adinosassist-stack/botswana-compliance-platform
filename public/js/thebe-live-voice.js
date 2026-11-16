@@ -1285,6 +1285,10 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       chip.append(el("span","",file.name));
       const remove=el("button","","×");remove.type="button";remove.disabled=textBusy;
       remove.setAttribute("aria-label",`Remove ${file.name}`);
+      remove.title=`Remove ${file.name}`;
+      const size=el("span","thebe-ai-file-size",`${Math.max(1,Math.ceil(file.size/1024))} KB`);
+      size.setAttribute("aria-label",`File size ${Math.max(1,Math.ceil(file.size/1024))} kilobytes`);
+      chip.append(size);
       remove.addEventListener("click",()=>{pendingFiles=pendingFiles.filter(item=>item!==file);renderAttachmentTray();syncComposerState()});
       chip.append(remove);attachmentTray.append(chip);
     }
