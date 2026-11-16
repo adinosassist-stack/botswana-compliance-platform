@@ -251,7 +251,12 @@ try{
  await page.getByLabel('Recorded book value (BWP)',{exact:true}).fill('900');
  await page.getByRole('button',{name:'Save',exact:true}).click();
  await page.getByText('Saving…').waitFor();
- await page.getByRole('button',{name:'Register asset',exact:true}).click();
+ // Force a second pending dialog via its existing registered click handler:
+ // the first modal makes background toolbar controls intentionally inert to users.
+ await page.evaluate(()=>{
+  document.querySelector('#corporateassets [data-asset-write]')
+   .dispatchEvent(new MouseEvent('click',{bubbles:true}));
+ });
  const dialogs=page.locator('dialog.corporate-asset-dialog');
  assert.equal(await dialogs.count(),2);
  const second=dialogs.nth(1);
