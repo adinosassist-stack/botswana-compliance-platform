@@ -11,7 +11,7 @@ test("completed reconciliation records billed cost but does not release quota",a
  assert.deepEqual(params,["tenant-a","2026-11","req-1","completed",250]);
 });
 test("uncertain billing is never treated as zero",async()=>{
- const db={prepare(){return {bind(...values){assert.equal(values[4],null);return {run:async()=>{}}}}}};
+ const db={prepare(){return {bind(...values){assert.equal(values[4],null);return {run:async()=>({success:true})}}}}}};
  assert.deepEqual(await recordAiReconciliation(db,{...base,state:"uncertain"}),{recorded:true,quotaReleased:false});
  await assert.rejects(()=>recordAiReconciliation(db,{...base,state:"uncertain",actualMicroUsd:0}),/invalid/);
 });
