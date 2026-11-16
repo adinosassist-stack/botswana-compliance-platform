@@ -26,9 +26,14 @@ service or authority to issue legally binding customer documents.
   Explicit non-issuance, tenant isolation, CSRF denial and no preview writes.
 - [x] A source-only GitHub approval watcher on `main` monitors the
   independent D1 execution gate without performing SQL.
-- [ ] **Real Cloudflare Workers compatibility test:** A Node 22 Web Streams
-  check is not equivalent to a `workerd` integration test on the exact
-  target compatibility date. Complete independently before activation.
+- [x] **Local Workers runtime portability:** The PNG sanitizer passed
+  synthetic decode, metadata-denial and malformed-image tests inside the
+  repository's pinned Miniflare/workerd binary (supported compatibility
+  date `2026-09-25`) and Node 22. The test creates no live resources.
+- [ ] **Final deployed Workers-runtime qualification:** Re-test the exact
+  production/staging Worker bundle, compatibility date, authentication and
+  all transitive PDF dependencies in a protected private environment. Local
+  sanitizer tests alone do not authorize a Worker deployment.
 - [ ] **Authenticated host integration:** The composition must remain
   unmounted until the actual Thebe Desk verified-session/tenant/CSRF
   services are audited and independent reviewers approve the protected
