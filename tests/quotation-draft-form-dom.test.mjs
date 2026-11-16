@@ -147,3 +147,35 @@ test("invalid entered Pula amount prevents submission and makes no requests",asy
   assert.equal(requests,0);
  }finally{restore()}
 });
+
+test("authenticated stored draft applies atomically and recalculates BWP totals",()=>{
+ const {root,api,restore}=mount();
+ try{
+  const candidate={quoteNumber:"QT-NEW",issueDate:"2026-11-16",
+   customerName:"Other Synthetic",customerContact:"Francistown",
+   paymentMethod:"Manual transfer",
+   items:[{description:"Headstone",quantity:2,unitPriceCents:125000},
+    {description:"Installation",quantity:1,unitPriceCents:35000}],
+   discountCents:1500};
+  api.applyDraft(candidate);
+  const applied=api.getDraft();
+  assert.equal(applied.customerName,"Other Synthetic");
+  assert.equal(applied.items.length,2);
+  assert.equal(applied.items[0].unitPriceCents,125000);
+  assert.equal(applied.discountCents,1500);
+  assert.equal(getInput(root,"Payment method (optional)").value,"Manual transfer");
+  assert.ok(getAll(root,n=>n.textContent==="P2,835.00").length>0);
+ }finally{restore()}
+});
+test("invalid reopened drafts preserve every existing editor field",()=>{
+ const {api,restore}=mount();
+ try{
+  const before=api.getDraft();
+  const invalid={...before,customerName:"Should Not Replace",
+   items:[{description:"Item",quantity:2,unitPriceCents:-5}]};
+  assert.throws(()=>api.applyDraft(invalid));
+  assert.deepEqual(api.getDraft(),before);
+  assert.throws(()=>api.applyDraft({...before,companyId:"forgedTenant"}));
+  assert.deepEqual(api.getDraft(),before);
+ }finally{restore()}
+});
