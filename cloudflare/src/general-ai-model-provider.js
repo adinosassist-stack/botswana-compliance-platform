@@ -37,9 +37,10 @@ export function createGeneralAiModelProvider({apiKey,model,endpoint="https://api
         const valid=n=>Number.isSafeInteger(n)&&n>=0;
         const input=usage?.prompt_tokens,output=usage?.completion_tokens;
         const cached=usage?.prompt_tokens_details?.cached_tokens;
-        await onUsage({provider:"openai",model,usageKnown:valid(input)&&valid(output),
-          inputTokens:valid(input)?input:null,outputTokens:valid(output)?output:null,
-          cachedInputTokens:valid(cached)&&valid(input)&&cached<=input?cached:null});
+        const usageKnown=valid(input)&&valid(output);
+        await onUsage({provider:"openai",model,usageKnown,
+          inputTokens:usageKnown?input:null,outputTokens:usageKnown?output:null,
+          cachedInputTokens:usageKnown&&valid(cached)&&cached<=input?cached:null});
       }
       const answer=data?.choices?.[0]?.message?.content;
       if(typeof answer!=="string"||!answer.trim())throw Error("model_provider_empty_response");
