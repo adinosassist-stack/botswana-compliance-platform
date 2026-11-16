@@ -28,8 +28,9 @@ export async function recordAiUsage(db,tenantId,record){
   const query=db.prepare(`INSERT OR IGNORE INTO ai_usage_journal
     (tenant_id,request_id,provider,model,usage_known,input_tokens,output_tokens,cached_input_tokens)
     VALUES (?,?,?,?,?,?,?,?)`);
-  await query.bind(item.tenantId,item.requestId,item.provider,item.model,
+  const result=await query.bind(item.tenantId,item.requestId,item.provider,item.model,
     item.usageKnown?1:0,item.inputTokens,item.outputTokens,item.cachedInputTokens).run();
+  if(result?.success!==true)throw Error("ai_usage_write_unconfirmed");
   return {recorded:true};
 }
 export async function getTenantAiUsage(db,tenantId){
