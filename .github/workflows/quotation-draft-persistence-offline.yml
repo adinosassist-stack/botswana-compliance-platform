@@ -1,0 +1,38 @@
+name: Quotation Draft Persistence Contract (offline)
+on:
+  pull_request:
+    paths:
+      - 'server/quotation-draft-persistence-http.mjs'
+      - 'server/quotation-draft-model.mjs'
+      - 'public/js/quotation-draft-storage-client.mjs'
+      - 'public/js/quotation-draft-manager.mjs'
+      - 'public/js/quotation-draft-form.mjs'
+      - 'public/js/quotation-draft-workspace.mjs'
+      - 'tests/quotation-draft-form-dom.test.mjs'
+      - 'server/quotation-draft-d1-store.mjs'
+      - 'server/quotation-draft-staging-readonly-preflight.mjs'
+      - 'tests/quotation-draft-staging-readonly-preflight.test.mjs'
+      - 'docs/sql/quotation-drafts-staging-candidate.sql'
+      - 'tests/quotation-draft-d1-store.test.mjs'
+      - 'tests/quotation-draft-d1-http-integrated.test.mjs'
+      - 'tests/quotation-draft-manager-dom.test.mjs'
+      - 'tests/quotation-drafts-staging-schema.test.py'
+      - 'tests/quotation-draft-storage-client.test.mjs'
+      - 'tests/quotation-draft-persistence-http.test.mjs'
+      - '.github/workflows/quotation-draft-persistence-offline.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Test unmounted quotation draft persistence contract
+        run: node --test tests/quotation-draft-persistence-http.test.mjs tests/quotation-draft-storage-client.test.mjs tests/quotation-draft-d1-store.test.mjs tests/quotation-draft-d1-http-integrated.test.mjs tests/quotation-draft-manager-dom.test.mjs tests/quotation-draft-form-dom.test.mjs tests/quotation-draft-staging-readonly-preflight.test.mjs
+      - name: Test draft SQL in disposable SQLite only
+        run: python3 tests/quotation-drafts-staging-schema.test.py

@@ -1,0 +1,104 @@
+name: Workspace Agent uploaded-version provenance (read only)
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Exact main SHA; never infer from queued workflow
+        type: string
+        required: true
+permissions: {}
+concurrency:
+  group: workspace-agent-version-provenance-readonly
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+    steps:
+      - name: Verify exact main and protected independent reviewer
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          reviewer="$(gh api users/thusico --jq .id)"
+          envapi="repos/$GITHUB_REPOSITORY/environments/workspace-agent-private-staging"
+          gh api "$envapi" | jq -e --argjson reviewer "$reviewer" '
+            any(.protection_rules[]; .type == "required_reviewers" and
+              .prevent_self_review == true and
+              (.reviewers | length == 1) and
+              ([.reviewers[] | select(.type == "User") | .reviewer.id] == [$reviewer])) and
+              .deployment_branch_policy.custom_branch_policies == true' >/dev/null
+          gh api "$envapi/deployment-branch-policies" | jq -e '
+            .total_count == 1 and .branch_policies[0].name == "main" and
+            .branch_policies[0].type == "branch"' >/dev/null
+  inspect:
+    needs: verify
+    environment: workspace-agent-private-staging
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+      AUDIT_TOKEN: ${{ secrets.WORKSPACE_AGENT_STAGING_READONLY_CLOUDFLARE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Read version lineage without revealing bindings or secret values
+        run: |
+          set -euo pipefail
+          test -n "$AUDIT_TOKEN"
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          tmp="$(mktemp -d)"
+          export TMP_VERSION_DIR="$tmp"
+          trap 'rm -rf "$tmp"' EXIT
+          api="https://api.cloudflare.com/client/v4/accounts/b11d872b2660e76ca66323023b45b3ab/workers/scripts/bw-workspace-agent-staging"
+          fetch() {
+            if ! curl --fail --silent --show-error --max-time 30 -H "Authorization: Bearer $AUDIT_TOKEN" "$api/$1" > "$tmp/$2" 2>/dev/null; then
+              echo "::error::Version read-only API failed"; exit 1
+            fi
+          }
+          fetch 'versions?per_page=100&page=1' versions
+          fetch 'versions?per_page=100&page=2' versions2
+          fetch 'deployments' deployments
+          # Cloudflare OpenAPI documents result.items[].metadata.created_on and
+          # sequential result.items[].number; result_info is optional and not trusted.
+          # A second page must be empty. Unknown response shapes fail CLOSED.
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import {checkVersionLineage} from './scripts/workspace-agent-version-lineage-audit.mjs';
+          let assessment;
+          try {
+            const first=JSON.parse(readFileSync(process.env.TMP_VERSION_DIR+'/versions','utf8'));
+            const second=JSON.parse(readFileSync(process.env.TMP_VERSION_DIR+'/versions2','utf8'));
+            const deployed=JSON.parse(readFileSync(process.env.TMP_VERSION_DIR+'/deployments','utf8'));
+            assessment=checkVersionLineage(first,second,deployed);
+          } catch {
+            console.error('::error::version_provenance_response_unreadable');
+            process.exit(1);
+          }
+          if(!assessment.valid) {
+            console.error('::error::'+assessment.reason);
+            process.exit(1);
+          }
+          if(assessment.canInheritFromLatest) console.log('PASS latest_uploaded_equals_pinned_inert');
+          else {
+            console.log('::warning::Latest uploaded version differs from deployed inert version');
+            console.log('BLOCK secret_binding_inheritance_from_latest');
+          }
+          NODE
+          # Report only lineage classification; no settings mutation, secrets, version promotion,
+          # or logs/artifacts containing full Cloudflare payloads.
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          echo "Read-only version lineage assessed; no Cloudflare write performed."
