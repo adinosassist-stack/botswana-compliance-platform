@@ -1,8 +1,6 @@
 # Lovely quotation — private two-page template release gates
 
-**Status: OFFLINE REVIEW ONLY.** This document is not owner, legal, reviewer,
-migration, template-upload, Worker-binding or production activation approval.
-It does not authorize any Cloudflare writes.
+**Status (16 Nov 2026):** The isolated quotation D1 schema is now migrated and verified in issue #2504 #6927692011. This checklist is still **PRIVATE TEMPLATE REVIEW ONLY** and does not confer owner/legal acceptance, R2 template-upload/registry approval, Worker-binding or production activation authority. It does not authorize any further Cloudflare writes.
 
 ## Immutable private review artifacts
 
@@ -11,6 +9,8 @@ It does not authorize any Cloudflare writes.
 | Owner-supplied original PDF | `8f4dd38265e9c1d7dc19717d746912eb639aaf99e454d90b4c03871681051823` | Comparison reference only; contains legacy quotation/customer and payment details |
 | Original logo-free candidate | `99e6ee33495f72411e4449f2689852ecf1cc69ab25927552187fb07d6673d025` | Superseded; had incomplete email |
 | Corrected logo-free candidate | `72891d473991dc1e0009a6bd417713ce79cce7bf05000d38c24da7d59db15c5f` | Current **private** review candidate, not approved/uploaded |
+
+The exact corrected private PDF bytes were re-hashed and inspected locally on 16 Nov 2026: **two pages**, expected sizes **612.24 × 858.96 pt** and **841.92 × 1190.64 pt**, `lovelystones26@gmail.com` and `+267 74 583 606` present on page one. The blank bank/account placeholders are intentionally unfilled. This is **technical evidence, not business/terms approval**.
 
 The complete owner-confirmed contact address in the corrected PDF is
 `lovelystones26@gmail.com`. An earlier checksum (`bd5a4b2897...`)
@@ -56,14 +56,13 @@ customer PDFs or grant template approval.
   width/height limits and drag/resize behavior without overlaps
 - [ ] Owner verifies phone **+267 74 583 606**, email and all public
   company/location information against current approved business records
-- [ ] Owner verifies payment method, company bank account and branch details
-  separately; legacy original PDF banking fields may **not** be assumed valid
+- [ ] Owner verifies payment method and company bank account separately; legacy original PDF banking fields may **not** be assumed valid. The bank/account lines are presently blank in the corrected candidate.
+- [ ] Owner verifies the **page-two footer** which currently advertises Gaborone, Palapye, **Serowe**, Francistown, **Phikwe**, Maun; confirm whether the newer **Mahalapye** office needs to appear and whether those historical branches remain current. Do not edit the SHA-pinned binary without a new hash and review.
+- [ ] Owner confirms the **legal contracting issuer** (distinguish `Lovely Stones (Proprietary) Limited` from the `Lovely Tombstones` trading brand) and accurate public address/contact details
 - [ ] Legal reviewer approves all general terms, cancellation/refund clauses,
   installation obligations, timelines, customer declaration and Botswana
   commercial compliance in the complete corrected PDF
-- [ ] Owner and independent `thusico` accept the **exact current corrected
-  PDF hash**, naming the file/version in a new approval for **private staging
-  template registration/upload**; code PR approval does not count
+- [ ] Owner and independent `thusico` accept the **exact current corrected PDF SHA-256 `72891d473991dc1e0009a6bd417713ce79cce7bf05000d38c24da7d59db15c5f`**, naming the file/version, dedicated private R2 bucket, and company-scoped key in a new approval for **private staging template registration/upload**; code PR approval and the generic `Approved` comment after SQL migration do not count
 - [ ] Quotation-specific staging Worker runtime, private bindings, security
   authorization and recovery plan separately accepted
 - [ ] Later customer-facing quotation issuance and production deployment
@@ -71,21 +70,15 @@ customer PDFs or grant template approval.
 
 ## Database and staging separation
 
-- Provisioned but unbound D1: `bw-quotation-staging`,
+- Migrated but unbound D1: `bw-quotation-staging`,
   UUID `aec227e9-b0f2-4b00-8de0-105465c4e2d6`
 - R2: `bw-quotation-logo-private-staging` and
   `bw-quotation-template-private-staging`, with public `r2.dev`
   disabled and no public custom domains at last read-only check
-- Latest available D1 resource metadata reported zero application tables.
-  Reverify immediately before any separately approved migration; current
-  metadata alone is neither an executable recovery plan nor SQL authorization.
-- Logo SQL and draft SQL are **two separate** candidate migrations, requiring
-  fresh exact-blob owner approval and independent `thusico` execution
-  authorization for each. A source-only PR merge does not satisfy either gate.
+- **Migration completed once:** D1 now has exactly **three empty quotation tables and one index** (SQL execution/post-verification evidence: GitHub issue #2504 comment #6927692011). No Worker is bound. **Never re-run these CREATE statements**, even if stale checklist language elsewhere calls them candidates.
+- Owner exact-scope approval #6916022563, `thusico` exact-SQL execution approval #6927289181, reviewer recovery-plan acceptance #6927478636 and prewrite bookmark are preserved in issue #2504. These authorize **no additional** D1 writes, template uploads or activation.
 
-**Hard stop:** no template upload, D1 mutation, Worker binding/deployment,
-public route, customer data import, quotation issuance, payment modification,
-or production activation without these separate approvals.
+**Hard stop for remaining work:** no template upload, further D1 mutation, Worker binding/deployment, public route, customer data import, quotation issuance, payment modification, or production activation without **new scope-specific** approvals. The completed isolated D1 migration is historical evidence, not ongoing write permission.
 
 ## Workers-runtime dependency qualification (source-only, 16 Nov 2026)
 
