@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
+import productionWorker from '../cloudflare/src/release-governance-entry.js';
 import {versionReleaseAssets,applyAssetReleaseIdentity} from '../cloudflare/src/asset-release-identity.js';
 import {externalizeWorkspaceRuntime,externalizeWorkspaceHeadStyles,externalizeWorkspaceViews,injectFirstPartyRegistrationClient} from '../cloudflare/src/production-entry.js';
 const a='1'.repeat(40),b='2'.repeat(40);
@@ -66,3 +67,30 @@ assert(!runtimeBlock.includes('<script src="/js/thebe-dock-recovery'),'dock inje
 assert.doesNotThrow(()=>new vm.Script(runtimeBlock),'release decoration cannot break inline fallback runtime');
 assert.equal(versionReleaseAssets(decorated,a),decorated,'real workspace decoration is idempotent');
 console.log('PASS: nonce-bearing production workspace extraction and embedded printable-document delivery');
+
+// Exercise the actual authenticated route, including core Worker asset injection.
+const workspaceUrl='https://thebedesk.com/app/';
+const workspaceEnv={
+ SESSION_SECRET:'local-workspace-test-secret',
+ DB:{prepare(sql){
+  return {bind(){return this;},async first(){
+   if(sql.includes('FROM sessions s JOIN users'))return {user_id:'owner-test',tenant_id:'tenant-test',role:'owner',csrf_token:'local-csrf-test-token',last_seen_at:new Date().toISOString()};
+   if(sql.includes('FROM app_state'))return {version:1,state_json:'{}'};
+   throw new Error('Unexpected workspace query: '+sql);
+  }};
+ }},
+ ASSETS:{async fetch(request){
+  assert.equal(new URL(request.url).pathname,'/index.html');
+  return new Response(canonical,{headers:{'content-type':'text/html'}});
+ }}
+};
+const anonymous=await productionWorker.fetch(new Request(workspaceUrl),workspaceEnv,{});
+assert.equal(anonymous.status,302,'anonymous workspace requests still require sign-in');
+const workspace=await productionWorker.fetch(new Request(workspaceUrl,{headers:{cookie:'__Host-bw_session=local-test-session'}}),workspaceEnv,{});
+assert.equal(workspace.status,200,'authenticated workspace route serves HTML');
+const workspaceHtml=await workspace.text();
+assert.ok(!/function exportPrintableReport\s*\(/.test(workspaceHtml),'workspace HTML must not contain printable report JavaScript');
+assert.match(workspaceHtml,/<script\b[^>]*id="thebe-workspace-runtime"[^>]*src="\/js\/workspace-runtime-20261001b\.js/);
+assert.match(workspaceHtml,/<link\b[^>]*href="\/assets\/delivery-reminder-notifications\.css\?/);
+assert.match(workspaceHtml,/<script\b[^>]*src="\/js\/delivery-reminders-manager\.js\?/);
+console.log('PASS: authenticated workspace serves an external runtime and reminder assets without stray JavaScript');
