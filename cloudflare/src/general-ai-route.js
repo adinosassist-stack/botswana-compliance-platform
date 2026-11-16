@@ -43,6 +43,9 @@ export async function handleGeneralAiRoute({request,path,env,auth}={}){
     const limit=await env.GENERAL_AI_RATE_LIMITER.limit({key:String(auth.tenant_id)+":"+String(auth.user_id)});
     if(limit?.success!==true)return reply({error:"rate_limit_exceeded"},429);
   }catch{return reply({error:"rate_limit_unavailable"},503)}
+  let model;
+  try{model=createGeneralAiModelProvider({apiKey:env.OPENAI_API_KEY,model:env.THEBE_GENERAL_AI_MODEL})}
+  catch{return reply({error:"model_unavailable"},503)}
   // Explicitly opt-in only. No production flags or bindings are changed by
   // this code. A configured reservation is required before any provider call.
   // This is a conservative staging guard, NOT full cost reconciliation.
@@ -58,9 +61,6 @@ export async function handleGeneralAiRoute({request,path,env,auth}={}){
       });
     }catch{return reply({error:"ai_budget_denied"},429)}
   }
-  let model;
-  try{model=createGeneralAiModelProvider({apiKey:env.OPENAI_API_KEY,model:env.THEBE_GENERAL_AI_MODEL})}
-  catch{return reply({error:"model_unavailable"},503)}
   const search=researchEnabled?createGeneralAiSearchProvider({apiKey:env.BRAVE_SEARCH_API_KEY}):undefined;
   try{
     const result=await answerGeneralQuestion({question:body.question,model,search,researchEnabled,authorized:false});
