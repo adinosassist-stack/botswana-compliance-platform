@@ -91,7 +91,7 @@ export function mountQuotationDraftManager(root,{
  }
  async function openDraft(){
   if(busy||disposed||!safeId(currentId()))return;
-  const target=currentId(),original;
+  const target=currentId();
   let before;
   try{before=snapshot()}catch{before=null}
   pending=null;confirm.hidden=true;busy=true;paint();
