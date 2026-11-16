@@ -116,3 +116,30 @@ deployment. In particular:
   quotation activation may be enabled from this source-only work.
 
 These conditions are mandatory even if all offline PDF tests pass.
+
+
+## Private D1 write acknowledgement and cleanup boundary
+
+The isolated logo D1/R2 adapter now verifies the D1 `run()` result
+(`success===true` and exactly one changed row) before claiming a
+successful logo or settings write. A failed or ambiguous logo INSERT triggers
+a company-scoped D1 readback of the generated asset ID.
+
+- If the exact metadata row is independently confirmed after a lost D1
+  response, the R2 file is retained and the upload receipt is permitted.
+- If no row was created, the private R2 object is deleted and the write fails.
+- If D1 readback is unavailable, the write fails with an indeterminate outcome
+  **without deleting a potentially referenced R2 object**. An operator must
+  reconcile such private orphans manually; do not automatically retry or
+  activate a quotation based on an ambiguous result.
+- A private R2 cleanup failure is reported separately and never as a
+  successful upload.
+- Settings updates must also have a positive one-row D1 acknowledgement.
+- End-to-end synthetic HTTP/D1/client tests verify tenant isolation, stale
+  revision CAS, CSRF denial and failure-closed corrupt stored records.
+
+This is **only** source-code and synthetic qualification. Before any future
+private staging activation, prove exact D1 runtime return shapes, recovery,
+audit logging, orphan reconciliation, authenticated tenants, and all distinct
+owner/`thusico` write approvals. No application database or object storage
+was modified for this source-only change.
