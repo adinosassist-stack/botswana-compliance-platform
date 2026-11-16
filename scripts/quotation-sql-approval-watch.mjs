@@ -93,15 +93,20 @@ async function requestGitHub({token,method,path,body}){
 }
 
 export async function runApprovalWatch(env=process.env){
+ const eventType=env.GITHUB_EVENT_NAME;
  if(env.GITHUB_REPOSITORY!==contract.repository||
-    env.GITHUB_EVENT_NAME!=="issue_comment")
+    !["issue_comment","schedule"].includes(eventType))
   return {status:"inert_non_target_event"};
- if(!env.GITHUB_EVENT_PATH||!env.GITHUB_TOKEN)
+ if(!env.GITHUB_TOKEN)
   throw Error("github_approval_watch_not_configured");
- const event=JSON.parse(await readFile(env.GITHUB_EVENT_PATH,"utf8"));
- if(!isIndependentQuotationSqlApproval(event))
-  return {status:"no_exact_independent_execution_approval"};
- const issuePath=`/repos/${contract.repository}/issues/${contract.issueNumber}/comments`;
+ let event=null;
+ if(eventType==="issue_comment"){
+  if(!env.GITHUB_EVENT_PATH)throw Error("github_approval_watch_not_configured");
+  event=JSON.parse(await readFile(env.GITHUB_EVENT_PATH,"utf8"));
+  if(!isIndependentQuotationSqlApproval(event))
+   return {status:"no_exact_independent_execution_approval"};
+ }
+ const issuePath="/repos/"+contract.repository+"/issues/"+contract.issueNumber+"/comments";
  const comments=[];
  for(let page=1;page<=20;page++){
   const batch=await requestGitHub({token:env.GITHUB_TOKEN,method:"GET",
@@ -111,8 +116,20 @@ export async function runApprovalWatch(env=process.env){
   if(batch.length<100)break;
   if(page===20)throw Error("github_comments_pagination_limit");
  }
- // The incoming event may have been deleted or otherwise revoked before
- // execution; never infer authorization merely from an event payload.
+ if(eventType==="schedule"){
+  // Picks only an exact affirmative independent reviewer comment. Hourly
+  // scanning catches a valid approval posted before the watch was merged.
+  const approved=[...comments].reverse().find(c=>
+   c.user?.login===contract.reviewer&&
+   Number.isSafeInteger(c.id)&&c.id>0&&
+   normalize(c.body)===normalize(reviewerApprovalText)&&
+   !hasBeenNotified(comments,c.id));
+  if(!approved)return {status:"no_new_exact_independent_execution_approval"};
+  event={action:"created",repository:{full_name:contract.repository},
+   issue:{number:contract.issueNumber},comment:approved};
+ }
+ // Re-read the live issue; deleted/edited comments and unverified identity
+ // must not be accepted based on a queued webhook payload alone.
  const current=comments.find(c=>c.id===event.comment.id);
  if(!current||current.user?.login!==contract.reviewer||
     normalize(current.body)!==normalize(reviewerApprovalText))
