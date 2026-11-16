@@ -8,6 +8,12 @@
 import {readPrivateQuotationR2Bytes} from "./quotation-private-r2-read.mjs";
 const err=code=>{throw Error(code)};
 const safe=v=>typeof v==="string"&&/^[A-Za-z0-9_-]{1,100}$/.test(v);
+const confirmOneRow=result=>{
+ // D1 statements return {success, meta:{changes}}. An empty, failed, or
+ // ambiguous response is NOT a verified write even if no exception occurred.
+ if(result?.success!==true||result?.meta?.changes!==1)
+  err("quotation_logo_d1_write_unverified");
+};
 export function createQuotationLogoStore({db,bucket,namespace="quotation-logos"}={}) {
  if(!db?.prepare||!bucket?.put||!bucket?.get)err("quotation_logo_store_unconfigured");
  const meta=async(companyId,logoAssetId)=>{
@@ -27,9 +33,27 @@ export function createQuotationLogoStore({db,bucket,namespace="quotation-logos"}
    // Unpublished private key; metadata insertion must succeed, otherwise delete blob.
    await bucket.put(key,bytes,{httpMetadata:{contentType:mimeType}});
    try {
-    await db.prepare("INSERT INTO quotation_logo_assets (id,tenant_id,object_key,mime_type,width,height,aspect_ratio) VALUES (?,?,?,?,?,?,?)")
+    const saved=await db.prepare("INSERT INTO quotation_logo_assets (id,tenant_id,object_key,mime_type,width,height,aspect_ratio) VALUES (?,?,?,?,?,?,?)")
      .bind(logoAssetId,companyId,key,mimeType,width,height,width/height).run();
-   }catch(e){await bucket.delete(key);throw e}
+    confirmOneRow(saved);
+   }catch(e){
+    // A rejected/ambiguous D1 response can follow an actual commit. Query the
+    // company-scoped key before deciding whether deleting the private R2
+    // object would create a dangling row. Never claim success without proof.
+    let persisted;
+    try{persisted=await meta(companyId,logoAssetId)}
+    catch{err("quotation_logo_d1_commit_indeterminate")}
+    if(persisted){
+     if(persisted.object_key===key&&persisted.mime_type===mimeType&&
+        persisted.width===width&&persisted.height===height&&
+        persisted.aspect_ratio===width/height)
+      return {logoAssetId};
+     err("quotation_logo_d1_write_conflict");
+    }
+    try{await bucket.delete(key)}
+    catch{err("quotation_logo_orphan_cleanup_failed")}
+    throw e;
+   }
    return {logoAssetId};
   },
   async readPrivateAsset({companyId,logoAssetId}){
@@ -52,8 +76,9 @@ export function createQuotationLogoStore({db,bucket,namespace="quotation-logos"}
       p.xPercent+p.widthPercent>100+0.00001)err("invalid_logo_layout");
    const heightPercent=p.widthPercent*612.24/(record.aspect_ratio*858.96);
    if(heightPercent>30+0.00001||p.yPercent+heightPercent>100+0.00001)err("invalid_logo_layout");
-   await db.prepare("INSERT INTO quotation_logo_settings (tenant_id,asset_id,x_percent,y_percent,width_percent,updated_at) VALUES (?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(tenant_id) DO UPDATE SET asset_id=excluded.asset_id,x_percent=excluded.x_percent,y_percent=excluded.y_percent,width_percent=excluded.width_percent,updated_at=CURRENT_TIMESTAMP")
+   const saved=await db.prepare("INSERT INTO quotation_logo_settings (tenant_id,asset_id,x_percent,y_percent,width_percent,updated_at) VALUES (?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(tenant_id) DO UPDATE SET asset_id=excluded.asset_id,x_percent=excluded.x_percent,y_percent=excluded.y_percent,width_percent=excluded.width_percent,updated_at=CURRENT_TIMESTAMP")
     .bind(companyId,settings.logoAssetId,p.xPercent,p.yPercent,p.widthPercent).run();
+   confirmOneRow(saved);
   },
   async getCompanyLogoSettings({companyId}){
    if(!safe(companyId))err("invalid_company_id");
