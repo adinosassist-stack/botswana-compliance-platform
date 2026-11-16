@@ -132,3 +132,25 @@ test("default-off budget flag preserves provider configuration behavior",async()
  const response=await handleGeneralAiRoute({request:req("Hello"),path:"/api/ai/general",env:guarded,auth});
  assert.equal((await response.json()).error,"model_unavailable");
 });
+
+test("guard rejects invalid reservation price before any database write",async()=>{
+ let writes=0;
+ const guarded={...env,OPENAI_API_KEY:"test-only",THEBE_GENERAL_AI_MODEL:"gpt-5-mini",
+  THEBE_AI_BUDGET_ENFORCEMENT_ENABLED:"true",THEBE_AI_BUDGET_RESERVATION_MICRO_USD:"0",
+  GENERAL_AI_RATE_LIMITER:{limit:async()=>({success:true})},
+  AI_BUDGET_DB:{prepare:()=>{writes++;throw Error("must not write")}}};
+ const response=await handleGeneralAiRoute({request:req("Explain photosynthesis"),path:"/api/ai/general",env:guarded,auth});
+ assert.equal(response.status,503);
+ assert.equal((await response.json()).error,"ai_budget_unavailable");
+ assert.equal(writes,0);
+});
+test("guard requires configured model before reserving budget",async()=>{
+ let writes=0;
+ const guarded={...env,THEBE_AI_BUDGET_ENFORCEMENT_ENABLED:"true",
+  THEBE_AI_BUDGET_RESERVATION_MICRO_USD:"100",
+  GENERAL_AI_RATE_LIMITER:{limit:async()=>({success:true})},
+  AI_BUDGET_DB:{prepare:()=>{writes++;throw Error("must not write")}}};
+ const response=await handleGeneralAiRoute({request:req("Explain photosynthesis"),path:"/api/ai/general",env:guarded,auth});
+ assert.equal((await response.json()).error,"model_unavailable");
+ assert.equal(writes,0);
+});
