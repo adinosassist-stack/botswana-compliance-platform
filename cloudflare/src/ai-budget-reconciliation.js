@@ -8,9 +8,10 @@ export async function recordAiReconciliation(db,{tenantId,period,requestId,state
     !((state==="completed"&&Number.isSafeInteger(actualMicroUsd)&&actualMicroUsd>=0)||
       (state==="uncertain"&&actualMicroUsd===null)))throw Error("ai_reconciliation_invalid");
  try{
-  await db.prepare(`INSERT INTO ai_budget_reconciliation
+  const result=await db.prepare(`INSERT INTO ai_budget_reconciliation
     (tenant_id,period,request_id,state,actual_micro_usd)
     VALUES (?,?,?,?,?)`).bind(tenantId,period,requestId,state,actualMicroUsd).run();
+  if(result?.success!==true)throw Error("ai_reconciliation_write_unconfirmed");
   return {recorded:true,quotaReleased:false};
  }catch{throw Error("ai_reconciliation_write_failed")}
 }
