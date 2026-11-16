@@ -1,0 +1,31 @@
+name: Quotation Staging SQL Contract (offline)
+on:
+  pull_request:
+    paths:
+      - 'docs/sql/quotation-logo-staging-candidate.sql'
+      - 'tests/quotation-staging-schema.test.py'
+      - '.github/workflows/quotation-staging-sql-contract.yml'
+      - 'server/quotation-logo-d1-r2-store.mjs'
+  push:
+    paths:
+      - 'docs/sql/quotation-logo-staging-candidate.sql'
+      - 'tests/quotation-staging-schema.test.py'
+      - '.github/workflows/quotation-staging-sql-contract.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-sql-contract:
+    name: SQLite tenant and schema invariants only
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run in-memory SQLite schema contract with zero Cloudflare credentials
+        run: python tests/quotation-staging-schema.test.py -v
