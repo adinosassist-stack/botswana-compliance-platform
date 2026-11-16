@@ -1140,6 +1140,8 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       if(optionsToggle)optionsToggle.setAttribute("aria-expanded","false");
       const mute=voiceScreen.querySelector('[aria-pressed]');mute.setAttribute("aria-pressed","false");mute.textContent="Mute microphone";
       voiceScreen.show();
+      // Keep the underlying dock immersive for the entire voice session.
+      document.body.classList.add("thebe-voice-active");
       // Keep the composer editable while the voice session remains live.
       if(voiceReturnFocus?.isConnected)voiceReturnFocus.focus({preventScroll:true});
     }
@@ -1912,6 +1914,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     compose.append(attachButton,fileInput,composeBody,audioButton,conversationVoiceButton,sendButton);
     compose.addEventListener("submit",event=>{event.preventDefault();const value=input.value,files=[...pendingFiles];if(textBusy||(!clean(value,MAX_QUESTION).length&&!files.length))return;input.value="";syncComposerHeight();syncComposerState();void ask(assistantMode,value,files)});
     input.addEventListener("input",()=>{syncComposerHeight();syncComposerState()});
+    input.setAttribute("enterkeyhint",mobileDockMode()?"enter":"send");
     input.addEventListener("focus",()=>setMascotFocus("compose"));
     input.addEventListener("blur",()=>setMascotFocus("ambient"));
     // Desktop Enter sends; mobile virtual keyboards keep Enter for multiline drafting.
@@ -1971,6 +1974,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       // Recompute the composer cap after desktop/mobile and virtual keyboard transitions.
       // This changes presentation only; never reset the draft or conversation.
       syncComposerHeight();
+      input?.setAttribute("enterkeyhint",mobileDockMode()?"enter":"send");
       const viewport=global.visualViewport;
       if(!viewport)return;
       const inset=Math.max(0,global.innerHeight-viewport.height-viewport.offsetTop);
