@@ -86,7 +86,7 @@ test("secure Web Crypto UUIDs remain 32-hex IDs under company-scoped R2 paths",a
  const objectKeys=[],values=[];
  const bucket={put:async key=>objectKeys.push(key),get:async()=>null,delete:async()=>{}};
  const db={prepare:sql=>({bind(...bound){values.push({sql,bound});return{
-  run:async()=>({success:true}),first:async()=>null}}})};
+  run:async()=>({success:true,meta:{changes:1}}),first:async()=>null}}})};
  const store=createQuotationLogoStore({db,bucket});
  const logo=Uint8Array.from([137,80,78,71,13,10,26,10,1,2,3,4]);
  const one=await store.writePrivateAsset({companyId:tenant,mimeType:"image/png",bytes:logo,
