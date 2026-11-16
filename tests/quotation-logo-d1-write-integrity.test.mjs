@@ -44,7 +44,7 @@ function fixture({insertResult={success:true,meta:{changes:1}},
    }
    if(sql.startsWith("INSERT INTO quotation_logo_settings")){
     log.push("d1_save_settings");
-    if(settingsResult?.success===true){
+    if(settingsResult?.success===true&&settingsResult?.meta?.changes===1){
      const [tenant,asset,x,y,width]=args;
      settings.set(tenant,{tenant_id:tenant,asset_id:asset,
       x_percent:x,y_percent:y,width_percent:width});
