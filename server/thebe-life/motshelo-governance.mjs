@@ -17,6 +17,20 @@ export function evaluateMotsheloDisbursement({request, approvals, requiredApprov
   if (!Number.isInteger(requiredApprovals) || requiredApprovals < 2 || requiredApprovals > 10) throw new RangeError('invalid_approval_threshold');
   if (!Array.isArray(approvals) || approvals.length > 30) throw new TypeError('invalid_approvals');
   if (!Number.isSafeInteger(verifiedClearedMinor) || verifiedClearedMinor < 0) return Object.freeze({eligible:false,reason:'cleared_funds_unverified'});
+  // Any active committee rejection or contradictory decision blocks qualification.
+  // A fresh, separately audited review cycle must resolve a rejection.
+  const decisions = new Map();
+  for (const review of approvals) {
+    if (!review || review.requestId !== request.id || review.groupId !== request.groupId ||
+        !review.reviewerId || review.reviewerId === request.requestedBy ||
+        !['chair','treasurer','secretary'].includes(review.reviewerRole) ||
+        review.memberActive !== true) continue;
+    if (review.decision !== 'approve' && review.decision !== 'reject') continue;
+    const previous=decisions.get(review.reviewerId);
+    if (previous && previous !== review.decision) return Object.freeze({eligible:false,reason:'conflicting_committee_decisions'});
+    decisions.set(review.reviewerId,review.decision);
+    if (review.decision === 'reject') return Object.freeze({eligible:false,reason:'committee_rejection_requires_new_review'});
+  }
   const reviewers = new Set();
   for (const approval of approvals) {
     if (!approval || approval.requestId !== request.id || approval.groupId !== request.groupId || approval.decision !== 'approve' || !approval.reviewerId || approval.reviewerId === request.requestedBy || !['chair','treasurer','secretary'].includes(approval.reviewerRole) || approval.memberActive !== true) continue;
