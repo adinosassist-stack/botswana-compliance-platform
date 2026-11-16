@@ -48,7 +48,7 @@ async function fixture(t){
  }));
  t.after(()=>mf.dispose());
  const db=await mf.getD1Database("DB");
- const before=await db.prepare("SELECT name,type FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND name != '_cf_KV' ORDER BY name").all();
+ const before=await db.prepare("SELECT name,type FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND name NOT IN ('_cf_KV','_cf_METADATA') ORDER BY name").all();
  assert.deepEqual(before.results,[],"isolation requires clean local application schema");
  return db;
 }
@@ -78,7 +78,7 @@ function privateR2(){
 test("both reviewed SQL blobs create only the expected tables/index on local workerd D1",async t=>{
  const db=await fixture(t);
  await applyExactly(db);
- const x=await db.prepare("SELECT name,type FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND name != '_cf_KV' ORDER BY type,name").all();
+ const x=await db.prepare("SELECT name,type FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND name NOT IN ('_cf_KV','_cf_METADATA') ORDER BY type,name").all();
  assert.deepEqual(x.results,[
   {name:"idx_quotation_drafts_tenant_updated",type:"index"},
   {name:"quotation_drafts",type:"table"},
