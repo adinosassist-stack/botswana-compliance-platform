@@ -124,7 +124,20 @@ export async function inspectV4CredentialTransition({expectedMainSha,repository,
  ]);
  const result=assessV4CredentialTransition({reviewedMainSha:expectedMainSha,
   v2:v2.result,v3:v3.result,v4:v4.result,deployments,privateExposure});
- if(result.errors.length)throw Error('v4_credential_transition_metadata_unqualified');
+ // Re-read the active deployments after all parallel metadata/exposure reads.
+ // Otherwise a traffic shift during a GET-only qualification can go unnoticed.
+ const postDeployments=await get(prefix+'/deployments?page=1&per_page=100');
+ const postResult=assessV4CredentialTransition({reviewedMainSha:expectedMainSha,
+  v2:v2.result,v3:v3.result,v4:v4.result,deployments:postDeployments,privateExposure});
+ if(result.errors.length||postResult.errors.length)
+  throw Error('v4_credential_transition_metadata_unqualified');
+ // Compare the complete returned inventory, not just the latest version.
+ // A changed deployment ID, history, traffic split or pagination fails closed.
+ if(JSON.stringify(deployments?.result?.deployments)!==
+    JSON.stringify(postDeployments?.result?.deployments)||
+    JSON.stringify(deployments?.result_info)!==
+    JSON.stringify(postDeployments?.result_info))
+  throw Error('v4_credential_transition_deployment_drift');
  return result;
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
