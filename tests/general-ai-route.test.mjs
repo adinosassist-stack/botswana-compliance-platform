@@ -108,3 +108,27 @@ test("private workspace categories are rejected before quota consumption",async(
   assert.equal(quotaCalls,0,question);
  }
 });
+
+test("opt-in budget guard fails closed without a private D1 binding",async()=>{
+ const guarded={...env,OPENAI_API_KEY:"test-only",THEBE_GENERAL_AI_MODEL:"gpt-5-mini",
+  THEBE_AI_BUDGET_ENFORCEMENT_ENABLED:"true",THEBE_AI_BUDGET_RESERVATION_MICRO_USD:"100",
+  GENERAL_AI_RATE_LIMITER:{limit:async()=>({success:true})}};
+ const response=await handleGeneralAiRoute({request:req("Explain photosynthesis"),path:"/api/ai/general",env:guarded,auth});
+ assert.equal(response.status,503);
+ assert.equal((await response.json()).error,"ai_budget_unavailable");
+});
+test("opt-in budget guard denies provider execution when reservation fails",async()=>{
+ const guarded={...env,OPENAI_API_KEY:"test-only",THEBE_GENERAL_AI_MODEL:"gpt-5-mini",
+  THEBE_AI_BUDGET_ENFORCEMENT_ENABLED:"true",THEBE_AI_BUDGET_RESERVATION_MICRO_USD:"100",
+  GENERAL_AI_RATE_LIMITER:{limit:async()=>({success:true})},
+  AI_BUDGET_DB:{prepare:()=>({bind:()=>({run:async()=>({success:false})})})}};
+ const response=await handleGeneralAiRoute({request:req("Explain photosynthesis"),path:"/api/ai/general",env:guarded,auth});
+ assert.equal(response.status,429);
+ assert.equal((await response.json()).error,"ai_budget_denied");
+});
+test("default-off budget flag preserves provider configuration behavior",async()=>{
+ const guarded={...env,GENERAL_AI_RATE_LIMITER:{limit:async()=>({success:true})},
+  THEBE_AI_BUDGET_ENFORCEMENT_ENABLED:"false"};
+ const response=await handleGeneralAiRoute({request:req("Hello"),path:"/api/ai/general",env:guarded,auth});
+ assert.equal((await response.json()).error,"model_unavailable");
+});
