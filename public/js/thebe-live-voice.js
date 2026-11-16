@@ -1812,8 +1812,9 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     orb.append(wave,core);
     orbButton.append(orb);
     orbButton.addEventListener("click",()=>{
-      // Only show immersive voice after the runtime reports connecting/connected.
-      // This avoids a stranded overlay when permissions or startup fail.
+      // Open on direct user gesture; existing browser UX tests require immediate feedback.
+      // Every missing-runtime and rejected-start path closes the overlay.
+      openVoiceScreen();
       const liveApi=global.ThebeLiveVoice;
       if(!shellVisible()){
         if(!liveApi){responseMessage("The public voice sample is not available in this browser right now.","error");closeVoiceScreen();return}
