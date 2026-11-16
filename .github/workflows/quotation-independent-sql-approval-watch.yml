@@ -2,6 +2,8 @@ name: Quotation Independent SQL Approval Watch
 on:
   issue_comment:
     types: [created]
+  schedule:
+    - cron: '23 * * * *'
   pull_request:
     paths:
       - 'scripts/quotation-sql-approval-watch.mjs'
@@ -13,7 +15,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: quotation-sql-approval-watch-${{ github.event_name }}-${{ github.ref }}
+  group: quotation-sql-approval-watch-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -35,9 +37,10 @@ jobs:
 
   notify-only-if-reviewer-exactly-approves:
     if: >-
-      github.event_name == 'issue_comment' &&
-      github.event.issue.number == 2504 &&
-      github.event.comment.user.login == 'thusico'
+      github.event_name == 'schedule' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 2504 &&
+       github.event.comment.user.login == 'thusico')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
