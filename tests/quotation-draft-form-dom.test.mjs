@@ -81,7 +81,8 @@ test("line totals render on initial load, follow edits and reject excessive amou
   const quantity=getInput(root,"Qty");
   quantity.value="2";await quantity.fire("input");
   assert.equal(lines()[0].textContent,"P2,400.00");
-  quantity.value="999";await quantity.fire("input");
+  const unitPrice=getInput(root,"Unit price (P)");
+  unitPrice.value="10000000";await unitPrice.fire("input");
   assert.equal(lines()[0].textContent,"—");
   assert.equal(getButton(root,"Download PDF preview").disabled,true);
  }finally{restore()}
