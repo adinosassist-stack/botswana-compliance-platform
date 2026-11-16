@@ -60,3 +60,37 @@ credential values. A positive inventory result only confirms resource presence
 and nonidentical **listed** IDs/names; it does not verify bucket public-access
 settings, Worker routes, staging schema, private template approval or deployment
 authorization. Do not enable any production or public route based on that result.
+
+
+## Draft save/reload schema — additional gated step
+
+Source-only quotation drafts are now merged but NOT enabled. The logo SQL review
+does not authorize creation of the separate `quotation_drafts` table or its index.
+
+- Review-only migration: `docs/sql/quotation-drafts-staging-candidate.sql`
+- Exact target if separately approved: D1 `bw-quotation-staging`, UUID
+  `aec227e9-b0f2-4b00-8de0-105465c4e2d6`
+- Required objects: `quotation_drafts` with tenant-scoped compound key, and
+  `idx_quotation_drafts_tenant_updated`
+- Strict source-only verification:
+  `qualifyQuotationDraftPrivateStaging` runs the existing identity / R2
+  isolation preflight and a **SELECT from sqlite_master** to check the draft
+  DDL against the pinned review-only SQL; it also rejects unknown user tables
+  and named indexes. It has no database mutation, migration or deployment.
+- It purposely reports `logoSchemaDeepVerified=false`: checking the logo
+  tables' names does not prove their constraints or PDF rendering.
+- Missing approved tables or unexpected schema are **blockers**, not permission
+  to apply migrations automatically.
+- Before any future D1 migration, reverify the exact main source, exact SQL
+  blob and desired target UUID, independent owner and `thusico` execution
+  approvals, an empty/unexpected-table inventory, and a recovery plan.
+  The earlier logo-only approval request remains separate.
+- Even a positive read-only result returns
+  `deploymentAuthorized=false`, `migrationAuthorized=false`,
+  `templateUploadAuthorized=false` and
+  `privateWorkerBindingAuthorized=false`.
+
+After schema approval, actual encrypted/private runtime compatibility, authenticated
+synthetic tenants, CSRF denial, preview-only PDF terms, and customer-data
+segregation must be proved in isolated staging. No template/customer PDF may be
+uploaded until its distinct visual and privacy approval is recorded.

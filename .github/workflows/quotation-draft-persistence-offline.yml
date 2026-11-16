@@ -10,6 +10,8 @@ on:
       - 'public/js/quotation-draft-workspace.mjs'
       - 'tests/quotation-draft-form-dom.test.mjs'
       - 'server/quotation-draft-d1-store.mjs'
+      - 'server/quotation-draft-staging-readonly-preflight.mjs'
+      - 'tests/quotation-draft-staging-readonly-preflight.test.mjs'
       - 'docs/sql/quotation-drafts-staging-candidate.sql'
       - 'tests/quotation-draft-d1-store.test.mjs'
       - 'tests/quotation-draft-manager-dom.test.mjs'
@@ -30,6 +32,6 @@ jobs:
         with:
           node-version: '24'
       - name: Test unmounted quotation draft persistence contract
-        run: node --test tests/quotation-draft-persistence-http.test.mjs tests/quotation-draft-storage-client.test.mjs tests/quotation-draft-d1-store.test.mjs tests/quotation-draft-manager-dom.test.mjs tests/quotation-draft-form-dom.test.mjs
+        run: node --test tests/quotation-draft-persistence-http.test.mjs tests/quotation-draft-storage-client.test.mjs tests/quotation-draft-d1-store.test.mjs tests/quotation-draft-manager-dom.test.mjs tests/quotation-draft-form-dom.test.mjs tests/quotation-draft-staging-readonly-preflight.test.mjs
       - name: Test draft SQL in disposable SQLite only
         run: python3 tests/quotation-drafts-staging-schema.test.py
