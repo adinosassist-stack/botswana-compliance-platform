@@ -29,7 +29,7 @@ const validSha=x=>typeof x==='string'&&/^[0-9a-f]{40}$/.test(x);
 export function validateInputs(e={}){
  if(e.GITHUB_ACTOR!=='adinosassist-stack'||e.GITHUB_REF!=='refs/heads/main'||
    !validSha(e.EXPECTED_SHA)||e.GITHUB_SHA!==e.EXPECTED_SHA||
-   e.CANDIDATE!==STRANDED||!/^\\d{1,18}$/.test(e.OWNER_COMMENT||'')||
+   e.CANDIDATE!==STRANDED||!/^\d{1,18}$/.test(e.OWNER_COMMENT||'')||
    e.DESTRUCTIVE_CONFIRM!==CONFIRM)throw Error('BLOCK source_actor_or_exact_scope_invalid');
  if(!e.GH_TOKEN||!e.READONLY_TOKEN||!e.WRITE_TOKEN)throw Error('BLOCK required_credentials_missing');
  if(e.READONLY_TOKEN===e.WRITE_TOKEN)throw Error('BLOCK write_and_readonly_tokens_must_be_distinct');
