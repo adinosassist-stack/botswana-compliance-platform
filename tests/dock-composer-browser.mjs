@@ -115,8 +115,12 @@ try{
     assert.equal(await input.inputValue(),'I can continue typing during voice','voice cannot overwrite typed draft');
     assert(await page.locator('#thebeVoiceScreen').isVisible(),'voice remains active while typing');
     await input.fill('');
-    await page.locator('.thebe-voice-float-toggle').click();
-     await page.locator('.thebe-voice-exit').click();
+    const voiceToggle=page.locator('.thebe-voice-float-toggle');
+    await voiceToggle.click();
+    assert.equal(await voiceToggle.getAttribute('aria-expanded'),'true','voice options announce expanded state');
+    await page.locator('.thebe-voice-exit').click();
+    assert.equal(await page.locator('#thebeVoiceScreen').evaluate(el=>el.open),false,'ending voice closes floating dialog');
+    assert.equal(await page.evaluate(()=>document.body.classList.contains('thebe-voice-active')),false,'ending voice restores dock presentation');
     if(workspace){
       const resize=dock.locator('.thebe-workspace-dock-resize-handle');
       await resize.waitFor({state:'visible'});
