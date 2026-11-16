@@ -99,6 +99,8 @@ export function mountQuotationDraftForm(root,{capability,fetchImpl,csrfToken,ini
  function refresh(){
   if(disposed)return;
   add.disabled=busy||items.length===8;count.textContent=String(items.length)+" / 8";
+  // The only remaining line is required; keep the control visibly disabled.
+  for(const item of items)item.remove.disabled=busy||items.length<=1;
   let okay=false;
   try{
    const calc=prepareQuotationFormDraft(values());
@@ -122,20 +124,25 @@ export function mountQuotationDraftForm(root,{capability,fetchImpl,csrfToken,ini
   const amount=el("output","—",{class:"qdf-line","aria-label":"Line amount"});
   const remove=el("button","Remove",{type:"button","aria-label":"Remove quotation item"});
   row.append(desc.box,qty.box,unit.box,amount,remove);
-  const entry={row,description:desc.input,quantity:qty.input,unitPrice:unit.input,amount};
+  const entry={row,description:desc.input,quantity:qty.input,unitPrice:unit.input,amount,remove};
   items.push(entry);itemsRoot.append(row);
   remove.addEventListener("click",()=>{
    if(busy||items.length<=1)return;
    const index=items.indexOf(entry);if(index<0)return;
    items.splice(index,1);row.remove();refresh();
   });
-  row.addEventListener("input",()=>{
+  function refreshLine(){
    try{
     const quantity=entry.quantity.value.trim(),unitCents=parseBwpCents(entry.unitPrice.value);
     if(!/^[1-9][0-9]{0,2}$/.test(quantity))throw Error("invalid_quantity");
-    amount.textContent=formatBwpCents(Number(quantity)*unitCents);
+    const lineCents=Number(quantity)*unitCents;
+    if(!Number.isSafeInteger(lineCents)||lineCents>1_000_000_000)
+     throw Error("invalid_quotation_line_total");
+    amount.textContent=formatBwpCents(lineCents);
    }catch{amount.textContent="—"}
-  });
+  }
+  row.addEventListener("input",refreshLine);
+  refreshLine();
  }
  const start=Array.isArray(initialDraft?.items)?initialDraft.items.slice(0,8):[];
  for(const item of start.length?start:[{}])
