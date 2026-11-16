@@ -1,5 +1,7 @@
 # Thebe Desk quotation — consolidated source completion and release gates
 
+**Status as of 16 November 2026:** The two exact-blob quotation staging SQL migrations **have been executed and post-verified** in isolated `bw-quotation-staging` (issue #2504 comment #6927692011); **do not re-run them**. The template and runtime remain unapproved/inactive.
+
 **Scope:** The Lovely-style, two-page quotation editor with configurable
 top-left logo, BWP line items, discounts, saved drafts, and private PDF
 previews. This describes **source completion**, not a deployed quotation
@@ -44,9 +46,7 @@ service or authority to issue legally binding customer documents.
 - [ ] **Real template parity:** Corrected Lovely logo-free private PDF binary
   has offline terms/layout checks, but has **not** been uploaded, registered,
   legally accepted or rendered against a live Workers runtime.
-- [ ] **Actual private staging data acceptance:** Real D1/R2 integration,
-  cross-tenant/CSRF and save/edit/download tests require separately
-  approved schema migrations, template registration, and staging access.
+- [ ] **Actual private staging data acceptance:** The quotation schema is now installed and empty. Real D1/R2 integration, cross-tenant/CSRF and save/edit/download tests still require separately approved template registration, authenticated staging access, and Worker bindings.
 - [ ] **Production deployment:** Protected release decision, exact-main
   preflight, recovery plan and `thusico` approval still required.
 
@@ -54,21 +54,15 @@ service or authority to issue legally binding customer documents.
 
 - Cloudflare account: `ddd23cab31928a4bb3d4998df9b26d1d`
 - Staging D1: `bw-quotation-staging` UUID
-  `aec227e9-b0f2-4b00-8de0-105465c4e2d6`; most recent
-  read-only inventory found **no quotation application tables**.
+  `aec227e9-b0f2-4b00-8de0-105465c4e2d6`; post-migration read-only inventory confirmed **three empty quotation tables and one index**. No Worker is bound to this D1.
 - Private R2: `bw-quotation-logo-private-staging` and
   `bw-quotation-template-private-staging`; no public domains.
 - Logo SQL file: `docs/sql/quotation-logo-staging-candidate.sql`,
   Git blob `6d9527d1184603cbaafbf70c999615c8784b7708`.
 - Draft SQL file: `docs/sql/quotation-drafts-staging-candidate.sql`,
   Git blob `9aa86a3282d34707b3aa056b8ec1e1f6ccef5ce1`.
-- Owner's conditional authorization for both scopes is recorded in issue
-  #2504, comment #6916022563. **Independent reviewer `thusico` SQL
-  execution approval is still missing** as of this checkpoint.
-- These two SQL scripts require separate exact-scope execution acceptance
-  after a fresh source, target, empty-schema and recovery/restore preflight.
-  Source-code PR review or issue comments about resource provisioning do not
-  authorize SQL writes.
+- **Completed:** Owner approval #6916022563, independent `thusico` SQL execution approval #6927289181, accepted recovery plan #6927478636, and successful exact-blob DDL execution/post-verification #6927692011. The approved migration was applied **once**. Do not execute it again; schema changes would require an entirely new authorization.
+- **Recovery:** Prewrite bookmark `00000016-00000000-00005125-92452344dbaf558c6a51360b2587f816` was recorded, but no restore was performed. A bookmark is not evidence of rollback qualification.
 
 ## Final PDF and business acceptance
 
@@ -80,23 +74,16 @@ candidate `99e6ee...`. Page-two wording and positions were checked
 privately; this does not substitute for legal sign-off.
 
 Before registering it, the owner must approve the **final print appearance,
-top-left logo placement and proportional sizing, company phone/address,
-company bank account/payment instructions**, and legal terms and conditions.
+top-left logo placement and proportional sizing, legal issuer name, company phone/address,
+current office/branch footer, company bank account/payment instructions**, and legal terms and conditions. The existing terms-page footer mentions **Serowe and Phikwe**, so confirm its accuracy against the current branch roster (including **Mahalapye**). The contracting company name must not be silently inferred from the brand name. The exact private file SHA-256 was reverified from actual bytes; it has **not** been approved for upload.
 The original customer PDF may not be uploaded or treated as blank template.
 
 ## Guarded activation order (NO automatic execution)
 
-1. Independent `thusico` approval of both immutable, staging-only SQL
-   operations on the exact D1. Recheck current `main`, blobs, read-only
-   schema, recovery bookmark and independently accepted restore plan.
-2. Carry out only the separately approved D1 schema changes. Verify
-   resultant schema, tenant isolation and no production bindings.
-3. Obtain separate owner/legal/`thusico` exact-binary template acceptance
-   before a private R2 upload or registry entry.
-4. Qualify the portable backend against actual `workerd` and the
-   authenticated private staging host. Keep all public routes disabled.
-5. Test full synthetic customer journey in authenticated private staging,
-   then obtain new independent approval for any production deployment.
+1. **Completed:** Owner/`thusico` exact-blob SQL approvals, accepted staging recovery plan and isolated D1 migration with verified empty three-table/one-index schema. **Do not repeat this step.**
+2. **Pending:** Obtain separate owner/legal/`thusico` exact-binary acceptance of the corrected logo-free private PDF and approval of the exact private R2 upload/registry key; confirm legal issuer, branch footer, bank/payment instructions and terms before altering the candidate (a change requires a new SHA and review).
+3. **Pending:** Qualify the portable backend against actual `workerd` and the authenticated private staging host after distinct Worker/binding approval. Keep all public routes disabled.
+4. **Pending:** Test the full synthetic customer journey in protected authenticated private staging, then obtain new independent approval for any production deployment.
 
 **Hard stop:** A code-only PR, an affirmative "go", and offline PDF tests
 do not authorize D1/R2 writes, staging deployment, public routes, customer
