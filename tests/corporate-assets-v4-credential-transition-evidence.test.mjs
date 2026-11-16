@@ -141,7 +141,8 @@ test('protected runner performs only authenticated GETs and never returns secret
   token:'mock-worker-token',accountToken:'mock-account-read-token',
   request,readExposure
  });
- assert.equal(calls.length,4);assert.equal(exposureCalls,1);
+ assert.equal(calls.length,5);assert.equal(exposureCalls,1);
+ assert.equal(calls.filter(x=>x.url.includes('/deployments?page=1&per_page=100')).length,2);
  assert.equal(out.cloudflareScriptEtagContinuityVerified,true);
  assert.equal(out.stagingDeploymentAuthorized,false);
  assert.ok(calls.every(x=>x.authorization==='Bearer mock-worker-token'));
@@ -161,4 +162,41 @@ test('runner denies non-main, unauthorized account tokens and failed Cloudflare 
   ...good,request:async()=>({ok:false,status:403}),
   readExposure:async()=>good.privateExposure||input().privateExposure
  }),/worker_version_metadata_get_denied_403/);
+});
+
+test('protected GET-only qualification fails closed if deployment history drifts mid-read',async()=>{
+ for(const change of [
+  x=>{x.result.deployments[0].id='11111111-2222-4333-8444-555555555555';},
+  x=>{x.result.deployments[0].versions[0].percentage=98;},
+  x=>{x.result_info.total_count=3;}
+ ]){
+  const f=input();
+  const changed=structuredClone(f.deployments);
+  change(changed);
+  let deploymentReads=0;
+  const endpoints={
+   ['/versions/'+ROLLBACK]:{result:f.v2,success:true},
+   ['/versions/'+CANDIDATE]:{result:f.v3,success:true},
+   ['/versions/'+SECRET_CANDIDATE_V4]:{result:f.v4,success:true}
+  };
+  const prefix='/workers/scripts/'+WORKER;
+  const request=async(url,opts)=>{
+   assert.equal(opts.method,'GET');
+   const suffix=url.split(prefix)[1];
+   if(suffix==='/deployments?page=1&per_page=100'){
+    deploymentReads++;
+    return {ok:true,json:async()=>deploymentReads===1?
+     {...f.deployments,success:true}:{...changed,success:true}};
+   }
+   assert.ok(endpoints[suffix]);
+   return {ok:true,json:async()=>endpoints[suffix]};
+  };
+  await assert.rejects(()=>inspectV4CredentialTransition({
+   expectedMainSha:SHA,repository:'adinosassist-stack/botswana-compliance-platform',
+   ref:'refs/heads/main',githubSha:SHA,
+   token:'mock-worker-token',accountToken:'mock-account-read-token',
+   request,readExposure:async()=>f.privateExposure
+  }),/v4_credential_transition_(deployment_drift|metadata_unqualified)/);
+  assert.equal(deploymentReads,2);
+ }
 });
