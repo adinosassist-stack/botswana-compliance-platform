@@ -71,12 +71,12 @@ async function fixture(){
    if(sql.startsWith("INSERT INTO quotation_logo_assets")){
     const [id,tenant,object_key,mime_type,width,height,aspect_ratio]=values;
     assets.set(tenant+":"+id,{id,object_key,mime_type,width,height,aspect_ratio});
-    events.push("d1_insert_logo");return {success:true};
+    events.push("d1_insert_logo");return {success:true,meta:{changes:1}};
    }
    if(sql.startsWith("INSERT INTO quotation_logo_settings")){
     const [tenant,asset,x,y,w]=values;
     settings.set(tenant,{tenant_id:tenant,asset_id:asset,x_percent:x,y_percent:y,width_percent:w});
-    events.push("d1_upsert_settings");return {success:true};
+    events.push("d1_upsert_settings");return {success:true,meta:{changes:1}};
    }
    throw Error("unexpected_d1_write");
   }
