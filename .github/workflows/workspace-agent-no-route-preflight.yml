@@ -1,0 +1,105 @@
+name: Workspace Agent no-route inventory preflight
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Optional exact main SHA override (defaults to the commit selected at dispatch)
+        required: false
+        type: string
+permissions: {}
+
+jobs:
+  verify-environment:
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      actions: read
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_SHA: ${{ inputs.expected_main_sha || github.sha }}
+    steps:
+      - name: Verify staging environment protections before referencing it
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          environment_api="repos/$GITHUB_REPOSITORY/environments/workspace-agent-private-staging"
+          reviewer_id="$(gh api users/thusico --jq .id)"
+          gh api "$environment_api" | jq -e --argjson reviewer "$reviewer_id" '
+            any(.protection_rules[]; .type == "required_reviewers" and
+              .prevent_self_review == true and
+              ([.reviewers[] | select(.type == "User") | .reviewer.id] == [$reviewer]) and
+              (.reviewers | length == 1)) and
+            .deployment_branch_policy.protected_branches == false and
+            .deployment_branch_policy.custom_branch_policies == true'
+          gh api "$environment_api/deployment-branch-policies" | jq -e '
+            .total_count == 1 and .branch_policies[0].name == "main" and
+            .branch_policies[0].type == "branch"'
+
+  inventory:
+    needs: verify-environment
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: workspace-agent-private-staging
+    steps:
+      - name: Verify exact main after environment approval
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_main_sha || github.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+      - name: Verify the inert Worker and dedicated empty D1
+        env:
+          AUDIT_TOKEN: ${{ secrets.WORKSPACE_AGENT_STAGING_READONLY_CLOUDFLARE_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$AUDIT_TOKEN"
+          api=https://api.cloudflare.com/client/v4/accounts/b11d872b2660e76ca66323023b45b3ab
+          resource=bw-workspace-agent-staging
+          read_inventory() {
+            curl --fail --silent --show-error --max-time 30 \
+              --header "Authorization: Bearer $AUDIT_TOKEN" "$api/$1"
+          }
+          curl --fail --silent --show-error --max-time 30 \
+            --header "Authorization: Bearer $AUDIT_TOKEN" \
+            'https://api.cloudflare.com/client/v4/zones?account.id=b11d872b2660e76ca66323023b45b3ab&per_page=50' |
+            jq -e '.success == true and .result == [] and .result_info.total_count == 0 and
+              (.result_info.total_pages == 0 or .result_info.total_pages == 1)' >/dev/null
+          read_inventory workers/scripts | jq -e --arg name "$resource" '
+            .success == true and ([.result[].id] == [$name])' >/dev/null
+          script="workers/scripts/$resource"
+          inert_version=64d9bae9-2ea3-40c1-9a26-83cea97ad71c
+          d1_id=fa317ccc-683d-4466-9e3a-e296872d58ba
+          read_inventory "$script/deployments" | jq -e --arg version "$inert_version" '
+            .success == true and
+            (.result.deployments[0].versions | length == 1 and
+              .[0].version_id == $version and .[0].percentage == 100)' >/dev/null
+          read_inventory "$script/subdomain" | jq -e '
+            .success == true and .result.enabled == false and
+            .result.previews_enabled == false' >/dev/null
+          read_inventory "$script/settings" | jq -e '
+            .success == true and (.result.bindings | type == "array" and
+              all(.[]; .type == "plain_text") and
+              ([.[] | select(.name == "WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED") | .text] == ["false"]))' >/dev/null
+          read_inventory "$script/schedules" | jq -e '
+            .success == true and .result.schedules == []' >/dev/null
+          read_inventory "workers/domains?service=$resource" | jq -e '
+            .success == true and .result == []' >/dev/null
+          read_inventory "d1/database/$d1_id" | jq -e --arg id "$d1_id" --arg name "$resource" '
+            .success == true and .result.uuid == $id and .result.name == $name and
+            .result.num_tables == 0' >/dev/null
+          echo "Verified the inert version, disabled subdomain and previews, Agent flag off, no resource bindings, schedules or custom domains, and empty dedicated D1."
+      - name: Recheck current main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$GITHUB_SHA"

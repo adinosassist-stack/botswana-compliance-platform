@@ -44,3 +44,62 @@ test("SQLite stores verified actor, tenant and amount",async()=>{
   assert.deepEqual({...row},{tenant_id:"tenant-a",amount_minor:150000,currency:"BWP",verified_by_actor_id:"owner-1"});
  }finally{db.close();}
 });
+
+
+test("SQLite rejects cross-tenant bank transaction replay even for distinct invoices",async()=>{
+ const {db,adapter}=openAdapter();
+ try{
+  assert.equal((await allocateVerifiedBankReceipt(args(adapter))).status,"allocated");
+  const second=args(adapter,{
+   tenantId:"tenant-b",
+   invoice:{id:"inv-2",tenantId:"tenant-b",amountMinor:150000,currency:"BWP"},
+   reviewer:{...reviewer,tenantId:"tenant-b"},
+   decision:{decision:"verified",invoiceId:"inv-2",bankTransactionId:"bank-1"}
+  });
+  assert.equal((await allocateVerifiedBankReceipt(second)).status,"conflict");
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM owner_bank_receipt_allocation").get().n,1);
+ }finally{db.close();}
+});
+test("SQLite allows distinct settled bank credits for colliding invoice IDs across tenants",async()=>{
+ const {db,adapter}=openAdapter();
+ try{
+  assert.equal((await allocateVerifiedBankReceipt(args(adapter))).status,"allocated");
+  const second=args(adapter,{
+   tenantId:"tenant-b",
+   invoice:{...invoice,tenantId:"tenant-b"},
+   reviewer:{...reviewer,tenantId:"tenant-b"},
+   decision:{...decision,bankTransactionId:"bank-2"}
+  });
+  assert.equal((await allocateVerifiedBankReceipt(second)).status,"allocated");
+  const rows=db.prepare("SELECT bank_transaction_id,tenant_id,invoice_id FROM owner_bank_receipt_allocation ORDER BY tenant_id").all();
+  assert.equal(rows.length,2);
+  assert.deepEqual(rows.map(row=>row.tenant_id),["tenant-a","tenant-b"]);
+ }finally{db.close();}
+});
+test("SQLite remains unchanged when allocation identity is malformed",async()=>{
+ const {db,adapter}=openAdapter();
+ try{
+  for(const bad of [" bank-1","bank-1 ","bank-\u200b1","bank-cafe\u0301",42]){
+   assert.equal((await allocateVerifiedBankReceipt(args(adapter,{
+    decision:{...decision,bankTransactionId:bad}
+   }))).status,"denied");
+  }
+  for(const bad of ["owner-\u200b1"," owner-1",null]){
+   assert.equal((await allocateVerifiedBankReceipt(args(adapter,{
+    reviewer:{...reviewer,actorId:bad}
+   }))).status,"denied");
+  }
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM owner_bank_receipt_allocation").get().n,0);
+ }finally{db.close();}
+});
+test("SQLite rejects nonpositive amounts and retains an empty ledger",async()=>{
+ const {db,adapter}=openAdapter();
+ try{
+  for(const amountMinor of [0,-1,1.5,Number.MAX_SAFE_INTEGER+1]){
+   assert.equal((await allocateVerifiedBankReceipt(args(adapter,{
+    invoice:{...invoice,amountMinor}
+   }))).status,"denied");
+  }
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM owner_bank_receipt_allocation").get().n,0);
+ }finally{db.close();}
+});

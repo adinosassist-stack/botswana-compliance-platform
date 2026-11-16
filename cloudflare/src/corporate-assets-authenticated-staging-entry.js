@@ -27,7 +27,7 @@ export function createCorporateAssetsAuthenticatedStagingEntry(delegate=governed
   const preflight=await corporateAssetsStagingSchemaPreflight(env);
   if(!preflight.ready)return json('asset_staging_database_unqualified',503);
   const p=url.pathname,m=request.method;
-  const permitted=(m==='GET'&&(READ.has(p)||(assetPath.test(p)&&p.endsWith('/history'))))||
+  const permitted=(m==='GET'&&(READ.has(p)||(assetPath.test(p)&&!p.endsWith('/services'))))||
    (m==='POST'&&(AUTH_POST.has(p)||p==='/api/corporate-assets'||(assetPath.test(p)&&p.endsWith('/services'))))||
    (m==='PUT'&&assetPath.test(p)&&!p.endsWith('/history')&&!p.endsWith('/services'));
   if(!permitted)return json('asset_staging_route_denied',403);

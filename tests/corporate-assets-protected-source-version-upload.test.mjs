@@ -1,7 +1,9 @@
 import test from 'node:test';
+import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {requireVersionOnlyContext,checkVersionInventory,verifyStableDeployment,
- assertInertVersionBindings,assertVersionOnlyResult,minimalWranglerEnvironment} from '../scripts/corporate-assets-protected-source-version-upload.mjs';
+ assertInertVersionBindings,assertVersionOnlyResult,minimalWranglerEnvironment,
+ assertDeployedCredentialSafetyForSourceUpload} from '../scripts/corporate-assets-protected-source-version-upload.mjs';
 import {DB,ROLLBACK,CANDIDATE} from '../scripts/corporate-assets-v3-predeployment-attestation.mjs';
 const sha='a'.repeat(40),newId='11111111-2222-4333-8444-555555555555';
 const text=(name,value)=>({name,type:'plain_text',text:value});
@@ -29,12 +31,16 @@ const result=()=>({beforeIds:oldIds,afterIds:inventory(true),
 test('authorizes no mutation without exact explicit main-only owner and independent gate context',()=>{
  const good={mode:'create-version-only',authorization:'CREATE_ISOLATED_ASSETS_SOURCE_VERSION',
   repo:'adinosassist-stack/botswana-compliance-platform',ref:'refs/heads/main',
-  sha,expectedSha:sha,actor:'owner-account',githubReadToken:'test',cloudflareToken:'test'};
+  sha,expectedSha:sha,actor:'owner-account',githubReadToken:'test',cloudflareToken:'test',
+  cloudflareAccountReadToken:'synthetic-account-read'};
  assert.equal(requireVersionOnlyContext(good),true);
  for(const change of [
   a=>a.authorization='PREFLIGHT_ONLY',a=>a.mode='deploy',a=>a.ref='refs/heads/pr',
   a=>a.sha='b'.repeat(40),a=>a.expectedSha='invalid',a=>a.githubReadToken='',
-  a=>a.cloudflareToken='',a=>a.actor='thusico',a=>a.actor=''
+  a=>a.cloudflareToken='',a=>a.cloudflareAccountReadToken='',
+  a=>a.cloudflareAccountReadToken='Bearer invalid',
+  a=>a.cloudflareAccountReadToken='token with whitespace',
+  a=>a.actor='thusico',a=>a.actor=''
  ]){const a={...good};change(a);assert.throws(()=>requireVersionOnlyContext(a))}
 });
 test('version inventory must be complete and introduce exactly one new version',()=>{
@@ -95,4 +101,45 @@ test('Wrangler subprocess cannot inherit GitHub, staging tokens or unrelated sec
  for(const name of ['GITHUB_TOKEN','ASSETS_STAGING_GITHUB_READ_TOKEN','SESSION_SECRET','NODE_OPTIONS'])
   assert.equal(e[name],undefined);
  assert.throws(()=>minimalWranglerEnvironment(''));
+});
+
+test('future source upload must check immutable deployed credential types, never latest settings',()=>{
+ const safe=()=>({activeVersionId:ROLLBACK,immutableCredentialTypesVerified:true,
+  activeCredentialRisk:false,errors:[],createVersionAuthorized:false,deploymentAuthorized:false});
+ assert.equal(assertDeployedCredentialSafetyForSourceUpload(safe()),true);
+ for(const change of [
+  x=>x.activeVersionId=CANDIDATE,
+  x=>x.activeVersionId='dc708a58-4da1-4af5-a10a-17ace5ea25fa',
+  x=>x.activeVersionId=null,
+  x=>x.immutableCredentialTypesVerified=false,
+  x=>x.activeCredentialRisk=true,
+  x=>x.errors=['active_version_secret_binding_type_unsafe'],
+  x=>x.errors=null,
+  x=>x.createVersionAuthorized=true,
+  x=>x.deploymentAuthorized=true
+ ]){
+  const a=safe();change(a);
+  assert.throws(()=>assertDeployedCredentialSafetyForSourceUpload(a),
+   /active_deployed_credential_safety_not_verified/);
+ }
+ assert.throws(()=>assertDeployedCredentialSafetyForSourceUpload(undefined));
+});
+test('mutable latest settings do not make active v2 eligible for source upload',()=>{
+ const latestSettings=bindings();
+ assert.ok(latestSettings.every(b=>!['SESSION_SECRET','AUDIT_INTEGRITY_SECRET'].includes(b.name)||
+  b.type==='secret_text'));
+ const observedActiveV2={activeVersionId:ROLLBACK,immutableCredentialTypesVerified:false,
+  activeCredentialRisk:true,errors:['active_version_secret_binding_type_unsafe'],
+  createVersionAuthorized:false,deploymentAuthorized:false};
+ assert.throws(()=>assertDeployedCredentialSafetyForSourceUpload(observedActiveV2),
+  /active_deployed_credential_safety_not_verified/);
+});
+
+test('offline PR checks cannot consume protected source-version write concurrency slots',()=>{
+ const yaml=readFileSync(new URL('../.github/workflows/corporate-assets-protected-source-version-upload.yml',import.meta.url),'utf8');
+ assert.ok(yaml.includes("github.event_name == 'workflow_dispatch' && 'corporate-assets-protected-source-version-creation'"));
+ assert.ok(yaml.includes("format('corporate-assets-source-upload-pr-{0}', github.event.pull_request.number)"));
+ assert.ok(yaml.includes('cancel-in-progress: false'));
+ assert.ok(yaml.includes('environment: corporate-assets-staging-protected'));
+ assert.ok(yaml.includes("inputs.authorization == 'CREATE_ISOLATED_ASSETS_SOURCE_VERSION'"));
 });

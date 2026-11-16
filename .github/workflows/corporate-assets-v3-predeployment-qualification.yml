@@ -5,6 +5,8 @@ on:
       - 'scripts/corporate-assets-v3-predeployment-attestation.mjs'
       - 'tests/corporate-assets-v3-predeployment-attestation.test.mjs'
       - 'scripts/corporate-assets-staging-binding-preflight.mjs'
+      - 'tests/corporate-assets-staging-remote-preflight.test.mjs'
+      - 'scripts/corporate-assets-staging-remote-preflight.mjs'
       - 'scripts/corporate-assets-v3-private-exposure-attestation.mjs'
       - 'scripts/corporate-assets-v3-worker-bundle-lineage.mjs'
       - 'tests/corporate-assets-v3-worker-bundle-lineage.test.mjs'
@@ -54,6 +56,8 @@ jobs:
           node --check scripts/corporate-assets-new-version-metadata-gate.mjs
           node --test tests/corporate-assets-new-version-metadata-gate.test.mjs
           node --test tests/corporate-assets-protected-secret-candidate.test.mjs
+          node --check scripts/corporate-assets-staging-remote-preflight.mjs
+          node --test tests/corporate-assets-staging-remote-preflight.test.mjs
 
       - name: Emit checkout-bound offline build-input manifest (not a release receipt)
         env:

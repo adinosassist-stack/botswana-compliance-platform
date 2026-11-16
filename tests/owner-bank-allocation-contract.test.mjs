@@ -43,3 +43,29 @@ test("mismatched invoice, tenant, reviewer and decision are denied",async()=>{
  ]) assert.equal((await allocate(make(adapter,patch))).status,"denied");
  assert.equal(calls,0);
 });
+
+
+test("contract rejects noncanonical bank, invoice, tenant and reviewer IDs before adapter",async()=>{
+ let calls=0;
+ const adapter={insertUniqueAllocation:async()=>{calls++;return true;}};
+ const invalid=[" bank-1","bank-1 ","bank-\u200b1","bank-\u00001","bank-cafe\u0301",42,"x".repeat(129)];
+ for(const bankTransactionId of invalid){
+  assert.equal((await allocate(make(adapter,{decision:{...decision,bankTransactionId}}))).status,"denied");
+ }
+ for(const tenantId of ["tenant-\u200ba"," tenant-a","x".repeat(129)]){
+  assert.equal((await allocate(make(adapter,{tenantId,invoice:{...invoice,tenantId},reviewer:{...reviewer,tenantId}}))).status,"denied");
+ }
+ for(const actorId of ["owner-\u200b1"," owner-1",42]){
+  assert.equal((await allocate(make(adapter,{reviewer:{...reviewer,actorId}}))).status,"denied");
+ }
+ assert.equal((await allocate(make(adapter,{invoice:{...invoice,id:"inv-\u200b1"},decision:{...decision,invoiceId:"inv-\u200b1"}}))).status,"denied");
+ assert.equal(calls,0);
+});
+test("contract rejects ambiguous and noncanonical timestamps",async()=>{
+ let calls=0;
+ const adapter={insertUniqueAllocation:async()=>{calls++;return true;}};
+ for(const verifiedAt of ["2026-10-29","2026-10-29T12:00:00+02:00","2026-02-30T12:00:00Z","2026-10-29T12:00:00Z ","not-a-date"]){
+  assert.equal((await allocate(make(adapter,{verifiedAt}))).status,"denied");
+ }
+ assert.equal(calls,0);
+});

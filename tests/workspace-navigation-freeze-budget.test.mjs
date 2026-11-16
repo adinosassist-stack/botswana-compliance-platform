@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {readFileSync} from 'node:fs';
 import {assertWorkspaceNavigationResponsiveness} from '../scripts/workspace-navigation-performance-summary.mjs';
-const sample=(extra={})=>({view:'protecthub',activateMs:15,settledFrameMs:413,longTaskSupported:true,worstLongTaskMs:63,...extra});
+const sample=(extra={})=>({view:'protecthub',activateMs:15,settledFrameMs:413,longTaskSupported:true,longTaskCount:1,worstLongTaskMs:63,...extra,longTaskTotalMs:extra.longTaskTotalMs??(extra.worstLongTaskMs??63)});
 test('responsive navigation passes even when hydration waits on the network',()=>{
  assert.doesNotThrow(()=>assertWorkspaceNavigationResponsiveness([sample({settledFrameMs:12000})]));
 });

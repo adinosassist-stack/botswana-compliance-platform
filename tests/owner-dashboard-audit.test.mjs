@@ -8,7 +8,7 @@ function dashboard({admin=true,items=[],paymentItems=[],paymentReviewResult={ok:
  const elements=new Map(ids.map(id=>[id,{hidden:false,textContent:'',safeHTML:'',value:id==='platformClientFilter'?'all':'',dataset:{},classList:{contains:()=>true,toggle(){}},style:{}}]));
  const calls=[],timers=[],notifications=[];let prompts=0;
  class BrowserDate extends Date{constructor(value){super(typeof value==='string'&&/^\d{4}-\d\d-\d\d /.test(value)?value.replace(' ','T')+'+02:00':value)}toLocaleString(){return this.toISOString()}}
- const context=vm.createContext({window:{BW:{}},Date:BrowserDate,document:{getElementById:id=>elements.get(id)||null,querySelectorAll:()=>[]},currentUser:{platformBillingAdmin:admin,role:'owner',tenantId:'platform-owner'},roleCanView:()=>true,escapeHtml:String,notifyUser:message=>notifications.push(String(message)),renderPayments:()=>{},loadBilling:async()=>{},clearTimeout:()=>{},setTimeout:fn=>{timers.push(fn);return timers.length},BW:{dialog:{confirm:async()=>true,prompt:async()=>{prompts++;return 'Verified owner request'}}},apiJson:async(path,options)=>{
+ const context=vm.createContext({window:{BW:{}},Date:BrowserDate,document:{getElementById:id=>elements.get(id)||null,querySelectorAll:()=>[]},currentUser:{platformBillingAdmin:admin,role:'owner',tenantId:'platform-owner'},roleCanView:()=>true,escapeHtml:String,notifyUser:message=>notifications.push(String(message)),renderPayments:()=>{},loadBilling:async()=>{},clearTimeout:()=>{},setTimeout:fn=>{timers.push(fn);return timers.length},BW:{dialog:{confirm:async()=>true,prompt:async options=>{prompts++;return options?.title?.includes('Bank transaction')?'bank-settled-9001':'Verified owner request'}}},apiJson:async(path,options)=>{
   calls.push({path,options});if(path.includes('manual-payments')&&!options)return {items:paymentItems};if(path.includes('manual-payments')&&options?.method==='POST')return paymentReviewResult;
   if(path.includes('/subscriptions'))return {items,counts:{active:1,paused:0},nextAfter:null};return {items:[],providers:[]};
  }});
@@ -47,19 +47,56 @@ test('account changes during reason entry cannot submit access or rejection chan
 });
 test('payment approval refreshes platform data without loading the admin workspace own billing',async()=>{const f=dashboard();let ownBillingReads=0;f.context.loadBilling=async()=>{ownBillingReads++};await f.run('reviewManualPayment("submission","approve")');assert.equal(ownBillingReads,0)});
 
-test('bank-receipt approval is sent only after explicit owner confirmation and requires activated acknowledgement',async()=>{
- const f=dashboard();
+test('owner funds and amount confirmations plus bank ID entry are independent',async()=>{
+ const f=dashboard(),confirms=[],prompts=[];
+ f.context.BW.dialog.confirm=async o=>{confirms.push(o.title);return true};
+ f.context.BW.dialog.prompt=async o=>{prompts.push(o.title);return 'bank-settled-9001'};
  await f.run('reviewManualPayment("submission","approve")');
  const posts=f.calls.filter(x=>x.options?.method==='POST');
- assert.equal(posts.length,1);
- assert.equal(posts[0].path,'/api/platform/billing/manual-payments/submission/approve');
- assert.equal(JSON.parse(posts[0].options.body).bankFundsConfirmed,true);
+ assert.equal(posts.length,1);assert.equal(posts[0].path,'/api/platform/billing/manual-payments/submission/approve');
+ assert.equal(confirms.length,2);assert.match(confirms[0],/Cleared funds/);assert.match(confirms[1],/Exact amount/);
+ assert.equal(prompts.length,1);assert.match(prompts[0],/Bank transaction ID/);
+ const body=JSON.parse(posts[0].options.body);
+ assert.equal(body.bankFundsConfirmed,true);assert.equal(body.bankAmountMatched,true);
+ assert.equal(body.bankTransactionMatched,true);assert.equal(body.bankTransactionId,'BANK-SETTLED-9001');
  assert.match(f.notifications.join(' '),/verified and plan activated/i);
 });
-test('declining bank-receipt confirmation never sends a payment mutation',async()=>{
- const f=dashboard();f.context.BW.dialog.confirm=async()=>false;
- await f.run('reviewManualPayment("submission","approve")');
- assert.equal(f.calls.filter(x=>x.options?.method==='POST').length,0);
+test('declining either bank check or cancelling transaction ID never sends payment mutation',async()=>{
+ for(const denyAt of [1,2,3]){
+  const f=dashboard();let count=0;
+  f.context.BW.dialog.confirm=async()=>++count!==denyAt;
+  f.context.BW.dialog.prompt=async()=>{++count;return denyAt===3?null:'BANK-SETTLED-9001'};
+  await f.run('reviewManualPayment("submission","approve")');
+  assert.equal(count,denyAt);
+  assert.equal(f.calls.filter(x=>x.options?.method==='POST').length,0);
+  assert.doesNotMatch(f.notifications.join(' '),/payment verified and plan activated/i);
+ }
+});
+test('account switch during bank checks or transaction ID entry never approves',async()=>{
+ for(const switchAt of [1,2,3]){
+  const f=dashboard();let count=0;
+  const check=()=>{if(++count===switchAt)f.context.currentUser={platformBillingAdmin:true,role:'owner',tenantId:'other-owner'};};
+  f.context.BW.dialog.confirm=async()=>{check();return true};
+  f.context.BW.dialog.prompt=async()=>{check();return 'BANK-SETTLED-9001'};
+  await f.run('reviewManualPayment("submission","approve")');
+  assert.equal(count,switchAt);
+  assert.equal(f.calls.filter(x=>x.options?.method==='POST').length,0);
+ }
+});
+test('missing or malformed owner bank ID prevents approval',async()=>{
+ for(const invalid of ['', 'bad id', 'a', 'invalid/characters?']){
+  const f=dashboard();
+  f.context.BW.dialog.prompt=async()=>invalid;
+  await f.run('reviewManualPayment("submission","approve")');
+  assert.equal(f.calls.filter(x=>x.options?.method==='POST').length,0);
+ }
+});
+test('payment approval is an action button, not a subscription on/off switch',async()=>{
+ const f=dashboard({paymentItems:[{id:'submission',tenant_name:'Client',tenant_id:'client',amount_bwp:149,bank_reference:'TEST-1',metadata:{plan:'starter'},submitted_at:'2026-10-25 12:00:00'}]});
+ await f.run('renderManualPaymentApprovals()');
+ const html=f.elements.get('manualPaymentAdminList').safeHTML;
+ assert.match(html,/type="button" class="btn" aria-label="Verify settled payment for Client"/);
+ assert.doesNotMatch(html,/class="billing-switch" role="switch" aria-checked="false" aria-label="Activate/);
 });
 test('HTTP success without explicit activation is NOT reported as a successful payment',async()=>{
  const f=dashboard({paymentReviewResult:{ok:true,status:'reviewing'}});

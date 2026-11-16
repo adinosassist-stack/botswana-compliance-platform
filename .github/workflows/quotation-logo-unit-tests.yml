@@ -1,0 +1,60 @@
+name: Quotation Logo Unit Tests
+on:
+  pull_request:
+    paths:
+      - 'public/js/quotation-logo-*.mjs'
+      - 'public/js/quotation-draft-*.mjs'
+      - 'tests/quotation-draft-*.test.mjs'
+      - 'server/quotation-logo-*.mjs'
+      - 'server/quotation-draft-*.mjs'
+      - 'server/quotation-private-r2-read.mjs'
+      - 'server/quotation-staging-readonly-preflight.mjs'
+      - 'scripts/quotation-staging-resource-inventory.mjs'
+      - 'tests/quotation-logo-*.test.mjs'
+      - 'docs/sql/quotation-logo-staging-candidate.sql'
+      - '.github/workflows/quotation-logo-unit-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quotation-logo-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quotation-logo-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax-check quotation logo modules
+        run: |
+          node --check public/js/quotation-logo-layout.mjs
+          node --check public/js/quotation-logo-editor.mjs
+          node --check public/js/quotation-logo-api-client.mjs
+          node --check public/js/quotation-draft-api-client.mjs
+          node --check public/js/quotation-draft-form-model.mjs
+          node --check public/js/quotation-draft-form.mjs
+          node --check server/quotation-logo-service.mjs
+          node --check server/quotation-logo-d1-r2-store.mjs
+          node --check server/quotation-private-r2-read.mjs
+          node --check server/quotation-staging-readonly-preflight.mjs
+          node --check scripts/quotation-staging-resource-inventory.mjs
+          node --check server/quotation-logo-pdf.mjs
+          node --check server/quotation-draft-model.mjs
+          node --check server/quotation-draft-lovely-pdf.mjs
+          node --check server/quotation-draft-pdf-http.mjs
+          node --check server/quotation-logo-template-provider.mjs
+          node --check server/quotation-logo-http.mjs
+          node --check server/quotation-logo-pdf-http.mjs
+          node --check server/quotation-logo-png-sanitizer.mjs
+          node --check server/quotation-logo-node-staging.mjs
+          node --check server/quotation-logo-pdf-node-staging.mjs
+      - name: Run quotation logo isolation, sizing and PDF tests
+        run: node --test $(find tests -maxdepth 1 \( -name 'quotation-logo-*.test.mjs' -o -name 'quotation-draft-*.test.mjs' \) ! -name 'quotation-logo-real-pdf.test.mjs' ! -name 'quotation-logo-real-private-e2e.test.mjs' ! -name 'quotation-draft-real-browser.test.mjs' | sort)

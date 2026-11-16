@@ -120,7 +120,7 @@ test('failed owner payment approval refreshes the live queue without reporting a
    currentUser:user,manualPaymentReviewsInFlight:new Set(),
    platformBillingSessionCurrent:(u)=>u===user,
    document:{getElementById:()=>({textContent:''})},
-   BW:{dialog:{confirm:async()=>true}},
+   BW:{dialog:{confirm:async()=>true,prompt:async()=> 'BANK-SETTLED-9001'}},
    apiJson:async()=>{postCount++;throw Object.assign(Error('Settlement unavailable'),{code:'manual_payment_settlement_not_confirmed'})},
    refreshPlatformBillingDashboard:async()=>{refreshCount++;if(refreshFails)throw Error('refresh failed')},
    notifyUser:msg=>messages.push(msg)

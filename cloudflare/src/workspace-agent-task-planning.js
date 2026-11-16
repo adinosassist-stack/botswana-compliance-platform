@@ -1,0 +1,76 @@
+// Workspace Agent task planning is advisory only. No execution authority is granted.
+export const WORKSPACE_AGENT_TASK_VERSION = "2026-11-12.v2";
+export const WORKSPACE_AGENT_TASK_STATES = Object.freeze(["queued", "in_progress", "needs_review", "completed", "failed"]);
+const WORKSPACES = new Set(["owner", "finance", "property", "people", "compliance", "market", "operations"]);
+const clean = (value, max = 200) => String(value ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, max);
+const priorities = ["high", "medium", "low"];
+const taskPriority = value => priorities.includes(value) ? value : "medium";
+
+export function planWorkspaceAgentTasks({ workspace, tenantId, userId, workUnits = [], allowedSourceRefs = [] } = {}) {
+  const scope = clean(workspace, 32).toLowerCase();
+  const tenant = clean(tenantId, 120);
+  const actor = clean(userId, 120);
+  if (!WORKSPACES.has(scope) || !tenant || !actor) {
+    return Object.freeze({ ok: false, code: "workspace_context_required", tasks: Object.freeze([]) });
+  }
+  const allowed = new Set((Array.isArray(allowedSourceRefs) ? allowedSourceRefs.slice(0, 100) : []).map(x => clean(x, 120)).filter(Boolean));
+  const seen = new Set();
+  const tasks = [];
+  const rankedUnits = Array.isArray(workUnits) ? [...workUnits].sort((first, second) =>
+    priorities.indexOf(taskPriority(first?.priority)) - priorities.indexOf(taskPriority(second?.priority))
+  ) : [];
+  for (const item of rankedUnits) {
+    if (tasks.length >= 6) break;
+    const id = clean(item?.id, 120);
+    const title = clean(item?.objective, 240);
+    if (!id || !title || seen.has(id)) continue;
+    seen.add(id);
+    const sourceRefs = Array.isArray(item?.sourceRefs) ? item.sourceRefs : [];
+    const refs = [...new Set(sourceRefs.slice(0, 100).map(x => clean(x, 120)).filter(x => allowed.has(x)))].slice(0, 20);
+    tasks.push(Object.freeze({
+      id, workspace: scope, tenantId: tenant, userId: actor,
+      title,
+      priority: taskPriority(item?.priority),
+      state: "queued", sourceRefs: Object.freeze(refs),
+      sourceRefsDropped: Math.max(0, sourceRefs.length - refs.length),
+      approvalRequired: true, executionAllowed: false, externalSideEffects: false,
+      authority: "recommendation_only"
+    }));
+  }
+  return Object.freeze({ ok: true, code: "tasks_planned", tasks: Object.freeze(tasks) });
+}
+
+export function transitionWorkspaceAgentTask(task, nextState) {
+  const next = clean(nextState, 32);
+  const transitions = {
+    queued: ["in_progress", "failed"],
+    in_progress: ["needs_review", "failed"],
+    needs_review: ["failed"],
+    failed: ["queued"],
+    completed: []
+  };
+  if (next === "completed") return Object.freeze({ ok: false, code: "trusted_completion_required" });
+  if (!task || !WORKSPACES.has(task.workspace) || !clean(task.tenantId, 120) || !clean(task.userId, 120) ||
+      !clean(task.id, 120) || !clean(task.title, 240) || task.approvalRequired !== true ||
+      task.executionAllowed !== false || task.externalSideEffects !== false ||
+      task.authority !== "recommendation_only" ||
+      !WORKSPACE_AGENT_TASK_STATES.includes(task.state) || !transitions[task.state].includes(next)) {
+    return Object.freeze({ ok: false, code: "task_transition_invalid" });
+  }
+  // Completion is reserved for a trusted server-side approval/evidence workflow. 
+  // A caller-supplied boolean is never evidence of reviewer authorization. 
+  const rawRefs = Array.isArray(task.sourceRefs) ? task.sourceRefs : [];
+  const refs = [...new Set(rawRefs.slice(0, 100).map(ref => clean(ref, 120)).filter(Boolean))].slice(0, 20);
+  const priorDropped = Number.isSafeInteger(task.sourceRefsDropped) && task.sourceRefsDropped >= 0 ? task.sourceRefsDropped : 0;
+  return Object.freeze({ ok: true, code: "task_state_updated", task: Object.freeze({
+    id: clean(task.id, 120), workspace: task.workspace,
+    tenantId: clean(task.tenantId, 120), userId: clean(task.userId, 120),
+    title: clean(task.title, 240),
+    priority: taskPriority(task.priority),
+    state: next,
+    sourceRefs: Object.freeze(refs),
+    sourceRefsDropped: priorDropped + rawRefs.length - refs.length,
+    approvalRequired: true, authority: "recommendation_only",
+    executionAllowed: false, externalSideEffects: false
+  }) });
+}

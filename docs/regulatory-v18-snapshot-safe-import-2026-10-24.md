@@ -48,3 +48,37 @@ The existing server-side 25-day guard in PR #1787 rejects old VAT-rule approval/
 **Go/no-go:** no live v1.8 foundation import, no approval, and no unrestricted regulatory activation from this PR. Before live import, inspect real preflight data and complete a staging D1 v1.7→v1.8 rehearsal plus independent reviewer acceptance.
 
 Related: #1788, #1392, #1427 and #1786.
+
+## Release 611 reviewer-console GET preflight timeout remediation candidate — 14 November 2026
+
+**Observed production behavior:** the authenticated reviewer console's read-only
+`GET /api/platform/regulatory/foundation-pack?preflight=1` displayed
+`The request timed out. Please retry.` No import or approval took place.
+
+**Engineering hypothesis (not yet live-proven):** the previous preflight awaited
+registry and source SELECTs sequentially for each seed entry (up to two/three
+reads per source for the 24-source v1.8 pack). This can accumulate remote D1
+latency beyond the browser API client's request timeout. The current candidate
+uses **four bounded concurrent source-inspection workers**, with the original
+source order restored by indexed assignment. All queries remain read-only;
+the current importer still blocks on drift and uses the same guarded source
+updates. The candidate **does not** change the independent maker/checker
+approval or source snapshot verification policy.
+
+**Regression gate:** `node --test tests/regulatory-foundation-source-reconciliation.test.mjs`
+asserts the four-read bound, deterministic output ordering, SELECT-only
+requests, and fail-closed D1 errors, alongside the existing evidence/CAS
+tests. Staging and source-migration suites must pass at exact PR head.
+
+**Important limits:** bounded concurrency is only a candidate latency
+mitigation. Do not label the production timeout fixed until independently
+reviewed source merges, a separately authorized BF-07/recovery-sealed
+production release deploys, and an authorized reviewer re-runs the live GET
+with an actual success response. If the timeout persists, investigate D1
+latency, Worker CPU/duration, and API client timeout without relaxing
+permissions or importing the foundation pack.
+
+The separate `burs-payments` source remains `pending/changed` at last
+inspection and the PAYE remittance rule remains `draft`. Their governed
+human verification, source approval and rule publication are **not** performed
+or authorized by this performance patch.

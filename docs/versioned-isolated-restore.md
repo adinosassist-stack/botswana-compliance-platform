@@ -18,16 +18,12 @@ promotion, R2 write, automatic retry, reset or cleanup of remote databases.
 The transport pins account `ddd23cab31928a4bb3d4998df9b26d1d`, isolated D1
 `be15acba-ba16-4704-9498-e296a164b3a2` and name
 `bw-compliance-os-ops-restore-candidate-20261103`. It reads only SQL candidate
-run 42293276778, attempt 1, exactly 3,393,714 bytes, SHA-256
-`4e1674e65b7cae766ba07f1c009550b0aee60bca6fc08121ce91928d55f04a1a`.
-Its production export source commit is `68e36578c3ce57b8d0a8cf9b229310de35b67d5a`.
-The private object was independently verified by protected read-only [run 42375623870](https://github.com/adinosassist-stack/botswana-compliance-platform/actions/runs/42375623870) after reviewed PR #2224; 231 tables, SQLite integrity passed, zero foreign-key violations and an exact SHA-256 match to the original [preparation run 42293276778](https://github.com/adinosassist-stack/botswana-compliance-platform/actions/runs/42293276778).
-The preparation receipt records export bookmark `000006a8-00000000-0000511c-72b93059f224f35e66e88030274f7e4f` and private roundtrip verification.
-This is verified receipt and object-byte evidence; no remote D1 restore, Time Travel validation,
-object-level retention proof, sustained RPO, or tenant recovery has been established.
-The original export bookmark/provenance remains the independently reviewed
-receipt in #1950 and the immutable offline planner; importing SQL does not
-create or refresh a production Time Travel bookmark.
+run 42828130101, attempt 1, exactly 3,537,011 bytes, SHA-256
+`de8507a6d550b20993ea07d5d70bf37795cc714f0460b9af44d4b58fa53d860f`.
+Its production export source commit is `092e65eaba9a1e5ac0001e2b85eaf11a9ca5f0ba`.
+The private object's 3,537,011 bytes and SHA-256 were independently verified using authenticated, read-only Cloudflare R2 GET and in-tool SHA-256; the preparation run [42828130101](https://github.com/adinosassist-stack/botswana-compliance-platform/actions/runs/42828130101) passed protected qualification and upload. Independently comparing the original sanitized GitHub step-summary receipt remains pending; a matching hash alone is not acceptance of retention, private access, or a live restore.
+The protected preparation script completed successfully and attests to private byte roundtrip. The new run's export bookmark and sanitized receipt have not yet been independently compared; do not carry over the older candidate bookmark.
+This is independently verified private object-byte evidence, plus a successful protected preparation job, but the original sanitized receipt has not yet been independently compared. No remote D1 restore, Time Travel validation, object-level retention proof, sustained RPO, or tenant recovery has been established. The new candidate's export bookmark/provenance must be read from its original 42828130101 receipt; do not reuse a historical candidate's bookmark. Importing SQL does not create or refresh a production Time Travel bookmark.
 
 ## Separate approvals before dispatch
 
@@ -52,10 +48,10 @@ THEBE_VERSIONED_RESTORE_APPROVAL
   "scope": "IMPORT_VERSIONED_BACKUP_INTO_ISOLATED_D1_ONCE",
   "sourceSha": "REPLACE_WITH_REVIEWED_CURRENT_MAIN_40_CHARACTER_SHA",
   "target": "be15acba-ba16-4704-9498-e296a164b3a2",
-  "candidateKey": "candidates/42293276778/1/production-d1.sql",
-  "candidateSha256": "4e1674e65b7cae766ba07f1c009550b0aee60bca6fc08121ce91928d55f04a1a",
-  "candidateBytes": 3393714,
-  "backupSourceSha": "68e36578c3ce57b8d0a8cf9b229310de35b67d5a",
+  "candidateKey": "candidates/42828130101/1/production-d1.sql",
+  "candidateSha256": "de8507a6d550b20993ea07d5d70bf37795cc714f0460b9af44d4b58fa53d860f",
+  "candidateBytes": 3537011,
+  "backupSourceSha": "092e65eaba9a1e5ac0001e2b85eaf11a9ca5f0ba",
   "retentionAndAccessAccepted": true
 }
 ```
@@ -125,8 +121,13 @@ bytes or perform remote operations. The exact pinned private backup's successful
 import path requires protected live qualification after independent approvals;
 local tests are not a substitute for that acceptance.
 
-## 7 November 2026 review-only candidate update
+## 10 November 2026 review-only candidate update
 
 This review PR changes only the isolated, approval-gated versioned import candidate to the fresh Release 595 backup. It **does not dispatch a restore**. It does not modify the legacy fixed-input restore mode, the protected environment, Cloudflare settings, D1, R2, credentials or production. The old historical candidate remains separately recorded in issue #1950, but is no longer this mode's import input after this PR merges.
 
-The candidate-specific owner and independent `thusico` approval comments must be written **after** independent review of retention enforcement, administrators, access isolation and exclusive writer controls, using the then-current reviewed main SHA. Existing bare `approved` comments cannot authorize this import. If target identity/emptiness changes or any import fails, halt; never auto-reset or replay. The exact backup-byte hash matches its preparation receipt, but `retentionEnforced`, actual isolated restore and application tenant recovery are **not accepted** by that result. Do not activate POP, exports or General AI on this PR alone.
+The candidate-specific owner and independent `thusico` approval comments must be written **after** independent review of retention enforcement, administrators, access isolation and exclusive writer controls, using the then-current reviewed main SHA. Existing bare `approved` comments cannot authorize this import. If target identity/emptiness changes or any import fails, halt; never auto-reset or replay. The exact new backup-byte hash was independently calculated, but the preparation receipt is not yet separately compared; `retentionEnforced`, actual isolated restore and application tenant recovery are **not accepted** by that result. Do not activate POP, exports or General AI on this PR alone.
+
+
+## 10 November 2026 new candidate safeguards
+
+The revised pin names only `candidates/42828130101/1/production-d1.sql` (3,537,011 bytes; independent SHA-256 `de8507a6d550b20993ea07d5d70bf37795cc714f0460b9af44d4b58fa53d860f`; export source `092e65eaba9a1e5ac0001e2b85eaf11a9ca5f0ba`). The dedicated target remains `be15acba-ba16-4704-9498-e296a164b3a2`, verified empty and healthy in read-only checks on 10 November. Updating this pin and tests does not approve, dispatch or execute a restore. Old approvals cannot authorize the new key/hash and source. Both distinct signed reviews, retention and full access acceptance, exact-current-main verification, and existing `operations-rehearsal` protection remain mandatory. Do not treat a schema-integrity result as a recovered authenticated service or approval for POP production migration.

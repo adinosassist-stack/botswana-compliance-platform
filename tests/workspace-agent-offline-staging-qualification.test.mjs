@@ -1,0 +1,145 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readWorkspaceAgentSources, qualifyWorkspaceAgentOffline } from "../scripts/workspace-agent-offline-staging-qualification.mjs";
+
+const baseline=readWorkspaceAgentSources();
+const qualifies=(changes={})=>qualifyWorkspaceAgentOffline({...baseline,...changes});
+
+test("merged Workspace Agent is statically safe but NOT deployable",()=>{
+  const result=qualifies();
+  assert.equal(result.safetyChecksPassed,true,JSON.stringify(result.checks.filter(x=>!x.passed)));
+  assert.equal(result.result,"OFFLINE_BASELINE_PASS_NOT_DEPLOYABLE");
+  assert.equal(result.readyForStagingDeployment,false);
+  assert.equal(result.productionActivationAuthorized,false);
+  assert.equal(result.sourceSha256.length,64);
+  assert.ok(result.blockers.includes("protected_staging_review_and_activation_approval_required"));
+  assert.ok(result.blockers.includes("real_authenticated_staging_browser_and_tenant_isolation_unverified"));
+});
+test("Node transport parity remains explicitly unqualified",()=>{
+  const result=qualifies();
+  assert.equal(result.nodeTransport.identityRoutePresent,false);
+  assert.equal(result.nodeTransport.tasksRoutePresent,false);
+  assert.equal(result.nodeTransport.parityQualified,false);
+  assert.ok(result.blockers.includes("node_workspace_agent_identity_task_transport_missing"));
+});
+test("fails if production Wrangler enables advisory Agent feature flag",()=>{
+  const result=qualifies({production:baseline.production+"\nWORKSPACE_AGENT_ADVISORY_SHELL_ENABLED = \"true\"\n"});
+  assert.equal(result.safetyChecksPassed,false);
+  assert.equal(result.result,"OFFLINE_SAFETY_CHECK_FAILED");
+  assert.equal(result.checks[0].passed,false);
+});
+test("fails if server or helper removes preview environment, role, or host protection",()=>{
+  for(const altered of [
+    {server:baseline.server.replace("workspaceAgentAdvisoryPreviewAllowed({env,request,probeRole,initialIdentity})","true")},
+    {stagingGate:baseline.stagingGate.replace('env?.APP_ENV !== "staging"','false')},
+    {stagingGate:baseline.stagingGate.replace('env?.WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED !== "true"','false')},
+    {stagingGate:baseline.stagingGate.replace('(probeRole==="owner"||probeRole==="manager")','true')},
+    {stagingGate:baseline.stagingGate.replace('configuredHost.toLowerCase() !== host','false')},
+    {stagingGate:baseline.stagingGate.replace('request?.method !== "GET"','false')}
+  ]) {
+    const result=qualifies(altered);
+    assert.equal(result.safetyChecksPassed,false,JSON.stringify(altered));
+    assert.equal(result.readyForStagingDeployment,false);
+  }
+});
+test("fails if Agent API loses owner/manager role gate or GET-only constraint",()=>{
+  for(const altered of [
+    baseline.worker.replace('roleAllowed(auth, "owner", "manager")','true'),
+    baseline.worker.replace('request.method !== "GET"','false')
+  ])assert.equal(qualifies({worker:altered}).safetyChecksPassed,false);
+});
+test("fails if browser coverage stops asserting zero writes",()=>{
+  const altered=baseline.browser.replace('state.writes,[]','state.writes,[\"unexpected-write\"]');
+  assert.equal(qualifies({browser:altered}).safetyChecksPassed,false);
+});
+test("fabricated Node route names do not grant parity approval",()=>{
+  const result=qualifies({node:baseline.node+'\n"/api/agentic/workspace-identity";\n"/api/agentic/workspace-tasks";'});
+  assert.equal(result.nodeTransport.identityRoutePresent,true);
+  assert.equal(result.nodeTransport.tasksRoutePresent,true);
+  assert.equal(result.nodeTransport.parityQualified,false);
+  assert.equal(result.readyForStagingDeployment,false);
+});
+
+test("private Node parity candidate is present but never counts as staging qualification",()=>{
+ const result=qualifies();
+ assert.equal(result.nodeTransport.privateTestCandidatePresent,true);
+ assert.equal(result.nodeTransport.parityQualified,false);
+ assert.equal(result.readyForStagingDeployment,false);
+ assert.equal(result.productionActivationAuthorized,false);
+});
+test("private Node parity feature gate may not allow production or implicit activation",()=>{
+ const result=qualifies({
+   nodePrivate:baseline.nodePrivate.replace('appEnv !== "test" || enabled !== true','enabled !== true')
+ });
+ assert.equal(result.safetyChecksPassed,false);
+ assert.ok(result.checks.some(check=>check.code==="node_candidate_registered_only_in_explicit_private_test_env"&&!check.passed));
+});
+
+test("offline readiness must require exact staging, pinned host and direct API path gate",()=>{
+ const permitted=qualifies();
+ assert.ok(permitted.checks.some(c=>c.code==="agent_api_not_exposed_outside_exact_private_staging"&&c.passed));
+ for(const changes of [
+  {apiEntry:baseline.apiEntry.replace("if(isWorkspaceAgentAdvisoryPath(logicalPath))","if(true)")},
+  {apiEntry:baseline.apiEntry.replace("if(!workspaceAgentAdvisoryApiAllowed({env,request,logicalPath}))","if(false)")},
+  {apiGate:baseline.apiGate.replace('env?.APP_ENV!=="staging"','false')},
+  {apiGate:baseline.apiGate.replace('env?.WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED!=="true"','false')},
+  {apiGate:baseline.apiGate.replace('request?.method!=="GET"','false')},
+  {apiGate:baseline.apiGate.replace('url.pathname!==logicalPath','false')},
+  {apiGate:baseline.apiGate.replace('url.protocol!=="https:"','false')},
+  {apiGate:baseline.apiGate.replace('configuredHost.toLowerCase()!==host','false')}
+ ]){
+  const verdict=qualifies(changes);
+  assert.equal(verdict.safetyChecksPassed,false,Object.keys(changes)[0]);
+  assert.equal(verdict.readyForStagingDeployment,false);
+ }
+});
+
+test("offline evidence rejects missing earliest denial before any runtime dispatcher",()=>{
+ const verdict=qualifies();
+ assert.ok(verdict.checks.some(check=>
+   check.code==="agent_api_denied_at_outermost_entry_before_other_handlers" &&
+   check.passed));
+ const variants=[
+   {apiEntry:baseline.apiEntry.replace(
+     "const denied=denyUnqualifiedWorkspaceAgentApi({env,request,logicalPath});",
+     "const denied=null;")},
+   {apiEntry:baseline.apiEntry.replace(
+     "if(denied)return denied;",
+     "if(false)return denied;")},
+   {apiGate:baseline.apiGate.replace(
+     "if(!isWorkspaceAgentAdvisoryPath(logicalPath))return null;",
+     "if(false)return null;")},
+   {apiGate:baseline.apiGate.replace(
+     "if(workspaceAgentAdvisoryApiAllowed({env,request,logicalPath}))return null;",
+     "if(true)return null;")}
+ ];
+ for(const v of variants){
+   const r=qualifies(v);
+   assert.equal(r.safetyChecksPassed,false);
+   assert.equal(r.readyForStagingDeployment,false);
+   assert.equal(r.productionActivationAuthorized,false);
+ }
+});
+
+test("offline evidence requires denial at real production release entry before conversion",()=>{
+ const baselineResult=qualifies();
+ assert.ok(baselineResult.checks.some(check=>
+   check.code==="production_release_entry_denies_advisory_api_before_conversion"&&check.passed));
+ for(const change of [
+  {server:baseline.server.replace(
+    "const denied=denyUnqualifiedWorkspaceAgentApi({env,request,logicalPath:path});",
+    "const denied=null;")},
+  {server:baseline.server.replace("if(denied)return denied;","if(false)return denied;")},
+  {server:baseline.server.replace(
+    'import {denyUnqualifiedWorkspaceAgentApi} from "./workspace-agent-api-staging-gate.js";',
+    "// removed guard import")},
+  {apiGate:baseline.apiGate.replace(
+    "export function denyUnqualifiedWorkspaceAgentApi(",
+    "function allowAllWorkspaceAgentApi(")}
+ ]){
+   const verdict=qualifies(change);
+   assert.equal(verdict.safetyChecksPassed,false,Object.keys(change)[0]);
+   assert.equal(verdict.readyForStagingDeployment,false);
+   assert.equal(verdict.productionActivationAuthorized,false);
+ }
+});

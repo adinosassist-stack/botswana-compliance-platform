@@ -28,7 +28,7 @@ function fixture(phase='070',change=()=>{}){
    change({path,data,mainReads,db});
   }else{
    assert.ok(url.startsWith('https://api.cloudflare.com/client/v4/accounts/'+ACCOUNT+'/'));
-   if(url.endsWith('/settings'))data={success:true,result:{bindings:['POP_UPLOAD_STAGING_ENABLED','THEBE_AI_EXPORTS_ENABLED'].map(name=>({name,type:'plain_text',text:'false'}))}};
+   if(url.endsWith('/settings'))data={success:true,result:{bindings:['POP_UPLOAD_STAGING_ENABLED','EVIDENCE_UPLOADS_ENABLED','THEBE_AI_EXPORTS_ENABLED'].map(name=>({name,type:'plain_text',text:'false'}))}};
    else if(url.endsWith('/d1/database/'+DBID))data={success:true,result:{uuid:DBID,name:'bw-compliance-os'}};
    else if(url.endsWith('/query')){
     const sql=JSON.parse(options.body).sql;let results=[];
@@ -54,7 +54,9 @@ for(const [label,change,reason] of [
  ['wildcard branch',({path,data})=>{if(path?.endsWith('/deployment-branch-policies'))data.branch_policies[0].name='*'},'environment_main_only'],
  ['stale backup',({path,data})=>{if(path==='actions/runs/21')data.updated_at='2026-11-04T00:00:00Z'},'backup_freshness'],
  ['preflight mistaken for restore',({path,data})=>{if(path==='actions/runs/22')data.display_title='Isolated operations PREFLIGHT_ONLY '+SHA},'restore_run_scope'],
- ['live uploads already enabled',({path,data})=>{if(path?.endsWith('/settings'))data.result.bindings[0].text='true'},'feature_flags']
+ ['live uploads already enabled',({path,data})=>{if(path?.endsWith('/settings'))data.result.bindings[0].text='true'},'feature_flags'],
+ ['live evidence uploads already enabled',({path,data})=>{if(path?.endsWith('/settings'))data.result.bindings.find(x=>x.name==='EVIDENCE_UPLOADS_ENABLED').text='true'},'feature_flags'],
+ ['missing evidence upload kill switch',({path,data})=>{if(path?.endsWith('/settings'))data.result.bindings=data.result.bindings.filter(x=>x.name!=='EVIDENCE_UPLOADS_ENABLED')},'feature_flags']
 ])test(label+' prevents every production write',async()=>{const f=fixture('070',change);try{await assert.rejects(applyPopProductionPhase(f.env,f),new RegExp(reason));assert.equal(f.writes(),0)}finally{f.close()}});
 test('already applied and partial phases refuse replay',async()=>{for(const phase of ['070','071']){const f=fixture(phase);try{f.db.exec(phase==='070'?readFileSync(paths['070'],'utf8'):'ALTER TABLE payment_pop_documents ADD COLUMN content_sha256 TEXT');await assert.rejects(applyPopProductionPhase(f.env,f),/partial_or_replayed/);assert.equal(f.writes(),0)}finally{f.close()}}});
 test('source or dispatch drift stops before any provider access',async()=>{for(const update of [{GITHUB_EVENT_NAME:'schedule'},{POP_CONFIRM:'go'},{EXPECTED_SHA:'c'.repeat(40)}]){const f=fixture();try{Object.assign(f.env,update);await assert.rejects(applyPopProductionPhase(f.env,f),/pop_production_hold_/);assert.equal(f.calls(),0)}finally{f.close()}}});

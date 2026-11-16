@@ -1,0 +1,32 @@
+name: Workspace Agent Node private HTTP isolation
+
+on:
+  pull_request:
+    paths:
+      - "server/workspace-agent-node-private.js"
+      - "server/workspace-agent-node-private-auth-fields.js"
+      - "server/server.js"
+      - "tests/node-agent-private-http-isolation.test.mjs"
+      - ".github/workflows/workspace-agent-node-private-http.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-node-http:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Syntax check synthetic HTTP contract
+        run: node --check tests/node-agent-private-http-isolation.test.mjs
+      - name: Run loopback-only multi-tenant denial and no-write tests
+        run: node --test tests/node-agent-private-http-isolation.test.mjs

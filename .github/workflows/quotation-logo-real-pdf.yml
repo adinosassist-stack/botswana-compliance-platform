@@ -1,0 +1,40 @@
+name: Quotation Real PDF Acceptance
+on:
+  pull_request:
+    paths:
+      - 'server/quotation-logo-pdf.mjs'
+      - 'tests/quotation-logo-real-pdf.test.mjs'
+      - 'tests/quotation-logo-real-private-e2e.test.mjs'
+      - 'server/quotation-draft-lovely-pdf.mjs'
+      - 'server/quotation-draft-model.mjs'
+      - 'server/quotation-logo-d1-r2-store.mjs'
+      - 'server/quotation-logo-pdf-node-staging.mjs'
+      - '.github/workflows/quotation-logo-real-pdf.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quotation-real-pdf-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  real-pdf-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned PDF engine only in isolated job
+        run: |
+          mkdir -p "$RUNNER_TEMP/quotation-pdf-engine"
+          npm install --prefix "$RUNNER_TEMP/quotation-pdf-engine" --no-save --package-lock=false --ignore-scripts --no-audit --no-fund pdf-lib@1.17.1
+      - name: Render and reload synthetic two-page quotation with actual engine
+        env:
+          QUOTATION_PDF_ENGINE_ROOT: ${{ runner.temp }}/quotation-pdf-engine
+        run: node --test tests/quotation-logo-real-pdf.test.mjs tests/quotation-logo-real-private-e2e.test.mjs

@@ -36,6 +36,10 @@ test('local D1 atomically seals asset writes, enforces tenant FK and rolls back 
   const ownerListing=await scoped('a','owner','');
   assert.equal(ownerListing.status,200);
   assert.deepEqual((await ownerListing.json()).items.map(a=>a.id),[id]);
+  const exactOwnerAsset=await scoped('a','owner','/'+id);
+  assert.equal(exactOwnerAsset.status,200);
+  assert.equal((await exactOwnerAsset.json()).item.id,id);
+  assert.equal((await scoped('b','owner','/'+id)).status,404,'other tenant cannot fetch asset by exact ID');
   const otherTenantListing=await scoped('b','owner','');
   assert.equal(otherTenantListing.status,200);
   assert.deepEqual((await otherTenantListing.json()).items,[],'tenant B cannot enumerate tenant A');

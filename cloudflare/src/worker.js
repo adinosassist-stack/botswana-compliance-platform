@@ -14,6 +14,7 @@ import {inspectFoundationSourceMetadata,publicFoundationSourcePreflight,updateUn
 import {inspectActiveLegacyVatRules,publicActiveLegacyVatRules,isLegacyVat25DayDefinition} from "./regulatory-foundation-legacy-vat.js";
 import {handleEmployeeWorkflowRequest} from "./employee-workflow-api.js";
 import {handleStaffPublic,handleStaffManager} from "./employee-self-service.js";
+import {scheduleEntriesFromInput,parseReportSchedules,dueDeliveryReminders} from "./delivery-installation-reminders.js";
 import {handleEmployeeProposalReviewRequest} from "./employee-proposal-review-api.js";
 import {purgeDailyReportAttachments} from "./report-attachments-entry.js";
 import {handleFinanceRequest,financeSummary} from "./finance-core.js";
@@ -99,7 +100,8 @@ async function versionRuntimeResponse(response,request,url){
   headers.set("cache-control","no-store, max-age=0");headers.set("cdn-cache-control","no-store");headers.set("x-thebe-client-release",CLIENT_RUNTIME_RELEASE);
   if(request.method==="HEAD")return new Response(null,{status:response.status,statusText:response.statusText,headers});
   const html=await response.text(),versioned=html.replace(/src="(\/?js\/[^"?]+\.js)(?:\?[^"]*)?"/g,`src="$1?v=${CLIENT_RUNTIME_RELEASE}"`);
-  return new Response(versioned,{status:response.status,statusText:response.statusText,headers});
+  const reminderAssets='<link rel="stylesheet" href="/assets/delivery-reminder-notifications.css?v=20261115-multijob"><script defer src="/js/delivery-reminders-manager.js?v=20261115-multijob"></script>';
+  return new Response(versioned.replace("</body>",reminderAssets+"</body>"),{status:response.status,statusText:response.statusText,headers});
 }
 
 const PASSWORD_MIN_CHARS=12;
@@ -5544,7 +5546,10 @@ export default {
       const access=await reporterAccessFromToken(env,token);
       if(!access)return json({error:"reporting_link_invalid_or_expired"},404,PASSPORT_PUBLIC_HEADERS);
       const reportEnt=await entitlement(env,access.tenant_id,"operating_locations");if(!reportEnt.enabled)return json({error:"daily_reporting_not_in_active_plan"},402,PASSPORT_PUBLIC_HEADERS);
-      return json({employee:{name:access.full_name,roleTitle:access.role_title||""},location:{id:access.location_id,name:access.location_name,code:access.location_code||"",town:access.town||""},companyName:access.company_name,reportDate:gaboroneDate(),expiresAt:access.expires_at},200,PASSPORT_PUBLIC_HEADERS);
+      const reportingToday=gaboroneDate();
+      const ownToday=await env.DB.prepare("SELECT work_summary,wins,blockers,incidents,next_plan,kpi_json,needs_attention,revision_count FROM daily_employee_reports WHERE tenant_id=? AND employee_id=? AND location_id=? AND report_date=? LIMIT 1")
+        .bind(access.tenant_id,access.employee_id,access.location_id,reportingToday).first();
+      return json({employee:{name:access.full_name,roleTitle:access.role_title||""},location:{id:access.location_id,name:access.location_name,code:access.location_code||"",town:access.town||""},companyName:access.company_name,reportDate:reportingToday,expiresAt:access.expires_at,currentReportJobs:parseReportSchedules(ownToday?.kpi_json),currentReportDraft:ownToday?{workSummary:ownToday.work_summary||"",wins:ownToday.wins||"",blockers:ownToday.blockers||"",incidents:ownToday.incidents||"",nextPlan:ownToday.next_plan||"",kpis:safeJson(ownToday.kpi_json,{}),needsAttention:!!ownToday.needs_attention,revisionCount:Number(ownToday.revision_count||0)}:null,deliveryReminders:await dueDeliveryReminders(env,{tenantId:access.tenant_id,employeeId:access.employee_id,locationId:access.location_id,today:reportingToday})},200,PASSPORT_PUBLIC_HEADERS);
     }
     if(url.pathname==="/public/daily-reporting/submit"&&req.method==="POST"){
       if(!requestOriginAllowed(req,env))return json({error:"origin_failed"},403,PASSPORT_PUBLIC_HEADERS);
@@ -5560,7 +5565,9 @@ export default {
       if(reportDate>today||reportDate<oldestDate)return json({error:"report_date_outside_allowed_window",allowedFrom:oldestDate,allowedTo:today},409,PASSPORT_PUBLIC_HEADERS);
       const workSummary=boundedReportText(body.workSummary,2400),wins=boundedReportText(body.wins,1600),blockers=boundedReportText(body.blockers,1600),incidents=boundedReportText(body.incidents,1600),nextPlan=boundedReportText(body.nextPlan,1600);
       if(!workSummary&&!wins&&!blockers&&!incidents&&!nextPlan)return json({error:"report_content_required"},400,PASSPORT_PUBLIC_HEADERS);
-      const kpis={tasksCompleted:numericReportKpi(body?.kpis?.tasksCompleted,100000),customersHandled:numericReportKpi(body?.kpis?.customersHandled,1000000),revenueBwp:numericReportKpi(body?.kpis?.revenueBwp,100000000),incidentsCount:numericReportKpi(body?.kpis?.incidentsCount,10000),customLabel:boundedReportText(body?.kpis?.customLabel,60),customValue:numericReportKpi(body?.kpis?.customValue,100000000)};
+      const scheduleValidation=scheduleEntriesFromInput(body?.kpis);
+      if(scheduleValidation.error)return json({error:scheduleValidation.error},400,PASSPORT_PUBLIC_HEADERS);
+      const kpis={tasksCompleted:numericReportKpi(body?.kpis?.tasksCompleted,100000),customersHandled:numericReportKpi(body?.kpis?.customersHandled,1000000),revenueBwp:numericReportKpi(body?.kpis?.revenueBwp,100000000),incidentsCount:numericReportKpi(body?.kpis?.incidentsCount,10000),customLabel:boundedReportText(body?.kpis?.customLabel,60),customValue:numericReportKpi(body?.kpis?.customValue,100000000),...scheduleValidation.fields};
       const payload={workSummary,wins,blockers,incidents,nextPlan,kpis,needsAttention:!!body.needsAttention};
       let existing=await env.DB.prepare("SELECT * FROM daily_employee_reports WHERE tenant_id=? AND employee_id=? AND location_id=? AND report_date=? LIMIT 1").bind(access.tenant_id,access.employee_id,access.location_id,reportDate).first();
       let reportId=existing?.id||id(),revision=Number(existing?.revision_count||0),created=false,changed=false;
@@ -7208,7 +7215,7 @@ export default {
         return json({ok:true});
       }
       if(url.pathname==="/api/daily-reporting/dashboard"&&req.method==="GET"){
-        if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);const reportDate=String(url.searchParams.get("date")||gaboroneDate()),locationId=String(url.searchParams.get("locationId")||"")||null;if(!isoDateValid(reportDate))return json({error:"invalid_report_date"},400);return json(await dailyOpsDashboard(env,a.tenant_id,reportDate,locationId));
+        if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);const reportDate=String(url.searchParams.get("date")||gaboroneDate()),locationId=String(url.searchParams.get("locationId")||"")||null;if(!isoDateValid(reportDate))return json({error:"invalid_report_date"},400);const dashboard=await dailyOpsDashboard(env,a.tenant_id,reportDate,locationId);return json({...dashboard,deliveryReminders:await dueDeliveryReminders(env,{tenantId:a.tenant_id,locationId,today:gaboroneDate()})});
       }
       if(url.pathname==="/api/daily-reporting/summaries"&&req.method==="GET"){
         if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);const reportDate=String(url.searchParams.get("date")||gaboroneDate());
@@ -7546,6 +7553,13 @@ export default {
         if(action==="approve"&&body.bankFundsConfirmed!==true)return json({error:"bank_funds_confirmation_required"},400);
         if(action==="approve"&&body.bankAmountMatched!==true)return json({error:"bank_amount_match_required"},400);
         if(action==="approve"&&body.bankTransactionMatched!==true)return json({error:"bank_transaction_match_required"},400);
+        // This identity comes from the platform owner's direct bank inspection,
+        // NOT from the customer-supplied transfer reference. The existing
+        // payment_order_provider_payment_unique D1 index is the atomic replay fence.
+        if(action==="approve"&&(
+          typeof body.bankTransactionId!=="string"||
+          !/^[A-Z0-9][A-Z0-9._:/-]{5,127}$/.test(body.bankTransactionId)
+        ))return json({error:"bank_transaction_id_required"},400);
         const row=await env.DB.prepare(`SELECT m.*,o.amount_bwp,o.status order_status,o.order_type,o.provider,o.provider_payment_id,o.metadata_json
           FROM manual_payment_submissions m JOIN payment_orders o ON o.id=m.payment_order_id AND o.tenant_id=m.tenant_id WHERE m.id=? LIMIT 1`).bind(submissionId).first();
         if(!row)return json({error:"manual_payment_submission_not_found"},404);
@@ -7563,6 +7577,7 @@ export default {
           if(!changed.ok)return json({error:"manual_payment_review_conflict"},409);
           return json({ok:true,status:"rejected"});
         }
+        if(action==="approve"&&body.bankTransactionId===String(row.bank_reference||"").trim().toUpperCase())return json({error:"bank_transaction_must_be_bank_issued"},400);
         if(row.order_type!=="subscription"||String(row.provider||"")!=="manual_bank")return json({error:"manual_payment_order_invalid"},409);
         if(row.order_status==="refunded"||row.order_status==="canceled")return json({error:"payment_order_already_final",status:row.order_status},409);
         // A previous attempt may have already committed the paid order and
@@ -7579,7 +7594,7 @@ export default {
               AND f.fulfillment_status='applied' AND s.provider='manual_bank'
               AND s.plan=? AND s.status='active' AND datetime(s.current_period_ends_at)>datetime('now')
             LIMIT 1`).bind(row.payment_order_id,row.tenant_id,plan).first();
-          if(!applied||String(row.provider_payment_id||"")!==String(row.bank_reference||""))
+          if(!applied||String(row.provider_payment_id||"")!==body.bankTransactionId)
             return json({error:"paid_order_reconciliation_required"},409);
           settlement={ok:true,alreadySettled:true,recoveredExistingFulfillment:true};
         }else{
@@ -7587,7 +7602,7 @@ export default {
             WHERE id=? AND tenant_id=? AND payment_order_id=? AND status='submitted' AND bank_reference=?`)
             .bind(a.user_id,submissionId,row.tenant_id,row.payment_order_id,row.bank_reference).run();
           if(Number(claimed.meta?.changes||0)!==1&&row.status!=="reviewing")return json({error:"manual_payment_review_conflict"},409);
-          settlement=await applyVerifiedPaymentOrder(env,row.payment_order_id,{verified:true,status:"verified_paid",providerPaymentId:row.bank_reference,resultCode:"MANUAL_APPROVED"});
+          settlement=await applyVerifiedPaymentOrder(env,row.payment_order_id,{verified:true,status:"verified_paid",providerPaymentId:body.bankTransactionId,resultCode:"MANUAL_APPROVED"});
           if(!settlement.ok){
             await env.DB.prepare("UPDATE manual_payment_submissions SET status='submitted',reviewed_by_user_id=NULL WHERE id=? AND status='reviewing' AND reviewed_by_user_id=?").bind(submissionId,a.user_id).run();
             return json({error:"manual_payment_activation_failed",settlement},503);
@@ -7605,7 +7620,7 @@ export default {
             AND f.order_type='subscription' AND f.fulfillment_status='applied'
             AND s.provider='manual_bank' AND s.plan=? AND s.status='active'
             AND datetime(s.current_period_ends_at)>datetime('now') LIMIT 1`)
-          .bind(row.payment_order_id,row.tenant_id,row.bank_reference,plan).first();
+          .bind(row.payment_order_id,row.tenant_id,body.bankTransactionId,plan).first();
         if(!appliedNow)return json({error:"manual_payment_settlement_not_confirmed"},503);
         const mutation=env.DB.prepare(`UPDATE manual_payment_submissions SET status='approved',reviewed_at=CURRENT_TIMESTAMP,reviewed_by_user_id=?,rejection_reason=NULL
           WHERE id=? AND tenant_id=? AND payment_order_id=? AND bank_reference=? AND ((status='reviewing' AND reviewed_by_user_id=?) OR (status='submitted' AND reviewed_by_user_id IS NULL))
@@ -7613,11 +7628,11 @@ export default {
             JOIN subscriptions s ON s.tenant_id=o.tenant_id WHERE o.id=manual_payment_submissions.payment_order_id AND o.tenant_id=manual_payment_submissions.tenant_id
             AND o.status='paid' AND o.order_type='subscription' AND o.provider='manual_bank' AND o.provider_payment_id=?
             AND f.order_type='subscription' AND f.fulfillment_status='applied' AND s.provider='manual_bank' AND s.plan=? AND s.status='active'
-            AND datetime(s.current_period_ends_at)>datetime('now'))`).bind(a.user_id,submissionId,row.tenant_id,row.payment_order_id,row.bank_reference,a.user_id,row.bank_reference,plan);
+            AND datetime(s.current_period_ends_at)>datetime('now'))`).bind(a.user_id,submissionId,row.tenant_id,row.payment_order_id,row.bank_reference,a.user_id,body.bankTransactionId,plan);
         const completionReceipt=env.DB.prepare("INSERT INTO manual_payment_events(id,submission_id,payment_order_id,tenant_id,event_type,actor_user_id,event_data) SELECT ?,?,?,?,?,?,? WHERE changes()=1")
-          .bind(id(),submissionId,row.payment_order_id,row.tenant_id,"approved_and_activated",a.user_id,JSON.stringify({bankReference:row.bank_reference,amountBwp:row.amount_bwp}));
+          .bind(id(),submissionId,row.payment_order_id,row.tenant_id,"approved_and_activated",a.user_id,JSON.stringify({bankTransactionId:body.bankTransactionId,bankReference:row.bank_reference,amountBwp:row.amount_bwp}));
         const marked=await appendSealedAuditEvent(env,{tenantId:row.tenant_id,actorUserId:a.user_id,eventType:"MANUAL_PAYMENT_APPROVED",entityType:"user",entityId:a.user_id,
-          eventData:{paymentOrderId:row.payment_order_id,submissionId,bankReference:row.bank_reference,amountBwp:row.amount_bwp},mutation,completionReceipt});
+          eventData:{paymentOrderId:row.payment_order_id,submissionId,bankTransactionId:body.bankTransactionId,bankReference:row.bank_reference,amountBwp:row.amount_bwp},mutation,completionReceipt});
         if(!marked.ok)return json({error:"manual_payment_review_conflict"},409);
         return json({ok:true,status:"approved",activated:true,settlement});
       }

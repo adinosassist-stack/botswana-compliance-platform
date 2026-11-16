@@ -5,7 +5,7 @@
   if(!PUBLIC_PATHS.has(window.location.pathname))return;
 
   const doc=document;
-  const WHATSAPP_URL=`https://wa.me/26777723273?text=${encodeURIComponent("Hi Thebe Desk, I would like to know more.")}`;
+  const WHATSAPP_URL=`https://wa.me/26774583606?text=${encodeURIComponent("Hi Thebe Desk, I would like to know more.")}`;
   const make=(tag,className,text)=>{const node=doc.createElement(tag);if(className)node.className=className;if(text!=null)node.textContent=text;return node};
   const setText=(node,value)=>{if(node)node.textContent=value};
 

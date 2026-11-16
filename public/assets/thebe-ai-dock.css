@@ -2046,6 +2046,20 @@ body.thebe-ai-dock-open .thebe-ai-mode-rail:has([data-thebe-mode="goal_plan"]:no
 .thebe-ai-icon-btn{background:#292e35;color:#f4f5f6;border-color:#454c56}
 .thebe-ai-presence{color:#aab0b8}
 
+.thebe-agent-task-panel{
+  flex:0 0 auto;
+  min-width:0;
+  padding:12px;
+  border:1px solid var(--thebe-dock-line);
+  border-radius:12px;
+  background:var(--thebe-dock-panel);
+  color:var(--thebe-dock-ink);
+  overflow-wrap:anywhere;
+}
+.thebe-agent-task-panel ul{list-style:none;padding:0;margin:8px 0 0}
+.thebe-agent-task-panel li+li{margin-top:8px;padding-top:8px;border-top:1px solid var(--thebe-dock-line)}
+.thebe-agent-task-panel small,.thebe-agent-task-panel p{display:block;margin:4px 0 0;color:var(--thebe-dock-muted)}
+
 /* Separate full-duplex voice conversation entry next to the composer microphone. */
 #thebeAiDock .thebe-ai-conversation-voice{
   background:#f4f5f6;

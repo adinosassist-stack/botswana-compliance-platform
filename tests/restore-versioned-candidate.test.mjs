@@ -7,17 +7,17 @@ const sourceSha='a'.repeat(40);
 const record=(login,id)=>({id,user:{login},issue_url:'https://api.github.com/repos/adinosassist-stack/botswana-compliance-platform/issues/1950',body:'THEBE_VERSIONED_RESTORE_APPROVAL\n'+JSON.stringify(approvalContract(sourceSha))});
 const ownerRecord=record('adinosassist-stack',123),independentRecord=record('thusico',456);
 test('fresh candidate is exactly pinned to independently inspected source without widening target or approval scope',()=>{
- assert.equal(VERSIONED_RESTORE.key,'candidates/42293276778/1/production-d1.sql');
- assert.equal(VERSIONED_RESTORE.bytes,3393714);
- assert.equal(VERSIONED_RESTORE.sha256,'4e1674e65b7cae766ba07f1c009550b0aee60bca6fc08121ce91928d55f04a1a');
- assert.equal(VERSIONED_RESTORE.backupSourceSha,'68e36578c3ce57b8d0a8cf9b229310de35b67d5a');
+ assert.equal(VERSIONED_RESTORE.key,'candidates/42828130101/1/production-d1.sql');
+ assert.equal(VERSIONED_RESTORE.bytes,3537011);
+ assert.equal(VERSIONED_RESTORE.sha256,'de8507a6d550b20993ea07d5d70bf37795cc714f0460b9af44d4b58fa53d860f');
+ assert.equal(VERSIONED_RESTORE.backupSourceSha,'092e65eaba9a1e5ac0001e2b85eaf11a9ca5f0ba');
  assert.equal(VERSIONED_RESTORE.target,'be15acba-ba16-4704-9498-e296a164b3a2');
  assert.deepEqual(approvalContract(sourceSha),{
   scope:'IMPORT_VERSIONED_BACKUP_INTO_ISOLATED_D1_ONCE',
   sourceSha,target:'be15acba-ba16-4704-9498-e296a164b3a2',
-  candidateKey:'candidates/42293276778/1/production-d1.sql',
-  candidateSha256:'4e1674e65b7cae766ba07f1c009550b0aee60bca6fc08121ce91928d55f04a1a',
-  candidateBytes:3393714,backupSourceSha:'68e36578c3ce57b8d0a8cf9b229310de35b67d5a',
+  candidateKey:'candidates/42828130101/1/production-d1.sql',
+  candidateSha256:'de8507a6d550b20993ea07d5d70bf37795cc714f0460b9af44d4b58fa53d860f',
+  candidateBytes:3537011,backupSourceSha:'092e65eaba9a1e5ac0001e2b85eaf11a9ca5f0ba',
   retentionAndAccessAccepted:true
  });
  const stale={...ownerRecord,body:'THEBE_VERSIONED_RESTORE_APPROVAL\n'+JSON.stringify({
@@ -28,7 +28,7 @@ test('fresh candidate is exactly pinned to independently inspected source withou
 test('fresh backup restore approval is pinned to exact object and preparation source',()=>{
  for(const patch of [
   {candidateKey:'candidates/41892086437/1/production-d1.sql'},
-  {candidateKey:'candidates/42293276778/2/production-d1.sql'},
+  {candidateKey:'candidates/42828130101/2/production-d1.sql'},
   {backupSourceSha:'b'.repeat(40)},
   {candidateBytes:3277137},
   {candidateSha256:'e7736aebb9ddfabd378a0f198563dc9d9e127ff5cb9eaedff02237f58a4747e5'}

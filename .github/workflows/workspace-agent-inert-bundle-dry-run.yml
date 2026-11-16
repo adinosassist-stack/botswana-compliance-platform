@@ -1,0 +1,83 @@
+name: Workspace Agent inert no-route bundle dry-run
+
+on:
+  pull_request:
+    paths:
+      - "cloudflare/src/workspace-agent-staging-inert-entry.js"
+      - "cloudflare/wrangler.workspace-agent-staging.inert.toml"
+      - "scripts/workspace-agent-no-route-staging-plan.mjs"
+      - "docs/workspace-agent-no-route-staging-plan.json"
+      - "tests/workspace-agent-inert-staging-bundle.test.mjs"
+      - ".github/workflows/workspace-agent-inert-bundle-dry-run.yml"
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        required: true
+        type: string
+        description: "Exact current main SHA; dry-run only"
+
+permissions:
+  contents: read
+
+jobs:
+  safe-bundle:
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify exact current main when dispatched manually
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" = "$EXPECTED_SHA"
+      - name: Enforce source-only static and denial tests
+        run: |
+          node --check cloudflare/src/workspace-agent-staging-inert-entry.js
+          node --test tests/workspace-agent-inert-staging-bundle.test.mjs
+          node --test tests/workspace-agent-no-route-staging-plan.test.mjs
+      - name: Install locked build tools without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify inert Worker using Wrangler dry-run ONLY
+        run: |
+          set -euo pipefail
+          npx --no-install wrangler deploy --dry-run \
+            --config cloudflare/wrangler.workspace-agent-staging.inert.toml \
+            --outdir "$RUNNER_TEMP/workspace-agent-inert"
+          test -n "$(find "$RUNNER_TEMP/workspace-agent-inert" -type f -print -quit)"
+      - name: Record verified dry-run bundle provenance
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/workspace-agent-evidence"
+          cp -a "$RUNNER_TEMP/workspace-agent-inert"/. "$RUNNER_TEMP/workspace-agent-evidence/"
+          printf '%s\n' "$GITHUB_SHA" > "$RUNNER_TEMP/workspace-agent-evidence/COMMIT_SHA.txt"
+          printf '%s\n' "NO_ROUTE_NO_BINDING_NO_DEPLOYMENT" > "$RUNNER_TEMP/workspace-agent-evidence/RELEASE_STATUS.txt"
+          (cd "$RUNNER_TEMP/workspace-agent-evidence" && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
+          (cd "$RUNNER_TEMP/workspace-agent-evidence" && sha256sum -c SHA256SUMS.txt)
+      - name: Recheck current main at end of manually dispatched dry-run
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" = "$EXPECTED_SHA"
+      - name: Retain dry-run evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-agent-inert-dry-run-evidence
+          path: ${{ runner.temp }}/workspace-agent-evidence/
+          if-no-files-found: error
+          retention-days: 7

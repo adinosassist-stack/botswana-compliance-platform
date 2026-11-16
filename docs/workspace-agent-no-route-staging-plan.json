@@ -1,0 +1,66 @@
+{
+  "plan": {
+    "schema": "thebe.workspace-agent.no-route-plan.v1",
+    "phase": "offline-no-route",
+    "accountId": "ddd23cab31928a4bb3d4998df9b26d1d",
+    "worker": {
+      "name": "bw-workspace-agent-staging",
+      "workersDev": false,
+      "previewUrls": false,
+      "routes": [],
+      "customDomains": []
+    },
+    "database": {
+      "name": "bw-workspace-agent-staging",
+      "databaseId": null,
+      "syntheticOnly": true,
+      "productionData": false
+    },
+    "access": {
+      "hostname": null,
+      "mode": "none",
+      "publicIngress": false
+    },
+    "flags": {
+      "APP_ENV": "staging",
+      "WORKSPACE_AGENT_ADVISORY_SHELL_ENABLED": "false"
+    },
+    "review": {
+      "sourceSha": null,
+      "ownerApprovalId": null,
+      "reviewerApprovalId": null,
+      "independentReviewer": "thusico"
+    }
+  },
+  "inventory": {
+    "accountId": "ddd23cab31928a4bb3d4998df9b26d1d",
+    "observedAt": "2026-11-14 (read-only list APIs; NOT independently attested for deployment)",
+    "workers": [
+      "bw-billing-staging",
+      "bw-compliance-os",
+      "bw-compliance-os-ops-rehearsal",
+      "bw-corporate-assets-staging",
+      "bw-general-ai-private-queue-acceptance",
+      "bw-general-ai-staging"
+    ],
+    "databases": [
+      "bw-ai-exports-staging",
+      "bw-billing-staging",
+      "bw-compliance-os",
+      "bw-compliance-os-ops-rehearsal",
+      "bw-compliance-os-ops-restore",
+      "bw-compliance-os-ops-restore-candidate-20261103",
+      "bw-compliance-os-pop-staging",
+      "bw-compliance-os-regulatory-staging",
+      "bw-conversation-staging",
+      "bw-corporate-assets-staging",
+      "bw-employee-self-service-staging",
+      "bw-general-ai-auth-staging",
+      "bw-general-ai-private-queue-nonce-staging",
+      "bw-life-staging",
+      "na-compliance-disposable-20261107",
+      "na-sessions-disposable-20261107",
+      "na-source-review-disposable-v2-20261107"
+    ]
+  }
+}

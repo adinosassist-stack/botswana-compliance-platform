@@ -1,0 +1,31 @@
+name: Guest House isolated D1 qualification
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/src/guest-house-reservation-*.js'
+      - 'cloudflare/schema/guest-house-management-proposal.sql'
+      - 'server/guest-house-*.js'
+      - 'tests/guest-house-*.test.mjs'
+      - '.github/workflows/guest-house-isolated-d1-qualification.yml'
+permissions:
+  contents: read
+jobs:
+  isolated-d1:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Install pinned dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Validate guest-house command and source syntax
+        run: |
+          node --check cloudflare/src/guest-house-reservation-command.js
+          node --check cloudflare/src/guest-house-reservation-insert.js
+      - name: Verify guarded reservations against isolated local D1
+        run: node --test tests/guest-house-*.test.mjs

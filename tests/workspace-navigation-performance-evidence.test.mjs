@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
-import {summarizeWorkspaceNavigationPerformance} from '../scripts/workspace-navigation-performance-summary.mjs';
+import {summarizeWorkspaceNavigationPerformance,assertWorkspaceNavigationResponsiveness} from '../scripts/workspace-navigation-performance-summary.mjs';
 
 const synthetic=readFileSync(new URL('../scripts/production-synthetic-full-user-wrapper.mjs',import.meta.url),'utf8');
 
@@ -60,4 +60,29 @@ test('click task overlap and pending observer records are included once',async()
  const repeated=await vm.runInNewContext(code,context);
  assert.equal(repeated.longTaskCount,2,'drained entries must not be counted twice');
  assert.equal(repeated.longTaskTotalMs,1600);
+});
+
+test('navigation budget rejects missing, malformed or contradictory long-task measurements',()=>{
+ const valid={view:'dashboard',activateMs:30,settledFrameMs:70,longTaskSupported:true,
+  longTaskCount:1,longTaskTotalMs:80,worstLongTaskMs:80};
+ assert.doesNotThrow(()=>assertWorkspaceNavigationResponsiveness([valid]));
+ const invalid=[
+  {longTaskCount:undefined},{longTaskTotalMs:undefined},{worstLongTaskMs:undefined},
+  {longTaskCount:NaN},{longTaskCount:-1},{longTaskCount:0.5},
+  {longTaskTotalMs:NaN},{longTaskTotalMs:-1},{worstLongTaskMs:NaN},
+  {longTaskCount:0,longTaskTotalMs:80,worstLongTaskMs:80},
+  {longTaskCount:0,longTaskTotalMs:0,worstLongTaskMs:80},
+  {longTaskCount:1,longTaskTotalMs:20,worstLongTaskMs:20},
+  {longTaskCount:1,longTaskTotalMs:60,worstLongTaskMs:80},
+  {longTaskCount:2,longTaskTotalMs:90,worstLongTaskMs:60},
+  {longTaskSupported:false}
+ ];
+ for(const patch of invalid)
+  assert.throws(()=>assertWorkspaceNavigationResponsiveness([{...valid,...patch}]),
+    /Navigation blocking-task evidence unavailable/,JSON.stringify(patch));
+});
+test('navigation budget still rejects valid but slow blocking evidence',()=>{
+ const sample={view:'dashboard',activateMs:20,settledFrameMs:100,longTaskSupported:true,
+  longTaskCount:1,longTaskTotalMs:250,worstLongTaskMs:250};
+ assert.throws(()=>assertWorkspaceNavigationResponsiveness([sample]),/Navigation blocking freeze/);
 });

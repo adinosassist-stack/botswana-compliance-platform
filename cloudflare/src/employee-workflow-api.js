@@ -7,7 +7,9 @@ import { createEmployeeWorkflowHandlers } from "../../server/employee-workflow-h
  */
 export async function handleEmployeeWorkflowRequest({ req, env, session, readJson, roleAllowed }) {
   if (!session?.tenant_id || !session?.user_id) return new Response(JSON.stringify({error:"unauthenticated"}),{status:401,headers:{"content-type":"application/json"}});
-  const rolePermitted = roleAllowed(session,"owner","manager");
+  let rolePermitted = false;
+  try { rolePermitted = roleAllowed(session,"owner","manager") === true; }
+  catch { rolePermitted = false; }
   if (!rolePermitted) return new Response(JSON.stringify({ok:false,reason:"forbidden"}),{status:403,headers:{"content-type":"application/json","cache-control":"no-store"}});
   const principal = { tenantId: session.tenant_id, actorId: session.user_id,
     permissions: rolePermitted ? ["people.workflow.manage"] : [] };
@@ -23,7 +25,7 @@ export async function handleEmployeeWorkflowRequest({ req, env, session, readJso
     else if (method === "POST") {
     let body;
     try { body = await readJson(req); }
-    catch { return new Response(JSON.stringify({error:"invalid_json"}),{status:400,headers:{"content-type":"application/json"}}); }
+    catch { return new Response(JSON.stringify({error:"invalid_json"}),{status:400,headers:{"content-type":"application/json","cache-control":"no-store"}}); }
     response = await handlers.save({body});
     } else response = {status:405,body:{error:"method_not_allowed"}};
   } catch {

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {checkProtectedProvenanceContext,inspectProtectedProvenance} from '../scripts/corporate-assets-protected-provenance-preflight.mjs';
+import {inspectEarlyMain,requireFreshDispatchedMain} from '../scripts/corporate-assets-early-main-guard.mjs';
 import {ACCOUNT,WORKER,CANDIDATE,ROLLBACK,DB} from '../scripts/corporate-assets-v3-predeployment-attestation.mjs';
 const sha='a'.repeat(40),old='0'.repeat(39)+'1';
 const env={can_admins_bypass:false,protection_rules:[{type:'required_reviewers',prevent_self_review:true,
@@ -85,4 +86,23 @@ test('Cloudflare HTTP failure and malformed envelope fail closed',async()=>{
  const other=async(url,opts)=>url.endsWith('/deployments')?
   {ok:true,json:async()=>({success:false})}:m.request(url,opts);
  await assert.rejects(inspectProtectedProvenance({...args(),request:other}),/cloudflare_metadata_invalid/);
+});
+
+test('early main guard rejects stale, mismatched and malformed dispatch before protected review',async()=>{
+ const base={repository:info.repository,ref:'refs/heads/main',githubSha:sha,expectedSha:sha,token:'synthetic-github'};
+ const get=async(url,options)=>{
+  assert.equal(options.method,'GET');
+  assert.equal(url,'https://api.github.com/repos/adinosassist-stack/botswana-compliance-platform/commits/main');
+  return {ok:true,json:async()=>({sha})};
+ };
+ const result=await inspectEarlyMain({...base,request:get});
+ assert.equal(result.protectedRecheckStillRequired,true);
+ assert.equal(result.deploymentAuthorized,false);
+ assert.equal(requireFreshDispatchedMain({...base,liveSha:sha}),true);
+ await assert.rejects(inspectEarlyMain({...base,request:async()=>({ok:true,json:async()=>({sha:old})})}),/early_exact_main_sha_required/);
+ for(const bad of [{githubSha:old},{ref:'refs/heads/dev'},{expectedSha:old},{repository:'other/repo'}]){
+  await assert.rejects(inspectEarlyMain({...base,...bad,request:()=>{throw Error('should_not_call_network')}}),/early_exact_main_sha_required/);
+ }
+ await assert.rejects(inspectEarlyMain({...base,token:''}),/github_read_token_required/);
+ await assert.rejects(inspectEarlyMain({...base,request:async()=>({ok:false,status:403})}),/early_main_read_failed/);
 });

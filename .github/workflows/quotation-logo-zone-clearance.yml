@@ -1,0 +1,32 @@
+name: Quotation Template Zone Clearance
+on:
+  pull_request:
+    paths:
+      - 'scripts/check_quotation_logo_zones.py'
+      - 'scripts/check_quotation_editable_fields.py'
+      - 'tests/quotation-logo-editable-field-clearance.test.py'
+      - 'server/quotation-draft-lovely-pdf.mjs'
+      - 'tests/quotation-logo-zone-clearance.test.py'
+      - '.github/workflows/quotation-logo-zone-clearance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-clearance-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install PDF inspection tool for isolated offline test
+        run: python -m pip install --disable-pip-version-check pymupdf==1.26.7
+      - name: Check real PDF text and raster collision boundaries
+        run: |
+          python tests/quotation-logo-zone-clearance.test.py -v
+          python tests/quotation-logo-editable-field-clearance.test.py -v

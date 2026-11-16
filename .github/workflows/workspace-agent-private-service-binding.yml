@@ -1,0 +1,54 @@
+name: Workspace Agent private service binding
+
+on:
+  pull_request:
+    paths:
+      - "cloudflare/src/**"
+      - "cloudflare/wrangler.workspace-agent-staging.qualification-caller.toml"
+      - "cloudflare/wrangler.workspace-agent-staging.qualification.toml"
+      - "package.json"
+      - "package-lock.json"
+      - ".nvmrc"
+      - "tests/workspace-agent-private-service-binding.test.mjs"
+      - "tests/workspace-agent-protected-live-qualification.test.mjs"
+      - "scripts/workspace-agent-protected-live-qualification.mjs"
+      - ".github/workflows/workspace-agent-protected-live-qualification.yml"
+      - ".github/workflows/workspace-agent-private-service-binding.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-worker-d1:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Exercise the private binding with synthetic sessions and local D1
+        run: node --test tests/workspace-agent-private-service-binding.test.mjs tests/workspace-agent-protected-live-qualification.test.mjs
+      - name: Build the qualification target without uploading
+        env:
+          WRANGLER_SEND_METRICS: "false"
+        run: |
+          set -euo pipefail
+          npx --no-install wrangler deploy --dry-run \
+            --config cloudflare/wrangler.workspace-agent-staging.qualification.toml \
+            --outdir "$RUNNER_TEMP/workspace-agent-qualification"
+          test -s "$RUNNER_TEMP/workspace-agent-qualification/workspace-agent-staging-qualification-entry.js"
+      - name: Build the scheduled caller without uploading
+        env:
+          WRANGLER_SEND_METRICS: "false"
+        run: |
+          set -euo pipefail
+          npx --no-install wrangler deploy --dry-run \
+            --config cloudflare/wrangler.workspace-agent-staging.qualification-caller.toml \
+            --outdir "$RUNNER_TEMP/workspace-agent-qualification-caller"
+          test -s "$RUNNER_TEMP/workspace-agent-qualification-caller/workspace-agent-staging-qualification-caller.js"

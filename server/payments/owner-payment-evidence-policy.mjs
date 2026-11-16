@@ -43,6 +43,12 @@ export function evaluateOwnerPaymentEvidence({tenantId, invoice, bankEvidence, r
   if (priorBankAllocations.some(item => item.bankTransactionId === bankEvidence.bankTransactionId)) {
     return {decision: PAYMENT_DECISIONS.REVIEW_REQUIRED, reason: "bank_transaction_already_allocated"};
   }
+  // The current full-invoice allocation contract does not support split credits.
+  // Different bank transfers must not satisfy the same already-funded invoice twice.
+  // This is an advisory fail-closed check; DB unique constraints remain authoritative.
+  if (priorBankAllocations.some(item => item.invoiceId === invoice.id && item.tenantId === tenantId)) {
+    return {decision: PAYMENT_DECISIONS.REVIEW_REQUIRED, reason: "invoice_already_allocated"};
+  }
   if (!reviewer || reviewer.authenticated !== true || reviewer.role !== "owner" ||
       reviewer.tenantId !== tenantId || !validId(reviewer.actorId)) {
     return {decision: PAYMENT_DECISIONS.REVIEW_REQUIRED, reason: "owner_review_required"};

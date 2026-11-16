@@ -26,6 +26,9 @@ test('feature flag and role fail closed without storage access',async()=>{
 test('create, edit, history and service are tenant scoped and sealed',async()=>{
  const f=fixture();try{
   assert.equal((await f.call('','POST',asset)).status,201);
+  const exact=await (await f.call('/'+aid)).json();assert.equal(exact.item.id,aid);assert.equal(exact.item.name,asset.name);
+  assert.equal((await f.call('/'+aid,'GET',null,{tenant_id:'b',user_id:'b',role:'owner'})).status,404,'exact lookup cannot expose other tenant');
+  assert.equal((await f.call('/'+other)).status,404,'unknown asset is not found');
   const list=await (await f.call()).json();assert.equal(list.items.length,1);assert.equal(list.summary.bookValueMinor,19000000);
   assert.equal((await f.call('','GET',null,{tenant_id:'b',user_id:'b',role:'owner'})).status,200);
   assert.equal((await (await f.call('','GET',null,{tenant_id:'b',user_id:'b',role:'owner'})).json()).items.length,0);
@@ -78,5 +81,7 @@ test('keyset pages are bounded and totals cover the tenant rather than the page'
   for(let i=1;i<=101;i++)insert.run(i.toString(16).padStart(8,'0')+'-1111-4111-8111-111111111111');
   const first=await (await f.call()).json();assert.equal(first.items.length,100);assert.equal(first.summary.total,101);assert.equal(first.summary.bookValueMinor,10100);assert.ok(first.nextCursor);
   const second=await (await f.call('?after='+first.nextCursor)).json();assert.equal(second.items.length,1);assert.equal(second.nextCursor,null);assert.ok(!first.items.some(x=>x.id===second.items[0].id));
+  const exact=await (await f.call('/'+second.items[0].id)).json();
+  assert.equal(exact.item.id,second.items[0].id,'off-page item can be individually read back without changing the cursor');
  }finally{f.close()}
 });

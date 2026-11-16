@@ -1,0 +1,30 @@
+name: Workspace Agent Postgres read-only metadata qualification
+
+on:
+  pull_request:
+    paths:
+      - "server/workspace-agent-postgres-readonly-qualification.js"
+      - "tests/workspace-agent-postgres-readonly-qualification.test.mjs"
+      - ".github/workflows/workspace-agent-postgres-readonly-qualification.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax check
+        run: |
+          node --check server/workspace-agent-postgres-readonly-qualification.js
+          node --check tests/workspace-agent-postgres-readonly-qualification.test.mjs
+      - name: Verify read-only Postgres metadata probe contract (mock DB only)
+        run: node --test tests/workspace-agent-postgres-readonly-qualification.test.mjs

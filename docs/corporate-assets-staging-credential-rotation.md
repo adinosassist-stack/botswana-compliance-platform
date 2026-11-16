@@ -53,3 +53,98 @@ passing receipt means **only** the metadata binding guard passed — not a
 staging functional or production qualification.
 
 Source: https://developers.cloudflare.com/workers/configuration/secrets/
+
+## 10 November 2026 — deployed version differs from latest settings
+
+**Verified read-only against Cloudflare account metadata; no secret values accessed:**
+
+- Current `bw-corporate-assets-staging/settings` and `/secrets` endpoints report `SESSION_SECRET` and `AUDIT_INTEGRITY_SECRET` as `secret_text`. These endpoints may report the **latest candidate settings** rather than the code and bindings receiving traffic.
+- Current **active 100%-traffic deployment** remains Worker version **2**, UUID `5497120e-4ae6-4665-b96f-4b040d32a249`, created 5 November 2026. Direct `/versions/{id}` readback reports both sensitive bindings as **`plain_text`**. Do not label active version secure or claim secret rotation completed just because generic settings are safe.
+- A separate, **undeployed** version **3**, UUID `983daaea-1e6b-4359-9994-0b792578008b`, holds both as `secret_text` and preserves staging database isolation and write flags OFF, but has stale embedded source marker `062ef3ea4c598d38a56e15dba1691c30aa4e5c72`. It cannot be accepted as an exact-current-main Worker build or deployed merely to remove the plaintext without fresh source/credential provenance and independent authorization.
+- Public `workers.dev` subdomain and preview URLs were disabled at readback. Both staging assets and writes are OFF, and no customer traffic is routed to this Worker. These guards limit exposure but **do not fix historical plaintext credential handling**.
+
+**Updated metadata guard:** `scripts/corporate-assets-staging-remote-preflight.mjs` now reads the active deployment, each positive-traffic Worker version's actual bindings, and the deployment once again to reject drift. It requires `secret_text` for each credential, exact reviewed source SHA, correct isolated D1 and both feature/write flags OFF on active versions as well as latest settings. This is **read-only**, fails closed, emits only sanitized reason codes and cannot authorize deployment or attest compiled source bytes.
+
+**Next separate operational actions (not performed here):** Independently confirm that exposed old values have been invalidated and replaced by fresh unrelated staging-only secrets; qualify an exact-current-main private Worker version with authenticated bundle/provenance hashes, protected source upload and independent `thusico` approval. Only after version-level and route/account-wide exposure checks pass may an owner initiate a **separately approved protected staging deployment**. Keep the staging flags OFF until isolated authenticated write/E2E acceptance is separately approved. No production database migration, deployment, payment approval, feature activation or traffic shift is authorized by these notes.
+
+## Separate account-wide read-only exposure credential (10 November 2026)
+
+The protected remote preflight keeps `ASSETS_STAGING_CLOUDFLARE_TOKEN` scoped to the
+staging Worker and the two known zones. Its existing `Individual Workers Editor`
+policy must not be broadened to pass the Worker Domains inventory audit.
+
+The account-wide Worker Domains GET requires `Workers Scripts Read` at account scope.
+The protected environment must receive a **separate**, owner-provisioned,
+least-privilege credential named `ASSETS_STAGING_CLOUDFLARE_ACCOUNT_READ_TOKEN`.
+Use this only for GET `/accounts/{account}/workers/domains` and read-only
+GET `/zones?per_page=100`, with `Zone Read` restricted to the two known zones;
+the original token continues to read the Worker subdomain and the two zone routes.
+Both secrets must be nonempty and are never echoed. If account-read authorization
+is absent or fails, qualification **fails closed**; do not substitute account
+Scripts Write or disable the required inventory check.
+
+Owner provision/secure GitHub environment-secret update and `thusico` review are
+still required before dispatch from freshly verified exact main. This code does
+not create a token, upload a version, repair old staging credentials, activate
+assets, change traffic, or authorize deployment.
+
+## 10 November 2026: Sanitized Cloudflare HTTP 400 classification
+
+Protected exact-main read-only run #42883777963 succeeded through six tests and
+source provenance metadata then received HTTP 400 from GET account Worker Domains,
+using the new protected account-read credential. The endpoint itself returns GET
+200 for the connected account, but that does **not** prove the GitHub secret holds
+the correct token bytes. Never print, echo, commit, upload, or paste token values.
+
+The diagnostic guard rejects common pasted `Bearer ` prefixes, whitespace, and
+quotes before any Cloudflare API request. For failed Cloudflare responses, logging
+is restricted to HTTP status, operation name, and a bounded integer Cloudflare
+error code (when supplied). Raw message text, HTTP headers, authorization value,
+and response payload are never emitted. Numeric codes are classification clues,
+not evidence of authorization or deploy readiness. Keep fail-closed controls.
+
+Do not retry a protected workflow solely to inspect the token until this code is
+reviewed/merged with fresh exact-head CI and independent `thusico` approval.
+Owner can independently verify token with Cloudflare's token Verify endpoint and
+correct the protected GitHub secret *directly* if the value was miscopied, without
+sharing its bytes in GitHub comments, Actions logs, or chat.
+
+
+## 15 November 2026 — version-only secret candidate workflow hardening
+
+Latest protected exact-main read-only run
+[#43697633873](https://github.com/adinosassist-stack/botswana-compliance-platform/actions/runs/43697633873)
+was approved by `thusico`; the offline gate passed and the protected
+evidence gate correctly failed with
+`active_version_credential_safety_not_verified`. Version 2 still receives
+100% of the private staging deployment and still has `plain_text`
+credential-binding **types**. Read-only Cloudflare checks continue to show
+that `workers.dev`, preview URLs, and Assets write/activation flags are off.
+Do not assert that current active credentials were repaired.
+
+The existing `corporate-assets-protected-secret-candidate.yml` is a
+**separately authorized write-capable workflow**, NOT the read-only preflight.
+Its protected job must receive the dedicated account-read token, verify all
+known zone routes and Worker domains before and after, confirm the active
+legacy version's exact staging source marker and isolated D1, and prove that
+exactly one new **undeployed** candidate was created with `secret_text`
+types, inert flags, unchanged traffic, and no new public exposure.
+
+The Wrangler child receives only the Cloudflare Worker token and minimal OS
+variables. GitHub credentials, independent account inventory credentials,
+and other ambient secrets must not be inherited by the child. Neither
+secrets nor source bytes may appear in logs or artifacts.
+
+**Owner and reviewer authorization required separately:** no secret candidate
+may be created from a generic `GO`, prior read-only approval, PR CI, or the
+older `CREATE_ISOLATED_ASSETS_SOURCE_VERSION` permission. The
+`CREATE_PRIVATE_ASSET_SECRET_CANDIDATE` operation requires a fresh
+exact-main owner dispatch and independent `thusico` protected environment
+approval. No existing workflow is being dispatched by this code-only
+hardening work.
+
+A secret candidate version does **not** make the active version safe until
+a separately reviewed and authorized staging deployment. Even after
+staging credential remediation, current-main compiled source provenance
+and a subsequent exact-source version upload remain distinct release gates.
+Keep routes, previews, customer writes, D1 mutation and production off.

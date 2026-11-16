@@ -18,6 +18,14 @@ export function qualifyPhase({phase,mainSha,expectedSha,accountId,databaseId,tab
  const requests=tableNames.includes('payment_pop_upload_requests');
  const indexes=['payment_pop_documents_order_idx','payment_pop_documents_scan_idx'];
  const requestIndex=indexNames.includes('payment_pop_upload_requests_tenant_idx');
+ // Reject unknown POP-prefixed objects, including remnants of an incomplete
+ // or out-of-band migration. A catalog with extra POP objects is not clean.
+ const expectedPopObjects=phase==='070'?new Set():new Set([
+  'payment_pop_documents','payment_pop_documents_order_idx','payment_pop_documents_scan_idx'
+ ]);
+ need(![...tableNames,...indexNames].some(name=>
+  name.startsWith('payment_pop_')&&!expectedPopObjects.has(name)
+ ),phase+'_partial_or_replayed');
  if(phase==='070')need(!docs&&!requests&&!indexes.some(n=>indexNames.includes(n))&&!requestIndex&&!documentColumnNames.length&&!requestColumnNames.length,'070_partial_or_replayed');
  if(phase==='071'){
   need(docs&&indexes.every(n=>indexNames.includes(n)),'070_incomplete');

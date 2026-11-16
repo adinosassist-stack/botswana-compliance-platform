@@ -74,7 +74,7 @@ export async function applyPopProductionPhase(env,{request=fetch,read=readFileSy
   const backupAt=Date.parse(backup.updated_at);need(backupAt<=now()&&now()-backupAt<=120*60000,'backup_freshness');
   need(restore.path==='.github/workflows/isolated-operations-rehearsals.yml'&&restore.display_title==='Isolated operations RESTORE_APPROVED_BACKUP '+env.EXPECTED_SHA&&restore.head_sha===env.EXPECTED_SHA,'restore_run_scope');
   const settings=await cf('/workers/scripts/bw-compliance-os/settings');need(settings.success===true,'settings');
-  for(const name of ['POP_UPLOAD_STAGING_ENABLED','THEBE_AI_EXPORTS_ENABLED']){const b=settings.result?.bindings?.filter(x=>x.name===name);need(b?.length===1&&b[0].type==='plain_text'&&b[0].text==='false','feature_flags')}
+  for(const name of ['POP_UPLOAD_STAGING_ENABLED','EVIDENCE_UPLOADS_ENABLED','THEBE_AI_EXPORTS_ENABLED']){const b=settings.result?.bindings?.filter(x=>x.name===name);need(b?.length===1&&b[0].type==='plain_text'&&b[0].text==='false','feature_flags')}
   const identity=await cf('/d1/database/'+DATABASE);need(identity.success===true&&identity.result?.uuid===DATABASE&&identity.result?.name==='bw-compliance-os','database_identity');
   const finalMain=await gh('git/ref/heads/main');need(finalMain.object?.sha===env.EXPECTED_SHA,'main_drift');
   need(Date.parse(proof.expiresAt)>now(),'approval_expiry');

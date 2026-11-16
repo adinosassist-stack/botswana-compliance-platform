@@ -151,7 +151,7 @@ try{
       for(let i=0;i<100&&!captured;i++)await page.waitForTimeout(20);
       assert(captured,'workspace review submitted');assert.equal(Buffer.from(captured.attachments[0].data,'base64').toString(),'Sales total: P1200');
       assert(await plus.isDisabled(),'busy upload disabled');
-      resolveReview({mode:'ask',summary:'Sales total is P1200.',priorities:[],references:[{ref:'FILE-1',type:'user_attachment',label:'sales.txt'}],caveats:['User-supplied file']});
+      resolveReview({mode:'ask',answer:'Sales total is P1200.',summary:'Sales total is P1200.',priorities:[],references:[{ref:'FILE-1',type:'user_attachment',label:'sales.txt'}],caveats:['User-supplied file']});
       await page.waitForFunction(()=>!window.ThebeAiDock.state().textBusy);
       assert(await dock.locator('.thebe-ai-attachments').isHidden(),'successful review clears files');assert(await audio.isVisible());
       await dock.locator('input[type=file]').setInputFiles(file);
