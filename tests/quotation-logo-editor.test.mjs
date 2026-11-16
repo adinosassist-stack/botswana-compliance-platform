@@ -9,7 +9,7 @@ test("editor imports without DOM access and refuses missing root",()=>{
  assert.throws(()=>mountQuotationLogoEditor(null),/invalid_logo_editor_root/);
 });
 test("upload, resize, move, reset, save and keyboard controls wired",()=>{
- for(const token of ["type:'file'","type:'range'","pointerdown","pointermove","pointercancel","ArrowLeft","ArrowRight","Reset position","onUpload(file)","onSave(settings)"])
+ for(const token of ["type:'file'","type:'range'","pointerdown","pointermove","pointercancel","ArrowLeft","ArrowRight","Reset position","onUpload(selectedFile)","onSave(settings)"])
   assert.ok(source.includes(token),"expected control "+token);
 });
 test("file metadata and geometry guards remain active",()=>{
