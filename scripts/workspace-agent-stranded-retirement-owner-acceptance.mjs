@@ -21,7 +21,8 @@ export function assessOwnerStatement({comment,sha,actor}={}) {
  ok(typeof comment?.id==='number'&&Number.isSafeInteger(comment.id)&&comment.id>0,
    'owner_comment_id_invalid');
  ok(comment?.body===expectedOwnerStatement(sha),'owner_statement_missing_or_not_exact');
- ok(comment?.created_at===comment?.updated_at,'owner_comment_modified_after_creation');
+ ok(typeof comment?.created_at==='string' && !Number.isNaN(Date.parse(comment.created_at)) &&
+    comment.created_at===comment.updated_at,'owner_comment_modified_or_timestamp_unverified');
  return {statementVerified:reasons.length===0,reasons,
   independentReviewerApprovalStillRequired:true,destructiveOperationPerformed:false};
 }
