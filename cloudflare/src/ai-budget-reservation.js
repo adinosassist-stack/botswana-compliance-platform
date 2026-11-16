@@ -12,9 +12,10 @@ export async function reserveAiBudget(db,{tenantId,period,requestId,amountMicroU
  try{
    // No INSERT OR IGNORE: duplicate request IDs must not masquerade as new
    // budget grants. Trigger enforces the monetary ceiling atomically.
-   await db.prepare(`INSERT INTO ai_budget_reservation
+   const result=await db.prepare(`INSERT INTO ai_budget_reservation
      (tenant_id,period,request_id,amount_micro_usd) VALUES (?,?,?,?)`)
      .bind(tenantId,period,requestId,amountMicroUsd).run();
+   if(result?.success!==true)throw Error("ai_budget_write_unconfirmed");
    return {reserved:true};
  }catch{
    // Do not expose DB internals or accidentally allow a provider call.
