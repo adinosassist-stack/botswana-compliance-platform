@@ -2017,7 +2017,8 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const next=event?.detail?.state||"idle";
     const marketing=event?.detail?.mode==="marketing"||surfaceMode()==="public";
     if(next==="connecting"||next==="connected")openVoiceScreen();
-    if(next==="idle"||next==="error"||next==="failed")closeVoiceScreen();
+    if(next==="idle")closeVoiceScreen();
+    if(next==="error"||next==="failed")closeVoiceScreen();
     if(next==="connecting"){voiceInput="";voiceOutput="";renderVoiceTranscript();setPhase("connecting","Connecting…",marketing?"Opening the 60-second sample":"Opening the secure voice session")}
     else if(next==="connected")setPhase("ready","Voice connected",marketing?"Ask me about Thebe Desk":"Speak naturally — you can interrupt Thebe");
     else if(next==="closing")setPhase("thinking","Ending voice…","Closing the voice session");
