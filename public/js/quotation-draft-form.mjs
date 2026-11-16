@@ -40,7 +40,7 @@ function inputField(label,type,value="",attrs={}){
 function moneyString(cents){
  return Number.isSafeInteger(cents)?(cents/100).toFixed(2):"";
 }
-export function mountQuotationDraftForm(root,{capability,fetchImpl,csrfToken,initialDraft}={}){
+export function mountQuotationDraftForm(root,{capability,fetchImpl,csrfToken,initialDraft,draftStorageEnabled=false}={}){
  if(!root||typeof root.replaceChildren!=="function")throw Error("invalid_quotation_form_root");
  if(capability?.enabled!==true||capability?.authenticated!==true||
     capability?.canEditQuotations!==true)throw Error("quotation_draft_form_disabled");
@@ -51,7 +51,7 @@ export function mountQuotationDraftForm(root,{capability,fetchImpl,csrfToken,ini
  const section=el("section",null,{class:"thebe-qdf","aria-label":"Quotation draft editor"});
  const title=el("div");
  title.append(el("h2","Quotation preview"),
-  el("p","Enter customer details and download a draft PDF. Nothing is saved or issued.",{class:"qdf-muted"}));
+  el("p",draftStorageEnabled===true?"Edit, explicitly save, or preview your quotation. Nothing is issued.":"Enter customer details and download a draft PDF. Nothing is saved or issued.",{class:"qdf-muted"}));
  const form=el("form",null,{novalidate:"",autocomplete:"off"});
  const fieldsGrid=el("div",null,{class:"qdf-grid"}),fields={};
  for(const [key,label,type,max] of [
@@ -179,9 +179,48 @@ export function mountQuotationDraftForm(root,{capability,fetchImpl,csrfToken,ini
    }
   }
  });
+ // Applying an authenticated stored draft is an explicit user action.
+ // Validate the entire candidate before mutating even one visible field.
+ function applyDraft(candidate){
+  if(disposed||busy)throw Error("quotation_draft_editor_busy");
+  if(!candidate||typeof candidate!=="object"||Array.isArray(candidate)||
+     Object.keys(candidate).some(k=>!["quoteNumber","issueDate","customerName",
+      "customerContact","paymentMethod","items","discountCents"].includes(k))||
+     !Array.isArray(candidate.items)||candidate.items.length<1||candidate.items.length>8||
+     !Number.isSafeInteger(candidate.discountCents)||candidate.discountCents<0)
+   throw Error("invalid_quotation_stored_draft");
+  const prepared={
+   quoteNumber:candidate.quoteNumber,issueDate:candidate.issueDate,
+   customerName:candidate.customerName,customerContact:candidate.customerContact,
+   paymentMethod:candidate.paymentMethod??"",
+   discount:moneyString(candidate.discountCents),
+   items:candidate.items.map(item=>{
+    if(!item||typeof item!=="object"||Array.isArray(item)||
+       Object.keys(item).some(k=>!["description","quantity","unitPriceCents"].includes(k))||
+       !Number.isSafeInteger(item.quantity)||!Number.isSafeInteger(item.unitPriceCents)||
+       item.unitPriceCents<0)return {description:"",quantity:"",unitPrice:""};
+    return {description:item.description,quantity:String(item.quantity),
+     unitPrice:moneyString(item.unitPriceCents)};
+   })
+  };
+  // Fail closed: invalid saved data cannot partially overwrite local edits.
+  const checked=prepareQuotationFormDraft(prepared).draft;
+  if(checked.discountCents!==candidate.discountCents||
+     checked.items.some((item,i)=>item.unitPriceCents!==candidate.items[i].unitPriceCents||
+      item.quantity!==candidate.items[i].quantity))
+   throw Error("invalid_quotation_stored_draft");
+  for(const key of ["quoteNumber","issueDate","customerName","customerContact"])
+   fields[key].value=prepared[key];
+  paymentField.input.value=prepared.paymentMethod;
+  discountField.input.value=prepared.discount;
+  items.splice(0);itemsRoot.replaceChildren();
+  for(const item of prepared.items)addItem(item);
+  refresh();
+ }
  refresh();
  return Object.freeze({
   getDraft:()=>prepareQuotationFormDraft(values()).draft,
+  applyDraft,
   destroy(){disposed=true;root.replaceChildren()}
  });
 }
