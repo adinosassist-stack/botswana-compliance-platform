@@ -102,8 +102,12 @@ jobs:
           }
           console.log('SOURCE_TOPOLOGY script_pinned='+result.topologyMatches.scriptPinned+
               ' script_latest='+result.topologyMatches.scriptLatest);
-          if(!result.latestEqualsPinned)
-            console.log('BLOCK secret_inheritance_from_latest_uploaded');
+          if(!result.latestEqualsPinned || !result.topologyMatches.scriptPinned) {
+            console.error('::error::BLOCK secret_inheritance_from_latest_uploaded');
+            console.error('::error::BLOCK per_version_service_settings_mismatch');
+            process.exit(1);
+          }
+          console.log('PASS pinned_version_and_service_settings_reconciled');
           console.log('No Worker writes, secret contents, or deployment operations performed.');
           NODE
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
