@@ -20,7 +20,7 @@ const inventory=()=>({
   workerReferences:0,domainReferences:0,
   versions:[{id:"cc20de6e-ab08-409f-89a1-390e0eaf5be1",
     module:"quotation-private-bootstrap-deny-all.mjs",urls:[]}]
-});
+}});
 const check=(inv=inventory(),text=manifest,current=SHA,reviewed=SHA)=>
  verifyQuotationStagingPreflight({manifestText:text,inventory:inv,
   exactMainSha:current,reviewedMainSha:reviewed});
