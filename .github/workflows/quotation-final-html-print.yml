@@ -1,0 +1,37 @@
+name: Final Lovely HTML Print Source Qualification
+on:
+  pull_request:
+    paths:
+      - 'server/quotation-final-html-print.mjs'
+      - 'tests/quotation-final-html-print.test.mjs'
+      - '.github/workflows/quotation-final-html-print.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'server/quotation-final-html-print.mjs'
+      - 'tests/quotation-final-html-print.test.mjs'
+      - '.github/workflows/quotation-final-html-print.yml'
+permissions:
+  contents: read
+jobs:
+  no-activation-html-print:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and final HTML print data boundary
+        run: |
+          node --check server/quotation-final-html-print.mjs
+          node --test tests/quotation-final-html-print.test.mjs tests/quotation-final-html-contract.test.mjs tests/quotation-customizable-page-model.test.mjs
+      - name: Verify no runtime endpoint or deployment in source
+        run: |
+          node --input-type=module -e '
+            import fs from "node:fs";
+            const src=fs.readFileSync("server/quotation-final-html-print.mjs","utf8");
+            if(/export\s+default|addEventListener\s*\(\s*["\x27]fetch|cloudflare\.request|fetch\s*\(/.test(src))process.exit(1);
+          '
