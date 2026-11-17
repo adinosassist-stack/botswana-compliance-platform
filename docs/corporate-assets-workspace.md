@@ -143,12 +143,21 @@ runner**, does not authenticate the upstream evidence, and always returns
    canonical reviewed DDL and any other schema/index dependencies, and
    test it against a separate synthetic offline copy. Never replay the
    complete bootstrap bundle over this populated D1.
-4. Obtain new explicit owner **staging-D1 additive-write** approval pinned to
+4. The review-only
+   `scripts/corporate-assets-staging-additive-audit-plan.mjs` selects the
+   exact canonical `audit_integrity_checks` table DDL and its corresponding
+   integrity/failure indexes, but only when the supplied sanitized
+   reconciliation catalog shows **that table as the sole missing required
+   table**. Its tests run the three CREATE statements in ephemeral local
+   SQLite against existing synthetic tenant, user, asset and service rows,
+   proving preflight success, unchanged records and idempotence. It contains
+   **no remote D1 execution**, token, Worker deployment or approval path.
+5. Obtain new explicit owner **staging-D1 additive-write** approval pinned to
    the exact reviewed source SHA, independently approved `thusico` protected
    environment review, and a verified isolation/rollback plan before
    any actual D1 schema operation. Recheck the live schema immediately before
    the permitted operation to block drift or unexpected writers.
-5. Keep the private status-only Worker, all public routes, staging write
+6. Keep the private status-only Worker, all public routes, staging write
    flags and Assets activation disabled while credential-binding safety,
    source-byte provenance, session/audit continuity and authenticated
    staging E2E are qualified in separate approvals.
