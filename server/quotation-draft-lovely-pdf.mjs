@@ -62,8 +62,8 @@ export async function drawLovelyQuotationDraft({pdf,pdfLib,draft}={}){
  text("Date: "+checked.issueDate,471,251,113,8);
  // Customer block is in the otherwise blank upper-left page-one body area.
  text("CUSTOMER",42,204,160,8,bold);
- text(checked.customerName,42,223,325,10,bold);
- text(checked.customerContact,42,240,325,8);
+ text("Customer name: "+checked.customerName,42,223,325,10,bold);
+ text("Customer number: "+checked.customerContact,42,240,325,8);
  // 8 fixed-height rows, never expand outside the reviewed template's table.
  checked.items.forEach((item,i)=>{
   const top=337+i*40;
