@@ -47,3 +47,11 @@ Tests must be performed against the **deployed functional Worker / real isolated
 - Require green relevant CI at exact source SHA **and** independent current `thusico` approval; dismissed reviews do not count.
 - Keep PR draft and production manager login OFF until private functional E2E passes.
 - Production requires separate exact-SHA protected owner authorization, branch authorization coverage and independent review. No production activation from this checklist.
+
+## Access ingress design decision — reviewer must resolve before deployment
+
+A real browser E2E requires a reachable **Access-protected HTTPS origin**. `workers_dev=false` and `preview_urls=false` must remain disabled, but a dedicated protected custom hostname/route may be needed to reach the staging Worker. This is *not* the same as an unprotected public application: Cloudflare Access must intercept **before** the Worker and deny unauthenticated and unauthorized identities. Do not claim the site has no internet-visible hostname after a protected hostname is introduced.
+
+**Proposed minimum scope (not an authorization):** use a dedicated manager staging hostname in an owner-controlled zone, one dedicated Cloudflare Access self-hosted app, a deny-by-default allow policy for an explicitly named synthetic test identity, and a distinct Worker/D1/SESSION_SECRET. Avoid reusing the ThutoEdge Access app, any `thebedesk.com/app` production route, shared production session secrets or production databases.
+
+The owner must supply or approve the exact hostname and testing identity/policy; the reviewer must verify that DNS, Access application and route matching are exact and that Access is enforced **before** any Worker response. Do not enable `MANAGER_INVITATIONS_ACCESS_READY=true` based only on an app configuration; require actual negative probes first. If the exact origin or identity remains undecided, stop before resource creation and record the blocker.
