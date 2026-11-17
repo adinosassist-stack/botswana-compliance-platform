@@ -58,10 +58,11 @@ export function createManagerAccessRequestsHttp({db,origin,authenticate,verifyCs
     const id=newId();if(!validId(id))return json(503,{error:'request_unavailable'});
     await db.batch([
      db.prepare(guard(external
-       ?`EXISTS(SELECT 1 FROM users WHERE id=?) AND EXISTS(SELECT 1 FROM workspace_manager_request_codes c JOIN operating_locations l ON l.id=c.location_id AND l.tenant_id=c.tenant_id AND l.active=1 JOIN memberships m ON m.tenant_id=c.tenant_id AND m.user_id=c.created_by_user_id AND m.role='owner' AND m.status='active' WHERE c.tenant_id=? AND c.location_id=? AND c.code_hash=? AND c.revoked_at IS NULL AND julianday(c.expires_at)>julianday('now')) AND NOT EXISTS(SELECT 1 FROM memberships WHERE tenant_id=? AND user_id=? AND role IN ('owner','manager'))`
+       ?`EXISTS(SELECT 1 FROM users WHERE id=?) AND EXISTS(SELECT 1 FROM workspace_manager_request_codes c JOIN operating_locations l ON l.id=c.location_id AND l.tenant_id=c.tenant_id AND l.active=1 JOIN memberships m ON m.tenant_id=c.tenant_id AND m.user_id=c.created_by_user_id AND m.role='owner' AND m.status='active' WHERE c.tenant_id=? AND c.location_id=? AND c.code_hash=? AND c.revoked_at IS NULL AND c.consumed_at IS NULL AND julianday(c.expires_at)>julianday('now')) AND NOT EXISTS(SELECT 1 FROM memberships WHERE tenant_id=? AND user_id=? AND role IN ('owner','manager'))`
        :`EXISTS(SELECT 1 FROM memberships WHERE tenant_id=? AND user_id=? AND status='active' AND role IN ('reviewer','auditor')) AND EXISTS(SELECT 1 FROM operating_locations WHERE tenant_id=? AND id=? AND active=1)`
       )).bind(...(external?[userId,targetTenant,targetLocation,resolved.codeHash,targetTenant,userId]:[tenantId,userId,tenantId,targetLocation])),
-     db.prepare("INSERT INTO workspace_manager_access_requests(id,tenant_id,requester_user_id,location_id,reason) VALUES(?,?,?,?,?)").bind(id,targetTenant,userId,targetLocation,(body.reason||'').trim())
+     db.prepare("INSERT INTO workspace_manager_access_requests(id,tenant_id,requester_user_id,location_id,reason) VALUES(?,?,?,?,?)").bind(id,targetTenant,userId,targetLocation,(body.reason||'').trim()),
+     ...(external?[db.prepare("UPDATE workspace_manager_request_codes SET consumed_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND location_id=? AND code_hash=? AND revoked_at IS NULL AND consumed_at IS NULL AND julianday(expires_at)>julianday('now')").bind(targetTenant,targetLocation,resolved.codeHash)]:[])
     ]);
     return json(201,{ok:true,id,status:'pending',message:'Manager access requested; approval and provisioning required'});
    }
