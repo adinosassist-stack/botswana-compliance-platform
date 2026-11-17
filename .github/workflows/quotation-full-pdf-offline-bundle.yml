@@ -1,0 +1,40 @@
+name: Quotation Full PDF Source-only Bundle Qualification
+on:
+  pull_request:
+    paths:
+      - 'server/quotation-full-pdf-worker-entry.mjs'
+      - 'deploy/quotation-full-private-staging/wrangler.jsonc'
+      - 'tests/quotation-full-pdf-bundle-config.test.mjs'
+      - 'docs/quotation-full-private-pdf-bundle-qualification.md'
+      - '.github/workflows/quotation-full-pdf-offline-bundle.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'server/quotation-full-pdf-worker-entry.mjs'
+      - 'deploy/quotation-full-private-staging/wrangler.jsonc'
+      - 'tests/quotation-full-pdf-bundle-config.test.mjs'
+      - '.github/workflows/quotation-full-pdf-offline-bundle.yml'
+permissions:
+  contents: read
+jobs:
+  offline-full-private-quotation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Verify source-only manifest and existing deny-by-default contract
+        run: |
+          node --test tests/quotation-full-pdf-bundle-config.test.mjs tests/quotation-full-private-staging-worker.test.mjs tests/quotation-synthetic-private-integration.test.mjs
+          node --check server/quotation-full-pdf-worker-entry.mjs
+      - name: Install approved build tools and pinned PDF engine without lifecycle scripts
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund pdf-lib@1.17.1
+      - name: Offline compile full private quotation Worker - NO UPLOAD
+        run: npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/quotation-full-private-candidate" --config deploy/quotation-full-private-staging/wrangler.jsonc
