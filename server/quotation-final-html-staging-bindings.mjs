@@ -41,7 +41,7 @@ function verified(proof){
     proof.exactMainReviewed!==true||
     proof.ownerExactOperationApprovalRecorded!==true||
     proof.independentThusicoOperationApprovalRecorded!==true||
-    proof.stagingWorkerInert===false||
+    proof.stagingWorkerInert!==true||
     proof.publicAndPreviewUrlsDisabled!==true||
     proof.productionBindingsAbsent!==true||
     proof.browserBindingQualified!==true||
@@ -49,7 +49,7 @@ function verified(proof){
     proof.isolatedSyntheticTenantVerified!==true||
     proof.privateCallerBindingVerified!==true||
     proof.recoveryPlanApproved!==true||
-    !strong(proof.approvedSourceSha)||proof.approvedSourceSha!==proof.currentMainSha||
+    !/^[a-f0-9]{40}$/.test(proof.approvedSourceSha||'')||proof.approvedSourceSha!==proof.currentMainSha||
     Object.entries(EXPECTED).some(([k,v])=>proof[k]!==v))
    fail("lovely_html_staging_independent_preflight_required");
 }
