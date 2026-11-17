@@ -1,3 +1,4 @@
+import {createManagerScopedReadHttp} from './manager-invitations-scoped-read.js';
 import {createManagerAccessAdminHttp} from './manager-invitations-admin-http.js';
 import {createManagerInvitationD1Service} from './manager-invitations-d1-service.js';
 import {createManagerInvitationsHttp} from './manager-invitations-http.js';
@@ -5703,6 +5704,13 @@ export default {
       // restricted accounts in the isolated invitation table.
       if(managerInviteStage&&a.role==='manager'){
         const branchInvite=await env.DB.prepare("SELECT 1 scoped_manager FROM workspace_manager_invites WHERE tenant_id=? AND accepted_by_user_id=? AND status='accepted' LIMIT 1").bind(a.tenant_id,a.user_id).first();
+        if(branchInvite?.scoped_manager&&req.method==='GET'&&(
+          url.pathname==='/api/workspace/managers/my-locations'||
+          url.pathname==='/api/workspace/managers/my-reports')){
+          return createManagerScopedReadHttp({db:env.DB})(req,{
+            tenantId:a.tenant_id,userId:a.user_id,role:a.role
+          });
+        }
         if(branchInvite?.scoped_manager&&!(
           (url.pathname==='/api/auth/me'&&req.method==='GET')||
           (url.pathname==='/api/auth/logout'&&req.method==='POST')
