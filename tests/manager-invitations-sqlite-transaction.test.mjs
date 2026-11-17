@@ -33,7 +33,7 @@ function fixture(){
  sql.prepare("INSERT INTO users(id,email) VALUES(?,?)").run('owner-a','owner@demo.invalid');
  sql.prepare("INSERT INTO memberships(tenant_id,user_id,role,status) VALUES(?,?,?,?)").run('tenant-a','owner-a','owner','active');
  const db={
-  prepare(query){return {bind(...params){return {query,params}}};},
+  prepare(query){return {bind(...params){return {query,params,first:async()=>sql.prepare(query).get(...params),all:async()=>({results:sql.prepare(query).all(...params)})}}};},
   async batch(commands){
    sql.exec('BEGIN IMMEDIATE');
    try{
