@@ -25,6 +25,19 @@ export function createLockedQuotationBrowserRunPrivateHost({
  });
 }
 
+
+import {createIsolatedLovelyFinalHtmlStagingComposition}
+ from "../../server/quotation-final-html-staging-bindings.mjs";
+
+/** No HTTP route; exact independently attested, operator-only composition. */
+export function createReviewedStagingFinalQuotationHost({
+  env,proof,pdfLib
+}={}){
+ return createIsolatedLovelyFinalHtmlStagingComposition({
+  env,proof,pdfLib,launchBrowser:binding=>chromium.launch(binding)
+ });
+}
+
 export default Object.freeze({
  async fetch(){
   return new Response("Not Found",{status:404,headers:{
