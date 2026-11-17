@@ -1,0 +1,25 @@
+{
+  // REVIEW ONLY. Never deploy until exact harness source, config, internal
+  // invocation and cleanup receive owner + independent thusico approval.
+  "name": "bw-quotation-private-workflow-harness",
+  "main": "../../server/quotation-private-workflow-harness.mjs",
+  "compatibility_date": "2026-11-16",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [],
+  "workflows": [
+    {"name":"bw-quotation-private-rehearsal","binding":"QUOTATION_REHEARSAL","class_name":"QuotationPrivateRehearsal"}
+  ],
+  "services": [
+    {"binding":"QUOTATION_SERVICE","service":"bw-quotation-auth-private-staging"},
+    {"binding":"QUOTATION_SYNTHETIC_CALLER","service":"bw-quotation-synthetic-caller-staging"}
+  ],
+  "vars": {
+    "QUOTATION_HARNESS_ENABLED":"disabled",
+    "QUOTATION_HARNESS_SOURCE_SHA":"1172056ad4d189041a3eb15717cd7fa04b09698e",
+    "QUOTATION_WORKER_ARTIFACT_SHA256":"09eed552bc5ef79ff3ca6b5b57e56453c0a2326e330968d47dcab39937e93274",
+    "QUOTATION_CALLER_ARTIFACT_SHA256":"c1f650bf14454c5257dd827a9ef6857a2f15ece6e3918542d472b4929916340c",
+    "QUOTATION_HARNESS_REMOTE_PREFLIGHT":"unverified",
+    "QUOTATION_HARNESS_ROLLBACK":"untested"
+  }
+}
