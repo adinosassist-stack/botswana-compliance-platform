@@ -1,0 +1,44 @@
+name: Quotation Private Synthetic E2E
+on:
+  pull_request:
+    paths:
+      - 'tests/quotation-private-host-persistence-e2e.test.mjs'
+      - '.github/workflows/quotation-private-synthetic-e2e.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tests/quotation-private-host-persistence-e2e.test.mjs'
+      - '.github/workflows/quotation-private-synthetic-e2e.yml'
+permissions:
+  contents: read
+jobs:
+  authenticated-draft-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Authenticated synthetic draft create edit reload and denials
+        run: node --test tests/quotation-private-host-persistence-e2e.test.mjs tests/quotation-private-service-binding-host.test.mjs tests/quotation-private-runtime-candidate.test.mjs tests/quotation-synthetic-private-integration.test.mjs
+  isolated-real-pdf-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install real PDF engine only in isolated test container
+        run: |
+          mkdir -p "$RUNNER_TEMP/quotation-pdf-engine"
+          npm install --prefix "$RUNNER_TEMP/quotation-pdf-engine" --no-save --package-lock=false --ignore-scripts --no-audit --no-fund pdf-lib@1.17.1
+      - name: Render and reopen synthetic 2-page PDF
+        env:
+          QUOTATION_PDF_ENGINE_ROOT: ${{ runner.temp }}/quotation-pdf-engine
+        run: node --test tests/quotation-logo-real-private-e2e.test.mjs
