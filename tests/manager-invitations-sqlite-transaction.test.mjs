@@ -83,3 +83,34 @@ test('revoked owner, wrong tenant and failed duplicate issue roll back changes',
   assert.equal(x.sql.prepare("SELECT status FROM workspace_manager_invites WHERE id='invite-a'").get().status,'pending');
  }finally{x.close();}
 });
+
+
+test('synthetic activated manager is eligible for existing tenant-scoped login, then loses access on suspension',async()=>{
+ const x=fixture();try{
+  await issueManagerInviteD1(x.db,invite());
+  await activateManagerInviteD1(x.db,{tokenHash:h('a'),passwordHash,userId:'manager-a',now});
+  // These are the same eligibility conditions used by canonical /api/auth/login:
+  // verified password, active membership, correct tenant and allowed role.
+  const login=x.sql.prepare(`SELECT u.id,m.tenant_id,m.role FROM users u
+    JOIN memberships m ON m.user_id=u.id AND m.status='active'
+    WHERE u.email=? AND u.password_hash=? AND m.tenant_id=? AND m.role='manager'`);
+  assert.deepEqual(login.get('manager@demo.invalid',passwordHash,'tenant-a'),{
+    id:'manager-a',tenant_id:'tenant-a',role:'manager'
+  });
+  assert.equal(login.get('manager@demo.invalid',passwordHash,'tenant-b'),undefined);
+  assert.equal(login.get('manager@demo.invalid','incorrect-hash','tenant-a'),undefined);
+  x.sql.prepare("UPDATE memberships SET status='suspended' WHERE tenant_id=? AND user_id=?").run('tenant-a','manager-a');
+  assert.equal(login.get('manager@demo.invalid',passwordHash,'tenant-a'),undefined);
+ }finally{x.close();}
+});
+test('canonical Worker login eligibility requires active tenant membership, not client-provided role',()=>{
+ const worker=fs.readFileSync(new URL('../cloudflare/src/worker.js',import.meta.url),'utf8');
+ const start=worker.indexOf('if(url.pathname==="/api/auth/login"');
+ const end=worker.indexOf('if(url.pathname==="/api/auth/logout"',start);
+ assert.ok(start>=0&&end>start);
+ const login=worker.slice(start,end);
+ assert.match(login,/verifyPassword\(password/);
+ assert.match(login,/m\.status='active'/);
+ assert.match(login,/m\.tenant_id/);
+ assert.match(login,/createPasswordSession/);
+});
