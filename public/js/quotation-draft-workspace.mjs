@@ -36,3 +36,7 @@ export function mountQuotationDraftWorkspace(root,{
   destroy(){manager.destroy();editor.destroy();root.replaceChildren()}
  });
 }
+
+// Private review-only editor; calling code must explicitly supply the extra
+// canCustomizeQuotationPreview capability. No router or production mount here.
+export {mountQuotationCustomizablePage} from "./quotation-customizable-page.mjs";

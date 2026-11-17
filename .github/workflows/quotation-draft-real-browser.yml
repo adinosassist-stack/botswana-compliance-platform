@@ -4,6 +4,11 @@ on:
     paths:
       - 'public/js/quotation-draft-form.mjs'
       - 'public/js/quotation-draft-form-model.mjs'
+      - 'public/js/quotation-customizable-page.mjs'
+      - 'public/js/quotation-draft-workspace.mjs'
+      - 'public/js/quotation-customizable-page-model.mjs'
+      - 'tests/quotation-customizable-page-model.test.mjs'
+      - 'tests/quotation-customizable-page-browser.test.mjs'
       - 'public/js/quotation-draft-api-client.mjs'
       - 'tests/quotation-draft-real-browser.test.mjs'
       - '.github/workflows/quotation-draft-real-browser.yml'
@@ -36,4 +41,6 @@ jobs:
       - name: Exercise feature-gated quotation editor in real Chromium
         env:
           QUOTATION_BROWSER_ENGINE_ROOT: ${{ runner.temp }}/quotation-browser-engine
-        run: node --test tests/quotation-draft-real-browser.test.mjs
+        run: |
+          node --test tests/quotation-customizable-page-model.test.mjs
+          node --test tests/quotation-draft-real-browser.test.mjs tests/quotation-customizable-page-browser.test.mjs

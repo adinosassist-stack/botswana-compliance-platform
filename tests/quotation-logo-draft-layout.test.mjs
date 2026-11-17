@@ -61,3 +61,12 @@ test("unused banking fields cannot be silently ignored on a PDF preview",async()
   }}),/unsupported_quotation_field/);
  }
 });
+
+test("existing private draft PDF explicitly labels the customer's name and number",async()=>{
+ const h=harness();
+ await drawLovelyQuotationDraft({pdf:h.pdf,pdfLib:h.pdfLib,draft:{
+  ...draft(),customerContact:"+267 72 111 222"
+ }});
+ assert.ok(h.written.some(row=>row.v==="Customer name: Synthetic Customer"));
+ assert.ok(h.written.some(row=>row.v==="Customer number: +267 72 111 222"));
+});
