@@ -1,3 +1,5 @@
+import {readFile} from "node:fs/promises";
+import {quotationBrowserPreview} from "../cloudflare/src/quotation-browser-preview.js";
 /**
  * Real isolated Chromium print acceptance for owner-selected final Lovely HTML.
  * Synthetic data only; no service, real template, credentials or customer data.
@@ -134,4 +136,39 @@ test("sanitized private PNG logo is visible twice in the actual A4 PDF preview D
  });
  assert.equal(result.pageCount,2);
  assert.equal((await pdfLib.PDFDocument.load(result.bytes)).getPageCount(),2);
+});
+
+
+test("signed-in preview loads the editor and prints two A4 pages without Browser Run",async()=>{
+ const origin="https://quotation-preview.test";
+ const path="/app/quotations/preview/";
+ const response=await quotationBrowserPreview(new Request(origin+path),{
+   THEBE_QUOTATION_PREVIEW_TENANT_ID:"synthetic-lovely"
+ },async()=>Response.json({user:{
+   id:"synthetic-owner",tenantId:"synthetic-lovely",role:"owner",onboardingComplete:true
+ }}));
+ assert.equal(response.status,200);
+ const page=await browser.newPage({viewport:{width:1280,height:960}});
+ try{
+  await page.addInitScript(()=>{window.printCalls=0;window.print=()=>{window.printCalls++}});
+  const modules=new Set(["/js/quotation-customizable-page.mjs","/js/quotation-customizable-page-model.mjs"]);
+  await page.route(origin+"/**",async route=>{
+   const requestPath=new URL(route.request().url()).pathname;
+   if(requestPath===path)return route.fulfill({status:200,headers:Object.fromEntries(response.headers),body:await response.text()});
+   if(!modules.has(requestPath))return route.abort();
+   return route.fulfill({contentType:"text/javascript",body:await readFile(new URL("../public"+requestPath,import.meta.url))});
+  });
+  await page.goto(origin+path);
+  await page.locator("textarea").fill("Synthetic contract terms for browser acceptance.");
+  await page.getByRole("button",{name:"Print / Save PDF"}).click();
+  assert.equal(await page.evaluate(()=>window.printCalls),1);
+  await page.emulateMedia({media:"print"});
+  const pdf=await pdfLib.PDFDocument.load(await page.pdf({format:"A4",preferCSSPageSize:true}));
+  assert.equal(pdf.getPageCount(),2);
+  for(const sheet of pdf.getPages()){
+   assert.ok(Math.abs(sheet.getWidth()-595.28)<1);
+   assert.ok(Math.abs(sheet.getHeight()-841.89)<1);
+  }
+  assert.match(await page.locator(".qcp-stage").innerText(),/Synthetic contract terms for browser acceptance/);
+ }finally{await page.close()}
 });

@@ -4,12 +4,18 @@ on:
     paths:
       - 'server/quotation-final-html-print.mjs'
       - 'tests/quotation-final-html-print.test.mjs'
+      - 'cloudflare/src/quotation-browser-preview.js'
+      - 'cloudflare/src/production-entry.js'
+      - 'tests/quotation-browser-preview.test.mjs'
       - '.github/workflows/quotation-final-html-print.yml'
   push:
     branches: [main]
     paths:
       - 'server/quotation-final-html-print.mjs'
       - 'tests/quotation-final-html-print.test.mjs'
+      - 'cloudflare/src/quotation-browser-preview.js'
+      - 'cloudflare/src/production-entry.js'
+      - 'tests/quotation-browser-preview.test.mjs'
       - '.github/workflows/quotation-final-html-print.yml'
 permissions:
   contents: read
@@ -28,6 +34,8 @@ jobs:
         run: |
           node --check server/quotation-final-html-print.mjs
           node --test tests/quotation-final-html-print.test.mjs tests/quotation-final-html-contract.test.mjs tests/quotation-customizable-page-model.test.mjs
+      - name: Check quotation preview route authorization
+        run: node --test tests/quotation-browser-preview.test.mjs
       - name: Verify no runtime endpoint or deployment in source
         run: |
           node --input-type=module -e '
