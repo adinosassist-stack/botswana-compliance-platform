@@ -18,6 +18,7 @@ on:
       - 'tests/quotation-private-host-session-gate.test.mjs'
       - 'server/quotation-private-d1-session-verifier.mjs'
       - 'tests/quotation-private-d1-session-verifier.test.mjs'
+      - 'tests/quotation-private-auth-workerd-d1.test.mjs'
       - 'tests/quotation-logo-web-png-sanitizer.test.mjs'
       - 'tests/quotation-logo-web-png-workerd.test.mjs'
       - '.github/workflows/quotation-logo-real-pdf.yml'
@@ -64,4 +65,4 @@ jobs:
       - name: Install locked runtime emulation toolchain (no scripts)
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Verify sanitizer against actual local workerd engine
-        run: node --test tests/quotation-logo-web-png-workerd.test.mjs
+        run: node --test tests/quotation-logo-web-png-workerd.test.mjs tests/quotation-private-auth-workerd-d1.test.mjs
