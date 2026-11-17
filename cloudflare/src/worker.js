@@ -5697,6 +5697,18 @@ export default {
       if(!requestOriginAllowed(req,env))return json({error:"origin_failed"},403);
       if(!mutationCsrfOk(req,a))return json({error:"csrf_failed"},403);
       if(!workspaceSessionRole(a)&&!selfServiceApi(url.pathname,req.method))return json({error:"workspace_role_forbidden"},403);
+      // #2578: fail closed for newly invited branch managers until per-branch
+      // read AND write enforcement is implemented and independently qualified.
+      // Existing managers are not affected; activated invitations identify the
+      // restricted accounts in the isolated invitation table.
+      if(managerInviteStage&&a.role==='manager'){
+        const branchInvite=await env.DB.prepare("SELECT 1 scoped_manager FROM workspace_manager_invites WHERE tenant_id=? AND accepted_by_user_id=? AND status='accepted' LIMIT 1").bind(a.tenant_id,a.user_id).first();
+        if(branchInvite?.scoped_manager&&!(
+          (url.pathname==='/api/auth/me'&&req.method==='GET')||
+          (url.pathname==='/api/auth/logout'&&req.method==='POST')
+        ))return json({error:'manager_branch_access_pending'},403);
+      }
+
       if(managerInviteStage&&req.method==='POST'&&
         (url.pathname==='/api/workspace/managers/invitations/revoke'||url.pathname==='/api/workspace/managers/suspend')){
         const handler=createManagerAccessAdminHttp({
