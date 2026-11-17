@@ -1,3 +1,5 @@
+import {createManagerInvitationD1Service} from './manager-invitations-d1-service.js';
+import {createManagerInvitationsHttp} from './manager-invitations-http.js';
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./regulatory-pack-registry.js";
 import {advisorProviderInput,advisorProviderOutput} from "./advisor-provider-contract.js";
 import {handlePopHttp} from "./payment-pop-http.js";
@@ -5672,12 +5674,43 @@ export default {
         signature:row.receipt_signature,issuedAt:row.issued_at,snapshot:receiptSnapshot},200,PASSPORT_PUBLIC_HEADERS);
     }
 
+    // #2578: manager onboarding is STAGING ONLY and default off.
+    // No production D1 writes or public activation without a separately reviewed release.
+    const managerInviteStage=String(env.APP_ENV||'').toLowerCase()==='staging'&&
+      String(env.MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED||'').toLowerCase()==='true';
+    const isManagerInviteActivation=url.pathname==='/api/auth/manager-invite/accept'&&req.method==='POST';
+    if(isManagerInviteActivation&&managerInviteStage){
+      const svc=createManagerInvitationD1Service({db:env.DB,hashPassword});
+      const handler=createManagerInvitationsHttp({
+        service:svc, origin:String(env.PUBLIC_ORIGIN||''),
+        authenticateOwner:async()=>null,verifyCsrf:async()=>false,
+        rateLimit:async(r,scope)=>{
+          const result=await authRateLimit(env,r,scope,{limit:10,windowSeconds:900});return result.ok===true;
+        }
+      });
+      return handler(req);
+    }
     if(url.pathname.startsWith("/api/")){
       const a=await auth(req,env);
       if(!a)return json({error:"unauthenticated"},401);
       if(!requestOriginAllowed(req,env))return json({error:"origin_failed"},403);
       if(!mutationCsrfOk(req,a))return json({error:"csrf_failed"},403);
       if(!workspaceSessionRole(a)&&!selfServiceApi(url.pathname,req.method))return json({error:"workspace_role_forbidden"},403);
+      if(managerInviteStage&&url.pathname==='/api/workspace/managers/invitations'&&req.method==='POST'){
+        const svc=createManagerInvitationD1Service({db:env.DB,hashPassword});
+        const handler=createManagerInvitationsHttp({
+          service:svc,origin:String(env.PUBLIC_ORIGIN||''),
+          authenticateOwner:async()=>({
+            role:a.role,membershipStatus:'active',userId:a.user_id,tenantId:a.tenant_id
+          }),
+          verifyCsrf:async()=>mutationCsrfOk(req,a),
+          rateLimit:async(r,scope)=>{
+            const result=await authRateLimit(env,r,scope,{limit:10,windowSeconds:900});return result.ok===true;
+          }
+        });
+        return handler(req);
+      }
+
       if(req.method==="GET"&&!restrictedWorkspaceReadAllowed(url.pathname,a.role))return json({error:"workspace_role_read_forbidden"},403);
       const staffManager=await handleStaffManager({request:req,url,env,auth:a,json,readJson,id});
       if(staffManager)return staffManager;
