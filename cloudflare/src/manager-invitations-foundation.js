@@ -41,7 +41,7 @@ export async function generateManagerInvite(cryptoApi=globalThis.crypto,now=Date
     expiresAt:new Date(now+MANAGER_INVITE_TTL_MS).toISOString()});
 }
 export function canConsumeManagerInvite(record,now=Date.now()){
-  return Boolean(record&&record.status==='pending'&&record.usedAt==null&&
+  return Boolean(record&&record.status==='pending'&&record.acceptedAt==null&&record.usedAt==null&&
     Number.isFinite(Date.parse(record.expiresAt))&&Date.parse(record.expiresAt)>now);
 }
 // IMPORTANT: persistence must atomically consume the hashed token, and validate
