@@ -24,12 +24,13 @@ test('only approved request is eligible for owner-initiated atomic manager provi
  assert.match(sql,/status='approved_for_provisioning'/);
  assert.match(sql,/operating_locations WHERE tenant_id=\?/);
  assert.match(sql,/UPDATE memberships SET role='manager'/);
+ assert.match(sql,/INSERT INTO memberships/);
  assert.match(sql,/INSERT INTO workspace_manager_location_grants/);
  assert.match(sql,/status='provisioned'/);
  assert.match(sql,/DELETE FROM sessions/);
  assert.match(sql,/manager_access_request_provisioned/);
  assert.deepEqual(stmts[1].args,['tenant-a','member-a']);
- assert.deepEqual(stmts[2].args,['tenant-a','member-a','branch-a','owner-a']);
+ assert.deepEqual(stmts[3].args,['tenant-a','member-a','branch-a','owner-a']);
 });
 test('provisioning rejects missing approved request or owner self promotion',async()=>{
  await assert.rejects(()=>provisionManagerAccessD1(null,{}),/d1_binding_required/);
