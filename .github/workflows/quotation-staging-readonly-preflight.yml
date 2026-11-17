@@ -1,0 +1,30 @@
+name: Quotation Staging Read-Only Identity Preflight
+on:
+  pull_request:
+    paths:
+      - 'scripts/quotation-staging-readonly-preflight.mjs'
+      - 'tests/quotation-staging-readonly-preflight.test.mjs'
+      - 'deploy/quotation-private-staging/wrangler.jsonc'
+      - '.github/workflows/quotation-staging-readonly-preflight.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/quotation-staging-readonly-preflight.mjs'
+      - 'tests/quotation-staging-readonly-preflight.test.mjs'
+      - 'deploy/quotation-private-staging/wrangler.jsonc'
+      - '.github/workflows/quotation-staging-readonly-preflight.yml'
+permissions:
+  contents: read
+jobs:
+  readonly-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prove staging isolation and deny any public config drift
+        run: node --test tests/quotation-staging-readonly-preflight.test.mjs
