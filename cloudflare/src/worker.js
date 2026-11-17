@@ -5340,8 +5340,9 @@ export default {
         String(env.MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED||'').toLowerCase()==='true'&&
       String(env.MANAGER_INVITATIONS_SCHEMA_READY||'').toLowerCase()==='true'&&
       String(env.MANAGER_INVITATIONS_ACCESS_READY||'').toLowerCase()==='true'&&selected.role==='manager'){
-        const scoped=await env.DB.prepare("SELECT 1 ok FROM workspace_manager_invites WHERE tenant_id=? AND accepted_by_user_id=? AND status='accepted' UNION ALL SELECT 1 ok FROM workspace_manager_access_requests WHERE tenant_id=? AND requester_user_id=? AND status='provisioned' LIMIT 1").bind(selected.tenant_id,u.id,selected.tenant_id,u.id).first();
-        if(scoped?.ok)managerLandingPath='/manager-invite/dashboard/';
+        const scoped=await env.DB.prepare("SELECT 1 ok FROM workspace_manager_invites WHERE tenant_id=? AND accepted_by_user_id=? AND status='accepted' LIMIT 1").bind(selected.tenant_id,u.id).first();
+        const requested=(!scoped?.ok&&String(env.MANAGER_ACCESS_REQUESTS_ENABLED||'').toLowerCase()==='true'&&String(env.MANAGER_ACCESS_PROVISIONING_ENABLED||'').toLowerCase()==='true')?await env.DB.prepare("SELECT 1 ok FROM workspace_manager_access_requests WHERE tenant_id=? AND requester_user_id=? AND status='provisioned' LIMIT 1").bind(selected.tenant_id,u.id).first():null;
+        if(scoped?.ok||requested?.ok)managerLandingPath='/manager-invite/dashboard/';
       }
       return json({ok:true,csrfToken:sess.csrf,...(managerLandingPath?{landingPath:managerLandingPath}:{}),user:{id:u.id,email:u.email,displayName:u.display_name,role:selected.role,tenantId:selected.tenant_id,tenantName:selected.tenant_name}},200,{"set-cookie":sessionCookie(sess.raw)});
     }
@@ -5734,8 +5735,10 @@ export default {
       // Existing managers are not affected; activated invitations identify the
       // restricted accounts in the isolated invitation table.
       if(managerInviteStage&&a.role==='manager'){
-        const branchInvite=await env.DB.prepare("SELECT 1 scoped_manager FROM workspace_manager_invites WHERE tenant_id=? AND accepted_by_user_id=? AND status='accepted' UNION ALL SELECT 1 scoped_manager FROM workspace_manager_access_requests WHERE tenant_id=? AND requester_user_id=? AND status='provisioned' LIMIT 1").bind(a.tenant_id,a.user_id,a.tenant_id,a.user_id).first();
-        if(branchInvite?.scoped_manager&&req.method==='GET'&&(
+        const branchInvite=await env.DB.prepare("SELECT 1 scoped_manager FROM workspace_manager_invites WHERE tenant_id=? AND accepted_by_user_id=? AND status='accepted' LIMIT 1").bind(a.tenant_id,a.user_id).first();
+        const provisionedManager=(!branchInvite?.scoped_manager&&String(env.MANAGER_ACCESS_REQUESTS_ENABLED||'').toLowerCase()==='true'&&String(env.MANAGER_ACCESS_PROVISIONING_ENABLED||'').toLowerCase()==='true')?await env.DB.prepare("SELECT 1 scoped_manager FROM workspace_manager_access_requests WHERE tenant_id=? AND requester_user_id=? AND status='provisioned' LIMIT 1").bind(a.tenant_id,a.user_id).first():null;
+        const isScopedManager=!!(branchInvite?.scoped_manager||provisionedManager?.scoped_manager);
+        if(isScopedManager&&req.method==='GET'&&(
           url.pathname==='/api/workspace/managers/my-locations'||
           url.pathname==='/api/workspace/managers/my-reports'||
           url.pathname==='/api/workspace/managers/my-dashboard')){
@@ -5743,7 +5746,7 @@ export default {
             tenantId:a.tenant_id,userId:a.user_id,role:a.role
           });
         }
-        if(branchInvite?.scoped_manager&&!(
+        if(isScopedManager&&!(
           (url.pathname==='/api/auth/me'&&req.method==='GET')||
           (url.pathname==='/api/auth/logout'&&req.method==='POST')
         ))return json({error:'manager_branch_access_pending'},403);
@@ -5803,8 +5806,9 @@ export default {
       if(url.pathname==="/api/auth/me"&&req.method==="GET"){
         let managerLandingPath=null;
         if(managerInviteStage&&a.role==='manager'){
-          const scoped=await env.DB.prepare("SELECT 1 ok FROM workspace_manager_invites WHERE tenant_id=? AND accepted_by_user_id=? AND status='accepted' UNION ALL SELECT 1 ok FROM workspace_manager_access_requests WHERE tenant_id=? AND requester_user_id=? AND status='provisioned' LIMIT 1").bind(a.tenant_id,a.user_id,a.tenant_id,a.user_id).first();
-          if(scoped?.ok)managerLandingPath='/manager-invite/dashboard/';
+          const scoped=await env.DB.prepare("SELECT 1 ok FROM workspace_manager_invites WHERE tenant_id=? AND accepted_by_user_id=? AND status='accepted' LIMIT 1").bind(a.tenant_id,a.user_id).first();
+          const requested=(!scoped?.ok&&String(env.MANAGER_ACCESS_REQUESTS_ENABLED||'').toLowerCase()==='true'&&String(env.MANAGER_ACCESS_PROVISIONING_ENABLED||'').toLowerCase()==='true')?await env.DB.prepare("SELECT 1 ok FROM workspace_manager_access_requests WHERE tenant_id=? AND requester_user_id=? AND status='provisioned' LIMIT 1").bind(selected.tenant_id,u.id).first():null;
+        if(scoped?.ok||requested?.ok)managerLandingPath='/manager-invite/dashboard/';
         }
         return json({...(managerLandingPath?{landingPath:managerLandingPath}:{}),user:{id:a.user_id,email:a.email,displayName:a.display_name,role:a.role,tenantId:a.tenant_id,tenantName:a.tenant_name,onboardingComplete:!!a.onboarding_complete,platformBillingAdmin:platformBillingAdmin(a,env)},csrfToken:a.csrf_token});
       }
