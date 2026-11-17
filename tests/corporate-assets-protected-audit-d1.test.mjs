@@ -76,7 +76,8 @@ function setup(){
   repository:REPO,ref:'refs/heads/main',githubSha:MAIN,expectedSha:MAIN,
   actor:'adinosassist-stack',mode:'preflight-only',
   authorization:'READ_ONLY_ASSETS_D1_PREFLIGHT',
-  githubToken:'test-github-token',d1Token:'test-staging-read-token'};
+  githubToken:'test-github-token',d1Token:'test-staging-read-token',
+  workerReadToken:'test-worker-read-token',accountReadToken:'test-account-read-token'};
  return {state,request,context,close:()=>db.close()};
 }
 
