@@ -16,6 +16,8 @@ on:
       - 'server/quotation-portable-private-staging.mjs'
       - 'server/quotation-private-host-session-gate.mjs'
       - 'tests/quotation-private-host-session-gate.test.mjs'
+      - 'server/quotation-private-d1-session-verifier.mjs'
+      - 'tests/quotation-private-d1-session-verifier.test.mjs'
       - 'tests/quotation-logo-web-png-sanitizer.test.mjs'
       - 'tests/quotation-logo-web-png-workerd.test.mjs'
       - '.github/workflows/quotation-logo-real-pdf.yml'
@@ -46,7 +48,7 @@ jobs:
       - name: Render and reload synthetic two-page quotation with actual engine
         env:
           QUOTATION_PDF_ENGINE_ROOT: ${{ runner.temp }}/quotation-pdf-engine
-        run: node --test tests/quotation-logo-real-pdf.test.mjs tests/quotation-logo-real-private-e2e.test.mjs tests/quotation-logo-web-crypto-portability.test.mjs tests/quotation-logo-web-png-sanitizer.test.mjs tests/quotation-private-host-session-gate.test.mjs
+        run: node --test tests/quotation-logo-real-pdf.test.mjs tests/quotation-logo-real-private-e2e.test.mjs tests/quotation-logo-web-crypto-portability.test.mjs tests/quotation-logo-web-png-sanitizer.test.mjs tests/quotation-private-host-session-gate.test.mjs tests/quotation-private-d1-session-verifier.test.mjs
 
   workerd-png-portability:
     runs-on: ubuntu-latest
