@@ -1,0 +1,64 @@
+name: Quotation approved source - isolated offline qualification
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/quotation-approved-offline-qualification.yml'
+permissions:
+  contents: read
+jobs:
+  verify-approved-source-offline:
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout immutable approved quotation source
+        uses: actions/checkout@v4
+        with:
+          ref: e5a06c40ebcbe8c2545bc6f5f4ce18a936dad786
+          persist-credentials: false
+      - name: Verify immutable source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "e5a06c40ebcbe8c2545bc6f5f4ce18a936dad786"
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install pinned dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Run approved synthetic security and persistence regressions offline
+        run: |
+          node --check server/quotation-private-workflow-harness.mjs
+          node --check server/quotation-synthetic-private-caller.mjs
+          node --test \
+            tests/quotation-private-workflow-harness.test.mjs \
+            tests/quotation-private-workflow-runtime.test.mjs \
+            tests/quotation-private-host-persistence-e2e.test.mjs \
+            tests/quotation-private-d1-session-verifier.test.mjs \
+            tests/quotation-service-bound-staging-worker.test.mjs \
+            tests/quotation-staging-bundle-hash.test.mjs \
+            tests/quotation-private-activation-readiness.test.mjs \
+            tests/quotation-synthetic-auth-rehearsal-contract.test.mjs \
+            tests/quotation-main-artifact-trigger.test.mjs
+      - name: Compile both approved binaries without any Cloudflare API request
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/caller" --config deploy/quotation-synthetic-private-caller/wrangler.jsonc
+          npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/harness" --config deploy/quotation-private-workflow-harness/wrangler.jsonc
+          echo "c1f650bf14454c5257dd827a9ef6857a2f15ece6e3918542d472b4929916340c  $RUNNER_TEMP/caller/quotation-synthetic-private-caller.js" | sha256sum --check
+          echo "865a5a94eef52e1e52237668b7063feffcc53ae43f0aa772330e7552718d19a6  $RUNNER_TEMP/harness/quotation-private-workflow-harness.js" | sha256sum --check
+      - name: Record offline-only outcome without executable artifacts
+        shell: bash
+        run: |
+          printf 'sourceSha=e5a06c40ebcbe8c2545bc6f5f4ce18a936dad786\nmode=OFFLINE_QUALIFICATION_ONLY\ncloudflareWrites=false\ndeployAuthorized=false\nexecutionAuthorized=false\n' > offline-qualification-result.txt
+      - name: Retain text-only qualification receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: quotation-approved-offline-qualification
+          path: offline-qualification-result.txt
+          if-no-files-found: error
+          retention-days: 7
