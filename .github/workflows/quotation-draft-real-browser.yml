@@ -5,6 +5,7 @@ on:
       - 'public/js/quotation-draft-form.mjs'
       - 'public/js/quotation-draft-form-model.mjs'
       - 'public/js/quotation-customizable-page.mjs'
+      - 'public/js/quotation-draft-workspace.mjs'
       - 'public/js/quotation-customizable-page-model.mjs'
       - 'tests/quotation-customizable-page-model.test.mjs'
       - 'tests/quotation-customizable-page-browser.test.mjs'
