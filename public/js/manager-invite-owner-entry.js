@@ -123,7 +123,7 @@ try{
   }
   if(!data.requests.length){const p=document.createElement('p');p.textContent='No requests yet.';requestsSection.append(p);}
  }
- const codeSection=document.createElement('section');codeSection.setAttribute('aria-label','Registered user access codes');requestsSection.append(codeSection);
+ const codeSection=document.createElement('section');codeSection.setAttribute('aria-label','Registered user access codes');target.after(codeSection);
   const codeTitle=document.createElement('h3');codeTitle.textContent='Invite registered users to request access';codeSection.append(codeTitle);
   const codeInfo=document.createElement('p');codeInfo.textContent='Choose a branch and generate a private request code. It expires after 48 hours and cannot grant access without your review and separate provisioning.';codeSection.append(codeInfo);
   const codeLocations=await api.request('/api/workspace/managers/directory');
