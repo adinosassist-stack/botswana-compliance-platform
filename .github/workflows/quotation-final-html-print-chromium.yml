@@ -3,7 +3,9 @@ on:
   pull_request:
     paths:
       - 'server/quotation-final-html-print.mjs'
+      - 'tests/quotation-final-html-private-pdf.test.mjs'
       - 'server/quotation-final-html-private-pdf.mjs'
+      - 'server/quotation-logo-web-png-sanitizer.mjs'
       - 'tests/quotation-final-html-private-pdf.test.mjs'
       - 'tests/quotation-final-html-print-chromium.test.mjs'
       - '.github/workflows/quotation-final-html-print-chromium.yml'
