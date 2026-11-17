@@ -59,12 +59,12 @@ test("valid isolated configuration still denies missing private caller before an
  assert.equal(res.status,404);
  assert.equal(await res.text(),"Not Found");
 });
-test("valid caller without a session cannot generate PDFs or access template storage",async()=>{
+test("old final-PDF candidate never activates despite a caller secret",async()=>{
  const req=new Request(origin+"/api/quotation/logo/pdf-preview",{
   headers:{"x-quotation-private-caller":env.QUOTATION_PRIVATE_INTERNAL_CALLER_SECRET}
  });
  const res=await candidate.fetch(req,env);
- assert.equal(res.status,401);
+ assert.equal(res.status,404);
 });
 test("issuance and public origins are never available",async()=>{
  const headers={"x-quotation-private-caller":env.QUOTATION_PRIVATE_INTERNAL_CALLER_SECRET};

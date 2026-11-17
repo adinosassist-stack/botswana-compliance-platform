@@ -3,7 +3,10 @@ on:
   pull_request:
     paths:
       - 'server/quotation-full-private-staging-worker.mjs'
+      - 'server/quotation-final-html-contract.mjs'
+      - 'server/quotation-draft-lovely-pdf.mjs'
       - 'tests/quotation-full-private-staging-worker.test.mjs'
+      - 'tests/quotation-final-html-contract.test.mjs'
       - '.github/workflows/quotation-full-private-staging-candidate.yml'
   push:
     branches: [main]
@@ -27,7 +30,7 @@ jobs:
       - name: Check source syntax and private security boundaries
         run: |
           node --check server/quotation-full-private-staging-worker.mjs
-          node --test tests/quotation-full-private-staging-worker.test.mjs tests/quotation-synthetic-private-integration.test.mjs tests/quotation-private-runtime-candidate.test.mjs
+          node --test tests/quotation-final-html-contract.test.mjs tests/quotation-full-private-staging-worker.test.mjs tests/quotation-synthetic-private-integration.test.mjs tests/quotation-private-runtime-candidate.test.mjs tests/quotation-logo-draft-layout.test.mjs
       - name: Ensure original deployed manifest stays draft-only and public URLs disabled
         run: |
           grep -Fq '"main": "../../server/quotation-service-bound-staging-worker.mjs"' deploy/quotation-private-staging/wrangler.jsonc
