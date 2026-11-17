@@ -66,7 +66,13 @@ function qualified(env){
  * A correct header and fake .test origin do not establish that isolation.
  */
 export async function handleQuotationFullPrivateRequest(request,env){
- if(!(request instanceof Request)||!qualified(env))return deny();\n // Owner superseded the fixed Candidate B PDF with the editable HTML design.\n // This Worker remains intentionally inert until the actual HTML-derived\n // PDF renderer and exact template are separately integrated and qualified.\n // Importing a new checksum or setting environment flags is not approval.\n if(LOVELY_FINAL_HTML_REFERENCE.format==="thebe-lovely-quote-template-v1")\n  return deny();
+ if(!(request instanceof Request)||!qualified(env))return deny();
+ // Owner superseded the fixed Candidate B PDF with the editable HTML design.
+ // This Worker remains intentionally inert until the actual HTML-derived
+ // PDF renderer and exact template are separately integrated and qualified.
+ // Importing a new checksum or setting environment flags is not approval.
+ if(LOVELY_FINAL_HTML_REFERENCE.format==="thebe-lovely-quote-template-v1")
+  return deny();
  const registry=approvedRegistry(env);
  if(!registry)return deny();
  try{
