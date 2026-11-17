@@ -1,0 +1,47 @@
+name: Manager Private Staging Static Assets — Offline Only
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/manager-private-staging-assets-offline.yml'
+      - 'public/**'
+      - 'cloudflare/wrangler.manager-invitations-functional-staging.toml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  manager-assets-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify isolated functional staging config (no routes)
+        run: node --test tests/manager-invitations-functional-staging-config.test.mjs tests/manager-invitations-assets-gate.test.mjs
+      - name: Deterministic static assets manifest and archive — no network upload to Cloudflare
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d public
+          mkdir -p "$RUNNER_TEMP/manager-assets"
+          if find public -type l -print -quit | grep -q .; then
+            echo "Refusing symlinks in public static assets tree" >&2
+            exit 1
+          fi
+          find public -type f -print0 | LC_ALL=C sort -z | xargs -0 -r sha256sum > "$RUNNER_TEMP/manager-assets/ASSETS-SHA256SUMS"
+          test -s "$RUNNER_TEMP/manager-assets/ASSETS-SHA256SUMS"
+          tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner -cf "$RUNNER_TEMP/manager-assets/public.tar" public
+          (
+            cd "$RUNNER_TEMP/manager-assets"
+            sha256sum public.tar ASSETS-SHA256SUMS > ARTIFACT-SHA256SUMS
+            printf 'source_checkout_sha=%s\n' "$GITHUB_SHA" > BUILD-REFERENCE.txt
+            printf 'scope=static-public-assets-no-cloudflare-deployment\n' >> BUILD-REFERENCE.txt
+            cat ARTIFACT-SHA256SUMS
+          )
+      - name: Retain exact static assets for independent checksum review
+        uses: actions/upload-artifact@v4
+        with:
+          name: manager-private-static-assets-offline
+          path: ${{ runner.temp }}/manager-assets/
+          if-no-files-found: error
+          retention-days: 7
