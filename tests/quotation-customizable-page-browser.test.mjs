@@ -153,3 +153,37 @@ test("twelve editable rows retain separate Concrete and Grout entries across two
   assert.equal(pages.length,2,"twelve lines must still print as two A4 pages");
  }finally{await context.close()}
 });
+
+test("local exported draft JSON can be reimported, retaining wording, terms, phone and twelve lines",async()=>{
+ const {context,page}=await open({width:1280,height:960});
+ try{
+  const sample=await page.evaluate(()=>window.editor.getDraft());
+  for(let n=0;n<3;n++)sample.items.push({description:"Extra "+n,quantity:"1",unitPrice:"2.50"});
+  sample.customerName="Synthetic restored name";
+  sample.customerPhone="+267 72 000 000";
+  sample.copy.heading="EDITABLE CUSTOM QUOTATION";
+  sample.termsText="Operator supplied sample terms, not for issuance.";
+  await page.locator('input[aria-label="Import quotation draft JSON file"]').setInputFiles({
+   name:"synthetic-quote.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(sample))
+  });
+  await page.waitForFunction(()=>window.editor.getDraft().customerName==="Synthetic restored name");
+  const loaded=await page.evaluate(()=>window.editor.getDraft());
+  assert.deepEqual(loaded,sample);
+  assert.equal(await page.locator(".qcp-page").first().locator("tbody tr").count(),12);
+  assert.match(await page.locator(".qcp-heading").first().innerText(),/EDITABLE CUSTOM QUOTATION/);
+  assert.match(await page.locator(".qcp-terms").innerText(),/Operator supplied sample terms/);
+  const pdf=await page.pdf({format:"A4",printBackground:true});
+  assert.equal((pdf.toString("latin1").match(/\/Type\s*\/Page\b/g)||[]).length,2);
+ }finally{await context.close()}
+});
+test("invalid JSON import does not mutate current quotation",async()=>{
+ const {context,page}=await open({width:1280,height:960});
+ try{
+  const before=await page.evaluate(()=>window.editor.getDraft());
+  await page.locator('input[aria-label="Import quotation draft JSON file"]').setInputFiles({
+   name:"corrupt.json",mimeType:"application/json",buffer:Buffer.from('{"customerName":"Tampered"}')
+  });
+  await page.waitForFunction(()=>document.querySelector(".qcp-status").textContent.includes("Invalid quotation JSON"));
+  assert.deepEqual(await page.evaluate(()=>window.editor.getDraft()),before);
+ }finally{await context.close()}
+});
