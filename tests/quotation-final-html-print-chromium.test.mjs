@@ -74,7 +74,7 @@ test("12 default-style items and representative terms remain within precisely 2 
   "12-row output clips print content: "+JSON.stringify(v.geometry));
 });
 test("detects excessively long terms as an overflow blocker, never as an accepted printable PDF",async()=>{
- const q=sample();q.termsText=Array(130).fill("Long synthetic contract sentence repeated to prove page-two clipping is detected.").join("\n");
+ const q=sample();q.termsText=Array(70).fill("Long synthetic contract sentence repeated to prove page-two clipping is detected.").join("\n");
  const v=await inspectPrint(q);
  assert.ok(v.geometry.some(x=>x.clipped.length>0||x.scrollHeight>x.height+2),
   "Expected browser geometry to identify overflowing contract text");
