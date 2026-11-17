@@ -6,6 +6,8 @@ on:
       - 'public/js/quotation-draft-form-model.mjs'
       - 'public/js/quotation-customizable-page.mjs'
       - 'public/js/quotation-draft-workspace.mjs'
+      - 'public/js/quotation-custom-workspace-bridge.mjs'
+      - 'tests/quotation-custom-workspace-browser.test.mjs'
       - 'public/js/quotation-customizable-page-model.mjs'
       - 'tests/quotation-customizable-page-model.test.mjs'
       - 'tests/quotation-customizable-page-browser.test.mjs'
@@ -43,4 +45,4 @@ jobs:
           QUOTATION_BROWSER_ENGINE_ROOT: ${{ runner.temp }}/quotation-browser-engine
         run: |
           node --test tests/quotation-customizable-page-model.test.mjs
-          node --test tests/quotation-draft-real-browser.test.mjs tests/quotation-customizable-page-browser.test.mjs
+          node --test tests/quotation-draft-real-browser.test.mjs tests/quotation-customizable-page-browser.test.mjs tests/quotation-custom-workspace-browser.test.mjs
