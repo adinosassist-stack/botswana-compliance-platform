@@ -1,3 +1,4 @@
+import {createManagerLocationAdminHttp} from './manager-invitations-location-admin-http.js';
 import {createManagerScopedReadHttp} from './manager-invitations-scoped-read.js';
 import {createManagerAccessAdminHttp} from './manager-invitations-admin-http.js';
 import {createManagerInvitationD1Service} from './manager-invitations-d1-service.js';
@@ -5717,6 +5718,19 @@ export default {
         ))return json({error:'manager_branch_access_pending'},403);
       }
 
+      if(managerInviteStage&&req.method==='POST'&&(
+        url.pathname==='/api/workspace/managers/locations/grant'||
+        url.pathname==='/api/workspace/managers/locations/revoke')){
+        const handler=createManagerLocationAdminHttp({
+          db:env.DB,origin:String(env.PUBLIC_ORIGIN||''),
+          authenticateOwner:async()=>({role:a.role,membershipStatus:'active',tenantId:a.tenant_id,userId:a.user_id}),
+          verifyCsrf:async()=>mutationCsrfOk(req,a),
+          rateLimit:async(r,scope)=>{
+            const result=await authRateLimit(env,r,scope,{limit:10,windowSeconds:900});return result.ok===true;
+          }
+        });
+        return handler(req);
+      }
       if(managerInviteStage&&req.method==='POST'&&
         (url.pathname==='/api/workspace/managers/invitations/revoke'||url.pathname==='/api/workspace/managers/suspend')){
         const handler=createManagerAccessAdminHttp({
