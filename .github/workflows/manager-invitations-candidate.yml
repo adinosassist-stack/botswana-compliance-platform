@@ -1,0 +1,23 @@
+name: Manager invitations candidate unit checks
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/src/manager-invitations-*.js'
+      - 'public/js/manager-invitations-owner.js'
+      - 'db/drafts/manager-invitations-2578.sql'
+      - 'tests/manager-invitation*.test.mjs'
+      - '.github/workflows/manager-invitations-candidate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  manager-invite-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Candidate unit tests (no secrets, no deployment)
+        run: node --test tests/manager-invitations-foundation.test.mjs tests/manager-invitation-schema.test.mjs tests/manager-invitations-service.test.mjs tests/manager-invitations-ui.test.mjs tests/manager-invitations-http.test.mjs tests/manager-invitations-d1.test.mjs
