@@ -12,7 +12,7 @@
  const api=(path,options={})=>globalThis.apiJson(path,options);
  const status=message=>{root.querySelector('[data-assets-status]').textContent=message};
  const current=(token,who)=>token===epoch&&who===key()&&allowed()&&root.classList.contains('active');
- function disableWrites(disabled,reason='loading'){registerReady=!disabled;root.querySelectorAll('[data-asset-write]').forEach(b=>{b.dataset.assetUnavailable=String(disabled);b.setAttribute('aria-disabled',String(disabled));b.title=!disabled?'':reason==='unavailable'?'Asset service unavailable. Select to see how to retry; nothing will be saved.':'Loading assets. Select to see current availability.'})}
+ function disableWrites(disabled,reason='loading'){registerReady=!disabled;root.querySelectorAll('[data-asset-write]').forEach(b=>{b.dataset.assetUnavailable=String(disabled);b.dataset.assetSaveBlocked=String(disabled);b.title=!disabled?'':reason==='unavailable'?'Asset service unavailable. Select to see how to retry; nothing will be saved.':'Loading assets. Select to see current availability.'})}
  function metrics(summary={}){
   const box=root.querySelector('.asset-metrics');box.replaceChildren();
   for(const [label,value] of [['Registered assets',summary.total??'—'],['Recorded book value',summary.bookValueMinor===undefined?'—':money(summary.bookValueMinor)],['In maintenance',summary.maintenance??'—'],['Due / overdue in 30 days',summary.due??'—']]){
