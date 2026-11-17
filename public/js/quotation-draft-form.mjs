@@ -58,7 +58,7 @@ export function mountQuotationDraftForm(root,{capability,fetchImpl,csrfToken,ini
   ["quoteNumber","Quotation number","text",40],
   ["issueDate","Quotation date","date",10],
   ["customerName","Customer name","text",60],
-  ["customerContact","Customer contact or address","text",40]
+  ["customerContact","Customer number","text",40]
  ]){
   const f=inputField(label,type,initialDraft?.[key]??"",{maxlength:String(max),required:""});
   fields[key]=f.input;fieldsGrid.append(f.box);
