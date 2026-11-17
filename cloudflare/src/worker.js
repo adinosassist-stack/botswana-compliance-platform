@@ -8535,6 +8535,24 @@ export default {
       reportHeaders.set("cache-control","no-store, max-age=0, must-revalidate");reportHeaders.set("pragma","no-cache");reportHeaders.set("x-robots-tag","noindex, nofollow");
       return versionRuntimeResponse(new Response(req.method==="HEAD"?null:securedReport.body,{status:securedReport.status,statusText:securedReport.statusText,headers:reportHeaders}),req,url);
     }
+    // #2578: deny direct access to manager onboarding HTML in production.
+    if(url.pathname.startsWith('/manager-invite/')){
+      const permitted=String(env.APP_ENV||'').toLowerCase()==='staging'&&
+        String(env.MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED||'').toLowerCase()==='true'&&
+        (req.method==='GET'||req.method==='HEAD');
+      if(!permitted)return json({error:'not_found'},404);
+      const page=url.pathname.replace(/\\/+$/,'');
+      if(page==='/manager-invite/owner'||page==='/manager-invite/activate'){
+        const target=page+'/index.html';
+        const assetReq=new Request(new URL(target,url.origin),{method:req.method,headers:req.headers});
+        const response=await env.ASSETS.fetch(assetReq);
+        const headers=new Headers(response.headers);headers.set('cache-control','no-store');
+        headers.set('x-robots-tag','noindex, nofollow');
+        headers.set('referrer-policy','no-referrer');
+        return secureResponse(new Response(req.method==='HEAD'?null:response.body,{status:response.status,headers}),{html:true});
+      }
+      return json({error:'not_found'},404);
+    }
     const assetResponse=await env.ASSETS.fetch(req),securedAsset=secureResponse(assetResponse,{html:(assetResponse.headers.get("content-type")||"").includes("text/html")});return versionRuntimeResponse(securedAsset,req,url);
     }catch(error){
       if(error instanceof HttpError)return json({error:error.code,requestId},error.status,{"x-request-id":requestId});
