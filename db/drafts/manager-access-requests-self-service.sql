@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS workspace_manager_access_requests (
   requester_user_id TEXT NOT NULL,
   location_id TEXT NOT NULL,
   reason TEXT NOT NULL DEFAULT '' CHECK(length(reason)<=500),
-  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved_for_provisioning','rejected')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved_for_provisioning','provisioned','rejected')),
   reviewed_by_user_id TEXT,
   reviewed_at TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
