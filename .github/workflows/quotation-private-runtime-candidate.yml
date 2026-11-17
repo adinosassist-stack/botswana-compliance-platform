@@ -1,0 +1,28 @@
+name: Quotation Private Runtime Candidate
+on:
+  pull_request:
+    paths:
+      - 'server/quotation-private-runtime-candidate.mjs'
+      - 'server/quotation-synthetic-private-integration.mjs'
+      - 'tests/quotation-private-runtime-candidate.test.mjs'
+      - '.github/workflows/quotation-private-runtime-candidate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'server/quotation-private-runtime-candidate.mjs'
+      - 'server/quotation-synthetic-private-integration.mjs'
+      - 'tests/quotation-private-runtime-candidate.test.mjs'
+      - '.github/workflows/quotation-private-runtime-candidate.yml'
+permissions:
+  contents: read
+jobs:
+  deny-all-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify fail-closed private runtime
+        run: node --test tests/quotation-private-runtime-candidate.test.mjs tests/quotation-synthetic-private-integration.test.mjs
