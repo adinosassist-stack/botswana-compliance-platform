@@ -1,4 +1,5 @@
 import {createManagerLocationAdminHttp} from './manager-invitations-location-admin-http.js';
+import {createManagerOwnerDirectoryHttp} from './manager-invitations-owner-directory.js';
 import {createManagerScopedReadHttp} from './manager-invitations-scoped-read.js';
 import {createManagerAccessAdminHttp} from './manager-invitations-admin-http.js';
 import {createManagerInvitationD1Service} from './manager-invitations-d1-service.js';
@@ -5727,6 +5728,11 @@ export default {
         ))return json({error:'manager_branch_access_pending'},403);
       }
 
+      if(managerInviteStage&&req.method==='GET'&&url.pathname==='/api/workspace/managers/directory'){
+        return createManagerOwnerDirectoryHttp({db:env.DB})(req,{
+          tenantId:a.tenant_id,userId:a.user_id,role:a.role
+        });
+      }
       if(managerInviteStage&&req.method==='POST'&&(
         url.pathname==='/api/workspace/managers/locations/grant'||
         url.pathname==='/api/workspace/managers/locations/revoke')){
