@@ -23,4 +23,4 @@ jobs:
         with:
           node-version: '22'
       - name: Candidate unit tests (no secrets, no deployment)
-        run: node --test tests/manager-invitations-foundation.test.mjs tests/manager-invitation-schema.test.mjs tests/manager-invitations-service.test.mjs tests/manager-invitations-ui.test.mjs tests/manager-invitations-http.test.mjs tests/manager-invitations-d1.test.mjs tests/manager-invitations-d1-service.test.mjs tests/manager-invitations-worker-stage.test.mjs tests/manager-invitations-pages.test.mjs tests/manager-invitations-sqlite-transaction.test.mjs tests/manager-invitations-revocation.test.mjs
+        run: node --test tests/manager-invitations-foundation.test.mjs tests/manager-invitation-schema.test.mjs tests/manager-invitations-service.test.mjs tests/manager-invitations-ui.test.mjs tests/manager-invitations-http.test.mjs tests/manager-invitations-d1.test.mjs tests/manager-invitations-d1-service.test.mjs tests/manager-invitations-worker-stage.test.mjs tests/manager-invitations-pages.test.mjs tests/manager-invitations-sqlite-transaction.test.mjs tests/manager-invitations-revocation.test.mjs tests/manager-invitations-admin-http.test.mjs
