@@ -26,3 +26,24 @@ Before construction, the **protected operator must independently establish** all
 - Distinct production release review; **no** production or public activation as part of staging preparation.
 
 This checklist is *not* itself authority for resource creation, version upload, deployment, Browser Run spending, logo upload or customer quotation issuance.
+
+
+## Proposed private RPC invocation (source only; independent approval required)
+Cloudflare Workers service bindings support invoking a named `WorkerEntrypoint` via internal RPC without publishing an HTTP URL. The isolated Worker now exports `QuotationSyntheticPrivateRpc.previewSynthetic(request)`; default HTTP `fetch()` **always** returns 404.
+
+A *separately audited, approved* private caller Worker would require this binding (do not deploy this proposal):
+```json
+{
+  "services": [{
+    "binding": "LOVELY_QUOTATION_PRIVATE",
+    "service": "bw-quotation-final-html-private-staging",
+    "entrypoint": "QuotationSyntheticPrivateRpc"
+  }]
+}
+```
+
+The caller must be another nonpublic, independently approved Worker with a verified service-binding identity; it must pass a real Request with the private origin, synthetic authenticated HMAC-session cookie, session-bound CSRF and private caller secret. The receiving named entrypoint accepts proof only from an operator-provisioned `QUOTATION_PRIVATE_STAGE_PROOF_JSON` secret; never from the RPC caller's request/body. **This JSON is a claimed evidence record, not independent proof.** Do not populate it until the owner and thusico have separately approved exact-main proof, real bindings and recovery. An internally bound RPC method is not automatically safe if the caller itself is publicly routable.
+
+The separate caller's Worker bundle, real Access policy, private tenant identity lifecycle, Browser Run account cost/limits and rollback have not been qualified or deployed. This change is intended to remove the last unsupported ordinary JavaScript factory-as-service-binding assumption, not to authorize runtime activation.
+
+Cloudflare RPC documentation: https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/rpc/
