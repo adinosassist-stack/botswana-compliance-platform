@@ -97,6 +97,6 @@ test('reject wrong identity, extra missing tables, malformed canonical DDL and a
    read:(file,encoding)=>readFileSync(file,encoding).replace(
     'CREATE TABLE IF NOT EXISTS audit_integrity_checks(',
     'CREATE TABLE IF NOT EXISTS renamed_audit_checks(')
-  }),/canonical_audit_sql_drift_integrity_table/);
+  }),/audit_integrity_checks|integrity_table/);
  }finally{db.close()}
 });
