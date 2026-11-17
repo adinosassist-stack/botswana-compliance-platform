@@ -7,6 +7,14 @@ on:
       - 'scripts/quotation-staging-bundle-hash.mjs'
       - 'tests/quotation-staging-bundle-hash.test.mjs'
       - '.github/workflows/quotation-offline-staging-artifact.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'server/quotation-service-bound-staging-worker.mjs'
+      - 'deploy/quotation-private-staging/wrangler.jsonc'
+      - 'scripts/quotation-staging-bundle-hash.mjs'
+      - 'tests/quotation-staging-bundle-hash.test.mjs'
+      - '.github/workflows/quotation-offline-staging-artifact.yml'
   workflow_dispatch:
 permissions:
   contents: read
