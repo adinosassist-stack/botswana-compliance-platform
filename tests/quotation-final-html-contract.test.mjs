@@ -26,7 +26,8 @@ test("legacy PDF renderer rejects fully editable HTML quotations instead of drop
   copy:{},termsText:"Synthetic terms"};
  // It must reject before loading or drawing onto the obsolete PDF.
  await assert.rejects(drawLovelyQuotationDraft({
-  pdf:{getPages(){throw Error("legacy_template_must_not_be_read")}},
+  pdf:{getPages(){throw Error("legacy_template_must_not_be_read")},
+   embedFont(){throw Error("legacy_font_must_not_be_used")}},
   pdfLib:{StandardFonts:{Helvetica:"Helvetica"}},
   draft:{quoteNumber:"SYN-01",issueDate:"2026-11-17",customerName:"Synthetic",
    customerContact:"000000000",items:[{description:"Concrete",quantity:1,unitPriceCents:2000}],
