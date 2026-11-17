@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'cloudflare/src/manager-access-requests-http.js'
+      - 'cloudflare/src/manager-access-provisioning.js'
+      - 'cloudflare/src/manager-invitations-scoped-read.js'
       - 'cloudflare/src/worker.js'
       - 'cloudflare/wrangler.manager-invitations-functional-staging.toml'
       - 'db/drafts/manager-access-requests-self-service.sql'
@@ -10,6 +12,7 @@ on:
       - 'public/js/manager-invite-owner-entry.js'
       - 'public/manager-invite/request/**'
       - 'tests/manager-access-requests-http.test.mjs'
+      - 'tests/manager-access-provisioning.test.mjs'
       - '.github/workflows/manager-self-service-requests.yml'
 permissions:
   contents: read
@@ -26,8 +29,9 @@ jobs:
           node-version: '22'
       - name: Isolated HTTP permissions and owner-review tests
         run: |
-          node --test tests/manager-access-requests-http.test.mjs tests/manager-invitations-functional-staging-config.test.mjs
+          node --test tests/manager-access-requests-http.test.mjs tests/manager-access-provisioning.test.mjs tests/manager-invitations-functional-staging-config.test.mjs tests/manager-invitations-scoped-read.test.mjs
           node --check cloudflare/src/manager-access-requests-http.js
+          node --check cloudflare/src/manager-access-provisioning.js
           node --check cloudflare/src/worker.js
           node --check public/js/manager-access-request-entry.js
           node --check public/js/manager-invite-owner-entry.js
