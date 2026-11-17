@@ -274,6 +274,15 @@
       "pattern": "^/public/employee/tasks/[a-f0-9-]{32,36}/progress$",
       "security": "staff_only_cookie_csrf_origin_rate_limit_feature_flag",
       "feature": "employee_self_service"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "kind": "exact",
+      "pattern": "/api/auth/manager-invite/accept",
+      "security": "origin_rate_limit",
+      "feature": "manager_invitations_private_staging"
     }
   ],
   "workspaceFeaturePrefixes": {
@@ -395,6 +404,9 @@
     ],
     "property": [
       "/api/property/"
+    ],
+    "manager_invitations": [
+      "/api/workspace/managers/"
     ]
   }
 }
