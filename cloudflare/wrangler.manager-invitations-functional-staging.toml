@@ -18,6 +18,8 @@ MANAGER_INVITATIONS_SCHEMA_READY = "false"
 MANAGER_INVITATIONS_ACCESS_READY = "false"
 # Registration-linked manager requests remain OFF until separately reviewed staging schema and access gates.
 MANAGER_ACCESS_REQUESTS_ENABLED = "false"
+# Separate owner provisioning/role transition gate; requires approved private staging tests.
+MANAGER_ACCESS_PROVISIONING_ENABLED = "false"
 PAYMENT_PROVIDER = "none"
 EVIDENCE_UPLOADS_ENABLED = "false"
 THEBE_GENERAL_AI_ENABLED = "false"
