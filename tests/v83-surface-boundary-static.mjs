@@ -39,7 +39,7 @@ has(authRuntime,'/api/auth/login','auth runtime owns login');
 has(authRuntime,'/api/auth/register','auth runtime owns registration');
 has(authRuntime,'/api/auth/registration-proof/challenge','auth runtime preserves first-party registration proof');
 lacks(authRuntime,'/api/state','auth runtime cannot bootstrap private workspace state');
-has(authRuntime,'location.replace(next)','successful authentication leaves the auth surface');
+ok(authRuntime.includes('location.replace(data?.landingPath===\"/manager-invite/dashboard/\"?\"/manager-invite/dashboard/\":next)')&&authRuntime.includes('location.replace(destination)')&&authRuntime.includes('data?.landingPath===\"/manager-invite/dashboard/\"'),'successful authentication leaves the auth surface using an exact server-allowlisted manager landing path');
 
 has(governance,'const PUBLIC_HOME_ASSET="/home"','worker fetches the canonical public asset path without triggering Static Assets HTML redirects');
 has(governance,'const AUTH_PORTAL_ASSET="/auth"','worker fetches the canonical auth asset path without triggering Static Assets HTML redirects');
