@@ -1,4 +1,10 @@
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./regulatory-pack-registry.js";
+import {createManagerLocationAdminHttp} from './manager-invitations-location-admin-http.js';
+import {createManagerOwnerDirectoryHttp} from './manager-invitations-owner-directory.js';
+import {createManagerScopedReadHttp} from './manager-invitations-scoped-read.js';
+import {createManagerAccessAdminHttp} from './manager-invitations-admin-http.js';
+import {createManagerInvitationD1Service} from './manager-invitations-d1-service.js';
+import {createManagerInvitationsHttp} from './manager-invitations-http.js';
 import {advisorProviderInput,advisorProviderOutput} from "./advisor-provider-contract.js";
 import {handlePopHttp} from "./payment-pop-http.js";
 import {handleCorporateAssets} from "./corporate-assets.js";
@@ -5326,7 +5332,17 @@ export default {
       selected=selected||choices[0];
       const sess=await createPasswordSession(env,u.id,selected.tenant_id,selected.role,expectedPasswordHash,u.session_generation);
       if(!sess)return json({error:"invalid_credentials"},401);
-      return json({ok:true,csrfToken:sess.csrf,user:{id:u.id,email:u.email,displayName:u.display_name,role:selected.role,tenantId:selected.tenant_id,tenantName:selected.tenant_name}},200,{"set-cookie":sessionCookie(sess.raw)});
+      // Private staging only: newly invited, branch-scoped managers must open
+      // the restricted dashboard, never the unscoped /app workspace.
+      let managerLandingPath=null;
+      if(String(env.APP_ENV||'').toLowerCase()==='staging'&&
+        String(env.MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED||'').toLowerCase()==='true'&&
+      String(env.MANAGER_INVITATIONS_SCHEMA_READY||'').toLowerCase()==='true'&&
+      String(env.MANAGER_INVITATIONS_ACCESS_READY||'').toLowerCase()==='true'&&selected.role==='manager'){
+        const scoped=await env.DB.prepare("SELECT 1 ok FROM workspace_manager_invites WHERE tenant_id=? AND accepted_by_user_id=? AND status='accepted' LIMIT 1").bind(selected.tenant_id,u.id).first();
+        if(scoped?.ok)managerLandingPath='/manager-invite/dashboard/';
+      }
+      return json({ok:true,csrfToken:sess.csrf,...(managerLandingPath?{landingPath:managerLandingPath}:{}),user:{id:u.id,email:u.email,displayName:u.display_name,role:selected.role,tenantId:selected.tenant_id,tenantName:selected.tenant_name}},200,{"set-cookie":sessionCookie(sess.raw)});
     }
     if(url.pathname==="/api/auth/password-reset/request"&&req.method==="POST"){
       if(!requestOriginAllowed(req,env))return json({error:"origin_failed"},403);
@@ -5672,17 +5688,109 @@ export default {
         signature:row.receipt_signature,issuedAt:row.issued_at,snapshot:receiptSnapshot},200,PASSPORT_PUBLIC_HEADERS);
     }
 
+    // #2578: manager onboarding is STAGING ONLY and default off.
+    // No production D1 writes or public activation without a separately reviewed release.
+    const managerInviteStage=String(env.APP_ENV||'').toLowerCase()==='staging'&&
+      String(env.MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED||'').toLowerCase()==='true'&&
+      String(env.MANAGER_INVITATIONS_SCHEMA_READY||'').toLowerCase()==='true'&&
+      String(env.MANAGER_INVITATIONS_ACCESS_READY||'').toLowerCase()==='true';
+    const isManagerInviteActivation=url.pathname==='/api/auth/manager-invite/accept'&&req.method==='POST';
+    if(isManagerInviteActivation&&managerInviteStage){
+      const svc=createManagerInvitationD1Service({db:env.DB,hashPassword});
+      const handler=createManagerInvitationsHttp({
+        service:svc, origin:String(env.PUBLIC_ORIGIN||''),
+        authenticateOwner:async()=>null,verifyCsrf:async()=>false,
+        rateLimit:async(r,scope)=>{
+          const result=await authRateLimit(env,r,scope,{limit:10,windowSeconds:900});return result.ok===true;
+        }
+      });
+      return handler(req);
+    }
     if(url.pathname.startsWith("/api/")){
       const a=await auth(req,env);
       if(!a)return json({error:"unauthenticated"},401);
       if(!requestOriginAllowed(req,env))return json({error:"origin_failed"},403);
       if(!mutationCsrfOk(req,a))return json({error:"csrf_failed"},403);
       if(!workspaceSessionRole(a)&&!selfServiceApi(url.pathname,req.method))return json({error:"workspace_role_forbidden"},403);
+      // #2578: fail closed for newly invited branch managers until per-branch
+      // read AND write enforcement is implemented and independently qualified.
+      // Existing managers are not affected; activated invitations identify the
+      // restricted accounts in the isolated invitation table.
+      if(managerInviteStage&&a.role==='manager'){
+        const branchInvite=await env.DB.prepare("SELECT 1 scoped_manager FROM workspace_manager_invites WHERE tenant_id=? AND accepted_by_user_id=? AND status='accepted' LIMIT 1").bind(a.tenant_id,a.user_id).first();
+        if(branchInvite?.scoped_manager&&req.method==='GET'&&(
+          url.pathname==='/api/workspace/managers/my-locations'||
+          url.pathname==='/api/workspace/managers/my-reports'||
+          url.pathname==='/api/workspace/managers/my-dashboard')){
+          return createManagerScopedReadHttp({db:env.DB})(req,{
+            tenantId:a.tenant_id,userId:a.user_id,role:a.role
+          });
+        }
+        if(branchInvite?.scoped_manager&&!(
+          (url.pathname==='/api/auth/me'&&req.method==='GET')||
+          (url.pathname==='/api/auth/logout'&&req.method==='POST')
+        ))return json({error:'manager_branch_access_pending'},403);
+      }
+
+      if(managerInviteStage&&req.method==='GET'&&url.pathname==='/api/workspace/managers/directory'){
+        return createManagerOwnerDirectoryHttp({db:env.DB})(req,{
+          tenantId:a.tenant_id,userId:a.user_id,role:a.role
+        });
+      }
+      if(managerInviteStage&&req.method==='POST'&&(
+        url.pathname==='/api/workspace/managers/locations/grant'||
+        url.pathname==='/api/workspace/managers/locations/revoke')){
+        const handler=createManagerLocationAdminHttp({
+          db:env.DB,origin:String(env.PUBLIC_ORIGIN||''),
+          authenticateOwner:async()=>({role:a.role,membershipStatus:'active',tenantId:a.tenant_id,userId:a.user_id}),
+          verifyCsrf:async()=>mutationCsrfOk(req,a),
+          rateLimit:async(r,scope)=>{
+            const result=await authRateLimit(env,r,scope,{limit:10,windowSeconds:900});return result.ok===true;
+          }
+        });
+        return handler(req);
+      }
+      if(managerInviteStage&&req.method==='POST'&&
+        (url.pathname==='/api/workspace/managers/invitations/revoke'||url.pathname==='/api/workspace/managers/suspend')){
+        const handler=createManagerAccessAdminHttp({
+          db:env.DB,origin:String(env.PUBLIC_ORIGIN||''),
+          authenticateOwner:async()=>({
+            role:a.role,membershipStatus:'active',userId:a.user_id,tenantId:a.tenant_id
+          }),
+          verifyCsrf:async()=>mutationCsrfOk(req,a),
+          rateLimit:async(r,scope)=>{
+            const result=await authRateLimit(env,r,scope,{limit:10,windowSeconds:900});return result.ok===true;
+          }
+        });
+        return handler(req);
+      }
+      if(managerInviteStage&&url.pathname==='/api/workspace/managers/invitations'&&req.method==='POST'){
+        const svc=createManagerInvitationD1Service({db:env.DB,hashPassword});
+        const handler=createManagerInvitationsHttp({
+          service:svc,origin:String(env.PUBLIC_ORIGIN||''),
+          authenticateOwner:async()=>({
+            role:a.role,membershipStatus:'active',userId:a.user_id,tenantId:a.tenant_id
+          }),
+          verifyCsrf:async()=>mutationCsrfOk(req,a),
+          rateLimit:async(r,scope)=>{
+            const result=await authRateLimit(env,r,scope,{limit:10,windowSeconds:900});return result.ok===true;
+          }
+        });
+        return handler(req);
+      }
+
       if(req.method==="GET"&&!restrictedWorkspaceReadAllowed(url.pathname,a.role))return json({error:"workspace_role_read_forbidden"},403);
       const staffManager=await handleStaffManager({request:req,url,env,auth:a,json,readJson,id});
       if(staffManager)return staffManager;
       if(url.pathname==="/api/ai/operator/reliability")return handleReliabilityAdvisorRequest(req,{auth:a,env});
-      if(url.pathname==="/api/auth/me"&&req.method==="GET")return json({user:{id:a.user_id,email:a.email,displayName:a.display_name,role:a.role,tenantId:a.tenant_id,tenantName:a.tenant_name,onboardingComplete:!!a.onboarding_complete,platformBillingAdmin:platformBillingAdmin(a,env)},csrfToken:a.csrf_token});
+      if(url.pathname==="/api/auth/me"&&req.method==="GET"){
+        let managerLandingPath=null;
+        if(managerInviteStage&&a.role==='manager'){
+          const scoped=await env.DB.prepare("SELECT 1 ok FROM workspace_manager_invites WHERE tenant_id=? AND accepted_by_user_id=? AND status='accepted' LIMIT 1").bind(a.tenant_id,a.user_id).first();
+          if(scoped?.ok)managerLandingPath='/manager-invite/dashboard/';
+        }
+        return json({...(managerLandingPath?{landingPath:managerLandingPath}:{}),user:{id:a.user_id,email:a.email,displayName:a.display_name,role:a.role,tenantId:a.tenant_id,tenantName:a.tenant_name,onboardingComplete:!!a.onboarding_complete,platformBillingAdmin:platformBillingAdmin(a,env)},csrfToken:a.csrf_token});
+      }
       if(!["GET","HEAD","OPTIONS"].includes(req.method)&&!restrictedWorkspaceMutationAllowed(url.pathname,req.method,a.role))return json({error:"workspace_role_mutation_forbidden"},403);
       if(!evidenceUploadsEnabled(env)&&evidenceMutationDisabled(url,req.method))return json({error:"evidence_uploads_temporarily_disabled",evidenceUploadsEnabled:false},503);
       if(url.pathname==="/api/ai/operator/queue"&&req.method==="POST")return secureResponse(await handleOwnerOperatorRequest(req,{auth:a}));
@@ -8501,6 +8609,26 @@ export default {
       const reportAsset=await env.ASSETS.fetch(reportAssetRequest),securedReport=secureResponse(reportAsset,{html:true}),reportHeaders=new Headers(securedReport.headers);
       reportHeaders.set("cache-control","no-store, max-age=0, must-revalidate");reportHeaders.set("pragma","no-cache");reportHeaders.set("x-robots-tag","noindex, nofollow");
       return versionRuntimeResponse(new Response(req.method==="HEAD"?null:securedReport.body,{status:securedReport.status,statusText:securedReport.statusText,headers:reportHeaders}),req,url);
+    }
+    // #2578: deny direct access to manager onboarding HTML in production.
+    if(url.pathname.startsWith('/manager-invite/')){
+      const permitted=String(env.APP_ENV||'').toLowerCase()==='staging'&&
+        String(env.MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED||'').toLowerCase()==='true'&&
+      String(env.MANAGER_INVITATIONS_SCHEMA_READY||'').toLowerCase()==='true'&&
+      String(env.MANAGER_INVITATIONS_ACCESS_READY||'').toLowerCase()==='true'&&
+        (req.method==='GET'||req.method==='HEAD');
+      if(!permitted)return json({error:'not_found'},404);
+      const page=url.pathname.replace(/\/+$/,'');
+      if(page==='/manager-invite/owner'||page==='/manager-invite/activate'||page==='/manager-invite/dashboard'){
+        const target=page+'/index.html';
+        const assetReq=new Request(new URL(target,url.origin),{method:req.method,headers:req.headers});
+        const response=await env.ASSETS.fetch(assetReq);
+        const headers=new Headers(response.headers);headers.set('cache-control','no-store');
+        headers.set('x-robots-tag','noindex, nofollow');
+        headers.set('referrer-policy','no-referrer');
+        return secureResponse(new Response(req.method==='HEAD'?null:response.body,{status:response.status,headers}),{html:true});
+      }
+      return json({error:'not_found'},404);
     }
     const assetResponse=await env.ASSETS.fetch(req),securedAsset=secureResponse(assetResponse,{html:(assetResponse.headers.get("content-type")||"").includes("text/html")});return versionRuntimeResponse(securedAsset,req,url);
     }catch(error){

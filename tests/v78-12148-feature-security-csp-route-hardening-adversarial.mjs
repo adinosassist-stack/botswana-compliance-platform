@@ -72,12 +72,14 @@ ok(api.includes('credentials:"omit"'),"presigned upload omits application creden
 ok(api.includes('referrerPolicy:"no-referrer"'),"presigned upload suppresses referrer leakage");
 ok(api.includes('target.protocol!=="https:"&&!localHttp'),"presigned upload blocks insecure non-local destinations");
 
-ok(policy.preAuthRoutes.flatMap(r=>r.methods).length===33,"pre-auth method/route allowlist count includes the two read-only health methods");
+ok(policy.preAuthRoutes.flatMap(r=>r.methods).length===34,"pre-auth method/route allowlist includes restricted manager activation");
+const managerActivation=policy.preAuthRoutes.filter(r=>r.pattern==="/api/auth/manager-invite/accept");
+ok(managerActivation.length===1&&JSON.stringify(managerActivation[0].methods)===JSON.stringify(["POST"]),"manager invitation acceptance only permits the explicit POST method");
 const staffPreAuth=policy.preAuthRoutes.filter(r=>r.pattern.includes("/public/employee/")&&r.feature==="employee_self_service");
 ok(staffPreAuth.length===6&&staffPreAuth.every(r=>r.security==="staff_only_cookie_csrf_origin_rate_limit_feature_flag"),"staff pre-auth inventory explicitly classifies six isolated, feature-flagged employee routes");
 const healthRoute=policy.preAuthRoutes.filter(r=>r.pattern==="/api/health");
 ok(healthRoute.length===1&&healthRoute[0].kind==="exact"&&healthRoute[0].security==="public_probe"&&healthRoute[0].feature==="health"&&JSON.stringify(healthRoute[0].methods)===JSON.stringify(["GET","HEAD"]),"public health inventory permits only GET and HEAD probes");
-ok(Object.keys(policy.workspaceFeaturePrefixes).length===26,"authenticated feature-family inventory count is locked");
+ok(Object.keys(policy.workspaceFeaturePrefixes).length===27&&Array.isArray(policy.workspaceFeaturePrefixes.manager_invitations)&&policy.workspaceFeaturePrefixes.manager_invitations.includes("/api/workspace/managers/"),"authenticated feature-family inventory includes the explicitly classified manager routes");
 ok(Array.isArray(policy.workspaceFeaturePrefixes.property)&&policy.workspaceFeaturePrefixes.property.includes("/api/property/"),"Property workspace API family is explicitly classified");
 ok(routeAudit.includes('Unclassified pre-auth route(s)'),"route audit fails on unexpected pre-auth routes");
 ok(routeAudit.includes('Authenticated route(s) missing feature inventory classification'),"route audit fails on unclassified authenticated routes");

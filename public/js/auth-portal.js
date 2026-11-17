@@ -73,7 +73,8 @@ function showWorkspaceChoices(error){
 async function login(payload){
  const data=await api("/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
  if(data?.ok===false)throw new Error(data?.message||"Sign in failed.");
- location.replace(next);return data;
+ // Only a server-issued, exact allowlisted path may override the user's next page.
+ location.replace(data?.landingPath==="/manager-invite/dashboard/"?"/manager-invite/dashboard/":next);return data;
 }
 async function requestRecovery(address){try{await api("/api/auth/password-reset/request",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email:address})});return true}catch{return false}}
 async function registerAccount(payload){
@@ -103,7 +104,7 @@ async function loadCapabilities(){
  if(mode==="register"&&!registrationAvailable)setMode("login");else setMode(mode);
 }
 async function detectExistingSession(){
- try{const data=await api("/api/auth/me");if(data?.user){signedNotice.classList.add("show");setTimeout(()=>location.replace(next),120);return true}}catch{}
+ try{const data=await api("/api/auth/me");if(data?.user){signedNotice.classList.add("show");const destination=data?.landingPath==="/manager-invite/dashboard/"?"/manager-invite/dashboard/":next;setTimeout(()=>location.replace(destination),120);return true}}catch{}
  return false;
 }
 async function submitForm(event){
