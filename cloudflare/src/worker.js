@@ -5,6 +5,7 @@ import {createManagerScopedReadHttp} from './manager-invitations-scoped-read.js'
 import {createManagerAccessAdminHttp} from './manager-invitations-admin-http.js';
 import {createManagerInvitationD1Service} from './manager-invitations-d1-service.js';
 import {createManagerInvitationsHttp} from './manager-invitations-http.js';
+import {createManagerAccessRequestsHttp} from './manager-access-requests-http.js';
 import {advisorProviderInput,advisorProviderOutput} from "./advisor-provider-contract.js";
 import {handlePopHttp} from "./payment-pop-http.js";
 import {handleCorporateAssets} from "./corporate-assets.js";
@@ -5712,6 +5713,21 @@ export default {
       if(!requestOriginAllowed(req,env))return json({error:"origin_failed"},403);
       if(!mutationCsrfOk(req,a))return json({error:"csrf_failed"},403);
       if(!workspaceSessionRole(a)&&!selfServiceApi(url.pathname,req.method))return json({error:"workspace_role_forbidden"},403);
+      // Registered customer self-service manager requests are tenant-scoped and
+      // separately gated. A request/review NEVER grants a manager role.
+      const managerRequestStage=managerInviteStage&&
+        String(env.MANAGER_ACCESS_REQUESTS_ENABLED||'').toLowerCase()==='true';
+      if(managerRequestStage&&url.pathname.startsWith('/api/workspace/managers/access-requests')){
+        return createManagerAccessRequestsHttp({
+          db:env.DB,origin:String(env.PUBLIC_ORIGIN||''),
+          authenticate:async()=>({tenantId:a.tenant_id,userId:a.user_id,role:a.role}),
+          verifyCsrf:async()=>mutationCsrfOk(req,a),
+          rateLimit:async(r,scope)=>{
+            const result=await authRateLimit(env,r,scope,{limit:5,windowSeconds:900});
+            return result.ok===true;
+          }
+        })(req);
+      }
       // #2578: fail closed for newly invited branch managers until per-branch
       // read AND write enforcement is implemented and independently qualified.
       // Existing managers are not affected; activated invitations identify the
