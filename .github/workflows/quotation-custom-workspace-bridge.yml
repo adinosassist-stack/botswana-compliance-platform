@@ -1,0 +1,28 @@
+name: Quotation Full Editor Storage Bridge
+on:
+  pull_request:
+    paths:
+      - 'public/js/quotation-custom-workspace-bridge.mjs'
+      - 'tests/quotation-custom-workspace-bridge.test.mjs'
+      - '.github/workflows/quotation-custom-workspace-bridge.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'public/js/quotation-custom-workspace-bridge.mjs'
+      - 'tests/quotation-custom-workspace-bridge.test.mjs'
+      - '.github/workflows/quotation-custom-workspace-bridge.yml'
+permissions:
+  contents: read
+jobs:
+  full-editor-bridge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate full custom draft mapping and security
+        run: node --test tests/quotation-custom-workspace-bridge.test.mjs tests/quotation-full-custom-d1-persistence.test.mjs tests/quotation-customizable-page-model.test.mjs tests/quotation-draft-storage-client.test.mjs
