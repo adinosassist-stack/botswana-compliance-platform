@@ -1,14 +1,14 @@
-const status=document.querySelector('#status'),form=document.querySelector('#request-form'),branch=document.querySelector('#branch'),reason=document.querySelector('#reason'),history=document.querySelector('#previous'),send=document.querySelector('#send');
+const status=document.querySelector('#status'),form=document.querySelector('#request-form'),branch=document.querySelector('#branch'),reason=document.querySelector('#reason'),history=document.querySelector('#previous'),send=document.querySelector('#send'),businessCode=document.querySelector('#business-code');
 let csrf='';
 const api=globalThis.BW?.api?.createClient?.({retries:0,getCsrfToken:()=>csrf});
 const show=t=>{status.textContent=t;};
 async function load(){
  if(!api)throw Error('service_unavailable');
  const session=await api.request('/api/auth/me');
- if(!session?.user||!['reviewer','auditor'].includes(session.user.role)||!session.csrfToken)throw Error('account_ineligible');
+ if(!session?.user||!session.csrfToken)throw Error('account_ineligible');
  csrf=session.csrfToken;
- const rows=await api.request('/api/workspace/managers/request-locations');
- if(!rows?.ok||!Array.isArray(rows.locations))throw Error('locations_unavailable');
+ let rows={locations:[]};
+ if(['reviewer','auditor'].includes(session.user.role)){rows=await api.request('/api/workspace/managers/request-locations');if(!rows?.ok||!Array.isArray(rows.locations))throw Error('locations_unavailable');}
  branch.replaceChildren();
  const blank=document.createElement('option');blank.value='';blank.textContent='Select branch';branch.append(blank);
  for(const item of rows.locations){const option=document.createElement('option');option.value=String(item.id);option.textContent=String(item.name||item.town||'Branch');branch.append(option);}
@@ -24,4 +24,4 @@ form.addEventListener('submit',async e=>{
  }catch{show('Request could not be sent. Check your account and try again.');}
  finally{send.disabled=false;}
 });
-try{await load();show('Select a branch to request manager access.');}catch{form.hidden=true;show('Sign in with an eligible registered team-member account to request manager access.');}
+try{await load();show('Enter the business request code shared by its owner, or choose your existing business branch.');}catch{form.hidden=true;show('Sign in to a registered Thebe Desk account to request manager access.');}
