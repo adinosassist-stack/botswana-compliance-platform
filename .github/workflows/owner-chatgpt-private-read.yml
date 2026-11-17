@@ -1,0 +1,25 @@
+name: Owner ChatGPT private read gate
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/src/owner-chatgpt-*.js'
+      - 'tests/owner-chatgpt-*.mjs'
+      - '.github/workflows/owner-chatgpt-private-read.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  owner-assistant-read-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax checks
+        run: |
+          node --check cloudflare/src/owner-chatgpt-read-gate.js
+          node --check cloudflare/src/owner-chatgpt-read-adapter.js
+      - name: Isolated security tests
+        run: node --test tests/owner-chatgpt-read-gate.mjs tests/owner-chatgpt-read-adapter.mjs
