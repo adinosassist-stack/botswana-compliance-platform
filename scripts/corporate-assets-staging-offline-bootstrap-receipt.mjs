@@ -162,8 +162,10 @@ export function offlineAssetsBootstrapReceipt({
  expectedMainSha,observedMainSha,metadata,catalog,read=readFileSync
 }={}){
  validateTarget({expectedMainSha,observedMainSha,metadata});
+ // Nonzero or unknown deprecated counts are additional red flags, not proof.
+ if(metadata.num_tables!==0)throw Error('deprecated_table_count_nonzero_or_unknown');
  const inspected=normalizeObservedCatalog(catalog);
- if(inspected.appObjects.length||Object.values(inspected.counts).some(n=>n>0))
+ if(inspected.appObjects.length||Object.values(inspected.counts).some(n=>n>0)||catalog.marker!=null)
   throw Error('existing_schema_or_data_refuses_bootstrap');
  const plan=buildOfflineAssetsStagingSql({expectedMainSha,read});
  const body={
