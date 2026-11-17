@@ -6,7 +6,7 @@ test('invited branch managers fail closed before workspace data handlers',()=>{
  const gate=worker.indexOf("if(managerInviteStage&&a.role==='manager')");
  const after=worker.indexOf('const staffManager=await handleStaffManager');
  assert.ok(gate>0&&gate<after);
- const b=worker.slice(gate,gate+900);
+ const b=worker.slice(gate,after);
  assert.match(b,/accepted_by_user_id=\?/);
  assert.match(b,/status='accepted'/);
  assert.match(b,/manager_branch_access_pending/);
