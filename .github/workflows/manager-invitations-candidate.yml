@@ -4,6 +4,7 @@ on:
     paths:
       - 'cloudflare/src/manager-invitations-*.js'
       - 'cloudflare/src/worker.js'
+      - 'cloudflare/config/route-security-policy.json'
       - 'public/js/manager-invite-*.js'
       - 'public/js/manager-invitations-owner.js'
       - 'public/manager-invite/**'
@@ -24,3 +25,5 @@ jobs:
           node-version: '22'
       - name: Candidate unit tests (no secrets, no deployment)
         run: node --test tests/manager-invitations-foundation.test.mjs tests/manager-invitation-schema.test.mjs tests/manager-invitations-service.test.mjs tests/manager-invitations-ui.test.mjs tests/manager-invitations-http.test.mjs tests/manager-invitations-d1.test.mjs tests/manager-invitations-d1-service.test.mjs tests/manager-invitations-worker-stage.test.mjs tests/manager-invitations-pages.test.mjs tests/manager-invitations-sqlite-transaction.test.mjs tests/manager-invitations-revocation.test.mjs tests/manager-invitations-admin-http.test.mjs
+      - name: Run canonical route-security inventory
+        run: node scripts/route-security-audit.mjs
