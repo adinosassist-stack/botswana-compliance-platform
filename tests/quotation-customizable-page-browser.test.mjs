@@ -119,3 +119,14 @@ test("printed PDF stays exactly two A4 pages in a real Chromium print engine",as
   assert.equal(pageObjects.length,2,"Expected precisely two printable pages");
  }finally{await context.close()}
 });
+
+test("reset restores draft without invalidating the mounted editor handle",async()=>{
+ const {context,page}=await open({width:1050,height:900});
+ try{
+  await page.getByLabel("Customer name",{exact:true}).fill("Changed sample");
+  assert.equal(await page.evaluate(()=>window.editor.getDraft().customerName),"Changed sample");
+  await page.getByRole("button",{name:"Reset sample"}).click();
+  assert.equal(await page.evaluate(()=>window.editor.getDraft().customerName),"Sample customer");
+  assert.match(await page.locator(".qcp-meta").innerText(),/Sample customer/);
+ }finally{await context.close()}
+});
