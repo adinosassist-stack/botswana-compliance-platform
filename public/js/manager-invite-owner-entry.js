@@ -24,6 +24,7 @@ try{
  async function refreshDirectory(){
   directory.replaceChildren();
   const heading=document.createElement('h2');heading.textContent='Existing manager access';directory.append(heading);
+  const actionStatus=document.createElement('p');actionStatus.setAttribute('role','status');actionStatus.setAttribute('aria-live','polite');directory.append(actionStatus);
   const response=await fetch('/api/workspace/managers/directory',{credentials:'same-origin',cache:'no-store',redirect:'error'});
   if(!response.ok)throw Error('directory_unavailable');
   const data=await response.json();
@@ -37,7 +38,7 @@ try{
   };
   const button=(label,action)=>{
    const b=document.createElement('button');b.type='button';b.textContent=label;
-   b.addEventListener('click',async()=>{b.disabled=true;try{await action()}catch{alert('Action could not be completed. Check owner access and reload.')}finally{b.disabled=false}});
+   b.addEventListener('click',async()=>{b.disabled=true;try{await action()}catch{actionStatus.textContent='Action could not be completed. Check owner access and reload.'}finally{b.disabled=false}});
    return b;
   };
   for(const invite of data.invites){
