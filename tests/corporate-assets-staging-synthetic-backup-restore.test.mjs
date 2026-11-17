@@ -104,7 +104,12 @@ function wrap(db,{auditReceiptWrites=false}={}){
   };
  }
  return {calls,DB:{prepare(sql){
-  return {...operations(sql),bind(...args){return operations(sql,args)}};
+  return {
+   bind(...args){return operations(sql,args)},
+   first:async()=>operations(sql).first(),
+   all:async()=>operations(sql).all(),
+   run:async()=>operations(sql).run()
+  };
  }}};
 }
 const digest=value=>createHash('sha256').update(value).digest('hex');
