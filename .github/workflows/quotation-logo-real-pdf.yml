@@ -15,6 +15,8 @@ on:
       - 'server/quotation-logo-web-png-sanitizer.mjs'
       - 'server/quotation-portable-private-staging.mjs'
       - 'server/quotation-private-host-session-gate.mjs'
+      - 'server/quotation-synthetic-private-integration.mjs'
+      - 'tests/quotation-synthetic-private-integration.test.mjs'
       - 'tests/quotation-private-host-session-gate.test.mjs'
       - 'server/quotation-private-d1-session-verifier.mjs'
       - 'tests/quotation-private-d1-session-verifier.test.mjs'
@@ -61,7 +63,7 @@ jobs:
       - name: Render and reload synthetic two-page quotation with actual engine
         env:
           QUOTATION_PDF_ENGINE_ROOT: ${{ runner.temp }}/quotation-pdf-engine
-        run: node --test tests/quotation-logo-real-pdf.test.mjs tests/quotation-logo-real-private-e2e.test.mjs tests/quotation-logo-web-crypto-portability.test.mjs tests/quotation-logo-web-png-sanitizer.test.mjs tests/quotation-private-host-session-gate.test.mjs tests/quotation-private-d1-session-verifier.test.mjs tests/quotation-private-auth-rehearsal-worker.test.mjs tests/quotation-private-bootstrap-deny-all.test.mjs tests/quotation-private-bootstrap-snapshot-guard.test.mjs tests/quotation-empty-worker-resource-guard.test.mjs
+        run: node --test tests/quotation-logo-real-pdf.test.mjs tests/quotation-logo-real-private-e2e.test.mjs tests/quotation-logo-web-crypto-portability.test.mjs tests/quotation-logo-web-png-sanitizer.test.mjs tests/quotation-private-host-session-gate.test.mjs tests/quotation-synthetic-private-integration.test.mjs tests/quotation-private-d1-session-verifier.test.mjs tests/quotation-private-auth-rehearsal-worker.test.mjs tests/quotation-private-bootstrap-deny-all.test.mjs tests/quotation-private-bootstrap-snapshot-guard.test.mjs tests/quotation-empty-worker-resource-guard.test.mjs
 
   workerd-png-portability:
     runs-on: ubuntu-latest
