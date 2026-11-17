@@ -11,6 +11,8 @@ on:
       - 'tests/quotation-private-d1-session-verifier.test.mjs'
       - 'tests/quotation-service-bound-staging-worker.test.mjs'
       - 'scripts/quotation-staging-bundle-hash.mjs'
+      - 'scripts/quotation-private-activation-readiness.mjs'
+      - 'tests/quotation-private-activation-readiness.test.mjs'
       - 'docs/quotation-private-workflow-rehearsal.md'
       - '.github/workflows/quotation-private-workflow-harness.yml'
   push:
@@ -46,7 +48,8 @@ jobs:
             tests/quotation-private-host-persistence-e2e.test.mjs \
             tests/quotation-private-d1-session-verifier.test.mjs \
             tests/quotation-service-bound-staging-worker.test.mjs \
-            tests/quotation-staging-bundle-hash.test.mjs
+            tests/quotation-staging-bundle-hash.test.mjs \
+            tests/quotation-private-activation-readiness.test.mjs
       - name: Install pinned dependencies (no lifecycle scripts)
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Bundle synthetic private caller OFFLINE only
