@@ -1,0 +1,53 @@
+name: Final Lovely Quotation Real Chromium PDF Acceptance
+on:
+  pull_request:
+    paths:
+      - 'server/quotation-final-html-print.mjs'
+      - 'tests/quotation-final-html-private-pdf.test.mjs'
+      - 'server/quotation-final-html-private-pdf.mjs'
+      - 'server/quotation-final-html-browser-run.mjs'
+      - 'server/quotation-final-html-private-preview-host.mjs'
+      - 'server/quotation-final-html-private-worker-entry.mjs'
+      - 'tests/quotation-final-html-private-manifest.test.mjs'
+      - 'deploy/quotation-final-html-private/wrangler.jsonc'
+      - 'tests/quotation-final-html-private-preview-host.test.mjs'
+      - 'tests/quotation-final-html-browser-run.test.mjs'
+      - 'server/quotation-logo-web-png-sanitizer.mjs'
+      - 'tests/quotation-final-html-private-pdf.test.mjs'
+      - 'tests/quotation-final-html-print-chromium.test.mjs'
+      - '.github/workflows/quotation-final-html-print-chromium.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'server/quotation-final-html-print.mjs'
+      - 'tests/quotation-final-html-print-chromium.test.mjs'
+      - '.github/workflows/quotation-final-html-print-chromium.yml'
+permissions:
+  contents: read
+jobs:
+  chromium-synthetic-pdf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install lockfile PDF engine and isolated pinned browser
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          mkdir -p "$RUNNER_TEMP/quotation-browser-engine"
+          npm install --prefix "$RUNNER_TEMP/quotation-browser-engine" --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright@1.56.1
+      - name: Test real PDF page count, A4 geometry and overflow guards
+        env:
+          QUOTATION_BROWSER_ENGINE_ROOT: ${{ runner.temp }}/quotation-browser-engine
+        run: |
+          node --test tests/quotation-final-html-private-manifest.test.mjs
+          node --test tests/quotation-final-html-private-preview-host.test.mjs
+          node --test tests/quotation-final-html-browser-run.test.mjs
+          node --test tests/quotation-final-html-private-pdf.test.mjs
+          node --test tests/quotation-final-html-print-chromium.test.mjs

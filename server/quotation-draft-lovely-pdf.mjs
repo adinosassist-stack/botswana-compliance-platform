@@ -40,6 +40,11 @@ export function wrapQuotationDescription(font,value,maxWidth,size=8){
 export async function drawLovelyQuotationDraft({pdf,pdfLib,draft}={}){
  if(!pdf?.getPages||!pdf?.embedFont||!pdfLib?.StandardFonts?.Helvetica)
   fail("quotation_draft_pdf_unconfigured");
+ // The final owner-approved HTML customization carries fields and full terms
+ // that the legacy 8-row PDF background cannot reproduce. Never silently
+ // flatten or drop those legally relevant edits.
+ if(draft?.customPage!==undefined)
+  fail("lovely_html_document_requires_html_renderer");
  const checked=validateQuotationDraft(draft);
  // The legacy SHA-pinned template has only eight reviewed table rows.
  // Draft storage may accept twelve, but PDF rendering must fail closed.

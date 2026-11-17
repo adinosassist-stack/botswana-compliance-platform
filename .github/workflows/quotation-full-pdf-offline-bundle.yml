@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'server/quotation-full-pdf-worker-entry.mjs'
+      - 'package.json'
+      - 'package-lock.json'
       - 'deploy/quotation-full-private-staging/wrangler.jsonc'
       - 'tests/quotation-full-pdf-bundle-config.test.mjs'
       - 'docs/quotation-full-private-pdf-bundle-qualification.md'
@@ -11,6 +13,8 @@ on:
     branches: [main]
     paths:
       - 'server/quotation-full-pdf-worker-entry.mjs'
+      - 'package.json'
+      - 'package-lock.json'
       - 'deploy/quotation-full-private-staging/wrangler.jsonc'
       - 'tests/quotation-full-pdf-bundle-config.test.mjs'
       - '.github/workflows/quotation-full-pdf-offline-bundle.yml'
@@ -35,6 +39,6 @@ jobs:
       - name: Install approved build tools and pinned PDF engine without lifecycle scripts
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
-          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund pdf-lib@1.17.1
+          node --input-type=module -e 'import fs from "node:fs"; const p=JSON.parse(fs.readFileSync("package.json"));const l=JSON.parse(fs.readFileSync("package-lock.json"));if(p.dependencies["pdf-lib"]!=="1.17.1"||l.packages[""].dependencies["pdf-lib"]!=="1.17.1"||l.packages["node_modules/pdf-lib"]?.version!=="1.17.1")process.exit(1)'
       - name: Offline compile full private quotation Worker - NO UPLOAD
         run: npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/quotation-full-private-candidate" --config deploy/quotation-full-private-staging/wrangler.jsonc
