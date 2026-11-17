@@ -6,7 +6,7 @@
  * Operational proof of binding identity and the private caller's isolation
  * is EXTERNAL to this module. Source flags are defense in depth, not proof.
  */
-import {createQuotationSyntheticPrivateIntegration}
+import {LOVELY_FINAL_HTML_REFERENCE}\n from "./quotation-final-html-contract.mjs";\nimport {createQuotationSyntheticPrivateIntegration}
   from "./quotation-synthetic-private-integration.mjs";
 
 const DENY_HEADERS={
@@ -64,7 +64,7 @@ function qualified(env){
  * A correct header and fake .test origin do not establish that isolation.
  */
 export async function handleQuotationFullPrivateRequest(request,env){
- if(!(request instanceof Request)||!qualified(env))return deny();
+ if(!(request instanceof Request)||!qualified(env))return deny();\n // Owner superseded the fixed Candidate B PDF with the editable HTML design.\n // This Worker remains intentionally inert until the actual HTML-derived\n // PDF renderer and exact template are separately integrated and qualified.\n // Importing a new checksum or setting environment flags is not approval.\n if(LOVELY_FINAL_HTML_REFERENCE.format==="thebe-lovely-quote-template-v1")\n  return deny();
  const registry=approvedRegistry(env);
  if(!registry)return deny();
  try{
