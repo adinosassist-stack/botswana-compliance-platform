@@ -43,8 +43,13 @@ cross-environment binding before construction.
    Existing D1/R2 handlers still enforce tenant and revision checks.
 5. The original two-page Lovely PDF remains untouched. The new full-text
    browser preview is not yet approved contractual or worker-side PDF output.
-6. Cloudflare Worker bw-quotation-auth-private-staging is left unversioned,
-   undeployed, and with public/preview URLs disabled.
+6. Cloudflare Worker bw-quotation-auth-private-staging has one **undeployed**
+   source-reviewed static 404-only version `cc20de6e-ab08-409f-89a1-390e0eaf5be1`,
+   created under separate owner and independent thusico approval. A fresh
+   Cloudflare GET on 17 Nov 2026 confirms `deployed_on:null`, zero deployments,
+   both public/preview URL settings disabled and no domain references.
+   This version contains **no quotation application code or bindings**.
+   Do not deploy or replace it under source-only PR #2566.
 
 ## Test and approval
 
@@ -61,8 +66,30 @@ no URL exposure or cross-tenant access. No production activation.
 
 ## Current operational blocker
 
-Issue #2542 contains a 404-only version upload approval pinned to old
-main SHA 957553b7a37adb99156eed0be9ab618511170ee7.
-The known main at branch creation is
-03229409c314ab0164434ba295447d4384910544.
-Do not use a stale SHA-pinned approval for any version write.
+**Previously approved 404-only upload is complete, not pending.** Issue #2542
+comment #6936158566 records one successful, version-only upload under
+renewed, matching approvals on historical main
+`03229409c314ab0164434ba295447d4384910544`.
+The dedicated Worker remains undeployed and unexposed; no replay is permitted.
+
+Source-only PR #2566 subsequently passed independent `thusico` review and
+merged to main at `47b35ba367a8d8d8125d2bf9b561e602b53f4da1`.
+That source merge did **not** authorize a real private quotation Worker version,
+D1/R2 binding, synthetic seed data, customer PDF upload, contractual terms,
+production activation or real customer issuance.
+
+The next step is a separately authorized, exact-current-main private staging
+qualification with real (but synthetic-only) data, bound resources verified
+against independently inspected Cloudflare evidence, explicit approved
+recovery/abort plan, verified authentication and tenant isolation, then
+actual PDF/reload/CSRF negative tests. Never treat old SHA-scoped approvals,
+tests or the mere existence of a 404 version as authorization for this step.
+
+The source-only `scripts/quotation-private-version-readiness-guard.mjs`
+assesses verified Cloudflare GET snapshots and auth table row counts for
+requesting a future approval, not for deployment. It must receive freshly
+independently verified source SHA, Worker, version and no-exposure metadata;
+unknown bindings or missing resource evidence fail shut. Even a passing
+result sets `deploymentAuthorized`, `versionUploadAuthorized`,
+`bindingAuthorized`, `templateUploadAuthorized`,
+`customerIssuanceAuthorized` and `productionAuthorized` to `false`.
