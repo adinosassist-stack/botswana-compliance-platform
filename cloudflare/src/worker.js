@@ -8591,7 +8591,7 @@ export default {
         String(env.MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED||'').toLowerCase()==='true'&&
         (req.method==='GET'||req.method==='HEAD');
       if(!permitted)return json({error:'not_found'},404);
-      const page=url.pathname.replace(/\\/+$/,'');
+      const page=url.pathname.replace(/\/+$/,'');
       if(page==='/manager-invite/owner'||page==='/manager-invite/activate'||page==='/manager-invite/dashboard'){
         const target=page+'/index.html';
         const assetReq=new Request(new URL(target,url.origin),{method:req.method,headers:req.headers});
