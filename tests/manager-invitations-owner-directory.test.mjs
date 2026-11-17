@@ -15,7 +15,7 @@ function dbFactory({allowed=true,fail=false}={}){
 const req=(path='/api/workspace/managers/directory')=>new Request('https://staging.example.invalid'+path);
 test('owner directory reads only authenticated tenant and never exposes secrets',async()=>{
  const {db,calls}=dbFactory();
- const r=await createManagerOwnerDirectoryHttp({db})(req('?tenantId=tenant-b'),identity);
+ const r=await createManagerOwnerDirectoryHttp({db})(req('/api/workspace/managers/directory?tenantId=tenant-b'),identity);
  assert.equal(r.status,200);
  const body=await r.json();assert.deepEqual(body,{ok:true,invites:[],locations:[],grants:[]});
  assert.deepEqual(calls[0].params,['tenant-a','owner-a']);
