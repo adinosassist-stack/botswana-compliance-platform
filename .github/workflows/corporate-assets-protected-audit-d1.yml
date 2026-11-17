@@ -85,6 +85,8 @@ jobs:
       ASSETS_D1_AUTHORIZATION: ${{ inputs.authorization }}
       ASSETS_STAGING_GITHUB_READ_TOKEN: ${{ secrets.ASSETS_STAGING_GITHUB_READ_TOKEN }}
       ASSETS_STAGING_D1_TOKEN: ${{ secrets.ASSETS_STAGING_D1_READ_TOKEN }}
+      ASSETS_STAGING_WORKER_READ_TOKEN: ${{ secrets.ASSETS_STAGING_CLOUDFLARE_TOKEN }}
+      ASSETS_STAGING_ACCOUNT_READ_TOKEN: ${{ secrets.ASSETS_STAGING_CLOUDFLARE_ACCOUNT_READ_TOKEN }}
     steps:
       - name: Restrict protected preflight to exact reviewed main
         shell: bash
@@ -95,6 +97,8 @@ jobs:
           test "$GITHUB_SHA" = "$EXPECTED_MAIN_SHA"
           test -n "$ASSETS_STAGING_GITHUB_READ_TOKEN"
           test -n "$ASSETS_STAGING_D1_TOKEN"
+          test -n "$ASSETS_STAGING_WORKER_READ_TOKEN"
+          test -n "$ASSETS_STAGING_ACCOUNT_READ_TOKEN"
           test "${GITHUB_ACTOR,,}" != thusico
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -129,6 +133,8 @@ jobs:
       ASSETS_D1_EXPECTED_BOOKMARK_SHA256: ${{ inputs.expected_bookmark_sha256 }}
       ASSETS_STAGING_GITHUB_READ_TOKEN: ${{ secrets.ASSETS_STAGING_GITHUB_READ_TOKEN }}
       ASSETS_STAGING_D1_TOKEN: ${{ secrets.ASSETS_STAGING_D1_AUDIT_WRITE_TOKEN }}
+      ASSETS_STAGING_WORKER_READ_TOKEN: ${{ secrets.ASSETS_STAGING_CLOUDFLARE_TOKEN }}
+      ASSETS_STAGING_ACCOUNT_READ_TOKEN: ${{ secrets.ASSETS_STAGING_CLOUDFLARE_ACCOUNT_READ_TOKEN }}
     steps:
       - name: Require exact SHA, explicit owner scope and separately approved dedicated token
         shell: bash
@@ -143,6 +149,8 @@ jobs:
           test "$GITHUB_ACTOR" = adinosassist-stack
           test -n "$ASSETS_STAGING_GITHUB_READ_TOKEN"
           test -n "$ASSETS_STAGING_D1_TOKEN"
+          test -n "$ASSETS_STAGING_WORKER_READ_TOKEN"
+          test -n "$ASSETS_STAGING_ACCOUNT_READ_TOKEN"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ inputs.expected_main_sha }}
