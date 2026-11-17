@@ -121,6 +121,12 @@ try{
   showView('corporateassets');
  });
  await page.getByText('Asset registration is unavailable in this workspace. No records can be saved.').waitFor();
+ await page.getByRole('heading',{name:'Asset register unavailable'}).waitFor();
+ assert.equal(await page.getByText('Register equipment, vehicles or furniture to start your company register.').count(),0,'failed backend must not be mistaken for an empty register');
+ assert.equal(await page.getByRole('button',{name:'Register asset',exact:true}).getAttribute('aria-disabled'),'true');
+ await page.getByRole('button',{name:'Retry loading assets'}).click();
+ await page.getByRole('heading',{name:'Asset register unavailable'}).waitFor();
+
  await page.getByRole('button',{name:'Register asset',exact:true}).click();
  await page.getByText('Cannot register an asset yet: the asset service is still loading or unavailable. Use Refresh to retry. No asset has been saved.').waitFor();
  assert.equal(await page.locator('.corporate-asset-dialog').count(),0,'unqualified backend must not open a save form');
@@ -128,8 +134,9 @@ try{
  await page.evaluate(()=>{
   window.apiJson=(path,opts)=>path.endsWith('/schedule')?Promise.reject(Error('schedule unavailable')):window.savedAssetsApi(path,opts);
  });
- await page.getByRole('button',{name:'Refresh',exact:true}).click();
+ await page.getByRole('button',{name:'Retry loading assets'}).click();
  await page.getByText('Maintenance schedule unavailable. Asset register remains available.').waitFor();
+ assert.equal(await page.getByRole('button',{name:'Register asset',exact:true}).getAttribute('aria-disabled'),'false');
  await page.getByRole('button',{name:'Register asset',exact:true}).click();
  await page.getByRole('heading',{name:'Register asset',exact:true}).waitFor();
  await page.getByRole('button',{name:'Cancel',exact:true}).click();
