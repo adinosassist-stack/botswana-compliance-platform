@@ -88,7 +88,7 @@ export function createManagerAccessRequestsHttp({db,origin,authenticate,verifyCs
    if(Object.keys(body).sort().join(',')!=='decision,requestId'||!validId(body.requestId)||!['approve','reject'].includes(body.decision))return json(400,{error:'invalid_request'});
    const next=body.decision==='approve'?'approved_for_provisioning':'rejected';
    await db.batch([
-    db.prepare(guard(`EXISTS(SELECT 1 FROM memberships WHERE tenant_id=? AND user_id=? AND status='active' AND role='owner') AND EXISTS(SELECT 1 FROM workspace_manager_access_requests r JOIN memberships m ON m.tenant_id=r.tenant_id AND m.user_id=r.requester_user_id WHERE r.tenant_id=? AND r.id=? AND r.status='pending' AND (m.status='active' AND m.role IN ('reviewer','auditor') OR m.user_id IS NULL))`)).bind(tenantId,userId,tenantId,body.requestId),
+    db.prepare(guard(`EXISTS(SELECT 1 FROM memberships WHERE tenant_id=? AND user_id=? AND status='active' AND role='owner') AND EXISTS(SELECT 1 FROM workspace_manager_access_requests r LEFT JOIN memberships m ON m.tenant_id=r.tenant_id AND m.user_id=r.requester_user_id JOIN users u ON u.id=r.requester_user_id WHERE r.tenant_id=? AND r.id=? AND r.status='pending' AND (m.user_id IS NULL OR (m.status='active' AND m.role IN ('reviewer','auditor'))))`)).bind(tenantId,userId,tenantId,body.requestId),
     db.prepare("UPDATE workspace_manager_access_requests SET status=?,reviewed_by_user_id=?,reviewed_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND id=? AND status='pending'").bind(next,userId,tenantId,body.requestId)
    ]);
    // Approval is a REVIEW decision only. Never update memberships, sessions, grants or invite status here.
