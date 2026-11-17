@@ -52,3 +52,6 @@ export class QuotationPrivateRehearsal extends WorkflowEntrypoint {
   });
  }
 }
+
+// No externally callable HTTP interface, even if a configuration error adds a route.
+export default Object.freeze({fetch(){return new Response("Not Found",{status:404,headers:{"cache-control":"private, no-store"}});}});
