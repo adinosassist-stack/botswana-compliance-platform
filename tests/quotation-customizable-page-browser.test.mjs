@@ -107,7 +107,7 @@ test("mobile preview does not cause horizontal page overflow and never uploads",
  try{
   const dimensions=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,inner:innerWidth}));
   assert.ok(dimensions.scroll<=dimensions.inner+1,JSON.stringify(dimensions));
-  assert.equal(await page.getByText("CUSTOMER DETAILS").count(),1);
+  assert.equal(await page.locator(".qcp-page").first().locator(".qcp-meta h3").filter({hasText:"CUSTOMER DETAILS"}).count(),1);
  }finally{await context.close()}
 });
 
