@@ -16,3 +16,12 @@ test('owner grant and revoke remain in the central authenticated workspace gate'
  assert.match(w.slice(admin,admin+520),/authenticateOwner/);
  assert.match(w.slice(admin-270,admin),/managerInviteStage/);
 });
+
+
+test('scoped dashboard path is admitted only inside invited manager grant path',()=>{
+ const scoped=w.indexOf('return createManagerScopedReadHttp({db:env.DB})(req');
+ const begin=w.lastIndexOf('if(managerInviteStage&&a.role',scoped);
+ assert.ok(begin>0&&scoped>begin);
+ assert.match(w.slice(begin,scoped),/my-dashboard/);
+ assert.match(w.slice(scoped,scoped+500),/manager_branch_access_pending/);
+});
