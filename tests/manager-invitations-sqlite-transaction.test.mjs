@@ -94,7 +94,7 @@ test('synthetic activated manager is eligible for existing tenant-scoped login, 
   const login=x.sql.prepare(`SELECT u.id,m.tenant_id,m.role FROM users u
     JOIN memberships m ON m.user_id=u.id AND m.status='active'
     WHERE u.email=? AND u.password_hash=? AND m.tenant_id=? AND m.role='manager'`);
-  assert.deepEqual(login.get('manager@demo.invalid',passwordHash,'tenant-a'),{
+  assert.deepEqual({...login.get('manager@demo.invalid',passwordHash,'tenant-a')},{
     id:'manager-a',tenant_id:'tenant-a',role:'manager'
   });
   assert.equal(login.get('manager@demo.invalid',passwordHash,'tenant-b'),undefined);
