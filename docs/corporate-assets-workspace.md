@@ -79,6 +79,40 @@ any separately authorized schema/bootstrap or restore operation. The existing
 Worker stays private with both Assets and writes disabled; credential/source
 provenance and independent `thusico` approval remain mandatory.
 
+## Source-only staging D1 bootstrap receipt (not an execution workflow)
+
+`scripts/corporate-assets-staging-offline-bootstrap-receipt.mjs` assembles a
+**minimal, reviewable SQL candidate** from the existing canonical auth DDL,
+audit-lineage migration and the separate Corporate Assets schema. It preserves
+the non-relabeling staging identity marker introduced in PR #2550. All code
+is local file I/O, and has **no Cloudflare client, Wrangler execution, network
+request, token or automatic migration**.
+
+Its informational receipt requires the explicitly identified isolated D1
+`bw-corporate-assets-staging` (`e19f09de-3bb9-4021-b4f8-44df04c8aaa8`),
+`num_tables=0` in supplied inventory metadata, and a valid exact matching
+source commit. It computes deterministic SHA-256 digests for the candidate
+SQL, the three source inputs and the receipt. The input inventory and SHA
+are supplied evidence, not independently authenticated observations;
+**even a passing receipt cannot authorize or safely execute remote SQL.**
+
+`tests/corporate-assets-staging-offline-bootstrap-receipt.test.mjs`
+creates the candidate schema in ephemeral *in-memory* SQLite, runs the actual
+read-only staging schema preflight and tests negative metadata, stale SHA,
+missing audit uniqueness and destructive DDL cases. It exercises the locked
+status-only staging Worker and proves that it still blocks writes.
+
+This candidate covers the **minimum** auth/audit/Assets table subset needed
+for the targeted staging preflight. It does not claim complete parity with
+all production user-registration, billing, tenancy or workflow paths.
+Before any authorized Cloudflare D1 initialization, an independently
+protected operator must inspect live database identity, emptiness/objects,
+D1 backup/restore safeguards, schema/index dependencies and isolation from
+other Workers. Explicit separate owner authorization plus independent
+`thusico` approval must be recorded for the *specific* private staging D1
+write operation. Future deployments, key rotation, authenticated write E2E
+and production migration/Assets activation require **other approvals**.
+
 ## Validation
 
 `npm run test:corporate-assets` covers validation, tenant boundaries, owner-only
