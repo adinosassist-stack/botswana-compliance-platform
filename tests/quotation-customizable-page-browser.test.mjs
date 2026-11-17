@@ -110,3 +110,12 @@ test("mobile preview does not cause horizontal page overflow and never uploads",
   assert.equal(await page.getByText("CUSTOMER DETAILS").count(),1);
  }finally{await context.close()}
 });
+
+test("printed PDF stays exactly two A4 pages in a real Chromium print engine",async()=>{
+ const {context,page}=await open({width:1280,height:960});
+ try{
+  const bytes=await page.pdf({format:"A4",printBackground:true});
+  const pageObjects=bytes.toString("latin1").match(/\/Type\s*\/Page\b/g)||[];
+  assert.equal(pageObjects.length,2,"Expected precisely two printable pages");
+ }finally{await context.close()}
+});
