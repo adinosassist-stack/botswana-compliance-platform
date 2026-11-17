@@ -1,0 +1,28 @@
+name: Quotation Private Operational Readiness Guard
+on:
+  pull_request:
+    paths:
+      - 'scripts/quotation-private-operational-gate.mjs'
+      - 'tests/quotation-private-operational-gate.test.mjs'
+      - '.github/workflows/quotation-private-operational-gate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/quotation-private-operational-gate.mjs'
+      - 'tests/quotation-private-operational-gate.test.mjs'
+      - '.github/workflows/quotation-private-operational-gate.yml'
+permissions:
+  contents: read
+jobs:
+  deny-unverified-staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exercise exact-artifact predeployment evidence rejection
+        run: node --test tests/quotation-private-operational-gate.test.mjs
