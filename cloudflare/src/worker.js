@@ -5336,7 +5336,9 @@ export default {
       // the restricted dashboard, never the unscoped /app workspace.
       let managerLandingPath=null;
       if(String(env.APP_ENV||'').toLowerCase()==='staging'&&
-        String(env.MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED||'').toLowerCase()==='true'&&selected.role==='manager'){
+        String(env.MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED||'').toLowerCase()==='true'&&
+      String(env.MANAGER_INVITATIONS_SCHEMA_READY||'').toLowerCase()==='true'&&
+      String(env.MANAGER_INVITATIONS_ACCESS_READY||'').toLowerCase()==='true'&&selected.role==='manager'){
         const scoped=await env.DB.prepare("SELECT 1 ok FROM workspace_manager_invites WHERE tenant_id=? AND accepted_by_user_id=? AND status='accepted' LIMIT 1").bind(selected.tenant_id,u.id).first();
         if(scoped?.ok)managerLandingPath='/manager-invite/dashboard/';
       }
@@ -5689,7 +5691,9 @@ export default {
     // #2578: manager onboarding is STAGING ONLY and default off.
     // No production D1 writes or public activation without a separately reviewed release.
     const managerInviteStage=String(env.APP_ENV||'').toLowerCase()==='staging'&&
-      String(env.MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED||'').toLowerCase()==='true';
+      String(env.MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED||'').toLowerCase()==='true'&&
+      String(env.MANAGER_INVITATIONS_SCHEMA_READY||'').toLowerCase()==='true'&&
+      String(env.MANAGER_INVITATIONS_ACCESS_READY||'').toLowerCase()==='true';
     const isManagerInviteActivation=url.pathname==='/api/auth/manager-invite/accept'&&req.method==='POST';
     if(isManagerInviteActivation&&managerInviteStage){
       const svc=createManagerInvitationD1Service({db:env.DB,hashPassword});
@@ -8610,6 +8614,8 @@ export default {
     if(url.pathname.startsWith('/manager-invite/')){
       const permitted=String(env.APP_ENV||'').toLowerCase()==='staging'&&
         String(env.MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED||'').toLowerCase()==='true'&&
+      String(env.MANAGER_INVITATIONS_SCHEMA_READY||'').toLowerCase()==='true'&&
+      String(env.MANAGER_INVITATIONS_ACCESS_READY||'').toLowerCase()==='true'&&
         (req.method==='GET'||req.method==='HEAD');
       if(!permitted)return json({error:'not_found'},404);
       const page=url.pathname.replace(/\/+$/,'');
