@@ -6,7 +6,6 @@
  * Operational proof of binding identity and the private caller's isolation
  * is EXTERNAL to this module. Source flags are defense in depth, not proof.
  */
-import {PDFDocument} from "pdf-lib";
 import {createQuotationSyntheticPrivateIntegration}
   from "./quotation-synthetic-private-integration.mjs";
 
@@ -57,7 +56,9 @@ function qualified(env){
   typeof env?.LOGO_R2?.get==="function"&&
   typeof env?.LOGO_R2?.put==="function"&&
   typeof env?.LOGO_R2?.delete==="function"&&
-  typeof env?.TEMPLATE_R2?.get==="function";
+  typeof env?.TEMPLATE_R2?.get==="function"&&
+  typeof env?.QUOTATION_PRIVATE_PDF_ENGINE?.PDFDocument?.load==="function"&&
+  typeof env?.QUOTATION_PRIVATE_PDF_ENGINE?.PDFDocument?.create==="function";
 }
 /** Caller must be independently authenticated as an INTERNAL service binding.
  * A correct header and fake .test origin do not establish that isolation.
@@ -77,7 +78,7 @@ export async function handleQuotationFullPrivateRequest(request,env){
    privateLogoBucket:env.LOGO_R2,
    privateTemplateBucket:env.TEMPLATE_R2,
    approvedTemplates:registry,
-   pdfLib:{PDFDocument},
+   pdfLib:env.QUOTATION_PRIVATE_PDF_ENGINE,
    resourceIdentity:RESOURCES
   });
   return await integration.handle(request);
