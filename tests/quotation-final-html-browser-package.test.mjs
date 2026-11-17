@@ -27,3 +27,16 @@ test("the only HTTP entry remains deny-all and Browser Run is private",()=>{
  assert.match(m,/"routes": \[\]/);
  assert.match(m,/"browser": \{"binding": "QUOTATION_BROWSER"\}/);
 });
+
+test("named Cloudflare RPC quotation entrypoint does not enable public fetch",()=>{
+ const src=readFileSync("deploy/quotation-final-html-private/worker.mjs","utf8");
+ assert.match(src,/class QuotationSyntheticPrivateRpc extends WorkerEntrypoint/);
+ assert.match(src,/async previewSynthetic\(request\)/);
+ assert.match(src,/QUOTATION_PRIVATE_STAGE_PROOF_JSON/);
+ assert.match(src,/JSON\.parse\(raw\)/);
+ assert.match(src,/host\.handleInternal\(request\)/);
+ assert.match(src,/import \{PDFDocument\} from "pdf-lib"/);
+ // Default Worker fetch must always deny even with an internal method present.
+ assert.match(src,/export default Object\.freeze\(\{/);
+ assert.match(src,/async fetch\(\)\{\s*return new Response\("Not Found",\{status:404/);
+});
