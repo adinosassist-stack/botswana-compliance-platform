@@ -31,7 +31,7 @@ function fixture(){
   async batch(commands){
    sql.exec('BEGIN IMMEDIATE');
    try{
-    const results=commands.map(x=>sql.prepare(x.query).all(...x.params));
+    const results=commands.map(x=>{const stmt=sql.prepare(x.query);return stmt.columns().length?stmt.all(...x.params):stmt.run(...x.params);});
     sql.exec('COMMIT');return results;
    }catch(e){sql.exec('ROLLBACK');throw e;}
   }
