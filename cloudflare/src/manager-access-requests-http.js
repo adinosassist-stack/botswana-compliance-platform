@@ -9,10 +9,11 @@ export function createManagerAccessRequestsHttp({db,origin,authenticate,verifyCs
  return async req=>{
   const path=new URL(req.url).pathname;
   const submit=path==='/api/workspace/managers/access-requests'&&req.method==='POST';
+  const locations=path==='/api/workspace/managers/request-locations'&&req.method==='GET';
   const mine=path==='/api/workspace/managers/access-requests/mine'&&req.method==='GET';
   const inbox=path==='/api/workspace/managers/access-requests/inbox'&&req.method==='GET';
   const decide=path==='/api/workspace/managers/access-requests/decide'&&req.method==='POST';
-  if(!submit&&!mine&&!inbox&&!decide)return json(404,{error:'not_found'});
+  if(!submit&&!mine&&!inbox&&!decide&&!locations)return json(404,{error:'not_found'});
   if(new URL(req.url).origin!==origin)return json(403,{error:'origin_denied'});
   if((submit||decide)&&req.headers.get('origin')!==origin)return json(403,{error:'origin_denied'});
   const principal=await authenticate(req);
@@ -21,7 +22,7 @@ export function createManagerAccessRequestsHttp({db,origin,authenticate,verifyCs
   if(!(await rateLimit(req,decide?'manager_request_review':'manager_request_self_service')))return json(429,{error:'rate_limited'});
   const owner=inbox||decide;
   if(owner&&principal.role!=='owner')return json(403,{error:'owner_required'});
-  if((submit||mine)&&!['reviewer','auditor'].includes(principal.role))return json(403,{error:'ineligible_role'});
+  if((submit||mine||locations)&&!['reviewer','auditor'].includes(principal.role))return json(403,{error:'ineligible_role'});
   let body={};
   if(submit||decide){
    if(!String(req.headers.get('content-type')||'').toLowerCase().startsWith('application/json'))return json(415,{error:'invalid_content_type'});
@@ -36,6 +37,12 @@ export function createManagerAccessRequestsHttp({db,origin,authenticate,verifyCs
   }
   const {tenantId,userId}=principal;
   try{
+   if(locations){
+    const active=await db.prepare("SELECT 1 ok FROM memberships WHERE tenant_id=? AND user_id=? AND status='active' AND role IN ('reviewer','auditor')").bind(tenantId,userId).first();
+    if(!active?.ok)return json(403,{error:'membership_required'});
+    const rows=await db.prepare("SELECT id,name,town FROM operating_locations WHERE tenant_id=? AND active=1 ORDER BY name,id LIMIT 100").bind(tenantId).all();
+    return json(200,{ok:true,locations:rows.results||[]});
+   }
    if(submit){
     if(Object.keys(body).some(k=>!['locationId','reason'].includes(k))||!validId(body.locationId)||
       (body.reason!==undefined&&(typeof body.reason!=='string'||body.reason.length>500)))return json(400,{error:'invalid_request'});
