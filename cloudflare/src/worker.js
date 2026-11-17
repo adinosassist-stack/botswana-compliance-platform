@@ -1,3 +1,4 @@
+import {createManagerAccessAdminHttp} from './manager-invitations-admin-http.js';
 import {createManagerInvitationD1Service} from './manager-invitations-d1-service.js';
 import {createManagerInvitationsHttp} from './manager-invitations-http.js';
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./regulatory-pack-registry.js";
@@ -5696,6 +5697,20 @@ export default {
       if(!requestOriginAllowed(req,env))return json({error:"origin_failed"},403);
       if(!mutationCsrfOk(req,a))return json({error:"csrf_failed"},403);
       if(!workspaceSessionRole(a)&&!selfServiceApi(url.pathname,req.method))return json({error:"workspace_role_forbidden"},403);
+      if(managerInviteStage&&req.method==='POST'&&
+        (url.pathname==='/api/workspace/managers/invitations/revoke'||url.pathname==='/api/workspace/managers/suspend')){
+        const handler=createManagerAccessAdminHttp({
+          db:env.DB,origin:String(env.PUBLIC_ORIGIN||''),
+          authenticateOwner:async()=>({
+            role:a.role,membershipStatus:'active',userId:a.user_id,tenantId:a.tenant_id
+          }),
+          verifyCsrf:async()=>mutationCsrfOk(req,a),
+          rateLimit:async(r,scope)=>{
+            const result=await authRateLimit(env,r,scope,{limit:10,windowSeconds:900});return result.ok===true;
+          }
+        });
+        return handler(req);
+      }
       if(managerInviteStage&&url.pathname==='/api/workspace/managers/invitations'&&req.method==='POST'){
         const svc=createManagerInvitationD1Service({db:env.DB,hashPassword});
         const handler=createManagerInvitationsHttp({
