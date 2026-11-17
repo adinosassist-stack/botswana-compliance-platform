@@ -1,0 +1,293 @@
+/**
+ * Private, source-only Lovely quotation customization / print preview.
+ * No route is mounted, no network requests, no customer issuance, no storage.
+ * The original SHA-pinned two-page contract PDF remains untouched.
+ */
+import {
+ QUOTATION_CUSTOM_DEFAULT_COPY,QUOTATION_CUSTOM_MAX_ITEMS,
+ quotationCustomSample,quotationCustomFormatMoney,validateQuotationCustomPage
+} from "./quotation-customizable-page-model.mjs";
+
+const css=[
+ ".qcp-shell{display:grid;grid-template-columns:minmax(265px,340px) minmax(0,1fr);gap:16px;font:13px/1.45 system-ui,sans-serif;color:#192634;background:#f0f2f5;padding:14px}",
+ ".qcp-shell *{box-sizing:border-box}",
+ ".qcp-sidebar{background:#fff;border:1px solid #d9dfe6;border-radius:12px;padding:16px;display:grid;align-content:start;gap:11px;max-height:calc(100vh - 28px);overflow-y:auto}",
+ ".qcp-sidebar h2{font-size:18px;margin:0}",
+ ".qcp-sidebar p{margin:0;color:#526274}",
+ ".qcp-sidebar details{border:1px solid #dce1e7;border-radius:8px;padding:10px}",
+ ".qcp-sidebar summary{font-weight:700;cursor:pointer}",
+ ".qcp-editor-grid{display:grid;gap:8px;margin-top:10px}",
+ ".qcp-editor-grid label{display:grid;gap:3px;font-weight:600;font-size:12px}",
+ ".qcp-editor-grid input,.qcp-editor-grid textarea{width:100%;min-width:0;font:inherit;color:#152335;border:1px solid #9eadbd;border-radius:6px;padding:7px 8px;background:#fff}",
+ ".qcp-editor-grid textarea{resize:vertical;min-height:140px}",
+ ".qcp-line-row{display:grid;grid-template-columns:1fr 58px 87px 31px;gap:5px;align-items:end;border-bottom:1px solid #e1e5e9;padding-bottom:7px}",
+ ".qcp-line-row input{width:100%;min-width:0}",
+ ".qcp-line-row button{padding:5px 3px}",
+ ".qcp-shell button{cursor:pointer;padding:8px 10px;border-radius:7px;background:#fff;border:1px solid #afbdc9;color:#182735;font:inherit}",
+ ".qcp-shell button[data-primary]{background:#bd1116;border-color:#bd1116;color:#fff;font-weight:700}",
+ ".qcp-shell button:disabled{opacity:.5;cursor:not-allowed}",
+ ".qcp-actions{display:flex;flex-wrap:wrap;gap:7px}",
+ ".qcp-hint{font-size:12px;color:#66717e}",
+ ".qcp-status{font-size:12px;color:#3f5c75;min-height:22px}",
+ ".qcp-stage{display:grid;justify-items:center;align-content:start;gap:18px;min-width:0;overflow:auto}",
+ ".qcp-page{width:min(100%,794px);min-height:1055px;background:#fff;position:relative;box-shadow:0 3px 15px #17233220;padding:35px 35px 66px;display:flex;flex-direction:column;gap:16px;color:#1b1b1b}",
+ ".qcp-watermark{position:absolute;top:8px;left:35px;color:#9a1318;font-size:10px;letter-spacing:.6px;font-weight:750}",
+ ".qcp-masthead{display:flex;justify-content:space-between;align-items:center;gap:20px;border-bottom:2px solid #d20c15;padding-bottom:12px;min-height:116px}",
+ ".qcp-brand{font-size:26px;font-weight:800;max-width:55%;min-width:0;line-height:1.12}",
+ ".qcp-brand img{display:block;max-height:105px;max-width:100%;object-fit:contain;object-position:left center}",
+ ".qcp-heading{font-size:23px;background:#d10d16;color:white;font-weight:800;padding:8px 17px;max-width:50%;text-align:right}",
+ ".qcp-meta{display:grid;grid-template-columns:1.45fr 1fr;gap:10px}",
+ ".qcp-meta section{background:#f2f3f5;padding:9px 12px;min-width:0}",
+ ".qcp-meta h3{margin:0 0 5px;color:#c00912;font-size:12px;text-transform:uppercase}",
+ ".qcp-meta p{margin:3px 0;overflow-wrap:anywhere}",
+ ".qcp-page table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:11px}",
+ ".qcp-page th{background:#bd1018;color:#fff;text-align:left;padding:7px 6px}",
+ ".qcp-page td{border-bottom:1px solid #d9dde1;padding:6px;overflow-wrap:anywhere}",
+ ".qcp-page th:nth-child(1){width:47%}",
+ ".qcp-page th:nth-child(2){width:12%}",
+ ".qcp-page th:nth-child(3){width:20%}",
+ ".qcp-page th:nth-child(4){width:21%}",
+ ".qcp-number{text-align:right;font-variant-numeric:tabular-nums}",
+ ".qcp-totals{width:45%;margin-left:auto;font-size:12px}",
+ ".qcp-totals p{margin:0;padding:7px 8px;display:flex;justify-content:space-between;gap:10px}",
+ ".qcp-totals .qcp-grand{background:#bd1018;color:white;font-weight:750}",
+ ".qcp-pay{border-top:1px solid #e0e3e6;padding-top:9px;font-size:11px}",
+ ".qcp-pay h3{font-size:12px;margin:0 0 6px}",
+ ".qcp-pay p{margin:3px 0;overflow-wrap:anywhere}",
+ ".qcp-note{margin:0;font-size:12px}",
+ ".qcp-page-footer{margin-top:auto;border-top:2px solid #d20c15;padding-top:9px;display:grid;gap:5px;font-size:10px}",
+ ".qcp-contact{font-weight:700;overflow-wrap:anywhere}",
+ ".qcp-terms{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;line-height:1.55;flex:1}",
+ ".qcp-terms-warning{color:#ab141a;font-size:11px;font-weight:700}",
+ ".qcp-signature{font-size:11px;border-top:1px solid #dfe3e6;padding-top:14px}",
+ "@media(max-width:900px){.qcp-shell{grid-template-columns:1fr}.qcp-sidebar{max-height:none}.qcp-page{min-height:930px}.qcp-stage{overflow:visible}}",
+ "@media print{@page{size:A4;margin:0}html,body{margin:0!important;padding:0!important;background:#fff!important}.qcp-shell{display:block;padding:0;background:#fff}.qcp-sidebar{display:none!important}.qcp-stage{display:block;overflow:visible}.qcp-page{page-break-after:always;break-after:page;box-shadow:none;margin:0;width:210mm;height:297mm;min-height:0;padding:13mm 13mm 17mm}.qcp-page:last-child{page-break-after:auto;break-after:auto}.qcp-watermark{top:5mm;left:13mm}.qcp-brand img{max-height:26mm}.qcp-page table{font-size:9pt}.qcp-page td{padding:4pt}.qcp-terms{font-size:9pt}}"
+].join("\n");
+
+const elt=(tag,cls="",text=null)=>{
+ const element=document.createElement(tag);
+ if(cls)element.className=cls;
+ if(text!==null)element.textContent=String(text);
+ return element;
+};
+const line=(box,text)=>{const p=elt("p","",text);box.append(p);return p};
+const label=(name,value,onChange,large=false)=>{
+ const wrapper=elt("label"),caption=elt("span","",name);
+ const field=elt(large?"textarea":"input");
+ if(!large)field.type="text";
+ field.value=String(value??"");
+ field.addEventListener("input",()=>onChange(field.value));
+ wrapper.append(caption,field);
+ return wrapper;
+};
+const details=(heading,open=false)=>{
+ const element=elt("details");element.open=open;
+ element.append(elt("summary","",heading));
+ const content=elt("div","qcp-editor-grid");element.append(content);
+ return {element,content};
+};
+/** Explicit additional capability required; this does NOT mount automatically. */
+export function mountQuotationCustomizablePage(root,{capability,initial}={}){
+ if(!root||typeof root.replaceChildren!=="function")throw Error("invalid_quotation_custom_root");
+ if(capability?.enabled!==true||capability?.authenticated!==true||
+    capability?.canEditQuotations!==true||
+    capability?.canCustomizeQuotationPreview!==true)
+    throw Error("quotation_custom_preview_disabled");
+ const state=initial===undefined?quotationCustomSample():JSON.parse(JSON.stringify(initial));
+ let checked=validateQuotationCustomPage(state);
+ let logoUrl=null,logoWidth=32,logoX=0,disposed=false;
+ const shell=elt("section","qcp-shell");
+ const sidebar=elt("aside","qcp-sidebar"),stage=elt("div","qcp-stage");
+ const style=elt("style");style.textContent=css;
+ const nonce=document.querySelector("script[nonce],style[nonce]")?.nonce;
+ if(nonce)style.nonce=nonce;
+ sidebar.append(elt("h2","","Quotation customization"),
+  elt("p","qcp-hint","PRIVATE PREVIEW ONLY. All wording can be edited. This is not a customer quotation or the approved two-page contract."));
+ const status=elt("div","qcp-status",""),actions=elt("div","qcp-actions");
+ const print=elt("button","","Print / Save PDF");print.type="button";print.dataset.primary="";
+ const reset=elt("button","","Reset sample");reset.type="button";
+ const download=elt("button","","Export draft JSON");download.type="button";
+ actions.append(print,download,reset);
+ const basic=details("Quotation and customer details",true);
+ for(const [key,name] of [
+  ["quoteNumber","Quote number"],["issueDate","Date (YYYY-MM-DD)"],
+  ["customerName","Customer name"],["customerPhone","Customer number"],
+  ["location","Installation/location"]
+ ])basic.content.append(label(name,state[key],v=>{state[key]=v;refresh()}));
+ basic.content.append(label("Discount (P)",state.discount,v=>{state.discount=v;refresh()}));
+ const itemsSection=details("Items and prices",true);
+ const itemsRoot=elt("div","qcp-editor-grid"),add=elt("button","","Add line item");add.type="button";
+ function drawItemInputs(){
+  itemsRoot.replaceChildren();
+  state.items.forEach((item,index)=>{
+   const row=elt("div","qcp-line-row");
+   const desc=elt("input");desc.value=item.description;desc.setAttribute("aria-label","Description "+(index+1));
+   const qty=elt("input");qty.value=item.quantity;qty.setAttribute("aria-label","Qty "+(index+1));
+   const price=elt("input");price.value=item.unitPrice;price.setAttribute("aria-label","Price "+(index+1));
+   const remove=elt("button","","×");remove.type="button";remove.setAttribute("aria-label","Remove line "+(index+1));
+   desc.addEventListener("input",()=>{item.description=desc.value;refresh()});
+   qty.addEventListener("input",()=>{item.quantity=qty.value;refresh()});
+   price.addEventListener("input",()=>{item.unitPrice=price.value;refresh()});
+   remove.addEventListener("click",()=>{
+    if(state.items.length===1)return;
+    state.items.splice(index,1);drawItemInputs();refresh();
+   });
+   row.append(desc,qty,price,remove);itemsRoot.append(row);
+  });
+  add.disabled=state.items.length>=QUOTATION_CUSTOM_MAX_ITEMS;
+ }
+ add.addEventListener("click",()=>{
+  if(state.items.length>=QUOTATION_CUSTOM_MAX_ITEMS)return;
+  state.items.push({description:"New item",quantity:"1",unitPrice:"0.00"});
+  drawItemInputs();refresh();
+ });
+ itemsSection.content.append(elt("p","qcp-hint","Description · quantity · price (P) · remove"),itemsRoot,add);
+ const copySection=details("Customize ALL document wording");
+ for(const [key,defaultValue] of Object.entries(QUOTATION_CUSTOM_DEFAULT_COPY)){
+  copySection.content.append(label(key.replace(/([A-Z])/g," $1"),state.copy[key]??defaultValue,v=>{
+   state.copy[key]=v;refresh();
+  }));
+ }
+ const termsSection=details("Page 2 — terms and conditions",true);
+ termsSection.content.append(label("Exact contract wording (editable, preserve line breaks)",state.termsText,v=>{
+  state.termsText=v;refresh();
+ },true));
+ termsSection.content.append(elt("p","qcp-hint","Provide the previously reviewed terms before using the PDF outside a private preview. No terms are silently rewritten."));
+ const logoSection=details("Logo sizing and placement");
+ const logoField=elt("input");logoField.type="file";logoField.accept="image/png,image/jpeg";
+ logoField.setAttribute("aria-label","Upload company logo");
+ const sizeField=elt("input");sizeField.type="range";sizeField.min="15";sizeField.max="50";sizeField.value=String(logoWidth);
+ const offsetField=elt("input");offsetField.type="range";offsetField.min="0";offsetField.max="60";offsetField.value=String(logoX);
+ logoSection.content.append(label("Logo image (PNG/JPEG)","",()=>{}));
+ logoSection.content.lastChild.replaceChildren(elt("span","","Company logo"),logoField);
+ logoSection.content.append(label("Logo width (%)","",()=>{}));
+ logoSection.content.lastChild.replaceChildren(elt("span","","Logo width (%)"),sizeField);
+ logoSection.content.append(label("Logo horizontal offset","",()=>{}));
+ logoSection.content.lastChild.replaceChildren(elt("span","","Logo horizontal offset"),offsetField);
+ logoField.addEventListener("change",()=>{
+  const file=logoField.files?.[0];
+  if(!file)return;
+  if(!["image/png","image/jpeg"].includes(file.type)||file.size>2*1024*1024){
+   status.textContent="Logo must be PNG/JPEG under 2 MB.";logoField.value="";return;
+  }
+  if(logoUrl)URL.revokeObjectURL(logoUrl);
+  logoUrl=URL.createObjectURL(file);refresh();
+ });
+ sizeField.addEventListener("input",()=>{logoWidth=Number(sizeField.value);refresh()});
+ offsetField.addEventListener("input",()=>{logoX=Number(offsetField.value);refresh()});
+ sidebar.append(basic.element,itemsSection.element,copySection.element,termsSection.element,logoSection.element,actions,status);
+ shell.append(sidebar,stage);
+ root.replaceChildren(style,shell);
+ function masthead(page,heading){
+  const head=elt("header","qcp-masthead"),brand=elt("div","qcp-brand");
+  if(logoUrl){
+   const logo=elt("img");logo.src=logoUrl;logo.alt="Company logo";
+   logo.style.width=logoWidth+"%";logo.style.marginLeft=logoX+"%";brand.append(logo);
+  }else brand.append(elt("span","",checked.copy.brandName));
+  head.append(brand,elt("div","qcp-heading",heading));page.append(head);
+ }
+ function info(section,heading,rows){
+  const block=elt("section");block.append(elt("h3","",heading));
+  for(const [name,value] of rows)line(block,name+": "+value);
+  section.append(block);
+ }
+ function makePage(index){
+  const page=elt("article","qcp-page");page.setAttribute("aria-label","Quotation page "+index);
+  page.append(elt("div","qcp-watermark","SAMPLE PREVIEW — NOT FOR CUSTOMER ISSUE"));
+  return page;
+ }
+ function rowText(parent,labelText,value){
+  const p=elt("p");
+  p.append(elt("span","",labelText),elt("strong","",value));parent.append(p);
+ }
+ function renderPreview(){
+  stage.replaceChildren();
+  const c=checked.copy;
+  const first=makePage(1);masthead(first,c.heading);
+  const meta=elt("div","qcp-meta");
+  info(meta,c.customerHeading,[
+   [c.customerNameLabel,checked.customerName],[c.customerPhoneLabel,checked.customerPhone],
+   [c.locationLabel,checked.location]]);
+  info(meta,c.heading,[[c.quoteNumberLabel,checked.quoteNumber],[c.dateLabel,checked.issueDate]]);
+  first.append(meta);
+  const table=elt("table");const thead=elt("thead"),header=elt("tr");
+  for(const name of [c.descriptionLabel,c.quantityLabel,c.unitPriceLabel,c.lineTotalLabel]){
+   header.append(elt("th","",name));
+  }
+  thead.append(header);table.append(thead);
+  const tbody=elt("tbody");
+  for(const row of checked.items){
+   const tr=elt("tr");
+   tr.append(elt("td","",row.description),elt("td","qcp-number",row.quantity),
+    elt("td","qcp-number",quotationCustomFormatMoney(row.unitPriceCents)),
+    elt("td","qcp-number",quotationCustomFormatMoney(row.totalCents)));
+   tbody.append(tr);
+  }
+  table.append(tbody);first.append(table);
+  const totals=elt("div","qcp-totals");
+  rowText(totals,c.subtotalLabel,quotationCustomFormatMoney(checked.subtotalCents));
+  rowText(totals,c.discountLabel,"-"+quotationCustomFormatMoney(checked.discountCents));
+  const grand=elt("p","qcp-grand");
+  grand.append(elt("span","",c.grandTotalLabel),elt("strong","",quotationCustomFormatMoney(checked.totalCents)));
+  totals.append(grand);first.append(totals);
+  const payment=elt("div","qcp-pay");payment.append(elt("h3","",c.paymentHeading));
+  for(const [lab,val] of [
+   [c.paymentMethodLabel,c.paymentMethod],[c.bankLabel,c.bankName],
+   [c.bankBranchLabel,c.bankBranch],[c.bankAccountLabel,c.bankAccount||"—"]
+  ])line(payment,lab+": "+val);
+  first.append(payment,elt("p","qcp-note",c.note));
+  const footer=elt("footer","qcp-page-footer");
+  footer.append(elt("div","",c.footerLocations),
+   elt("div","qcp-contact",c.footerEmail+"  |  "+c.footerPhone));
+  first.append(footer);
+  const second=makePage(2);masthead(second,c.termsHeading);
+  const terms=elt("div","qcp-terms",checked.termsText||"The company's existing terms have not been loaded into this private sample. Add the reviewed terms in the editor before external use.");
+  second.append(terms);
+  if(!checked.termsText)second.append(elt("div","qcp-terms-warning","TERMS MISSING — DEMO ONLY"));
+  second.append(elt("div","qcp-signature",c.signatureLabel+"  __________________________"));
+  const footer2=elt("footer","qcp-page-footer");
+  footer2.append(elt("span","",c.footerLocations));
+  second.append(footer2);stage.append(first,second);
+ }
+ function refresh(){
+  if(disposed)return;
+  try{
+   checked=validateQuotationCustomPage(state);
+   renderPreview();print.disabled=false;download.disabled=false;
+   status.textContent=checked.termsText?
+    "Valid two-page private preview. No data has been saved or issued.":
+    "Preview only: terms have not been loaded; not suitable for customer issue.";
+  }catch(error){
+   print.disabled=true;download.disabled=true;
+   status.textContent="Fix the fields: "+String(error?.message||"invalid draft");
+  }
+ }
+ print.addEventListener("click",()=>{
+  if(disposed||print.disabled)return;
+  // Check geometry before invoking print; do not silently hide contract text.
+  if([...stage.querySelectorAll(".qcp-page")].some(page=>page.scrollHeight>page.clientHeight+2)){
+   status.textContent="Page content overflows. Shorten wording before printing.";return;
+  }
+  window.print();
+ });
+ download.addEventListener("click",()=>{
+  if(disposed||download.disabled)return;
+  const file=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(file),a=elt("a");
+  a.href=url;a.download="quotation-customization-draft.json";
+  a.hidden=true;shell.append(a);a.click();a.remove();URL.revokeObjectURL(url);
+  status.textContent="JSON exported locally. Nothing uploaded or issued.";
+ });
+ reset.addEventListener("click",()=>{
+  const original=quotationCustomSample();
+  Object.assign(state,original);if(logoUrl)URL.revokeObjectURL(logoUrl);
+  logoUrl=null;logoField.value="";logoWidth=32;logoX=0;sizeField.value="32";offsetField.value="0";
+  // Rebuild controls to avoid stale field values; reset is explicitly destructive.
+  root.replaceChildren();mountQuotationCustomizablePage(root,{capability});
+ });
+ drawItemInputs();refresh();
+ return Object.freeze({
+  getDraft(){if(disposed)throw Error("quotation_custom_preview_disposed");return JSON.parse(JSON.stringify(state));},
+  destroy(){disposed=true;if(logoUrl)URL.revokeObjectURL(logoUrl);root.replaceChildren();}
+ });
+}
