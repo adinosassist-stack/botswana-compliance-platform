@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS workspace_manager_request_codes (
  created_by_user_id TEXT NOT NULL,
  expires_at TEXT NOT NULL,
  revoked_at TEXT,
+ consumed_at TEXT,
  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
  FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
  FOREIGN KEY(location_id) REFERENCES operating_locations(id),
