@@ -22,10 +22,16 @@ on:
     paths:
       - 'server/quotation-private-workflow-harness.mjs'
       - 'server/quotation-synthetic-private-caller.mjs'
+      - 'server/quotation-synthetic-auth-rehearsal-contract.mjs'
       - 'deploy/quotation-private-workflow-harness/**'
       - 'deploy/quotation-synthetic-private-caller/**'
       - 'scripts/quotation-staging-bundle-hash.mjs'
+      - 'scripts/quotation-private-activation-readiness.mjs'
+      - 'tests/quotation-synthetic-auth-rehearsal-contract.test.mjs'
+      - 'tests/quotation-private-activation-readiness.test.mjs'
+      - 'docs/quotation-private-workflow-rehearsal.md'
       - '.github/workflows/quotation-private-workflow-harness.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
