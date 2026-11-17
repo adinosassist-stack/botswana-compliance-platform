@@ -1,0 +1,34 @@
+name: Quotation Private Synthetic Caller Source Check
+on:
+  pull_request:
+    paths:
+      - 'server/quotation-synthetic-private-caller.mjs'
+      - 'tests/quotation-synthetic-private-caller.test.mjs'
+      - 'deploy/quotation-synthetic-private-caller/wrangler.jsonc'
+      - '.github/workflows/quotation-synthetic-private-caller.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'server/quotation-synthetic-private-caller.mjs'
+      - 'tests/quotation-synthetic-private-caller.test.mjs'
+      - 'deploy/quotation-synthetic-private-caller/wrangler.jsonc'
+      - '.github/workflows/quotation-synthetic-private-caller.yml'
+permissions:
+  contents: read
+jobs:
+  synthetic-denial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Strict anonymous private synthetic service probe tests
+        run: node --test tests/quotation-synthetic-private-caller.test.mjs
+      - name: Compile private caller offline without uploading
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/quotation-synthetic-caller" --config deploy/quotation-synthetic-private-caller/wrangler.jsonc
