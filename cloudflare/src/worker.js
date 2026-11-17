@@ -107,7 +107,10 @@ async function versionRuntimeResponse(response,request,url){
   if(request.method==="HEAD")return new Response(null,{status:response.status,statusText:response.statusText,headers});
   const html=await response.text(),versioned=html.replace(/src="(\/?js\/[^"?]+\.js)(?:\?[^"]*)?"/g,`src="$1?v=${CLIENT_RUNTIME_RELEASE}"`);
   const reminderAssets='<link rel="stylesheet" href="/assets/delivery-reminder-notifications.css?v=20261115-multijob"><script defer src="/js/delivery-reminders-manager.js?v=20261115-multijob"></script>';
-  return new Response(versioned.replace("</body>",reminderAssets+"</body>"),{status:response.status,statusText:response.statusText,headers});
+  // The inline workspace runtime embeds a printable document with its own closing body tag.
+  const bodyEnd=versioned.toLowerCase().lastIndexOf("</body>");
+  const withReminders=bodyEnd<0?versioned:versioned.slice(0,bodyEnd)+reminderAssets+versioned.slice(bodyEnd);
+  return new Response(withReminders,{status:response.status,statusText:response.statusText,headers});
 }
 
 const PASSWORD_MIN_CHARS=12;
