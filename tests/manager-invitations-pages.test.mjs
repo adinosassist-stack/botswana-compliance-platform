@@ -24,3 +24,22 @@ test('activation page strips fragment before posting token',()=>{
  assert.match(s,/manager-invite\/accept/);
  assert.doesNotMatch(s,/localStorage|sessionStorage|location\.search/);
 });
+
+
+test('restricted manager dashboard avoids workspace-wide endpoints and requires manager authentication',()=>{
+ const w=read('cloudflare/src/worker.js');
+ const pageGate=w.slice(w.indexOf("if(url.pathname.startsWith('/manager-invite/'))"),w.indexOf("if(url.pathname.startsWith('/manager-invite/'))")+1400);
+ assert.match(pageGate,/manager-invite\/dashboard/);
+ const html=read('public/manager-invite/dashboard/index.html');
+ assert.match(html,/manager-invite-dashboard\.js/);
+ const js=read('public/js/manager-invite-dashboard.js');
+ assert.match(js,/session\?\.user\?\.role!=='manager'/);
+ assert.match(js,/my-dashboard/);assert.match(js,/my-reports/);
+ assert.doesNotMatch(js,/fetch\(['"]\/api\/state/);
+ assert.doesNotMatch(js,/innerHTML|localStorage|sessionStorage/);
+});
+test('activation page points to the existing sign-in route after successful claim',()=>{
+ const s=read('public/js/manager-invite-activate.js');
+ assert.match(s,/link\.href='\/auth\/'/);
+ assert.match(s,/form\.hidden=true/);
+});
