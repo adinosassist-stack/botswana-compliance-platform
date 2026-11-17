@@ -280,10 +280,19 @@ export function mountQuotationCustomizablePage(root,{capability,initial}={}){
  });
  reset.addEventListener("click",()=>{
   const original=quotationCustomSample();
-  Object.assign(state,original);if(logoUrl)URL.revokeObjectURL(logoUrl);
-  logoUrl=null;logoField.value="";logoWidth=32;logoX=0;sizeField.value="32";offsetField.value="0";
-  // Rebuild controls to avoid stale field values; reset is explicitly destructive.
-  root.replaceChildren();mountQuotationCustomizablePage(root,{capability});
+  Object.assign(state,original);
+  if(logoUrl)URL.revokeObjectURL(logoUrl);
+  logoUrl=null;logoField.value="";logoWidth=32;logoX=0;
+  sizeField.value="32";offsetField.value="0";
+  // Reset field controls in-place so the caller's editor handle stays valid.
+  const fields=basic.content.querySelectorAll("input");
+  ["quoteNumber","issueDate","customerName","customerPhone","location","discount"]
+   .forEach((key,i)=>{fields[i].value=state[key]});
+  copySection.content.querySelectorAll("input").forEach((input,i)=>{
+   input.value=state.copy[Object.keys(QUOTATION_CUSTOM_DEFAULT_COPY)[i]];
+  });
+  termsSection.content.querySelector("textarea").value=state.termsText;
+  drawItemInputs();refresh();
  });
  drawItemInputs();refresh();
  return Object.freeze({
