@@ -24,8 +24,24 @@ async function readReference(request){
  const length=request.headers.get("content-length");
  if(length!==null&&(!/^\d+$/.test(length)||Number(length)>512))
   fail("invalid_quotation_preview_body");
- const data=await request.arrayBuffer();
- if(data.byteLength===0||data.byteLength>512)fail("invalid_quotation_preview_body");
+ if(!request.body?.getReader)fail("invalid_quotation_preview_body");
+ const reader=request.body.getReader(),parts=[];let total=0;
+ try{
+   while(true){
+     const {done,value}=await reader.read();
+     if(done)break;
+     if(!(value instanceof Uint8Array))fail("invalid_quotation_preview_body");
+     total+=value.byteLength;
+     if(total>512)fail("invalid_quotation_preview_body");
+     parts.push(value);
+   }
+ }finally{
+   try{await reader.cancel()}catch{}
+   reader.releaseLock();
+ }
+ if(total===0)fail("invalid_quotation_preview_body");
+ const data=new Uint8Array(total);let position=0;
+ for(const part of parts){data.set(part,position);position+=part.byteLength}
  let doc;
  try{doc=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(data))}
  catch{fail("invalid_quotation_preview_body")}
