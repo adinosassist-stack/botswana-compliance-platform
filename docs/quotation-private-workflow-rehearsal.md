@@ -32,3 +32,8 @@ Approved quotation Worker SHA-256: `09eed552bc5ef79ff3ca6b5b57e56453c0a2326e3309
 
 ## Before merge
 Run local Node/static manifest tests, Wrangler --dry-run on the harness with the pinned project lockfile, source checksum receipt, review of Workflow API compatibility and independent `thusico` approval. A green CI job alone is not Cloudflare runtime qualification.
+
+## Consolidated offline qualification batch (2026-11-17)
+The PR CI now runs existing executable Node tests for the private synthetic session verifier, service-bound quotation Worker denial, draft save/reopen/update with optimistic revision and role/CSRF/tenant negative controls **alongside** the Workflow's own fail-closed denial tests. These are test doubles and isolated in-memory D1-style stores. They do not create sessions in actual Cloudflare staging or prove that a private service binding or rollback operates remotely.
+
+**Sign-off separation:** Passing this CI does not lift `QUOTATION_HARNESS_ENABLED=disabled`; it does not provide a private invocation path, attest live credentials, approve synthetic D1 fixture provisioning, or authorize Cloudflare deployment. Retain the approved Worker and caller executable hashes unchanged. Before any full authenticated Workflow run, create a separately reviewed source implementation for the synthetic session fixture and PUT/GET steps, record tested isolated restore evidence, and obtain separate exact-head operational approvals from owner and independent `thusico`. Do not accidentally equate the static `QUOTATION_HARNESS_ROLLBACK` setting with a proven restore.
