@@ -1,3 +1,4 @@
+import {provisionManagerAccessD1} from './manager-access-provisioning.js';
 // Registered users request manager access; tenant owner reviews, NEVER auto-grants.
 // Private staging candidate only. Caller supplies canonical authenticated session, CSRF, rate limit.
 const json=(status,body)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'no-referrer'}});
@@ -13,18 +14,19 @@ export function createManagerAccessRequestsHttp({db,origin,authenticate,verifyCs
   const mine=path==='/api/workspace/managers/access-requests/mine'&&req.method==='GET';
   const inbox=path==='/api/workspace/managers/access-requests/inbox'&&req.method==='GET';
   const decide=path==='/api/workspace/managers/access-requests/decide'&&req.method==='POST';
-  if(!submit&&!mine&&!inbox&&!decide&&!locations)return json(404,{error:'not_found'});
+  const provision=path==='/api/workspace/managers/access-requests/provision'&&req.method==='POST';
+  if(!submit&&!mine&&!inbox&&!decide&&!locations&&!provision)return json(404,{error:'not_found'});
   if(new URL(req.url).origin!==origin)return json(403,{error:'origin_denied'});
-  if((submit||decide)&&req.headers.get('origin')!==origin)return json(403,{error:'origin_denied'});
+  if((submit||decide||provision)&&req.headers.get('origin')!==origin)return json(403,{error:'origin_denied'});
   const principal=await authenticate(req);
   if(!principal||!validId(principal.tenantId)||!validId(principal.userId))return json(401,{error:'unauthenticated'});
-  if((submit||decide)&&!(await verifyCsrf(req,principal)))return json(403,{error:'csrf_denied'});
-  if(!(await rateLimit(req,decide?'manager_request_review':'manager_request_self_service')))return json(429,{error:'rate_limited'});
-  const owner=inbox||decide;
+  if((submit||decide||provision)&&!(await verifyCsrf(req,principal)))return json(403,{error:'csrf_denied'});
+  if(!(await rateLimit(req,(decide||provision)?'manager_request_review':'manager_request_self_service')))return json(429,{error:'rate_limited'});
+  const owner=inbox||decide||provision;
   if(owner&&principal.role!=='owner')return json(403,{error:'owner_required'});
   if((submit||mine||locations)&&!['reviewer','auditor'].includes(principal.role))return json(403,{error:'ineligible_role'});
   let body={};
-  if(submit||decide){
+  if(submit||decide||provision){
    if(!String(req.headers.get('content-type')||'').toLowerCase().startsWith('application/json'))return json(415,{error:'invalid_content_type'});
    const size=Number(req.headers.get('content-length')||0);
    if(!Number.isFinite(size)||size>1024)return json(413,{error:'request_too_large'});
@@ -64,6 +66,11 @@ export function createManagerAccessRequestsHttp({db,origin,authenticate,verifyCs
    if(inbox){
     const rows=await db.prepare("SELECT r.id,r.location_id,r.reason,r.status,r.created_at,u.email requester_email FROM workspace_manager_access_requests r JOIN users u ON u.id=r.requester_user_id WHERE r.tenant_id=? ORDER BY r.created_at DESC LIMIT 100").bind(tenantId).all();
     return json(200,{ok:true,requests:rows.results||[]});
+   }
+   if(provision){
+    if(Object.keys(body).join(',')!=='requestId'||!validId(body.requestId))return json(400,{error:'invalid_request'});
+    const result=await provisionManagerAccessD1(db,{tenantId,ownerId:userId,requestId:body.requestId});
+    return json(200,result);
    }
    if(Object.keys(body).sort().join(',')!=='decision,requestId'||!validId(body.requestId)||!['approve','reject'].includes(body.decision))return json(400,{error:'invalid_request'});
    const next=body.decision==='approve'?'approved_for_provisioning':'rejected';
