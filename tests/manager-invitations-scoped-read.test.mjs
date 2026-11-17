@@ -34,3 +34,26 @@ test('report reads join tenant+location grants and never accept querystring scop
  assert.match(q.sql,/r\.tenant_id=\?/);assert.match(q.sql,/LIMIT 50/);
  assert.deepEqual(q.args,['manager-a','tenant-a']);
 });
+
+
+test('dashboard summary enforces tenant and assigned-location grants and ignores supplied scope',async()=>{
+ queries.length=0;
+ const r=await handler()(request('/api/workspace/managers/my-dashboard?tenantId=other&locationId=other'),actor);
+ assert.equal(r.status,200);
+ const body=await r.json();
+ assert.equal(body.scope,'assigned_locations_only');
+ assert.deepEqual(body.locations,[]);
+ const grants=queries[1],totals=queries[2];
+ assert.deepEqual(grants.args,['tenant-a','manager-a']);
+ assert.deepEqual(totals.args,['manager-a','tenant-a']);
+ assert.match(totals.sql,/g\.tenant_id=r\.tenant_id/);
+ assert.match(totals.sql,/g\.location_id=r\.location_id/);
+ assert.match(totals.sql,/g\.status='active'/);
+ assert.match(totals.sql,/l\.active=1/);
+ assert.match(totals.sql,/r\.tenant_id=\?/);
+ assert.doesNotMatch(totals.sql,/tenant-b|other/);
+});
+test('suspended or non-manager identities cannot read dashboard',async()=>{
+ assert.equal((await handler(0)(request('/api/workspace/managers/my-dashboard'),actor)).status,403);
+ assert.equal((await handler()(request('/api/workspace/managers/my-dashboard'),{...actor,role:'reviewer'})).status,403);
+});
