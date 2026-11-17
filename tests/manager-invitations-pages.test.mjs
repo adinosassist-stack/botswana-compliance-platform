@@ -43,3 +43,27 @@ test('activation page points to the existing sign-in route after successful clai
  assert.match(s,/link\.href='\/auth\/'/);
  assert.match(s,/form\.hidden=true/);
 });
+
+
+test('invited managers receive a restricted landing only in staging and only from accepted tenant invite',()=>{
+ const worker=read('cloudflare/src/worker.js');
+ const start=worker.indexOf('if(url.pathname==="/api/auth/login"');
+ const end=worker.indexOf('if(url.pathname==="/api/auth/password-reset/request"',start);
+ const login=worker.slice(start,end);
+ assert.match(login,/APP_ENV/);
+ assert.match(login,/MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED/);
+ assert.match(login,/selected\.role==='manager'/);
+ assert.match(login,/accepted_by_user_id=\?/);
+ assert.match(login,/tenant_id=\?/);
+ assert.match(login,/status='accepted'/);
+ assert.match(login,/landingPath:managerLandingPath/);
+ const me=worker.slice(worker.indexOf('if(url.pathname==="/api/auth/me"'),worker.indexOf('if(url.pathname==="/api/auth/me"')+1000);
+ assert.match(me,/managerInviteStage/);assert.match(me,/accepted_by_user_id=\?/);
+});
+test('auth portal routes invited managers only to the exact server-issued restricted path',()=>{
+ const client=read('public/js/auth-portal.js');
+ assert.match(client,/data\?\.landingPath==="\/manager-invite\/dashboard\/"/);
+ assert.match(client,/location\.replace\(data\?\.landingPath/);
+ assert.match(client,/setTimeout\(\(\)=>location\.replace\(destination\)/);
+ assert.doesNotMatch(client,/location\.replace\(data\.landingPath\)/);
+});
