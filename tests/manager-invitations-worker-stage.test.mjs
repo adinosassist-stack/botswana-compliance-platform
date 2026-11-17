@@ -20,3 +20,20 @@ test('manager activation and owner invitation use existing Cloudflare auth bound
  const section=source.slice(owner,owner+1000);
  assert.match(section,/authenticateOwner/);assert.match(section,/verifyCsrf/);
 });
+
+
+test('functional manager staging requires verified schema and Access, never just staging mode',()=>{
+ const gate=source.slice(source.indexOf('const managerInviteStage='),source.indexOf('const isManagerInviteActivation='));
+ assert.match(gate,/MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED/);
+ assert.match(gate,/MANAGER_INVITATIONS_SCHEMA_READY/);
+ assert.match(gate,/MANAGER_INVITATIONS_ACCESS_READY/);
+ const login=source.slice(source.indexOf('let managerLandingPath=null;'),source.indexOf('let managerLandingPath=null;')+620);
+ assert.match(login,/MANAGER_INVITATIONS_SCHEMA_READY/);
+ assert.match(login,/MANAGER_INVITATIONS_ACCESS_READY/);
+ const html=source.slice(source.indexOf("if(url.pathname.startsWith('/manager-invite/'))"),source.indexOf("if(url.pathname.startsWith('/manager-invite/'))")+650);
+ assert.match(html,/MANAGER_INVITATIONS_SCHEMA_READY/);
+ assert.match(html,/MANAGER_INVITATIONS_ACCESS_READY/);
+ const config=fs.readFileSync(new URL('../cloudflare/wrangler.manager-invitations-staging.toml',import.meta.url),'utf8');
+ for(const key of ['MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED','MANAGER_INVITATIONS_SCHEMA_READY','MANAGER_INVITATIONS_ACCESS_READY'])
+  assert.match(config,new RegExp(key+' = "false"'));
+});
