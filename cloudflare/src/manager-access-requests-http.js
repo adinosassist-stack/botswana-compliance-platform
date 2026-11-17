@@ -4,7 +4,7 @@ import {provisionManagerAccessD1} from './manager-access-provisioning.js';
 const json=(status,body)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'no-referrer'}});
 const validId=x=>typeof x==='string'&&/^[a-zA-Z0-9-]{1,128}$/.test(x);
 const guard=sql=>`SELECT CASE WHEN (${sql}) THEN 1 ELSE abs(-9223372036854775808) END AS permitted`;
-export function createManagerAccessRequestsHttp({db,origin,authenticate,verifyCsrf,rateLimit,newId=()=>crypto.randomUUID()}={}){
+export function createManagerAccessRequestsHttp({db,origin,authenticate,verifyCsrf,rateLimit,newId=()=>crypto.randomUUID(),provisioningEnabled=false}={}){
  if(!db||typeof db.prepare!=='function'||typeof db.batch!=='function'||!origin||new URL(origin).protocol!=='https:'||
   [authenticate,verifyCsrf,rateLimit,newId].some(x=>typeof x!=='function'))throw new TypeError('dependencies_required');
  return async req=>{
@@ -16,6 +16,7 @@ export function createManagerAccessRequestsHttp({db,origin,authenticate,verifyCs
   const decide=path==='/api/workspace/managers/access-requests/decide'&&req.method==='POST';
   const provision=path==='/api/workspace/managers/access-requests/provision'&&req.method==='POST';
   if(!submit&&!mine&&!inbox&&!decide&&!locations&&!provision)return json(404,{error:'not_found'});
+  if(provision&&provisioningEnabled!==true)return json(404,{error:'not_found'});
   if(new URL(req.url).origin!==origin)return json(403,{error:'origin_denied'});
   if((submit||decide||provision)&&req.headers.get('origin')!==origin)return json(403,{error:'origin_denied'});
   const principal=await authenticate(req);
