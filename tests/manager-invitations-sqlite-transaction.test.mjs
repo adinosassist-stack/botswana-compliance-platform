@@ -3,6 +3,8 @@ import test from 'node:test';
 import {DatabaseSync} from 'node:sqlite';
 import fs from 'node:fs';
 import {issueManagerInviteD1,activateManagerInviteD1} from '../cloudflare/src/manager-invitations-d1.js';
+import {suspendManagerMembershipD1} from '../cloudflare/src/manager-invitations-revocation.js';
+import {grantManagerLocationD1,isManagerLocationAuthorized,revokeManagerLocationD1} from '../cloudflare/src/manager-invitations-location-grants.js';
 
 // Real SQLite engine with transactional D1-like batch shim; NOT a remote D1 Worker test.
 // Model actual base tables' relevant NOT NULL, keys and foreign key constraints.
@@ -17,11 +19,15 @@ function fixture(){
  role TEXT NOT NULL CHECK(role IN ('owner','manager','reviewer','auditor')),
  status TEXT NOT NULL DEFAULT 'active',PRIMARY KEY(tenant_id,user_id),
  FOREIGN KEY(tenant_id) REFERENCES tenants(id),FOREIGN KEY(user_id) REFERENCES users(id));
+ CREATE TABLE sessions(token_hash TEXT PRIMARY KEY, public_id TEXT UNIQUE, user_id TEXT NOT NULL, tenant_id TEXT NOT NULL, role TEXT NOT NULL, session_generation INTEGER NOT NULL DEFAULT 0, csrf_token TEXT, expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, last_seen_at TEXT, FOREIGN KEY(user_id) REFERENCES users(id), FOREIGN KEY(tenant_id) REFERENCES tenants(id));
+ CREATE TABLE operating_locations(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL,name TEXT NOT NULL,code TEXT,town TEXT,active INTEGER NOT NULL DEFAULT 1, FOREIGN KEY(tenant_id) REFERENCES tenants(id));
  CREATE TABLE audit_events(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id TEXT NOT NULL,
  actor_user_id TEXT,event_type TEXT NOT NULL,entity_type TEXT,entity_id TEXT,
  event_data TEXT NOT NULL DEFAULT '{}',occurred_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);`);
  const ddl=fs.readFileSync(new URL('../db/drafts/manager-invitations-2578.sql',import.meta.url),'utf8');
  sql.exec(ddl);
+ const grants=fs.readFileSync(new URL('../db/drafts/manager-invitations-2578-location-grants.sql',import.meta.url),'utf8');
+ sql.exec(grants);
  sql.prepare("INSERT INTO tenants(id,name) VALUES(?,?)").run('tenant-a','Lovely Group');
  sql.prepare("INSERT INTO tenants(id,name) VALUES(?,?)").run('tenant-b','Other group');
  sql.prepare("INSERT INTO users(id,email) VALUES(?,?)").run('owner-a','owner@demo.invalid');
@@ -113,4 +119,30 @@ test('canonical Worker login eligibility requires active tenant membership, not 
  assert.match(login,/m\.status='active'/);
  assert.match(login,/m\.tenant_id/);
  assert.match(login,/createPasswordSession/);
+});
+
+
+test('synthetic activation, branch grant, revocation and session suspension preserve tenant isolation',async()=>{
+ const x=fixture();try{
+  x.sql.prepare("INSERT INTO operating_locations(id,tenant_id,name,town,active) VALUES(?,?,?,?,1)").run('maun-a','tenant-a','Maun','Maun');
+  x.sql.prepare("INSERT INTO operating_locations(id,tenant_id,name,town,active) VALUES(?,?,?,?,1)").run('maun-b','tenant-b','Other Maun','Maun');
+  await issueManagerInviteD1(x.db,invite());
+  await activateManagerInviteD1(x.db,{tokenHash:h('a'),passwordHash,userId:'manager-a',now});
+  x.sql.prepare("INSERT INTO sessions(token_hash,user_id,tenant_id,role,expires_at) VALUES(?,?,?,?,?)")
+   .run('synthetic-session-a','manager-a','tenant-a','manager','2030-01-01');
+  assert.equal(await isManagerLocationAuthorized(x.db,{tenantId:'tenant-a',managerId:'manager-a',locationId:'maun-a'}),false);
+  await assert.rejects(()=>grantManagerLocationD1(x.db,{tenantId:'tenant-a',ownerId:'owner-a',managerId:'manager-a',locationId:'maun-b'}));
+  await grantManagerLocationD1(x.db,{tenantId:'tenant-a',ownerId:'owner-a',managerId:'manager-a',locationId:'maun-a'});
+  assert.equal(await isManagerLocationAuthorized(x.db,{tenantId:'tenant-a',managerId:'manager-a',locationId:'maun-a'}),true);
+  assert.equal(await isManagerLocationAuthorized(x.db,{tenantId:'tenant-a',managerId:'manager-a',locationId:'maun-b'}),false);
+  await revokeManagerLocationD1(x.db,{tenantId:'tenant-a',ownerId:'owner-a',managerId:'manager-a',locationId:'maun-a'});
+  assert.equal(await isManagerLocationAuthorized(x.db,{tenantId:'tenant-a',managerId:'manager-a',locationId:'maun-a'}),false);
+  assert.equal(x.sql.prepare("SELECT count(*) c FROM sessions WHERE user_id='manager-a'").get().c,0);
+  x.sql.prepare("INSERT INTO sessions(token_hash,user_id,tenant_id,role,expires_at) VALUES(?,?,?,?,?)")
+    .run('synthetic-session-b','manager-a','tenant-a','manager','2030-01-01');
+  await suspendManagerMembershipD1(x.db,{tenantId:'tenant-a',actorId:'owner-a',managerUserId:'manager-a'});
+  assert.equal(x.sql.prepare("SELECT status FROM memberships WHERE user_id='manager-a'").get().status,'suspended');
+  assert.equal(x.sql.prepare("SELECT count(*) c FROM sessions WHERE user_id='manager-a'").get().c,0);
+  assert.equal(x.sql.prepare("SELECT count(*) c FROM memberships WHERE tenant_id='tenant-b'").get().c,0);
+ }finally{x.close();}
 });
