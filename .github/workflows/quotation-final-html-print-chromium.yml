@@ -6,6 +6,8 @@ on:
       - 'tests/quotation-final-html-private-pdf.test.mjs'
       - 'server/quotation-final-html-private-pdf.mjs'
       - 'server/quotation-final-html-browser-run.mjs'
+      - 'server/quotation-final-html-private-preview-host.mjs'
+      - 'tests/quotation-final-html-private-preview-host.test.mjs'
       - 'tests/quotation-final-html-browser-run.test.mjs'
       - 'server/quotation-logo-web-png-sanitizer.mjs'
       - 'tests/quotation-final-html-private-pdf.test.mjs'
@@ -41,6 +43,7 @@ jobs:
         env:
           QUOTATION_BROWSER_ENGINE_ROOT: ${{ runner.temp }}/quotation-browser-engine
         run: |
+          node --test tests/quotation-final-html-private-preview-host.test.mjs
           node --test tests/quotation-final-html-browser-run.test.mjs
           node --test tests/quotation-final-html-private-pdf.test.mjs
           node --test tests/quotation-final-html-print-chromium.test.mjs
