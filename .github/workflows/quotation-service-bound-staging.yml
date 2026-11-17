@@ -1,0 +1,45 @@
+name: Quotation Executable Private Worker Candidate
+on:
+  pull_request:
+    paths:
+      - 'server/quotation-service-bound-staging-worker.mjs'
+      - 'tests/quotation-service-bound-staging-worker.test.mjs'
+      - 'deploy/quotation-private-staging/wrangler.jsonc'
+      - '.github/workflows/quotation-service-bound-staging.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'server/quotation-service-bound-staging-worker.mjs'
+      - 'tests/quotation-service-bound-staging-worker.test.mjs'
+      - 'deploy/quotation-private-staging/wrangler.jsonc'
+      - '.github/workflows/quotation-service-bound-staging.yml'
+permissions:
+  contents: read
+jobs:
+  executable-quotation-synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Reject unauthorized public paths and validate private draft E2E
+        run: node --test tests/quotation-service-bound-staging-worker.test.mjs tests/quotation-private-host-persistence-e2e.test.mjs
+      - name: Install locked Worker compiler, without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Bundle the actual staging Worker offline (NO UPLOAD)
+        run: npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/quotation-private-bundle" --config deploy/quotation-private-staging/wrangler.jsonc
+      - name: Prove no public routes are configured
+        run: |
+          node --input-type=module -e '
+            import fs from "node:fs";
+            const source=fs.readFileSync("deploy/quotation-private-staging/wrangler.jsonc","utf8");
+            if(!/workers_dev"\s*:\s*false/.test(source) ||
+               !/preview_urls"\s*:\s*false/.test(source) ||
+               !/routes"\s*:\s*\[\s*\]/.test(source))
+              process.exit(1);
+          '
