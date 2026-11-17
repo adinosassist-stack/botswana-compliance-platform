@@ -5807,7 +5807,7 @@ export default {
         let managerLandingPath=null;
         if(managerInviteStage&&a.role==='manager'){
           const scoped=await env.DB.prepare("SELECT 1 ok FROM workspace_manager_invites WHERE tenant_id=? AND accepted_by_user_id=? AND status='accepted' LIMIT 1").bind(a.tenant_id,a.user_id).first();
-          const requested=(!scoped?.ok&&String(env.MANAGER_ACCESS_REQUESTS_ENABLED||'').toLowerCase()==='true'&&String(env.MANAGER_ACCESS_PROVISIONING_ENABLED||'').toLowerCase()==='true')?await env.DB.prepare("SELECT 1 ok FROM workspace_manager_access_requests WHERE tenant_id=? AND requester_user_id=? AND status='provisioned' LIMIT 1").bind(selected.tenant_id,u.id).first():null;
+          const requested=(!scoped?.ok&&String(env.MANAGER_ACCESS_REQUESTS_ENABLED||'').toLowerCase()==='true'&&String(env.MANAGER_ACCESS_PROVISIONING_ENABLED||'').toLowerCase()==='true')?await env.DB.prepare("SELECT 1 ok FROM workspace_manager_access_requests WHERE tenant_id=? AND requester_user_id=? AND status='provisioned' LIMIT 1").bind(a.tenant_id,a.user_id).first():null;
         if(scoped?.ok||requested?.ok)managerLandingPath='/manager-invite/dashboard/';
         }
         return json({...(managerLandingPath?{landingPath:managerLandingPath}:{}),user:{id:a.user_id,email:a.email,displayName:a.display_name,role:a.role,tenantId:a.tenant_id,tenantName:a.tenant_name,onboardingComplete:!!a.onboarding_complete,platformBillingAdmin:platformBillingAdmin(a,env)},csrfToken:a.csrf_token});
