@@ -123,6 +123,22 @@ try{
   }
   if(!data.requests.length){const p=document.createElement('p');p.textContent='No requests yet.';requestsSection.append(p);}
  }
+ const codeSection=document.createElement('section');codeSection.setAttribute('aria-label','Registered user access codes');requestsSection.append(codeSection);
+  const codeTitle=document.createElement('h3');codeTitle.textContent='Invite registered users to request access';codeSection.append(codeTitle);
+  const codeInfo=document.createElement('p');codeInfo.textContent='Choose a branch and generate a private request code. It expires after 48 hours and cannot grant access without your review and separate provisioning.';codeSection.append(codeInfo);
+  const codeLocations=await api.request('/api/workspace/managers/directory');
+  const codeSelect=document.createElement('select');codeSelect.setAttribute('aria-label','Branch for access request code');codeSection.append(codeSelect);
+  for(const l of codeLocations.locations||[]){const op=document.createElement('option');op.value=String(l.id);op.textContent=String(l.name||l.town||'Branch');codeSelect.append(op);}
+  const codeOutput=document.createElement('p');codeOutput.setAttribute('role','status');
+  const generateCode=document.createElement('button');generateCode.type='button';generateCode.textContent='Create business request code';
+  generateCode.addEventListener('click',async()=>{
+    generateCode.disabled=true;
+    try{
+      const code=await api.request('/api/workspace/managers/access-requests/business-code',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({locationId:codeSelect.value})});
+      if(!code?.ok||!(/^[a-f0-9]{64}$/).test(code.code))throw Error('code_unavailable');
+      codeOutput.textContent='Private code (copy and send securely; do not post publicly): '+code.code+' — expires '+String(code.expiresAt||'')+'. Request page: '+location.origin+'/manager-invite/request/';
+    }catch{codeOutput.textContent='Could not generate request code. Check owner permissions.';}finally{generateCode.disabled=false;}
+  });codeSection.append(generateCode,codeOutput);
  try{await refreshAccessRequests()}catch{requestsSection.remove();/* Route not enabled in this environment. */}
  copy.addEventListener('click',async()=>{
   try{await navigator.clipboard.writeText(activationLink);copy.textContent='Link copied';}
