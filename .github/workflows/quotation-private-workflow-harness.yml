@@ -1,21 +1,33 @@
-name: Quotation private Workflow harness — offline security tests
+name: Quotation private caller + Workflow offline build evidence
 on:
   pull_request:
     paths:
       - 'server/quotation-private-workflow-harness.mjs'
+      - 'server/quotation-synthetic-private-caller.mjs'
       - 'deploy/quotation-private-workflow-harness/**'
+      - 'deploy/quotation-synthetic-private-caller/**'
       - 'tests/quotation-private-workflow-*.test.mjs'
       - 'tests/quotation-private-host-persistence-e2e.test.mjs'
       - 'tests/quotation-private-d1-session-verifier.test.mjs'
       - 'tests/quotation-service-bound-staging-worker.test.mjs'
+      - 'scripts/quotation-staging-bundle-hash.mjs'
       - 'docs/quotation-private-workflow-rehearsal.md'
+      - '.github/workflows/quotation-private-workflow-harness.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'server/quotation-private-workflow-harness.mjs'
+      - 'server/quotation-synthetic-private-caller.mjs'
+      - 'deploy/quotation-private-workflow-harness/**'
+      - 'deploy/quotation-synthetic-private-caller/**'
+      - 'scripts/quotation-staging-bundle-hash.mjs'
       - '.github/workflows/quotation-private-workflow-harness.yml'
 permissions:
   contents: read
 jobs:
-  private-harness-offline-qualification:
+  offline-private-artifact-qualification:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -23,13 +35,39 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Syntax check isolated harness
-        run: node --check server/quotation-private-workflow-harness.mjs
-      - name: Run offline harness plus authenticated synthetic draft storage and denial tests
+          cache: npm
+      - name: Static syntax and synthetic security regressions
         run: |
+          node --check server/quotation-private-workflow-harness.mjs
+          node --check server/quotation-synthetic-private-caller.mjs
           node --test \
             tests/quotation-private-workflow-harness.test.mjs \
             tests/quotation-private-workflow-runtime.test.mjs \
             tests/quotation-private-host-persistence-e2e.test.mjs \
             tests/quotation-private-d1-session-verifier.test.mjs \
-            tests/quotation-service-bound-staging-worker.test.mjs
+            tests/quotation-service-bound-staging-worker.test.mjs \
+            tests/quotation-staging-bundle-hash.test.mjs
+      - name: Install pinned dependencies (no lifecycle scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Bundle synthetic private caller OFFLINE only
+        run: |
+          npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/quotation-caller-bundle" --config deploy/quotation-synthetic-private-caller/wrangler.jsonc
+      - name: Bundle private Workflow harness OFFLINE only
+        run: |
+          npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/quotation-harness-bundle" --config deploy/quotation-private-workflow-harness/wrangler.jsonc
+      - name: Record exact-source compiled artifact receipts (no code upload)
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          CALLER_OUT: ${{ runner.temp }}/quotation-caller-bundle
+          HARNESS_OUT: ${{ runner.temp }}/quotation-harness-bundle
+        run: |
+          node scripts/quotation-staging-bundle-hash.mjs "$CALLER_OUT" "$SOURCE_SHA" > quotation-caller-offline-receipt.json
+          node scripts/quotation-staging-bundle-hash.mjs "$HARNESS_OUT" "$SOURCE_SHA" > quotation-harness-offline-receipt.json
+      - name: Retain receipts only, never compiled binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: quotation-private-artifact-receipts
+          path: |
+            quotation-caller-offline-receipt.json
+            quotation-harness-offline-receipt.json
+          retention-days: 7
