@@ -19,7 +19,7 @@ function harness(){
  CREATE TABLE workspace_manager_location_grants(tenant_id TEXT,manager_user_id TEXT,location_id TEXT,granted_by_user_id TEXT,status TEXT,revoked_at TEXT,PRIMARY KEY(tenant_id,manager_user_id,location_id));
  CREATE TABLE workspace_manager_access_requests(id TEXT PRIMARY KEY,tenant_id TEXT,requester_user_id TEXT,location_id TEXT,reason TEXT,status TEXT DEFAULT 'pending',reviewed_by_user_id TEXT,reviewed_at TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
  CREATE UNIQUE INDEX one_pending ON workspace_manager_access_requests(tenant_id,requester_user_id) WHERE status='pending';
- CREATE TABLE workspace_manager_request_codes(id TEXT PRIMARY KEY,tenant_id TEXT,location_id TEXT,code_hash TEXT,created_by_user_id TEXT,expires_at TEXT,revoked_at TEXT);
+ CREATE TABLE workspace_manager_request_codes(id TEXT PRIMARY KEY,tenant_id TEXT,location_id TEXT,code_hash TEXT,created_by_user_id TEXT,expires_at TEXT,revoked_at TEXT,consumed_at TEXT);
  INSERT INTO tenants VALUES('personal-a','Individual Company'),('business-b','Target Business');
  INSERT INTO users VALUES('registered-a','registered@example.com'),('owner-b','owner@example.com');
  INSERT INTO memberships VALUES('personal-a','registered-a','owner','active'),('business-b','owner-b','owner','active');
@@ -52,6 +52,9 @@ test('registered owner of A requests external business B manager access; B owner
  assert.equal(request.status,201);
  const id=(await request.json()).id;
  assert.equal(x.sqlite.prepare('SELECT tenant_id FROM workspace_manager_access_requests WHERE id=?').get(id).tenant_id,'business-b');
+ assert.ok(x.sqlite.prepare('SELECT consumed_at FROM workspace_manager_request_codes').get().consumed_at);
+ const replayCode=await x.handler(x.ownerA)(x.post('/api/workspace/managers/access-requests',{businessCode:secret.code,reason:'Replay'}));
+ assert.equal(replayCode.status,409);
  const decision=await x.handler(x.ownerB)(x.post('/api/workspace/managers/access-requests/decide',{requestId:id,decision:'approve'}));
  assert.equal(decision.status,200);
  assert.equal(x.sqlite.prepare("SELECT COUNT(*) n FROM memberships WHERE tenant_id='business-b' AND user_id='registered-a'").get().n,0);
