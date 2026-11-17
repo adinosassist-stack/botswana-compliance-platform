@@ -282,7 +282,7 @@ try{
  // Malformed list payload fails closed without making the register writable.
  await page.evaluate(()=>{window.apiJson=async()=>({items:null,summary:{},nextCursor:null})});
  await page.getByRole('button',{name:'Refresh',exact:true}).click();
- await page.getByText('Could not load asset registration. Use Refresh to retry; no records can be saved.').waitFor();
+ await page.getByText('Could not load asset registration. Use Retry loading assets or Refresh; no records can be saved.').waitFor();
  await page.evaluate(()=>{window.apiJson=window.savedAssetsApi});
  await page.getByRole('button',{name:'Refresh',exact:true}).click();
  await page.getByText('TR-001',{exact:true}).waitFor();
