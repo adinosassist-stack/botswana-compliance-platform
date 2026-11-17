@@ -1,0 +1,26 @@
+name: Quotation Synthetic Internal Host
+on:
+  pull_request:
+    paths:
+      - 'server/quotation-private-service-binding-host.mjs'
+      - 'tests/quotation-private-service-binding-host.test.mjs'
+      - '.github/workflows/quotation-private-service-binding-host.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'server/quotation-private-service-binding-host.mjs'
+      - 'tests/quotation-private-service-binding-host.test.mjs'
+      - '.github/workflows/quotation-private-service-binding-host.yml'
+permissions:
+  contents: read
+jobs:
+  private-host-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify internal-only private host boundaries
+        run: node --test tests/quotation-private-service-binding-host.test.mjs tests/quotation-private-runtime-candidate.test.mjs tests/quotation-synthetic-private-integration.test.mjs
