@@ -18,7 +18,7 @@ test("refuses forged line totals, unknown monetary inputs and negative amounts",
 });
 test("refuses unsupported fields and overflowing line items",()=>{
  assert.throws(()=>validateQuotationDraft({...valid(),tenantId:"another"}),/unsupported_quotation_field/);
- assert.throws(()=>validateQuotationDraft({...valid(),items:Array.from({length:9},()=>({description:"x",quantity:1,unitPriceCents:1}))}),/invalid_quotation_item_count/);
+ assert.throws(()=>validateQuotationDraft({...valid(),items:Array.from({length:13},()=>({description:"x",quantity:1,unitPriceCents:1}))}),/invalid_quotation_item_count/);
  assert.throws(()=>validateQuotationDraft({...valid(),items:[{description:"x",quantity:999,unitPriceCents:1000000000}]}),/invalid_quotation_line_total/);
 });
 test("refuses invalid date, unprintable characters and potentially unsafe text",()=>{

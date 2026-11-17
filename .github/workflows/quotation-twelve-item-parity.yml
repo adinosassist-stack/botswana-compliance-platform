@@ -1,0 +1,28 @@
+name: Quotation Twelve Item Parity
+on:
+  pull_request:
+    paths:
+      - 'server/quotation-draft-model.mjs'
+      - 'tests/quotation-twelve-items-server-parity.test.mjs'
+      - '.github/workflows/quotation-twelve-item-parity.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'server/quotation-draft-model.mjs'
+      - 'tests/quotation-twelve-items-server-parity.test.mjs'
+      - '.github/workflows/quotation-twelve-item-parity.yml'
+permissions:
+  contents: read
+jobs:
+  twelve-item-draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test twelve-row validation and tenant-separated persistence
+        run: node --test tests/quotation-twelve-items-server-parity.test.mjs tests/quotation-draft-d1-store.test.mjs tests/quotation-draft-persistence-http.test.mjs tests/quotation-private-host-persistence-e2e.test.mjs

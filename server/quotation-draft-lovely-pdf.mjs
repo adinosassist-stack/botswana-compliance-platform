@@ -41,6 +41,9 @@ export async function drawLovelyQuotationDraft({pdf,pdfLib,draft}={}){
  if(!pdf?.getPages||!pdf?.embedFont||!pdfLib?.StandardFonts?.Helvetica)
   fail("quotation_draft_pdf_unconfigured");
  const checked=validateQuotationDraft(draft);
+ // The legacy SHA-pinned template has only eight reviewed table rows.
+ // Draft storage may accept twelve, but PDF rendering must fail closed.
+ if(checked.items.length>8)fail("invalid_quotation_item_count");
  const pages=pdf.getPages(),page=pages[0];
  if(pages.length!==2||!page||Math.abs(page.getWidth()-612.24)>.2||
     Math.abs(page.getHeight()-858.96)>.2)

@@ -26,7 +26,7 @@ export function validateQuotationDraft(data){
  for(const key of ["paymentMethod"]){
   if(data[key]!==undefined&&data[key]!==""&&!text(data[key],55))deny("invalid_quotation_"+key);
  }
- if(!Array.isArray(data.items)||data.items.length<1||data.items.length>8)
+ if(!Array.isArray(data.items)||data.items.length<1||data.items.length>12)
   deny("invalid_quotation_item_count");
  let subtotal=0;
  const items=data.items.map(item=>{
