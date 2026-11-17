@@ -38,8 +38,8 @@ jobs:
           node --input-type=module -e '
             import fs from "node:fs";
             const source=fs.readFileSync("deploy/quotation-private-staging/wrangler.jsonc","utf8");
-            if(!/workers_dev"\\s*:\\s*false/.test(source) ||
-               !/preview_urls"\\s*:\\s*false/.test(source) ||
-               !/routes"\\s*:\\s*\\[\\s*\\]/.test(source))
+            if(!/workers_dev"\s*:\s*false/.test(source) ||
+               !/preview_urls"\s*:\s*false/.test(source) ||
+               !/routes"\s*:\s*\[\s*\]/.test(source))
               process.exit(1);
           '
