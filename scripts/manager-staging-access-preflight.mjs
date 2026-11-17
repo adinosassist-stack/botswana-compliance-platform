@@ -13,7 +13,7 @@ const REQUIRED_PATHS=[
 
 export function normalizeStagingTarget(origin,accessDomain){
  const site=new URL(origin);
- if(site.protocol!=='https:'||site.username||site.password||site.search||site.hash||site.pathname!=='/'||
+ if(site.protocol!=='https:'||site.username||site.password||site.port||site.search||site.hash||site.pathname!=='/'||
     !/^[a-z0-9.-]+$/i.test(site.hostname)||!site.hostname.includes('.')||
     /(?:^|\.)(?:localhost|example\.com|example\.invalid)$/.test(site.hostname))
   throw new Error('invalid_staging_https_origin');
@@ -28,7 +28,7 @@ export function assertAccessBoundary({status,location,accessDomain,body}){
  if(status!==302&&status!==303)throw new Error('access_redirect_required');
  if(typeof location!=='string'||!location)throw new Error('access_redirect_missing');
  const target=new URL(location);
- if(target.protocol!=='https:'||target.hostname.toLowerCase()!==accessDomain||
+ if(target.protocol!=='https:'||target.username||target.password||target.port||target.hash||target.hostname.toLowerCase()!==accessDomain||
     !/^\/cdn-cgi\/access\/(login|authorize)(?:\/|\?|$)/.test(target.pathname+target.search))
   throw new Error('unexpected_access_redirect_destination');
  if(typeof body==='string'&&/(?:csrfToken|sessionCookie|tokenHash|passwordHash)/i.test(body))
