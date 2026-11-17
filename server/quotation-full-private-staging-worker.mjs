@@ -6,7 +6,9 @@
  * Operational proof of binding identity and the private caller's isolation
  * is EXTERNAL to this module. Source flags are defense in depth, not proof.
  */
-import {LOVELY_FINAL_HTML_REFERENCE}\n from "./quotation-final-html-contract.mjs";\nimport {createQuotationSyntheticPrivateIntegration}
+import {LOVELY_FINAL_HTML_REFERENCE}
+ from "./quotation-final-html-contract.mjs";
+import {createQuotationSyntheticPrivateIntegration}
   from "./quotation-synthetic-private-integration.mjs";
 
 const DENY_HEADERS={
