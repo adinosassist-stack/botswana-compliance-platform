@@ -15,7 +15,7 @@ test('manager onboarding pages only served through explicit staging gate',()=>{
 test('owner invitation page uses authenticated session and CSRF and fragment-only link',()=>{
  const s=read('public/js/manager-invite-owner-entry.js');
  assert.match(s,/api\/auth\/me/);assert.match(s,/session\?\.user\?\.role!=='owner'/);
- assert.match(s,/x-csrf-token/);assert.match(s,/#token=/);
+ assert.match(s,/getCsrfToken:.*sessionCsrf/);assert.match(s,/sessionCsrf=session.csrfToken/);assert.match(s,/#token=/);
  assert.doesNotMatch(s,/localStorage|sessionStorage|location\.search/);
 });
 test('activation page strips fragment before posting token',()=>{
@@ -66,4 +66,17 @@ test('auth portal routes invited managers only to the exact server-issued restri
  assert.match(client,/location\.replace\(data\?\.landingPath/);
  assert.match(client,/setTimeout\(\(\)=>location\.replace\(destination\)/);
  assert.doesNotMatch(client,/location\.replace\(data\.landingPath\)/);
+});
+
+
+test('private onboarding scripts all use the centralized API client and staging runtime metadata',()=>{
+ for(const name of ['activate','owner','dashboard']){
+  const html=read('public/manager-invite/'+name+'/index.html');
+  assert.match(html,/meta name="bw-runtime-mode" content="staging"/);
+  assert.match(html,/src="\/js\/api-client\.js"/);
+  const code=read('public/js/manager-invite-'+(name==='owner'?'owner-entry':name)+'.js');
+  assert.match(code,/BW\?\.api\?\.createClient/);
+  assert.match(code,/api\.request\(/);
+  assert.doesNotMatch(code,/\bfetch\s*\(/);
+ }
 });
