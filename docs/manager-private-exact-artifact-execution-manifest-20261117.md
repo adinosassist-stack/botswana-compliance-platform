@@ -33,7 +33,7 @@
 
 ## Approval and operational checklist
 
-1. Reviewer independently downloads artifact ID `14344097769`, checks SHA-256 against every file and approves **compiled code + source map + Wrangler settings + assets**. Note that the dry-run ZIP contains `worker.js`, `worker.js.map`, `README.md`, `BUILD-REFERENCE.txt` and `SHA256SUMS`; **the `public` static assets are NOT packaged in this artifact** and must be separately pinned/reviewed before any functional Worker deployment.
+1. Reviewer independently downloads artifact ID `14344097769`, checks SHA-256 against every file and approves **compiled code + source map + Wrangler settings + assets**. Note that the dry-run ZIP contains `worker.js`, `worker.js.map`, `README.md`, `BUILD-REFERENCE.txt` and `SHA256SUMS`; **the Worker binary artifact does NOT package static assets**; these are now separately qualified below and must be reviewed together before any functional Worker deployment.
 2. Before any upload, independently verify approved secrets and source/provenance. Create fresh `SESSION_SECRET` only through Cloudflare's approved staging-only secret store; never log/commit value.
 3. Verify isolated D1 schema and Time Travel bookmark, dry-run rollback and explicit teardown procedure without touching production.
 4. Stage an **inert version only**, with no route, custom domain, preview URL or Worker execution, if separately and explicitly authorized.
@@ -43,8 +43,21 @@
 
 ## Exact reviewer decision
 
-Issue #2599 requires `thusico` to explicitly choose `APPROVE PRIVATE_MANAGER_STAGING_EXECUTION_NO_PRODUCTION` or `REQUEST CHANGES` **referencing the above artifact, all missing static-asset provenance, secret and recovery/ingress controls**.
+Issue #2599 requires `thusico` to explicitly choose `APPROVE PRIVATE_MANAGER_STAGING_EXECUTION_NO_PRODUCTION` or `REQUEST CHANGES` **referencing the above artifact, the independently verified separate static asset package, secret and recovery/ingress controls**.
 
 PR #2579, #2595, and #2601 approvals are not substitutes: they covered code, documentation and **offline-only** builds, respectively. The two earlier `approve` comments in Issue #2599 did not specify the compiled binary or the execution scope. Do not infer approval to upload from those comments.
 
 No Cloudflare write, staging Worker deployment, routing, or production change is authorized by this manifest.
+
+## Separate static assets package — independently verified
+
+The previously missing `public/` static files were packaged offline under GitHub Actions workflow run `44136585601`, on PR #2603. **No deployment/upload to Cloudflare.**
+
+- Artifact: `manager-private-static-assets-offline`, ID `14351873198`.
+- GitHub artifact ZIP SHA-256: `c969624cb793be399431eec2be364e6a4950b38058ecff1ef3cfb5df89ef746f`.
+- Deterministic `public.tar` SHA-256: `afdbdd36077449f2bb9cf06e5c2886fd84b11edda00d7a628912321e4d174afc`.
+- `ASSETS-SHA256SUMS` SHA-256: `945457a874424cb27af70ff96e0466c10ef27edd3c7ba7c38cab192768b74ced`.
+- **276/276 files checked independently against manifest, zero mismatches/missing**.
+- Build recorded Actions merge-context SHA `61ba1159f5593968866ef6b9afddc3f41779ea4a`. Comparisons to PR head show only unrelated quotation changes, no change to static public files.
+
+Thus **binary + static asset source-package integrity evidence is available**, but reviewer still must approve both exact artifacts together with the isolated secrets, protected ingress, recovery and synthetic browser E2E rollout; neither offline artifact is a deployment authority.
