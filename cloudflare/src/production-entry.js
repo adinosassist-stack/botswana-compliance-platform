@@ -501,7 +501,8 @@ async function quotationBrowserPreview(request,env,ctx){
   const sessionUrl=new URL("/__thebe_api/auth/me",request.url);
   const session=await worker.fetch(new Request(sessionUrl,{headers:request.headers}),env,ctx);
   if(!session.ok)return unavailable();
-  const {user,landingPath}=await session.json();
+  const identity=await session.json().catch(()=>null);
+  const {user,landingPath}=identity||{};
   if(!user?.id||user.tenantId!==tenant||user.onboardingComplete!==true||landingPath||
     user.role!=="owner")return unavailable();
 
