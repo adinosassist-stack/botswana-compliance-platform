@@ -22,7 +22,7 @@ export async function resolveManagerRequestCodeD1(db,{code,requesterUserId,crypt
  if(!db||typeof db.prepare!=='function')throw TypeError('d1_binding_required');
  if(!valid(requesterUserId))throw TypeError('invalid_requester');
  const hash=await hashManagerInviteToken(code,cryptoApi);
- const row=await db.prepare("SELECT c.tenant_id,c.location_id FROM workspace_manager_request_codes c JOIN operating_locations l ON l.id=c.location_id AND l.tenant_id=c.tenant_id AND l.active=1 JOIN memberships m ON m.tenant_id=c.tenant_id AND m.user_id=c.created_by_user_id AND m.role='owner' AND m.status='active' WHERE c.code_hash=? AND c.revoked_at IS NULL AND julianday(c.expires_at)>julianday('now') AND NOT EXISTS(SELECT 1 FROM memberships own WHERE own.tenant_id=c.tenant_id AND own.user_id=? AND own.role IN ('owner','manager')) LIMIT 1").bind(hash,requesterUserId).first();
+ const row=await db.prepare("SELECT c.tenant_id,c.location_id FROM workspace_manager_request_codes c JOIN operating_locations l ON l.id=c.location_id AND l.tenant_id=c.tenant_id AND l.active=1 JOIN memberships m ON m.tenant_id=c.tenant_id AND m.user_id=c.created_by_user_id AND m.role='owner' AND m.status='active' WHERE c.code_hash=? AND c.revoked_at IS NULL AND c.consumed_at IS NULL AND julianday(c.expires_at)>julianday('now') AND NOT EXISTS(SELECT 1 FROM memberships own WHERE own.tenant_id=c.tenant_id AND own.user_id=? AND own.role IN ('owner','manager')) LIMIT 1").bind(hash,requesterUserId).first();
  if(!valid(row?.tenant_id)||!valid(row?.location_id))throw Error('invalid_or_expired_business_code');
  return {tenantId:row.tenant_id,locationId:row.location_id,codeHash:hash};
 }
