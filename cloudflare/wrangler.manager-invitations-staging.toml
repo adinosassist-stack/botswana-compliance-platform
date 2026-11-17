@@ -1,0 +1,23 @@
+# #2578: isolated inert synthetic staging Worker. NO public/preview URLs.
+# Do NOT change to production main, add routes, or enable customer onboarding.
+name = "bw-manager-invitations-private-staging"
+main = "src/manager-invitations-private-staging-entry.js"
+compatibility_date = "2026-09-03"
+workers_dev = false
+preview_urls = false
+keep_vars = false
+
+[vars]
+APP_ENV = "staging"
+MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED = "false"
+MANAGER_INVITATIONS_SCHEMA_READY = "false"
+REGISTRATION_MODE = "hold"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bw-manager-invitations-synthetic-staging"
+database_id = "518a9e33-b2ba-4204-ac52-aae4150a7b52"
+
+# NO custom domains, routes, secrets, or static assets.
+# Access-restricted authenticated functional tests require a separately
+# qualified private ingress, isolated secrets and exact reviewed commit.
