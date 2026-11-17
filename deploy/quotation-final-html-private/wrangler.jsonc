@@ -3,7 +3,7 @@
   // No upload, Worker version creation, deployment or execution authorization.
   // Previous Candidate B template and legacy PDF Worker are NOT used.
   "name": "bw-quotation-final-html-private-staging",
-  "main": "../../server/quotation-final-html-private-worker-entry.mjs",
+  "main": "./worker.mjs",
   "compatibility_date": "2026-11-17",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
