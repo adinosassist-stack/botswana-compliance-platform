@@ -1,0 +1,35 @@
+name: Quotation private Workflow harness — offline security tests
+on:
+  pull_request:
+    paths:
+      - 'server/quotation-private-workflow-harness.mjs'
+      - 'deploy/quotation-private-workflow-harness/**'
+      - 'tests/quotation-private-workflow-*.test.mjs'
+      - 'tests/quotation-private-host-persistence-e2e.test.mjs'
+      - 'tests/quotation-private-d1-session-verifier.test.mjs'
+      - 'tests/quotation-service-bound-staging-worker.test.mjs'
+      - 'docs/quotation-private-workflow-rehearsal.md'
+      - '.github/workflows/quotation-private-workflow-harness.yml'
+permissions:
+  contents: read
+jobs:
+  private-harness-offline-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check isolated harness
+        run: node --check server/quotation-private-workflow-harness.mjs
+      - name: Run offline harness plus authenticated synthetic draft storage and denial tests
+        run: |
+          node --test \
+            tests/quotation-private-workflow-harness.test.mjs \
+            tests/quotation-private-workflow-runtime.test.mjs \
+            tests/quotation-private-host-persistence-e2e.test.mjs \
+            tests/quotation-private-d1-session-verifier.test.mjs \
+            tests/quotation-service-bound-staging-worker.test.mjs
