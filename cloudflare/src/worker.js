@@ -5717,7 +5717,7 @@ export default {
       // separately gated. A request/review NEVER grants a manager role.
       const managerRequestStage=managerInviteStage&&
         String(env.MANAGER_ACCESS_REQUESTS_ENABLED||'').toLowerCase()==='true';
-      if(managerRequestStage&&url.pathname.startsWith('/api/workspace/managers/access-requests')){
+      if(managerRequestStage&&(url.pathname.startsWith('/api/workspace/managers/access-requests')||url.pathname==='/api/workspace/managers/request-locations')){
         return createManagerAccessRequestsHttp({
           db:env.DB,origin:String(env.PUBLIC_ORIGIN||''),
           authenticate:async()=>({tenantId:a.tenant_id,userId:a.user_id,role:a.role}),
@@ -8635,7 +8635,7 @@ export default {
         (req.method==='GET'||req.method==='HEAD');
       if(!permitted)return json({error:'not_found'},404);
       const page=url.pathname.replace(/\/+$/,'');
-      if(page==='/manager-invite/owner'||page==='/manager-invite/activate'||page==='/manager-invite/dashboard'){
+      if(page==='/manager-invite/owner'||page==='/manager-invite/activate'||page==='/manager-invite/dashboard'||(page==='/manager-invite/request'&&String(env.MANAGER_ACCESS_REQUESTS_ENABLED||'').toLowerCase()==='true')){
         const target=page+'/index.html';
         const assetReq=new Request(new URL(target,url.origin),{method:req.method,headers:req.headers});
         const response=await env.ASSETS.fetch(assetReq);
