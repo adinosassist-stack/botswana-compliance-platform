@@ -1,6 +1,7 @@
 // Issue #2578: unmounted owner-only manager invitation view.
 // Mount only after a protected server route is implemented and verified.
-import {MANAGER_INVITE_BRANCHES,normalizeManagerEmail} from '../../cloudflare/src/manager-invitations-foundation.js';
+const MANAGER_INVITE_BRANCHES=Object.freeze(['Gaborone','Mahalapye','Palapye','Francistown','Maun']);
+function normalizeManagerEmail(value){const email=String(value||'').trim().toLowerCase();if(email.length>254||!(/^[^\s@]+@[^\s@]+\.[^\s@]+$/).test(email))throw new TypeError('invalid_email');return email;}
 export function mountManagerInvites({container,request,ownerConfirmed=false}={}){
   if(!container||typeof container.replaceChildren!=='function'||typeof request!=='function')
     throw new TypeError('manager_invite_dependencies_required');
