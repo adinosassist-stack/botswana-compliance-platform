@@ -47,6 +47,11 @@ export function mountLovelyQuotationProtectedWorkspace(root,{
  const client=createQuotationDraftStorageClient({enabled:true,fetchImpl,csrfToken});
  const holder=document.createElement("div"),managerHost=document.createElement("div");
  let editorHost=document.createElement("div");
+ managerHost.className="qcw-draft-manager";
+ const printStyle=document.createElement("style");
+ printStyle.textContent="@media print{.qcw-draft-manager{display:none!important}}";
+ const nonce=document.querySelector("script[nonce],style[nonce]")?.nonce;
+ if(nonce)printStyle.nonce=nonce;
  let activeEditor=null,manager=null,disposed=false;
  try{
   activeEditor=mountQuotationCustomizablePage(editorHost,{capability,initial});
@@ -66,7 +71,7 @@ export function mountLovelyQuotationProtectedWorkspace(root,{
    }
   });
   holder.replaceChildren(editorHost);
-  root.replaceChildren(holder,managerHost);
+  root.replaceChildren(printStyle,holder,managerHost);
  }catch(error){manager?.destroy();activeEditor?.destroy();throw error}
  return Object.freeze({
   getDraft:()=>customQuotationToStoredDraft(activeEditor.getDraft()),
