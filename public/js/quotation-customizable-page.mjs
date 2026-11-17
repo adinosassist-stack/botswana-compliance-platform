@@ -107,7 +107,10 @@ export function mountQuotationCustomizablePage(root,{capability,initial}={}){
  const print=elt("button","","Print / Save PDF");print.type="button";print.dataset.primary="";
  const reset=elt("button","","Reset sample");reset.type="button";
  const download=elt("button","","Export draft JSON");download.type="button";
- actions.append(print,download,reset);
+ const importButton=elt("button","","Import draft JSON");importButton.type="button";
+ const importInput=elt("input");importInput.type="file";importInput.accept=".json,application/json";
+ importInput.hidden=true;importInput.setAttribute("aria-label","Import quotation draft JSON file");
+ actions.append(print,download,importButton,reset,importInput);
  const basic=details("Quotation and customer details",true);
  for(const [key,name] of [
   ["quoteNumber","Quote number"],["issueDate","Date (YYYY-MM-DD)"],
@@ -270,13 +273,42 @@ export function mountQuotationCustomizablePage(root,{capability,initial}={}){
   }
   window.print();
  });
+ importButton.addEventListener("click",()=>{if(!disposed)importInput.click()});
+ importInput.addEventListener("change",async()=>{
+  const file=importInput.files?.[0];importInput.value="";
+  if(disposed||!file)return;
+  // Export/import is LOCAL ONLY: never send customer data or terms to a server.
+  if(file.size>32768){status.textContent="Draft file exceeds 32 KB.";return}
+  try{
+   const incoming=JSON.parse(await file.text());
+   const verified=validateQuotationCustomPage(incoming);
+   // Validate before mutating state; a bad document cannot partially replace it.
+   if(!verified||typeof incoming!=="object"||Array.isArray(incoming))throw Error("invalid_draft");
+   for(const key of ["quoteNumber","issueDate","customerName","customerPhone",
+    "location","discount","items","copy","termsText"])state[key]=JSON.parse(JSON.stringify(incoming[key]));
+   // Imported JSON does not contain a logo binary. Clear the previous logo
+   // instead of falsely implying the imported quote retained that attachment.
+   if(logoUrl)URL.revokeObjectURL(logoUrl);
+   logoUrl=null;logoField.value="";logoWidth=32;logoX=0;
+   sizeField.value="32";offsetField.value="0";
+   const fields=basic.content.querySelectorAll("input");
+   ["quoteNumber","issueDate","customerName","customerPhone","location","discount"]
+    .forEach((key,i)=>{fields[i].value=state[key]});
+   copySection.content.querySelectorAll("input").forEach((input,i)=>{
+    input.value=state.copy[Object.keys(QUOTATION_CUSTOM_DEFAULT_COPY)[i]];
+   });
+   termsSection.content.querySelector("textarea").value=state.termsText;
+   drawItemInputs();refresh();
+   status.textContent="Draft imported locally. Re-upload your logo if needed; no data was sent or issued.";
+  }catch{status.textContent="Invalid quotation JSON; existing draft was preserved."}
+ });
  download.addEventListener("click",()=>{
   if(disposed||download.disabled)return;
   const file=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(file),a=elt("a");
   a.href=url;a.download="quotation-customization-draft.json";
   a.hidden=true;shell.append(a);a.click();a.remove();URL.revokeObjectURL(url);
-  status.textContent="JSON exported locally. Nothing uploaded or issued.";
+  status.textContent="JSON exported locally; logo image bytes are not included. Nothing uploaded or issued.";
  });
  reset.addEventListener("click",()=>{
   const original=quotationCustomSample();
