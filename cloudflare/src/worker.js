@@ -5707,7 +5707,8 @@ export default {
         const branchInvite=await env.DB.prepare("SELECT 1 scoped_manager FROM workspace_manager_invites WHERE tenant_id=? AND accepted_by_user_id=? AND status='accepted' LIMIT 1").bind(a.tenant_id,a.user_id).first();
         if(branchInvite?.scoped_manager&&req.method==='GET'&&(
           url.pathname==='/api/workspace/managers/my-locations'||
-          url.pathname==='/api/workspace/managers/my-reports')){
+          url.pathname==='/api/workspace/managers/my-reports'||
+          url.pathname==='/api/workspace/managers/my-dashboard')){
           return createManagerScopedReadHttp({db:env.DB})(req,{
             tenantId:a.tenant_id,userId:a.user_id,role:a.role
           });
