@@ -1,0 +1,11 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {authorizeOwnerAssistantRead,OWNER_ASSISTANT_READ_ACTIONS} from "../cloudflare/src/owner-chatgpt-read-gate.js";
+const identity={serverVerified:true,role:"owner",tenantId:"tenant-a"};
+const call=(overrides={})=>authorizeOwnerAssistantRead({enabled:true,identity,tenantId:"tenant-a",actionKey:"financial_position.read",...overrides});
+test("disabled by default",()=>assert.equal(authorizeOwnerAssistantRead({identity,tenantId:"tenant-a",actionKey:"financial_position.read"}).code,"owner_assistant_disabled"));
+test("allows only verified owner read action without execution",()=>{for(const actionKey of OWNER_ASSISTANT_READ_ACTIONS){const result=call({actionKey});assert.equal(result.allowed,true);assert.equal(result.executionAllowed,false)}});
+test("rejects unverified and manager identities",()=>{assert.equal(call({identity:{...identity,serverVerified:false}}).allowed,false);assert.equal(call({identity:{...identity,role:"manager"}}).allowed,false)});
+test("rejects tenant mismatch and missing tenant",()=>{assert.equal(call({tenantId:"tenant-b"}).code,"tenant_scope_mismatch");assert.equal(call({identity:{...identity,tenantId:""}}).allowed,false)});
+test("rejects write actions and unknown tools",()=>{for(const actionKey of ["payment.approve","quotation.create","receivables_customer.read","__proto__",null])assert.equal(call({actionKey}).allowed,false)});
+test("rejects system actors",()=>assert.equal(call({identity:{...identity,systemActor:true}}).allowed,false));
