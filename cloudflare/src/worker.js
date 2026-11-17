@@ -5730,6 +5730,12 @@ export default {
           }
         })(req);
       }
+      // Manager accounts in private staging must never fall back to the broad
+      // workspace when staging activation flags are disabled.
+      if(String(env.APP_ENV||'').toLowerCase()==='staging'&&a.role==='manager'&&!managerInviteStage&&!(
+        (url.pathname==='/api/auth/me'&&req.method==='GET')||
+        (url.pathname==='/api/auth/logout'&&req.method==='POST')
+      ))return json({error:'manager_private_stage_not_ready'},403);
       // #2578: fail closed for newly invited branch managers until per-branch
       // read AND write enforcement is implemented and independently qualified.
       // Existing managers are not affected; activated invitations identify the
@@ -5738,6 +5744,8 @@ export default {
         const branchInvite=await env.DB.prepare("SELECT 1 scoped_manager FROM workspace_manager_invites WHERE tenant_id=? AND accepted_by_user_id=? AND status='accepted' LIMIT 1").bind(a.tenant_id,a.user_id).first();
         const provisionedManager=(!branchInvite?.scoped_manager&&String(env.MANAGER_ACCESS_REQUESTS_ENABLED||'').toLowerCase()==='true'&&String(env.MANAGER_ACCESS_PROVISIONING_ENABLED||'').toLowerCase()==='true')?await env.DB.prepare("SELECT 1 scoped_manager FROM workspace_manager_access_requests WHERE tenant_id=? AND requester_user_id=? AND status='provisioned' LIMIT 1").bind(a.tenant_id,a.user_id).first():null;
         const isScopedManager=!!(branchInvite?.scoped_manager||provisionedManager?.scoped_manager);
+        if(!isScopedManager&&!((url.pathname==='/api/auth/me'&&req.method==='GET')||(url.pathname==='/api/auth/logout'&&req.method==='POST')))
+          return json({error:'manager_scope_not_qualified'},403);
         if(isScopedManager&&req.method==='GET'&&(
           url.pathname==='/api/workspace/managers/my-locations'||
           url.pathname==='/api/workspace/managers/my-reports'||
