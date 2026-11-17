@@ -82,3 +82,20 @@ No Worker, public URL or data change resulted.
   (Script Upload immediately deploys a new version)
 - https://developers.cloudflare.com/api/resources/workers/subresources/scripts/subresources/versions/methods/create/
   (Version Upload without deployment)
+
+
+## Post-merge qualification correction (separate source-only patch)
+
+The original guard accidentally pinned premerge base SHA
+`61168ac014b30f6b63bd3d6318adb44f56e5d2be`. Protected merge of
+PR #2561 changed main to `d938d2f9aa6ba8fbef855a05b97222e0facd400a`,
+which would always fail the old source SHA test. The patched guard requires
+`approvedMainSha` as a separate, fully qualified 40-hex authorization
+input and checks it exactly matches the freshly fetched `mainSha`.
+
+**The approvedMainSha must come from a new owner + independent thusico
+GitHub execution-specific acceptance for this exact operation, never
+silently populate it from current main.** After this fix is itself
+protected-merged, approvals must pin that resulting exact main SHA.
+Neither the old base SHA nor the example SHA in unit tests authorizes a
+Cloudflare mutation. Keep all other pre/post-flight restrictions unchanged.
