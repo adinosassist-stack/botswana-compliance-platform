@@ -84,6 +84,8 @@ test("staff can save, reopen and print a complete 12-line Lovely draft without i
   await page.getByRole("button",{name:"Confirm Open"}).click();
   assert.equal(await page.getByLabel("Customer name",{exact:true}).inputValue(),"Synthetic Client One");
   assert.equal(await page.locator(".qcp-page").first().locator("tbody tr").count(),12);
-  assert.equal((await page.pdf({format:"A4",printBackground:true})).toString("latin1").match(/\\/Type\\s*\\/Page\\b/g)?.length,2);
+  const pdf=await page.pdf({format:"A4",printBackground:true});
+  const pageCount=(pdf.toString("latin1").match(/\/Type\s*\/Page\b/g)||[]).length;
+  assert.equal(pageCount,2);
  }finally{await context.close()}
 });
