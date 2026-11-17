@@ -83,9 +83,16 @@ async function d1Query(sql,token,request,{write=false}={}){
  if(write&&sql.includes('audit_integrity_checks')===false)deny('approved_additive_sql_required');
  const x=await jsonRequest(D1+'/query',{token,method:'POST',body:{sql},request});
  const output=Array.isArray(x.result)?x.result:[x.result];
- if(x.success!==true||output.length!==1||output[0]?.success!==true||
-    !Array.isArray(output[0]?.results))deny('d1_query_result_invalid');
- if(!write&&output[0]?.meta?.changes!==0)deny('d1_read_changed_data');
+ if(x.success!==true||!output.length||
+    output.some(item=>item?.success!==true||!Array.isArray(item?.results)))
+  deny('d1_query_result_invalid');
+ if(write){
+  // D1 may return one result for the SQL batch or one per CREATE statement.
+  // A partial provider failure is NOT grounds for retry/automatic rollback.
+  if(![1,3].includes(output.length))deny('d1_additive_result_shape_invalid');
+  return output.flatMap(item=>item.results);
+ }
+ if(output.length!==1||output[0].meta?.changes!==0)deny('d1_read_changed_data');
  return output[0].results;
 }
 async function checkGitHub(c,request){
