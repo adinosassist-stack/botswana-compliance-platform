@@ -5742,7 +5742,7 @@ export default {
           url.pathname==='/api/workspace/managers/my-locations'||
           url.pathname==='/api/workspace/managers/my-reports'||
           url.pathname==='/api/workspace/managers/my-dashboard')){
-          return createManagerScopedReadHttp({db:env.DB})(req,{
+          return createManagerScopedReadHttp({db:env.DB,allowProvisioned:String(env.MANAGER_ACCESS_REQUESTS_ENABLED||'').toLowerCase()==='true'&&String(env.MANAGER_ACCESS_PROVISIONING_ENABLED||'').toLowerCase()==='true'})(req,{
             tenantId:a.tenant_id,userId:a.user_id,role:a.role
           });
         }
