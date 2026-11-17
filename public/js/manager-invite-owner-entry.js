@@ -15,6 +15,7 @@ try{
   // Fragment not sent to server. Never store token or send it to analytics.
   activationLink=location.origin+'/manager-invite/activate/#token='+token;
   link.textContent=activationLink;copy.hidden=false;
+  try{await refreshDirectory()}catch{/* Invitation exists; directory can be refreshed separately. */}
   return {ok:true};
  }});
  const directory=document.createElement('section');
