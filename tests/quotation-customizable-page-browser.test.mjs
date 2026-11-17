@@ -130,3 +130,26 @@ test("reset restores draft without invalidating the mounted editor handle",async
   assert.match(await page.locator(".qcp-meta").innerText(),/Sample customer/);
  }finally{await context.close()}
 });
+
+test("twelve editable rows retain separate Concrete and Grout entries across two printed A4 pages",async()=>{
+ const {context,page}=await open({width:1280,height:960});
+ try{
+  for(let n=0;n<3;n++)await page.getByRole("button",{name:"Add line item"}).click();
+  const rows=page.locator(".qcp-page").first().locator("tbody tr");
+  assert.equal(await rows.count(),12);
+  assert.match(await rows.nth(6).innerText(),/^Concrete/);
+  assert.match(await rows.nth(7).innerText(),/^Grout 2kg/);
+  await page.getByLabel("Price 10",{exact:true}).fill("123.45");
+  await page.getByLabel("Price 11",{exact:true}).fill("200.00");
+  await page.getByLabel("Price 12",{exact:true}).fill("75.00");
+  assert.match(await page.locator(".qcp-grand").innerText(),/P14,398\.45/);
+  const geometry=await page.evaluate(()=>[...document.querySelectorAll(".qcp-page")].map(
+   p=>({scrollHeight:p.scrollHeight,clientHeight:p.clientHeight})
+  ));
+  assert.ok(geometry.every(x=>x.scrollHeight<=x.clientHeight+2),
+   "Page content would be clipped: "+JSON.stringify(geometry));
+  const pdf=await page.pdf({format:"A4",printBackground:true});
+  const pages=pdf.toString("latin1").match(/\/Type\s*\/Page\b/g)||[];
+  assert.equal(pages.length,2,"twelve lines must still print as two A4 pages");
+ }finally{await context.close()}
+});
