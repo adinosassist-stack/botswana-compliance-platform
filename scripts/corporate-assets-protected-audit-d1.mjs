@@ -103,18 +103,18 @@ async function checkGitHub(c,request){
  if(main.sha!==c.expectedSha)deny('live_main_has_advanced');
  validateEnvironmentPolicy(env,branches.branch_policies);
 }
-async function requirePrivateWorker(token,request){
+async function requirePrivateWorker(workerReadToken,accountReadToken,request){
  const [deployment,sub,domains]=await Promise.all([
-  cfGet('/workers/scripts/bw-corporate-assets-staging/deployments',token,request),
-  cfGet('/workers/scripts/bw-corporate-assets-staging/subdomain',token,request),
-  cfGet('/workers/domains',token,request)
+  cfGet('/workers/scripts/bw-corporate-assets-staging/deployments',workerReadToken,request),
+  cfGet('/workers/scripts/bw-corporate-assets-staging/subdomain',workerReadToken,request),
+  cfGet('/workers/domains',accountReadToken,request)
  ]);
  if(sub.enabled!==false||sub.previews_enabled!==false||
     !Array.isArray(domains)||domains.some(d=>d.service==='bw-corporate-assets-staging'))
   deny('worker_private_exposure_required');
  const active=deployment.deployments?.[0]?.versions||[];
  if(active.length!==1||active[0].percentage!==100)deny('single_inert_worker_version_required');
- const version=await cfGet('/workers/scripts/bw-corporate-assets-staging/versions/'+active[0].version_id,token,request);
+ const version=await cfGet('/workers/scripts/bw-corporate-assets-staging/versions/'+active[0].version_id,workerReadToken,request);
  const b=version.resources?.bindings||[];
  const one=name=>{const v=b.filter(x=>x.name===name);if(v.length!==1)deny('staging_worker_binding_required');return v[0]};
  if(one('DB').type!=='d1'||(one('DB').database_id||one('DB').id)!==ASSETS_ISOLATED_DB_ID||
@@ -150,9 +150,10 @@ async function inspectSchema(token,request){
 }
 export async function runProtectedAssetsAudit({context,request=fetch}={}){
  assertContext(context||{});
- if(!context.githubToken||!context.d1Token)deny('dedicated_tokens_required');
+ if(!context.githubToken||!context.d1Token||!context.workerReadToken||!context.accountReadToken)
+  deny('dedicated_tokens_required');
  await checkGitHub(context,request);
- await requirePrivateWorker(context.d1Token,request);
+ await requirePrivateWorker(context.workerReadToken,context.accountReadToken,request);
  const initial=await inspectSchema(context.d1Token,request);
  const review=buildAssetsAuditRepairReview({
   expectedMainSha:context.expectedSha,observedMainSha:context.expectedSha,
@@ -215,7 +216,9 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   expectedSqlHash:process.env.ASSETS_D1_EXPECTED_SQL_SHA256,
   expectedBookmarkHash:process.env.ASSETS_D1_EXPECTED_BOOKMARK_SHA256,
   githubToken:process.env.ASSETS_STAGING_GITHUB_READ_TOKEN,
-  d1Token:process.env.ASSETS_STAGING_D1_TOKEN};
+  d1Token:process.env.ASSETS_STAGING_D1_TOKEN,
+  workerReadToken:process.env.ASSETS_STAGING_WORKER_READ_TOKEN,
+  accountReadToken:process.env.ASSETS_STAGING_ACCOUNT_READ_TOKEN};
  runProtectedAssetsAudit({context:c}).then(x=>console.log(JSON.stringify(x))).catch(e=>{
   const allowed=/^[a-z0-9_]{4,95}$/.test(e?.message||'')?e.message:'protected_assets_d1_unknown_failure';
   console.error(allowed);process.exitCode=1;
