@@ -1,0 +1,13 @@
+{
+  // SOURCE ONLY. Creating/deploying this separate Worker requires its own
+  // exact-source owner + thusico operational approval.
+  "name": "bw-quotation-synthetic-caller-staging",
+  "main": "../../server/quotation-synthetic-private-caller.mjs",
+  "compatibility_date": "2026-11-16",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [],
+  "services": [
+    {"binding":"QUOTATION_SERVICE","service":"bw-quotation-auth-private-staging"}
+  ]
+}
