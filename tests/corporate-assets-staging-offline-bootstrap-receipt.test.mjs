@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
 import {
- buildOfflineAssetsStagingSql,offlineAssetsBootstrapReceipt,
+ buildOfflineAssetsStagingSql,offlineAssetsBootstrapReceipt,assessExistingAssetsStaging,
  ASSETS_ISOLATED_DB_ID,ASSETS_ISOLATED_DB_NAME,ASSETS_PROD_DB_ID
 } from '../scripts/corporate-assets-staging-offline-bootstrap-receipt.mjs';
 import {corporateAssetsStagingSchemaPreflight} from '../cloudflare/src/corporate-assets-staging-schema-preflight.js';
@@ -12,6 +12,8 @@ import {renderCorporateAssetsStagingConfig} from '../scripts/render-corporate-as
 
 const sourceSha='a'.repeat(40);
 const metadata={uuid:ASSETS_ISOLATED_DB_ID,name:ASSETS_ISOLATED_DB_NAME,num_tables:0};
+// An explicit sqlite_master observation is mandatory; deprecated num_tables is never enough.
+const emptyCatalog={objects:[],rowCounts:{}};
 function dbAdapter(sqlite){
  const calls=[];
  return {calls,DB:{prepare(query){
@@ -58,7 +60,7 @@ test('stable source-only receipt and executable offline canonical SQLite schema'
   assert.equal(markerBefore,ASSETS_ISOLATED_DB_ID);
  }finally{db.close()}
  const receipt=offlineAssetsBootstrapReceipt({
-  expectedMainSha:sourceSha,observedMainSha:sourceSha,metadata
+  expectedMainSha:sourceSha,observedMainSha:sourceSha,metadata,catalog:emptyCatalog
  });
  assert.equal(receipt.sqlSha256,a.sql_sha256);
  assert.equal(receipt.mode,'OFFLINE_SOURCE_REVIEW_ONLY');
@@ -69,11 +71,11 @@ test('stable source-only receipt and executable offline canonical SQLite schema'
  assert.equal(receipt.separateOwnerApprovalRequired,true);
  assert.match(receipt.receiptSha256,/^[a-f0-9]{64}$/);
  assert.deepEqual(receipt,offlineAssetsBootstrapReceipt({
-  expectedMainSha:sourceSha,observedMainSha:sourceSha,metadata
+  expectedMainSha:sourceSha,observedMainSha:sourceSha,metadata,catalog:emptyCatalog
  }));
 });
 test('wrong identities, stale source, nonempty/unknown D1 metadata never produce a readiness receipt',()=>{
- const base={expectedMainSha:sourceSha,observedMainSha:sourceSha,metadata};
+ const base={expectedMainSha:sourceSha,observedMainSha:sourceSha,metadata,catalog:emptyCatalog};
  for(const next of [
   {...base,expectedMainSha:'b'.repeat(40)},
   {...base,expectedMainSha:'invalid'},
@@ -82,7 +84,12 @@ test('wrong identities, stale source, nonempty/unknown D1 metadata never produce
   {...base,metadata:{...metadata,name:'bw-compliance-os'}},
   {...base,metadata:{...metadata,num_tables:1}},
   {...base,metadata:{...metadata,num_tables:null}},
-  {...base,metadata:undefined}
+  {...base,metadata:undefined},
+  {...base,catalog:undefined},
+  {...base,catalog:{objects:[],rowCounts:null}},
+  {...base,catalog:{objects:[{type:'table',name:'tenants'}],rowCounts:{}}},
+  {...base,catalog:{objects:[{type:'table',name:'_cf_KV'}],rowCounts:{},marker:{database_id:ASSETS_ISOLATED_DB_ID}}},
+  {...base,catalog:{objects:[],rowCounts:{tenants:1}}}
  ])assert.throws(()=>offlineAssetsBootstrapReceipt(next));
  assert.throws(()=>buildOfflineAssetsStagingSql({expectedMainSha:'not-a-sha'}));
 });
@@ -98,4 +105,46 @@ test('altered canonical source, missing unique sequence index and forbidden SQL 
    read:(file,enc)=>mutate(file.pathname,normal(file,enc))
   }));
  }
+});
+
+
+test('actual existing Assets staging shape blocks bootstrap despite obsolete zero-table catalog metadata',()=>{
+ // Synthetic summarized read-only catalog shape; no tenant or asset rows.
+ const expected=buildOfflineAssetsStagingSql({expectedMainSha:sourceSha});
+ const catalog={
+  objects:[
+   {type:'table',name:'_cf_KV'},
+   ...expected.requiredTables.filter(x=>x!=='audit_integrity_checks').map(name=>({type:'table',name})),
+   {type:'index',name:'audit_tenant_seq_unique'}
+  ],
+  rowCounts:{tenants:2,users:1,memberships:1,sessions:0,
+   corporate_assets:1,corporate_asset_services:1,audit_events:0,
+   audit_chain_state:0,audit_write_failures:0,auth_rate_limits:0,
+   corporate_assets_staging_identity:1},
+  marker:{database_id:ASSETS_ISOLATED_DB_ID,environment:'corporate-assets-isolated'}
+ };
+ const base={expectedMainSha:sourceSha,observedMainSha:sourceSha,metadata,catalog};
+ assert.throws(()=>offlineAssetsBootstrapReceipt(base),/existing_schema_or_data_refuses_bootstrap/);
+ // Detail GET may disagree with list GET; do not let either count override SQL.
+ assert.throws(()=>offlineAssetsBootstrapReceipt({
+  ...base,metadata:{...metadata,num_tables:11}
+ }),/deprecated_table_count_nonzero_or_unknown/);
+ const assessed=assessExistingAssetsStaging({
+  ...base,metadata:{...metadata,num_tables:11}
+ });
+ assert.equal(assessed.mode,'SOURCE_ONLY_EXISTING_D1_RECONCILIATION');
+ assert.equal(assessed.reason,'existing_schema_incomplete');
+ assert.deepEqual(assessed.missingRequiredTables,['audit_integrity_checks']);
+ assert.deepEqual(assessed.nonemptyTables,
+  ['corporate_asset_services','corporate_assets','corporate_assets_staging_identity','memberships','tenants','users']);
+ assert.equal(assessed.bootstrapAllowed,false);
+ assert.equal(assessed.additiveRepairAuthorized,false);
+ assert.equal(assessed.restoreAuthorized,false);
+ assert.equal(assessed.productionWritesAuthorized,false);
+ assert.equal(assessed.providerNumTablesDeprecated,true);
+ assert.equal(assessed.suppliedCatalogNotIndependentlyAuthenticated,true);
+ const altered={...catalog,marker:{...catalog.marker,database_id:ASSETS_PROD_DB_ID}};
+ assert.equal(assessExistingAssetsStaging({...base,catalog:altered}).reason,'isolated_marker_unverified');
+ assert.throws(()=>assessExistingAssetsStaging({...base,observedMainSha:'b'.repeat(40)}));
+ assert.throws(()=>assessExistingAssetsStaging({...base,metadata:{...metadata,uuid:ASSETS_PROD_DB_ID}}));
 });

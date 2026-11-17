@@ -90,17 +90,80 @@ request, token or automatic migration**.
 
 Its informational receipt requires the explicitly identified isolated D1
 `bw-corporate-assets-staging` (`e19f09de-3bb9-4021-b4f8-44df04c8aaa8`),
-`num_tables=0` in supplied inventory metadata, and a valid exact matching
-source commit. It computes deterministic SHA-256 digests for the candidate
-SQL, the three source inputs and the receipt. The input inventory and SHA
-are supplied evidence, not independently authenticated observations;
-**even a passing receipt cannot authorize or safely execute remote SQL.**
+a valid exact matching source commit, and an explicit *empty* SQLite catalog
+observation from `sqlite_master`. The obsolete Cloudflare `num_tables` field
+is **deprecated and not a reliable emptiness test**. A nonzero/unknown count,
+any existing application table/index/trigger/view, any existing identity marker,
+or any observed data causes the bootstrap receipt to fail closed. This receipt
+is still only *caller-supplied review evidence*, not independently authenticated
+Cloudflare emptiness or permission to run SQL. It computes deterministic
+SHA-256 digests of the candidate SQL and its three canonical source inputs.
+**Even a passing receipt cannot authorize or safely execute remote SQL.**
 
 `tests/corporate-assets-staging-offline-bootstrap-receipt.test.mjs`
 creates the candidate schema in ephemeral *in-memory* SQLite, runs the actual
 read-only staging schema preflight and tests negative metadata, stale SHA,
 missing audit uniqueness and destructive DDL cases. It exercises the locked
 status-only staging Worker and proves that it still blocks writes.
+
+### Existing staging D1: reconciliation required, not bootstrap
+
+**Read-only observation, 16 November 2026:** The account-wide D1 list
+reported `num_tables=0`, the dedicated database GET reported 11, and an
+independently executed **SELECT-only** query against `sqlite_master` showed
+11 application tables plus Cloudflare's internal `_cf_KV` table. The staging
+marker identified the correct isolated D1. Aggregate row counts showed
+nonzero tenants, users, memberships, one asset, one service, and the marker.
+The provenance of those records has **not** been established; do not assume
+they are disposable synthetic fixtures. `audit_integrity_checks`, required
+by the canonical authenticated staging preflight, was **missing**. The
+available D1 Time Travel bookmark was checked for presence only; its value
+was not logged, and no restore was initiated.
+
+`assessExistingAssetsStaging` accepts a **sanitized, externally supplied**
+schema-object catalog, aggregate row counts, marker and source SHA, then
+reports the missing required tables and the nonempty table names without
+returning any personal or customer records. It is **not a Cloudflare query
+runner**, does not authenticate the upstream evidence, and always returns
+`bootstrapAllowed=false` and `additiveRepairAuthorized=false`.
+
+**Non-destructive protected remediation path (not executed):**
+
+1. Reconfirm the current-main SHA and dedicated D1 identity via independently
+   authenticated metadata GET; inspect the actual `sqlite_master` catalog,
+   required `PRAGMA table_info` columns, aggregate row counts and isolated
+   marker with **read-only SQL**. Do not use `num_tables` as proof of emptiness.
+   Record only sanitized evidence; do not copy record values.
+2. Establish ownership/provenance and retention rules for existing records;
+   independently preserve/qualify a pre-change D1 Time Travel bookmark and an
+   approved recovery method. **Restoring a bookmark overwrites database state**
+   and needs its own protected authorization.
+3. Design a **narrow additive** migration for missing
+   `audit_integrity_checks` and its required indexes, compare the
+   canonical reviewed DDL and any other schema/index dependencies, and
+   test it against a separate synthetic offline copy. Never replay the
+   complete bootstrap bundle over this populated D1.
+4. The review-only
+   `scripts/corporate-assets-staging-additive-audit-plan.mjs` selects the
+   exact canonical `audit_integrity_checks` table DDL and its corresponding
+   integrity/failure indexes, but only when the supplied sanitized
+   reconciliation catalog shows **that table as the sole missing required
+   table**. Its tests run the three CREATE statements in ephemeral local
+   SQLite against existing synthetic tenant, user, asset and service rows,
+   proving preflight success, unchanged records and idempotence. It contains
+   **no remote D1 execution**, token, Worker deployment or approval path.
+5. Obtain new explicit owner **staging-D1 additive-write** approval pinned to
+   the exact reviewed source SHA, independently approved `thusico` protected
+   environment review, and a verified isolation/rollback plan before
+   any actual D1 schema operation. Recheck the live schema immediately before
+   the permitted operation to block drift or unexpected writers.
+6. Keep the private status-only Worker, all public routes, staging write
+   flags and Assets activation disabled while credential-binding safety,
+   source-byte provenance, session/audit continuity and authenticated
+   staging E2E are qualified in separate approvals.
+
+Provider references: [D1 metadata fields](https://developers.cloudflare.com/api/resources/d1/),
+[D1 Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/).
 
 This candidate covers the **minimum** auth/audit/Assets table subset needed
 for the targeted staging preflight. It does not claim complete parity with

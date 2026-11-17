@@ -85,25 +85,95 @@ export function buildOfflineAssetsStagingSql({expectedMainSha,read=readFileSync}
 }
 
 /**
- * Consume externally supplied metadata ONLY for an informational receipt.
- * Metadata does not establish credential scope, exclusivity, backup, source
- * provenance, target emptiness under concurrency, or remote write authority.
+ * Caller-supplied catalog is a read-only *review input*, not an independently
+ * authenticated provider receipt. The deprecated Cloudflare num_tables field
+ * must NEVER be the emptiness test or authorization for a remote bootstrap.
  */
-export function offlineAssetsBootstrapReceipt({
- expectedMainSha,observedMainSha,metadata,read=readFileSync
-}={}){
+function normalizeObservedCatalog(catalog){
+ if(!catalog||!Array.isArray(catalog.objects)||!catalog.rowCounts||
+    typeof catalog.rowCounts!=='object'||Array.isArray(catalog.rowCounts))
+  throw Error('sqlite_master_catalog_required');
+ const objects=new Set();
+ for(const entry of catalog.objects){
+  if(!entry||!['table','view','index','trigger'].includes(entry.type)||
+     !/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(entry.name))
+   throw Error('sqlite_catalog_invalid_object');
+  const key=entry.type+':'+entry.name;
+  if(objects.has(key))throw Error('sqlite_catalog_duplicate_object');
+  objects.add(key);
+ }
+ const counts={};
+ for(const [name,count] of Object.entries(catalog.rowCounts)){
+  if(!/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(name)||
+     !Number.isSafeInteger(count)||count<0)
+   throw Error('sqlite_catalog_invalid_count');
+  if(!objects.has('table:'+name))throw Error('sqlite_catalog_count_missing_table');
+  counts[name]=count;
+ }
+ const appObjects=[...objects].filter(key=>!/^.+:(?:sqlite_|_cf_)/i.test(key));
+ return {objects,appObjects,counts};
+}
+function validateTarget({expectedMainSha,observedMainSha,metadata}){
  if(!sha.test(observedMainSha||'')||observedMainSha!==expectedMainSha)
   throw Error('exact_main_attestation_required');
- if(metadata?.name!==ASSETS_ISOLATED_DB_NAME||
-    metadata?.uuid!==ASSETS_ISOLATED_DB_ID||
-    metadata?.num_tables!==0)
-  throw Error('isolated_empty_database_metadata_required');
+ if(metadata?.name!==ASSETS_ISOLATED_DB_NAME||metadata?.uuid!==ASSETS_ISOLATED_DB_ID)
+  throw Error('isolated_database_identity_required');
+}
+
+/**
+ * Reconciliation is ALWAYS blocked for writes. A populated or partly migrated
+ * staging target requires a separately reviewed additive schema plan.
+ * Do not return raw tenant, user, asset, or session data in receipts.
+ */
+export function assessExistingAssetsStaging({
+ expectedMainSha,observedMainSha,metadata,catalog,read=readFileSync
+}={}){
+ validateTarget({expectedMainSha,observedMainSha,metadata});
+ const scanned=normalizeObservedCatalog(catalog);
+ const required=buildOfflineAssetsStagingSql({expectedMainSha,read}).requiredTables;
+ const tables=new Set([...scanned.objects].filter(key=>key.startsWith('table:')).map(x=>x.slice(6)));
+ const missingRequiredTables=required.filter(t=>!tables.has(t));
+ const nonemptyTables=Object.entries(scanned.counts).filter(([,n])=>n>0).map(([name])=>name).sort();
+ const marker=catalog.marker;
+ const markerMatches=!!marker&&marker.database_id===ASSETS_ISOLATED_DB_ID&&
+  marker.environment==='corporate-assets-isolated';
+ return Object.freeze({
+  mode:'SOURCE_ONLY_EXISTING_D1_RECONCILIATION',
+  targetId:ASSETS_ISOLATED_DB_ID,
+  reason:!markerMatches?'isolated_marker_unverified':
+   missingRequiredTables.length?'existing_schema_incomplete':
+   nonemptyTables.length?'existing_data_preserve':'existing_schema_requires_review',
+  observedApplicationObjectCount:scanned.appObjects.length,
+  missingRequiredTables:Object.freeze([...missingRequiredTables]),
+  nonemptyTables:Object.freeze(nonemptyTables),
+  providerNumTablesDeprecated:true,
+  suppliedCatalogNotIndependentlyAuthenticated:true,
+  bootstrapAllowed:false,additiveRepairAuthorized:false,restoreAuthorized:false,
+  stagingWritesAuthorized:false,productionWritesAuthorized:false
+ });
+}
+
+/**
+ * An offline empty-target receipt requires an explicit sqlite_master catalog
+ * supplied by a reviewer; deprecated database-list num_tables is ignored.
+ * Even an empty catalog is not independently authenticated remote evidence.
+ */
+export function offlineAssetsBootstrapReceipt({
+ expectedMainSha,observedMainSha,metadata,catalog,read=readFileSync
+}={}){
+ validateTarget({expectedMainSha,observedMainSha,metadata});
+ // Nonzero or unknown deprecated counts are additional red flags, not proof.
+ if(metadata.num_tables!==0)throw Error('deprecated_table_count_nonzero_or_unknown');
+ const inspected=normalizeObservedCatalog(catalog);
+ if(inspected.appObjects.length||Object.values(inspected.counts).some(n=>n>0)||catalog.marker!=null)
+  throw Error('existing_schema_or_data_refuses_bootstrap');
  const plan=buildOfflineAssetsStagingSql({expectedMainSha,read});
  const body={
-  schema:'thebe.assets.offline-d1-bootstrap-receipt.v1',
+  schema:'thebe.assets.offline-d1-bootstrap-receipt.v2',
   mode:'OFFLINE_SOURCE_REVIEW_ONLY',
   sourceSha:expectedMainSha,targetName:ASSETS_ISOLATED_DB_NAME,targetId:ASSETS_ISOLATED_DB_ID,
-  observedTables:metadata.num_tables,
+  suppliedApplicationObjectCount:0,providerNumTablesDeprecated:true,
+  suppliedCatalogNotIndependentlyAuthenticated:true,
   sqlSha256:plan.sql_sha256,
   sourceHashes:plan.sourceHashes,
   tableNames:plan.requiredTables,
