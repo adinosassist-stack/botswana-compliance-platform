@@ -53,7 +53,7 @@ function validEnvelope(data){
   customerName:validated.customerName,customerContact:validated.customerContact,
   paymentMethod:validated.paymentMethod,
   items:validated.items.map(({description,quantity,unitPriceCents})=>({description,quantity,unitPriceCents})),
-  discountCents:validated.discountCents};
+  discountCents:validated.discountCents,...(validated.customPage?{customPage:validated.customPage}:{})};
  return {draftId:data.draftId,revision:data.revision,draft};
 }
 /**
@@ -89,7 +89,7 @@ export async function handleQuotationDraftPersistence({
     customerName:verified.customerName,customerContact:verified.customerContact,
     paymentMethod:verified.paymentMethod,
     items:verified.items.map(({description,quantity,unitPriceCents})=>({description,quantity,unitPriceCents})),
-    discountCents:verified.discountCents};
+    discountCents:verified.discountCents,...(verified.customPage?{customPage:verified.customPage}:{})};
    return reply(200,{ok:true,draftId,revision:item.revision,draft:copy(draft)});
   }catch{return reject(500,"quotation_draft_read_failed")}
  }

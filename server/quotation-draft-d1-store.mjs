@@ -13,7 +13,7 @@ const canonical=data=>{
   customerName:d.customerName,customerContact:d.customerContact,
   paymentMethod:d.paymentMethod,
   items:d.items.map(({description,quantity,unitPriceCents})=>({description,quantity,unitPriceCents})),
-  discountCents:d.discountCents};
+  discountCents:d.discountCents,...(d.customPage?{customPage:d.customPage}:{})};
 };
 export function createQuotationDraftD1Store({db}={}){
  if(typeof db?.prepare!=="function")fail("quotation_draft_d1_unconfigured");
