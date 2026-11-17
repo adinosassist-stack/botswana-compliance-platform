@@ -6,7 +6,7 @@ const team='private-team.cloudflareaccess.com';
 const valid={status:302,location:'https://'+team+'/cdn-cgi/access/login/example'};
 test('only HTTPS staging origins and pinned Cloudflare Access team host accepted',()=>{
  assert.deepEqual(normalizeStagingTarget('https://staging.test.invalid/',team),{origin:'https://staging.test.invalid',accessDomain:team});
- for(const bad of ['http://staging.test.invalid','https://user@staging.test.invalid','https://staging.test.invalid/path','https://example.com/'])
+ for(const bad of ['http://staging.test.invalid','https://user@staging.test.invalid','https://staging.test.invalid/path','https://staging.test.invalid:8443/','https://example.com/'])
   assert.throws(()=>normalizeStagingTarget(bad,team));
  for(const bad of ['staging.test.invalid','login.cloudflareaccess.com.evil.com','https://'+team,''])
   assert.throws(()=>normalizeStagingTarget('https://staging.test.invalid/',bad));
@@ -14,7 +14,7 @@ test('only HTTPS staging origins and pinned Cloudflare Access team host accepted
 test('app-origin 401, 403, 404 and 200 never satisfy Access isolation',()=>{
  for(const status of [200,301,401,403,404,500])
   assert.throws(()=>assertAccessBoundary({...valid,status,accessDomain:team}));
- for(const location of ['https://thebedesk.com/cdn-cgi/access/login','http://'+team+'/cdn-cgi/access/login','https://'+team+'.evil.invalid/cdn-cgi/access/login','https://'+team+'/other/login'])
+ for(const location of ['https://thebedesk.com/cdn-cgi/access/login','http://'+team+'/cdn-cgi/access/login','https://'+team+'.evil.invalid/cdn-cgi/access/login','https://user@'+team+'/cdn-cgi/access/login','https://'+team+':8443/cdn-cgi/access/login','https://'+team+'/cdn-cgi/access/login#fragment','https://'+team+'/other/login'])
   assert.throws(()=>assertAccessBoundary({...valid,location,accessDomain:team}));
  assert.equal(assertAccessBoundary({...valid,accessDomain:team}),true);
 });
