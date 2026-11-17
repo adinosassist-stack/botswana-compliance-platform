@@ -5720,6 +5720,7 @@ export default {
       if(managerRequestStage&&(url.pathname.startsWith('/api/workspace/managers/access-requests')||url.pathname==='/api/workspace/managers/request-locations')){
         return createManagerAccessRequestsHttp({
           db:env.DB,origin:String(env.PUBLIC_ORIGIN||''),
+          provisioningEnabled:String(env.MANAGER_ACCESS_PROVISIONING_ENABLED||'').toLowerCase()==='true',
           authenticate:async()=>({tenantId:a.tenant_id,userId:a.user_id,role:a.role}),
           verifyCsrf:async()=>mutationCsrfOk(req,a),
           rateLimit:async(r,scope)=>{
