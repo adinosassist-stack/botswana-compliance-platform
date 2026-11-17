@@ -83,3 +83,19 @@ test("refuses absent terms before invoking Chromium",()=>{
  const q=sample();q.termsText="";
  assert.throws(()=>renderLovelyFinalQuotationPrintHtml(q),/terms_not_qualified/);
 });
+
+test("protected final HTML adapter makes real PDF bytes using isolated Chromium after tenant approval",async()=>{
+ const {renderLovelyFinalQuotationPrivatePdf}=await import("../server/quotation-final-html-private-pdf.mjs");
+ const {LOVELY_FINAL_HTML_REFERENCE}=await import("../server/quotation-final-html-contract.mjs");
+ const draft=sample(),actor={id:"syntheticPdfEditor"};
+ const result=await renderLovelyFinalQuotationPrivatePdf({
+  actor,companyId:"syntheticTenant",draft,browser,pdfLib,
+  sourceSha256:LOVELY_FINAL_HTML_REFERENCE.sourceSha256,
+  authority:{assertPrivatePreview:async ({actor:a,companyId,mode})=>
+   a===actor&&companyId==="syntheticTenant"&&mode==="synthetic-preview"}
+ });
+ assert.equal(result.pageCount,2);
+ assert.equal(result.previewOnly,true);
+ assert.ok(result.bytes.length>1000);
+ assert.equal((await pdfLib.PDFDocument.load(result.bytes)).getPageCount(),2);
+});
