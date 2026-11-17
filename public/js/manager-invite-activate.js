@@ -21,6 +21,8 @@ form.addEventListener('submit',async event=>{
    headers:{'content-type':'application/json'},body:JSON.stringify({token,password})});
   if(!res.ok)throw Error('activation_failed');
   form.hidden=true;status.textContent='Account activated. Sign in using your email and new password.';
+  const link=document.createElement('a');link.href='/auth/';link.textContent='Sign in to Thebe Desk';
+  status.append(document.createTextNode(' '),link);
  }catch{status.textContent='Activation was not completed. The invitation may have expired or already been used. Contact the owner.';}
  finally{button.disabled=false;document.querySelector('#password').value='';document.querySelector('#confirm').value='';}
 });
