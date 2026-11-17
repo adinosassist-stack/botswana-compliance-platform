@@ -15,6 +15,8 @@ on:
       - 'deploy/quotation-final-html-private/**'
       - 'server/quotation-final-html-browser-run.mjs'
       - 'server/quotation-final-html-private-preview-host.mjs'
+      - 'server/quotation-final-html-staging-bindings.mjs'
+      - 'tests/quotation-final-html-staging-bindings.test.mjs'
       - 'tests/quotation-final-html-browser-package.test.mjs'
       - '.github/workflows/quotation-final-html-private-bundle.yml'
 permissions:
@@ -38,9 +40,36 @@ jobs:
         run: |
           node --test tests/quotation-final-html-staging-bindings.test.mjs tests/quotation-final-html-browser-package.test.mjs tests/quotation-final-html-private-manifest.test.mjs
           node --check deploy/quotation-final-html-private/worker.mjs
-      - name: Bundle only, no Worker upload or version/deploy
+      - name: Build immutable read-only quotation Worker evidence
+        shell: bash
         run: |
-          npx --no-install wrangler deploy --dry-run --config deploy/quotation-final-html-private/wrangler.jsonc --outdir quotation-browser-bundle-inspect
-          test -d quotation-browser-bundle-inspect
-          test -n "$(find quotation-browser-bundle-inspect -type f | head -1)"
-          echo 'Private Browser Run Worker bundle produced locally. No Cloudflare writes.'
+          set -euo pipefail
+          REVIEW="$RUNNER_TEMP/quotation-final-html-review"
+          mkdir -p "$REVIEW/compiled" "$REVIEW/metadata"
+          npx --no-install wrangler deploy --dry-run --config deploy/quotation-final-html-private/wrangler.jsonc --outdir "$REVIEW/compiled"
+          test -s "$REVIEW/compiled/worker.js"
+          cp deploy/quotation-final-html-private/wrangler.jsonc "$REVIEW/metadata/wrangler.jsonc"
+          cp deploy/quotation-final-html-private/package-lock.json "$REVIEW/metadata/package-lock.json"
+          {
+            echo "source_checkout_sha=$(git rev-parse HEAD)"
+            echo "source_event=$GITHUB_EVENT_NAME"
+            echo "worker_name=bw-quotation-final-html-private-staging"
+            echo "scope=offline-review-only-no-cloudflare-upload-no-browser-execution"
+          } > "$REVIEW/metadata/BUILD-REFERENCE.txt"
+          (
+            cd "$REVIEW"
+            find compiled metadata -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > SHA256SUMS
+            sha256sum --check SHA256SUMS
+            tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner -cf "$RUNNER_TEMP/quotation-final-html-review.tar" compiled metadata SHA256SUMS
+            sha256sum "$RUNNER_TEMP/quotation-final-html-review.tar" > TARBALL-SHA256.txt
+          )
+          echo 'Verified review bundle created offline. No Cloudflare writes or runtime calls.'
+      - name: Retain exact private Worker bytes for independent review
+        uses: actions/upload-artifact@v4
+        with:
+          name: quotation-final-html-private-review-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/quotation-final-html-review/
+            ${{ runner.temp }}/quotation-final-html-review.tar
+          if-no-files-found: error
+          retention-days: 7
