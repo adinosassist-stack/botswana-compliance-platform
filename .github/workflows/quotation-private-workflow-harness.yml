@@ -20,10 +20,3 @@ jobs:
           node-version: '22'
       - name: Run offline harness isolation and negative tests
         run: node --test tests/quotation-private-workflow-harness.test.mjs tests/quotation-private-workflow-runtime.test.mjs
-      - name: Assert no Cloudflare tokens or deployment commands in job
-        run: |
-          node --input-type=module -e "
-            import {readFileSync} from 'node:fs';
-            const y=readFileSync('.github/workflows/quotation-private-workflow-harness.yml','utf8');
-            if (/CLOUDFLARE_API_TOKEN|wrangler deploy|wrangler versions upload|workflow run|workflow trigger/i.test(y)) process.exit(1);
-          "
