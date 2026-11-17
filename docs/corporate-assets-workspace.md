@@ -53,6 +53,32 @@ separate protected write operation requiring explicit authorization.
 
 For staging, verify that both `SESSION_SECRET` and `AUDIT_INTEGRITY_SECRET` are **Worker `secret_text` bindings** (not plain-text variables) using Cloudflare metadata, never by revealing their values. Previously plain-text staging values must be rotated to fresh, unrelated values in the Secret type before acceptance. A nonempty runtime value or a dashboard-listed variable name is not proof of secure binding. This code-only gate does not replace protected deployment review or a real authenticated login → CSRF → create/edit → audit → readback test.
 
+## Offline synthetic backup and recovery rehearsal
+
+`tests/corporate-assets-staging-synthetic-backup-restore.test.mjs` creates an
+**ephemeral local SQLite database**, using the checked-in canonical auth/audit
+DDL, the reviewed Corporate Assets schema, and the isolation marker. It seeds
+only synthetic users, tenants, assets, service records, a session and sealed
+audit events. It then:
+
+- Creates a local SQLite backup using `VACUUM INTO` in a private temporary
+  directory, checks a SHA-256 digest, and opens the snapshot independently.
+- Checks SQLite integrity, foreign keys, tenant-scoped asset reads, the original
+  synthetic session, audit-chain verification and the read-only staging schema
+  preflight against the restored database.
+- Proves the deployed status-only entry continues to reject asset writes, and
+  that altered backup bytes or tampered audit events cannot pass integrity
+  checks. All temporary files are removed.
+
+This is **not** a remote Cloudflare D1 backup, a validated production restore
+or permission to initialize the staging database. It cannot prove provider
+time-travel/restore bookmarks, Cloudflare deployment rollback, real key
+continuity or the absence of all external database writers. Cloudflare's
+isolated staging D1 must still be independently identified and reviewed before
+any separately authorized schema/bootstrap or restore operation. The existing
+Worker stays private with both Assets and writes disabled; credential/source
+provenance and independent `thusico` approval remain mandatory.
+
 ## Validation
 
 `npm run test:corporate-assets` covers validation, tenant boundaries, owner-only
