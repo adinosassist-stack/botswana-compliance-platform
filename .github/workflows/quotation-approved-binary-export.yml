@@ -1,0 +1,59 @@
+name: Quotation approved binaries - offline export only
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/quotation-approved-binary-export.yml'
+permissions:
+  contents: read
+jobs:
+  validate-export-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify immutable export policy
+        run: node --test tests/quotation-approved-binary-export-policy.test.mjs
+  export-verified-binaries:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    needs: validate-export-policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact previously reviewed source commit (not current main)
+        uses: actions/checkout@v4
+        with:
+          ref: e5a06c40ebcbe8c2545bc6f5f4ce18a936dad786
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Verify exact checkout SHA and install pinned dependencies
+        run: |
+          test "$(git rev-parse HEAD)" = "e5a06c40ebcbe8c2545bc6f5f4ce18a936dad786"
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Compile isolated private caller and disabled harness OFFLINE
+        run: |
+          npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/quotation-caller-bundle" --config deploy/quotation-synthetic-private-caller/wrangler.jsonc
+          npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/quotation-harness-bundle" --config deploy/quotation-private-workflow-harness/wrangler.jsonc
+      - name: Fail closed unless BOTH compiled JS binaries match approved SHA-256
+        run: |
+          set -euo pipefail
+          CALLER="$RUNNER_TEMP/quotation-caller-bundle/quotation-synthetic-private-caller.js"
+          HARNESS="$RUNNER_TEMP/quotation-harness-bundle/quotation-private-workflow-harness.js"
+          echo "c1f650bf14454c5257dd827a9ef6857a2f15ece6e3918542d472b4929916340c  $CALLER" | sha256sum --check --status
+          echo "865a5a94eef52e1e52237668b7063feffcc53ae43f0aa772330e7552718d19a6  $HARNESS" | sha256sum --check --status
+          mkdir -p exact-approved-artifacts
+          cp "$CALLER" exact-approved-artifacts/quotation-synthetic-private-caller.js
+          cp "$HARNESS" exact-approved-artifacts/quotation-private-workflow-harness.js
+          printf '%s\n' 'sourceSha=e5a06c40ebcbe8c2545bc6f5f4ce18a936dad786' 'mode=OFFLINE_EXPORT_ONLY' 'deployAuthorized=false' 'executionAuthorized=false' > exact-approved-artifacts/PROVENANCE.txt
+          (cd exact-approved-artifacts && sha256sum quotation-synthetic-private-caller.js quotation-private-workflow-harness.js > SHA256SUMS)
+      - name: Upload only hash-verified binaries and provenance (no deploy)
+        uses: actions/upload-artifact@v4
+        with:
+          name: quotation-exact-approved-binaries
+          path: exact-approved-artifacts/
+          if-no-files-found: error
+          retention-days: 7
