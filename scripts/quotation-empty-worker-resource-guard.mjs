@@ -9,7 +9,10 @@
  */
 const EXPECTED_ACCOUNT = 'ddd23cab31928a4bb3d4998df9b26d1d';
 const EXPECTED_WORKER = 'bw-quotation-auth-private-staging';
-const EXPECTED_SHA = '61168ac014b30f6b63bd3d6318adb44f56e5d2be';
+// The expected SHA is supplied from a separately authorized exact-source
+// GitHub approval, not from a hardcoded pre-merge branch base or live HEAD.
+// A missing or malformed expected source must always fail closed.
+const EXACT_SHA_PATTERN = /^[a-f0-9]{40}$/;
 
 function namesAreAbsent(scripts, workers) {
   if (!Array.isArray(scripts) || !Array.isArray(workers)) return false;
@@ -29,12 +32,14 @@ function countsAreEmpty(counts) {
 }
 
 export function assessEmptyWorkerResourcePreflight({
-  accountId, mainSha, legacyScripts, modernWorkers, routes, domains,
+  accountId, mainSha, approvedMainSha, legacyScripts, modernWorkers, routes, domains,
   authCounts, readOnlyVerified
 } = {}) {
   const failures = [];
   if (accountId !== EXPECTED_ACCOUNT) failures.push('account_mismatch');
-  if (mainSha !== EXPECTED_SHA) failures.push('source_sha_mismatch');
+  if (typeof approvedMainSha !== 'string' ||
+    !EXACT_SHA_PATTERN.test(approvedMainSha) ||
+    mainSha !== approvedMainSha) failures.push('source_sha_mismatch_or_approval_missing');
   if (!namesAreAbsent(legacyScripts, modernWorkers))
     failures.push('worker_already_present_or_inventory_unverified');
   if (!noAssociations(routes, domains))

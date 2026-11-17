@@ -7,9 +7,9 @@ import {
 
 const name = 'bw-quotation-auth-private-staging';
 const accountId = 'ddd23cab31928a4bb3d4998df9b26d1d';
-const mainSha = '61168ac014b30f6b63bd3d6318adb44f56e5d2be';
+const mainSha = 'd938d2f9aa6ba8fbef855a05b97222e0facd400a';
 const before = () => ({
-  accountId, mainSha, legacyScripts: [{ id: 'unrelated' }],
+  accountId, mainSha, approvedMainSha: mainSha, legacyScripts: [{ id: 'unrelated' }],
   modernWorkers: [{ id: 'unrelated-id', name: 'unrelated' }],
   routes: [], domains: [],
   authCounts: ['users', 'memberships', 'sessions'].map(tab => ({ tab, n: 0 })),
@@ -39,6 +39,11 @@ test('preflight refuses every missing, mismatched or non-empty critical evidence
   }
   const drift = before(); drift.mainSha = 'different';
   assert.equal(pre(drift).readyForSeparatelyApprovedCreate, false);
+  const staleApproved = before(); staleApproved.approvedMainSha =
+    '61168ac014b30f6b63bd3d6318adb44f56e5d2be';
+  assert.equal(pre(staleApproved).readyForSeparatelyApprovedCreate, false);
+  const invalidApproved = before(); invalidApproved.approvedMainSha = 'not-an-exact-sha';
+  assert.equal(pre(invalidApproved).readyForSeparatelyApprovedCreate, false);
   const duplicate = before(); duplicate.modernWorkers.push({ name });
   assert.equal(pre(duplicate).readyForSeparatelyApprovedCreate, false);
   const row = before(); row.authCounts[1].n = 1;
