@@ -1,0 +1,166 @@
+name: Corporate Assets protected isolated D1 audit repair
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/corporate-assets-protected-audit-d1.yml'
+      - 'scripts/corporate-assets-protected-audit-d1.mjs'
+      - 'tests/corporate-assets-protected-audit-d1.test.mjs'
+      - 'scripts/corporate-assets-staging-additive-audit-plan.mjs'
+      - 'tests/corporate-assets-staging-additive-audit-plan.test.mjs'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Read-only preflight or separately owner-authorized staging-only additive repair
+        type: choice
+        required: true
+        default: preflight-only
+        options:
+          - preflight-only
+          - apply-approved
+      expected_main_sha:
+        description: Exact reviewed main SHA
+        required: true
+        type: string
+      authorization:
+        description: READ_ONLY_ASSETS_D1_PREFLIGHT or APPLY_ISOLATED_ASSETS_AUDIT_ADDITIVE_ONLY
+        required: true
+        type: string
+        default: READ_ONLY_ASSETS_D1_PREFLIGHT
+      owner_approval_comment_id:
+        description: Explicit owner scope approval GitHub issue #2204 comment ID; apply only
+        required: false
+        type: string
+      expected_sql_sha256:
+        description: Reviewed canonical additive SQL checksum; apply only
+        required: false
+        type: string
+      expected_bookmark_sha256:
+        description: Prechange D1 Time Travel bookmark digest; apply only
+        required: false
+        type: string
+permissions:
+  contents: read
+  issues: read
+concurrency:
+  group: corporate-assets-isolated-d1-audit-protected
+  cancel-in-progress: false
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Test exact additive schema protection without Cloudflare credentials
+        run: |
+          set -euo pipefail
+          node --check scripts/corporate-assets-protected-audit-d1.mjs
+          node --test tests/corporate-assets-protected-audit-d1.test.mjs
+          node --test tests/corporate-assets-staging-additive-audit-plan.test.mjs
+          node --test tests/corporate-assets-staging-offline-bootstrap-receipt.test.mjs
+      - name: Early live-main freshness before requesting reviewer approval
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+        run: node scripts/corporate-assets-early-main-guard.mjs
+  protected-readonly:
+    needs: offline
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.mode == 'preflight-only' &&
+      inputs.authorization == 'READ_ONLY_ASSETS_D1_PREFLIGHT'
+    environment: corporate-assets-staging-protected
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+      ASSETS_D1_MODE: preflight-only
+      ASSETS_D1_AUTHORIZATION: ${{ inputs.authorization }}
+      ASSETS_STAGING_GITHUB_READ_TOKEN: ${{ secrets.ASSETS_STAGING_GITHUB_READ_TOKEN }}
+      ASSETS_STAGING_D1_TOKEN: ${{ secrets.ASSETS_STAGING_D1_READ_TOKEN }}
+      ASSETS_STAGING_WORKER_READ_TOKEN: ${{ secrets.ASSETS_STAGING_CLOUDFLARE_TOKEN }}
+      ASSETS_STAGING_ACCOUNT_READ_TOKEN: ${{ secrets.ASSETS_STAGING_CLOUDFLARE_ACCOUNT_READ_TOKEN }}
+    steps:
+      - name: Restrict protected preflight to exact reviewed main
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_MAIN_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_SHA" = "$EXPECTED_MAIN_SHA"
+          test -n "$ASSETS_STAGING_GITHUB_READ_TOKEN"
+          test -n "$ASSETS_STAGING_D1_TOKEN"
+          test -n "$ASSETS_STAGING_WORKER_READ_TOKEN"
+          test -n "$ASSETS_STAGING_ACCOUNT_READ_TOKEN"
+          test "${GITHUB_ACTOR,,}" != thusico
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.expected_main_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Verify source and preflight D1 WITHOUT writes
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN_SHA"
+          node scripts/corporate-assets-protected-audit-d1.mjs
+  protected-additive-write:
+    needs: offline
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      github.actor == 'adinosassist-stack' &&
+      inputs.mode == 'apply-approved' &&
+      inputs.authorization == 'APPLY_ISOLATED_ASSETS_AUDIT_ADDITIVE_ONLY'
+    environment: corporate-assets-staging-protected
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+      ASSETS_D1_MODE: apply-approved
+      ASSETS_D1_AUTHORIZATION: ${{ inputs.authorization }}
+      ASSETS_D1_OWNER_COMMENT_ID: ${{ inputs.owner_approval_comment_id }}
+      ASSETS_D1_EXPECTED_SQL_SHA256: ${{ inputs.expected_sql_sha256 }}
+      ASSETS_D1_EXPECTED_BOOKMARK_SHA256: ${{ inputs.expected_bookmark_sha256 }}
+      ASSETS_STAGING_GITHUB_READ_TOKEN: ${{ secrets.ASSETS_STAGING_GITHUB_READ_TOKEN }}
+      ASSETS_STAGING_D1_TOKEN: ${{ secrets.ASSETS_STAGING_D1_AUDIT_WRITE_TOKEN }}
+      ASSETS_STAGING_WORKER_READ_TOKEN: ${{ secrets.ASSETS_STAGING_CLOUDFLARE_TOKEN }}
+      ASSETS_STAGING_ACCOUNT_READ_TOKEN: ${{ secrets.ASSETS_STAGING_CLOUDFLARE_ACCOUNT_READ_TOKEN }}
+    steps:
+      - name: Require exact SHA, explicit owner scope and separately approved dedicated token
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_MAIN_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$ASSETS_D1_EXPECTED_SQL_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          [[ "$ASSETS_D1_EXPECTED_BOOKMARK_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          [[ "$ASSETS_D1_OWNER_COMMENT_ID" =~ ^[1-9][0-9]{5,18}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_SHA" = "$EXPECTED_MAIN_SHA"
+          test "$GITHUB_ACTOR" = adinosassist-stack
+          test -n "$ASSETS_STAGING_GITHUB_READ_TOKEN"
+          test -n "$ASSETS_STAGING_D1_TOKEN"
+          test -n "$ASSETS_STAGING_WORKER_READ_TOKEN"
+          test -n "$ASSETS_STAGING_ACCOUNT_READ_TOKEN"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.expected_main_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Independently gate and apply ONLY the three canonical additive DDL statements
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN_SHA"
+          node scripts/corporate-assets-protected-audit-d1.mjs
