@@ -61,10 +61,17 @@ try{
     const assigned=data.grants.filter(g=>g.manager_user_id===userId&&g.status==='active').map(g=>
      data.locations.find(l=>l.id===g.location_id)?.name||String(g.location_id));
     const summary=document.createElement('span');summary.textContent=' Assigned: '+(assigned.join(', ')||'None');li.append(summary);
-    li.append(button('Suspend manager',async()=>{
-     if(!confirm('Suspend this manager and end their workspace sessions?'))return;
-     await requestAction('/api/workspace/managers/suspend',{managerUserId:userId});
-    }));
+    const suspendButton=button('Suspend manager',async()=>{
+     suspendButton.hidden=true;
+     actionStatus.textContent='Confirm suspension to end this manager’s workspace sessions.';
+     const confirmButton=button('Confirm suspension',()=>requestAction('/api/workspace/managers/suspend',{managerUserId:userId}));
+     const cancelButton=button('Cancel suspension',()=>{
+      confirmButton.remove();cancelButton.remove();suspendButton.hidden=false;
+      actionStatus.textContent='Suspension cancelled.';
+     });
+     li.append(confirmButton,cancelButton);
+    });
+    li.append(suspendButton);
    }
    list.append(li);
   }
