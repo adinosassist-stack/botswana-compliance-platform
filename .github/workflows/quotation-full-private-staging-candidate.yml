@@ -1,0 +1,35 @@
+name: Quotation full private PDF and logo candidate - offline
+on:
+  pull_request:
+    paths:
+      - 'server/quotation-full-private-staging-worker.mjs'
+      - 'tests/quotation-full-private-staging-worker.test.mjs'
+      - '.github/workflows/quotation-full-private-staging-candidate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'server/quotation-full-private-staging-worker.mjs'
+      - 'tests/quotation-full-private-staging-worker.test.mjs'
+      - '.github/workflows/quotation-full-private-staging-candidate.yml'
+permissions:
+  contents: read
+jobs:
+  full-pdf-private-source-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check source syntax and private security boundaries
+        run: |
+          node --check server/quotation-full-private-staging-worker.mjs
+          node --test tests/quotation-full-private-staging-worker.test.mjs tests/quotation-synthetic-private-integration.test.mjs tests/quotation-private-runtime-candidate.test.mjs
+      - name: Ensure original deployed manifest stays draft-only and public URLs disabled
+        run: |
+          grep -Fq '"main": "../../server/quotation-service-bound-staging-worker.mjs"' deploy/quotation-private-staging/wrangler.jsonc
+          grep -Fq '"workers_dev": false' deploy/quotation-private-staging/wrangler.jsonc
+          grep -Fq '"preview_urls": false' deploy/quotation-private-staging/wrangler.jsonc
