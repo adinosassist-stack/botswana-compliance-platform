@@ -5,6 +5,8 @@ on:
       - 'deploy/quotation-final-html-private/**'
       - 'server/quotation-final-html-browser-run.mjs'
       - 'server/quotation-final-html-private-preview-host.mjs'
+      - 'server/quotation-final-html-staging-bindings.mjs'
+      - 'tests/quotation-final-html-staging-bindings.test.mjs'
       - 'tests/quotation-final-html-browser-package.test.mjs'
       - '.github/workflows/quotation-final-html-private-bundle.yml'
   push:
@@ -34,7 +36,7 @@ jobs:
         run: npm ci --prefix deploy/quotation-final-html-private --ignore-scripts --no-audit --no-fund
       - name: Assert source, lock and deny-all runtime
         run: |
-          node --test tests/quotation-final-html-browser-package.test.mjs tests/quotation-final-html-private-manifest.test.mjs
+          node --test tests/quotation-final-html-staging-bindings.test.mjs tests/quotation-final-html-browser-package.test.mjs tests/quotation-final-html-private-manifest.test.mjs
           node --check deploy/quotation-final-html-private/worker.mjs
       - name: Bundle only, no Worker upload or version/deploy
         run: |
