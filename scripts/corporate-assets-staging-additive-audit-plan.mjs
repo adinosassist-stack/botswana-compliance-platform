@@ -40,7 +40,9 @@ export function buildAssetsAuditRepairReview({
  const integrityIndex=unique(canonical,/CREATE INDEX IF NOT EXISTS audit_integrity_checks_tenant_idx[\s\S]*?;/g,
   'integrity_index');
  const sql=[table,failureIndex,integrityIndex].join('\n')+'\n';
- if(/\b(?:DROP|ALTER|DELETE|UPDATE|INSERT|TRUNCATE|REPLACE|ATTACH|DETACH)\b/i.test(sql))
+ // ON DELETE CASCADE is a legitimate foreign-key clause, not a DELETE
+ // statement. Reject executable mutation statements at statement boundaries.
+ if(/(?:^|;)\s*(?:DROP|ALTER|DELETE|UPDATE|INSERT|TRUNCATE|REPLACE|ATTACH|DETACH)\b/im.test(sql))
   throw Error('additive_sql_not_safe');
  if((sql.match(/CREATE TABLE/g)||[]).length!==1||(sql.match(/CREATE INDEX/g)||[]).length!==2)
   throw Error('unexpected_additive_sql_shape');
