@@ -15,6 +15,7 @@ on:
       - 'scripts/quotation-staging-bundle-hash.mjs'
       - 'scripts/quotation-private-activation-readiness.mjs'
       - 'tests/quotation-private-activation-readiness.test.mjs'
+      - 'tests/quotation-main-artifact-trigger.test.mjs'
       - 'docs/quotation-private-workflow-rehearsal.md'
       - '.github/workflows/quotation-private-workflow-harness.yml'
   push:
@@ -22,14 +23,21 @@ on:
     paths:
       - 'server/quotation-private-workflow-harness.mjs'
       - 'server/quotation-synthetic-private-caller.mjs'
+      - 'server/quotation-synthetic-auth-rehearsal-contract.mjs'
       - 'deploy/quotation-private-workflow-harness/**'
       - 'deploy/quotation-synthetic-private-caller/**'
       - 'scripts/quotation-staging-bundle-hash.mjs'
+      - 'scripts/quotation-private-activation-readiness.mjs'
+      - 'tests/quotation-synthetic-auth-rehearsal-contract.test.mjs'
+      - 'tests/quotation-private-activation-readiness.test.mjs'
+      - 'docs/quotation-private-workflow-rehearsal.md'
       - '.github/workflows/quotation-private-workflow-harness.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
   offline-private-artifact-qualification:
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -52,7 +60,8 @@ jobs:
             tests/quotation-service-bound-staging-worker.test.mjs \
             tests/quotation-staging-bundle-hash.test.mjs \
             tests/quotation-private-activation-readiness.test.mjs \
-            tests/quotation-synthetic-auth-rehearsal-contract.test.mjs
+            tests/quotation-synthetic-auth-rehearsal-contract.test.mjs \
+            tests/quotation-main-artifact-trigger.test.mjs
       - name: Install pinned dependencies (no lifecycle scripts)
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Bundle synthetic private caller OFFLINE only
