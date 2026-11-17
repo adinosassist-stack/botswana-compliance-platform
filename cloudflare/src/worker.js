@@ -5331,7 +5331,15 @@ export default {
       selected=selected||choices[0];
       const sess=await createPasswordSession(env,u.id,selected.tenant_id,selected.role,expectedPasswordHash,u.session_generation);
       if(!sess)return json({error:"invalid_credentials"},401);
-      return json({ok:true,csrfToken:sess.csrf,user:{id:u.id,email:u.email,displayName:u.display_name,role:selected.role,tenantId:selected.tenant_id,tenantName:selected.tenant_name}},200,{"set-cookie":sessionCookie(sess.raw)});
+      // Private staging only: newly invited, branch-scoped managers must open
+      // the restricted dashboard, never the unscoped /app workspace.
+      let managerLandingPath=null;
+      if(String(env.APP_ENV||'').toLowerCase()==='staging'&&
+        String(env.MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED||'').toLowerCase()==='true'&&selected.role==='manager'){
+        const scoped=await env.DB.prepare("SELECT 1 ok FROM workspace_manager_invites WHERE tenant_id=? AND accepted_by_user_id=? AND status='accepted' LIMIT 1").bind(selected.tenant_id,u.id).first();
+        if(scoped?.ok)managerLandingPath='/manager-invite/dashboard/';
+      }
+      return json({ok:true,csrfToken:sess.csrf,...(managerLandingPath?{landingPath:managerLandingPath}:{}),user:{id:u.id,email:u.email,displayName:u.display_name,role:selected.role,tenantId:selected.tenant_id,tenantName:selected.tenant_name}},200,{"set-cookie":sessionCookie(sess.raw)});
     }
     if(url.pathname==="/api/auth/password-reset/request"&&req.method==="POST"){
       if(!requestOriginAllowed(req,env))return json({error:"origin_failed"},403);
@@ -5765,7 +5773,14 @@ export default {
       const staffManager=await handleStaffManager({request:req,url,env,auth:a,json,readJson,id});
       if(staffManager)return staffManager;
       if(url.pathname==="/api/ai/operator/reliability")return handleReliabilityAdvisorRequest(req,{auth:a,env});
-      if(url.pathname==="/api/auth/me"&&req.method==="GET")return json({user:{id:a.user_id,email:a.email,displayName:a.display_name,role:a.role,tenantId:a.tenant_id,tenantName:a.tenant_name,onboardingComplete:!!a.onboarding_complete,platformBillingAdmin:platformBillingAdmin(a,env)},csrfToken:a.csrf_token});
+      if(url.pathname==="/api/auth/me"&&req.method==="GET"){
+        let managerLandingPath=null;
+        if(managerInviteStage&&a.role==='manager'){
+          const scoped=await env.DB.prepare("SELECT 1 ok FROM workspace_manager_invites WHERE tenant_id=? AND accepted_by_user_id=? AND status='accepted' LIMIT 1").bind(a.tenant_id,a.user_id).first();
+          if(scoped?.ok)managerLandingPath='/manager-invite/dashboard/';
+        }
+        return json({...(managerLandingPath?{landingPath:managerLandingPath}:{}),user:{id:a.user_id,email:a.email,displayName:a.display_name,role:a.role,tenantId:a.tenant_id,tenantName:a.tenant_name,onboardingComplete:!!a.onboarding_complete,platformBillingAdmin:platformBillingAdmin(a,env)},csrfToken:a.csrf_token});
+      }
       if(!["GET","HEAD","OPTIONS"].includes(req.method)&&!restrictedWorkspaceMutationAllowed(url.pathname,req.method,a.role))return json({error:"workspace_role_mutation_forbidden"},403);
       if(!evidenceUploadsEnabled(env)&&evidenceMutationDisabled(url,req.method))return json({error:"evidence_uploads_temporarily_disabled",evidenceUploadsEnabled:false},503);
       if(url.pathname==="/api/ai/operator/queue"&&req.method==="POST")return secureResponse(await handleOwnerOperatorRequest(req,{auth:a}));
