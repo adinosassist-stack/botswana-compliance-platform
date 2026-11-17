@@ -9,3 +9,13 @@ test('unmounted invitation view delegates authorization to server and escapes em
   assert.doesNotMatch(source,/innerHTML|localStorage|sessionStorage/);
   assert.doesNotMatch(source,/fetch\(/);
 });
+
+
+test('manager suspension requires a second deliberate click and offers cancellation without browser dialogs',()=>{
+ const ownerEntry=fs.readFileSync(new URL('../public/js/manager-invite-owner-entry.js',import.meta.url),'utf8');
+ assert.match(ownerEntry,/button\('Confirm suspension'/);
+ assert.match(ownerEntry,/button\('Cancel suspension'/);
+ assert.match(ownerEntry,/suspendButton\.hidden=true/);
+ assert.match(ownerEntry,/suspendButton\.hidden=false/);
+ assert.doesNotMatch(ownerEntry,/\b(?:alert|confirm|prompt)\s*\(/);
+});
