@@ -102,6 +102,23 @@ try{
      }catch{message.textContent='Could not review this request. Reload and try again.';b.disabled=false;}
     });li.append(b);
    }
+   if(item.status==='approved_for_provisioning'){
+    const provision=document.createElement('button');provision.type='button';
+    provision.textContent='Provision manager (secure action)';
+    provision.addEventListener('click',async()=>{
+     provision.disabled=true;
+     try{
+      const result=await api.request('/api/workspace/managers/access-requests/provision',{
+       method:'POST',headers:{'content-type':'application/json'},
+       body:JSON.stringify({requestId:item.id})
+      });
+      if(!result?.ok||result.status!=='provisioned'||result.reauthenticationRequired!==true)throw Error('provision_unavailable');
+      await refreshAccessRequests();
+      message.textContent='Manager provisioned for the approved branch. They must sign in again.';
+     }catch{message.textContent='Provisioning is not enabled or could not be completed. Contact your administrator.';provision.disabled=false;}
+    });
+    li.append(provision);
+   }
    list.append(li);
   }
   if(!data.requests.length){const p=document.createElement('p');p.textContent='No requests yet.';requestsSection.append(p);}
