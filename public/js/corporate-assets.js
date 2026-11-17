@@ -2,7 +2,7 @@
  'use strict';
  const ROOT='/api/corporate-assets',categories={fleet:'Fleet',it:'IT hardware',machinery:'Machinery',furniture:'Furniture',other:'Other'},statuses={active:'Active',maintenance:'In maintenance',written_off:'Written off',decommissioned:'Decommissioned'};
  const kinds={service:'Routine service',repair:'Repair',insurance:'Insurance renewal',warranty:'Warranty claim'};
- let root,rows=[],cursor=null,cursors=[''],page=0,busy=false,epoch=0,search='',filter='',registerReady=false;
+ let root,rows=[],cursor=null,cursors=[''],page=0,busy=false,epoch=0,search='',filter='',registerReady=false,loadState='idle';
  const identity=()=>{try{return typeof currentUser==='object'&&currentUser?currentUser:null}catch{return null}};
  const key=()=>{const u=identity();return u?`${u.id}:${u.tenantId}:${u.role}`:''};
  const allowed=()=>['owner','manager'].includes(identity()?.role);
@@ -12,7 +12,7 @@
  const api=(path,options={})=>globalThis.apiJson(path,options);
  const status=message=>{root.querySelector('[data-assets-status]').textContent=message};
  const current=(token,who)=>token===epoch&&who===key()&&allowed()&&root.classList.contains('active');
- function disableWrites(disabled){registerReady=!disabled;root.querySelectorAll('[data-asset-write]').forEach(b=>{b.dataset.assetUnavailable=String(disabled);b.title=disabled?'Asset registration is unavailable until the company register finishes loading.':''})}
+ function disableWrites(disabled,reason='loading'){registerReady=!disabled;root.querySelectorAll('[data-asset-write]').forEach(b=>{b.dataset.assetUnavailable=String(disabled);b.dataset.assetSaveBlocked=String(disabled);b.title=!disabled?'':reason==='unavailable'?'Asset service unavailable. Select to see how to retry; nothing will be saved.':'Loading assets. Select to see current availability.'})}
  function metrics(summary={}){
   const box=root.querySelector('.asset-metrics');box.replaceChildren();
   for(const [label,value] of [['Registered assets',summary.total??'—'],['Recorded book value',summary.bookValueMinor===undefined?'—':money(summary.bookValueMinor)],['In maintenance',summary.maintenance??'—'],['Due / overdue in 30 days',summary.due??'—']]){
@@ -24,7 +24,7 @@
  function renderRows(){
   const box=root.querySelector('.asset-list');box.replaceChildren();
   const list=visibleRows();root.querySelector('[data-result-count]').textContent=`${list.length} shown · page ${page+1}`;
-  if(!list.length){const empty=make('div','asset-empty');empty.append(make('h3','','No assets to show'),make('p','muted',rows.length?'Try another search or category.':'Register equipment, vehicles or furniture to start your company register.'));box.append(empty);return}
+  if(!list.length){const empty=make('div','asset-empty');if(loadState==='unavailable'){empty.append(make('h3','','Asset register unavailable'),make('p','muted','The asset service did not load. No records were changed, and registering or editing is unavailable.'));empty.append(button('Retry loading assets',()=>{void load({reset:true})}));}else if(loadState==='loading'||loadState==='idle'){empty.append(make('h3','','Loading asset register'),make('p','muted','Checking your company assets. Do not assume this empty view means no assets are registered.'));}else{empty.append(make('h3','','No assets to show'),make('p','muted',rows.length?'Try another search or category.':'Register equipment, vehicles or furniture to start your company register.'));}box.append(empty);return}
   for(const a of list){
    const row=make('article','asset-row'),name=make('div','asset-name');name.append(make('strong','',a.name),make('span','muted small',a.serial||'No serial recorded'));
    const details=make('div','asset-description');details.append(make('span','',`${categories[a.category]} · ${a.branch}`),make('small','muted',a.custodian||'No custodian assigned'));
@@ -36,16 +36,16 @@
  async function load({reset=false}={}){
   if(!allowed()||!root?.classList.contains('active'))return false;
   if(reset){page=0;cursors=['']}
-  const token=++epoch,who=key();rows=[];renderRows();metrics();disableWrites(true);root.querySelector('.asset-schedule').replaceChildren();status('Loading assets…');
+  const token=++epoch,who=key();loadState='loading';rows=[];renderRows();metrics();disableWrites(true);root.querySelector('.asset-schedule').replaceChildren();status('Loading assets…');
   try{
    const result=await api(ROOT+'?after='+encodeURIComponent(cursors[page]||''));if(!current(token,who))return false;
    if(!result||!Array.isArray(result.items)||result.items.length>100||!result.summary||typeof result.summary!=='object'||
       (result.nextCursor!=null&&typeof result.nextCursor!=='string'))throw Error('invalid_asset_register_response');
-   rows=result.items;cursor=result.nextCursor;metrics(result.summary);renderRows();
+   rows=result.items;cursor=result.nextCursor;loadState='ready';metrics(result.summary);renderRows();
    root.querySelector('[data-next]').disabled=!cursor;root.querySelector('[data-back]').disabled=page===0;disableWrites(false);status('');
    try{const schedule=await api(ROOT+'/schedule');if(!current(token,who))return false;renderSchedule(schedule)}catch{if(current(token,who))root.querySelector('.asset-schedule').replaceChildren(make('p','muted','Maintenance schedule unavailable. Asset register remains available.'))}
    return true;
-  }catch(error){if(!current(token,who))return false;status(['assets_unavailable','assets_not_ready'].includes(error.code||error.data?.error)?'Asset registration is unavailable in this workspace. No records can be saved.':'Could not load asset registration. Use Refresh to retry; no records can be saved.');root.querySelector('[data-next]').disabled=true;root.querySelector('[data-back]').disabled=true;return false;}
+  }catch(error){if(!current(token,who))return false;loadState='unavailable';disableWrites(true,'unavailable');renderRows();status(['assets_unavailable','assets_not_ready'].includes(error.code||error.data?.error)?'Asset registration is unavailable in this workspace. No records can be saved.':'Could not load asset registration. Use Retry loading assets or Refresh; no records can be saved.');root.querySelector('[data-next]').disabled=true;root.querySelector('[data-back]').disabled=true;return false;}
  }
  function renderSchedule(data){
   const box=root.querySelector('.asset-schedule');box.replaceChildren();
@@ -173,7 +173,7 @@
  }
  globalThis.addEventListener('thebe:workspace-view-change',e=>{
   document.querySelectorAll('.corporate-asset-dialog').forEach(d=>{if(e.detail?.id!=='corporateassets'||d.dataset.assetSession!==key())d.close()});
-  ++epoch;if(e.detail?.id==='corporateassets'){install();void load()}else{rows=[];if(root){root.querySelector('.asset-list').replaceChildren();root.querySelector('.asset-schedule').replaceChildren();metrics()}}
+  ++epoch;if(e.detail?.id==='corporateassets'){install();void load()}else{rows=[];loadState='idle';if(root){root.querySelector('.asset-list').replaceChildren();root.querySelector('.asset-schedule').replaceChildren();metrics()}}
  });
  if(typeof globalThis.whenThebeWorkspaceReady==='function')globalThis.whenThebeWorkspaceReady(install);
 })();
