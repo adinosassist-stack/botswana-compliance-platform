@@ -1,0 +1,53 @@
+name: Manager Private Staging Offline Bundle — No Deployment
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/manager-private-staging-offline-bundle.yml'
+      - 'cloudflare/wrangler.manager-invitations-functional-staging.toml'
+      - 'cloudflare/src/worker.js'
+      - 'scripts/manager-staging-access-preflight.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  manager-offline-bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Validate no-route functional staging candidate
+        run: |
+          node --test tests/manager-invitations-functional-staging-config.test.mjs tests/manager-invitations-access-preflight.test.mjs tests/manager-invitations-inert-staging.test.mjs
+          node --check cloudflare/src/worker.js
+      - name: Install locked toolchain, no lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Compile only, never upload or deploy Worker
+        run: |
+          mkdir -p "$RUNNER_TEMP/manager-staging-offline"
+          npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/manager-staging-offline" --config cloudflare/wrangler.manager-invitations-functional-staging.toml
+      - name: Record immutable source and emitted asset checksums
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/manager-staging-offline"
+          find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS
+          test -s SHA256SUMS
+          printf 'git_commit=%s\n' "$GITHUB_SHA" > BUILD-REFERENCE.txt
+          printf 'wrangler_config=cloudflare/wrangler.manager-invitations-functional-staging.toml\n' >> BUILD-REFERENCE.txt
+          printf 'mode=dry-run-no-deployment\n' >> BUILD-REFERENCE.txt
+          printf 'workers_dev=false;preview_urls=false;no_routes=true\n' >> BUILD-REFERENCE.txt
+          sha256sum SHA256SUMS BUILD-REFERENCE.txt
+      - name: Upload read-only offline bundle for independent review
+        uses: actions/upload-artifact@v4
+        with:
+          name: manager-private-offline-bundle
+          path: ${{ runner.temp }}/manager-staging-offline/
+          if-no-files-found: error
+          retention-days: 7
