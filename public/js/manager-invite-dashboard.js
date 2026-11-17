@@ -2,20 +2,17 @@
 // Never fetch the unscoped workspace state or trust a client-selected tenant/location.
 const status=document.querySelector('#status'),locations=document.querySelector('#locations');
 const totals=document.querySelector('#totals'),reports=document.querySelector('#reports');
+const api=window.BW?.api?.createClient?.({retries:0});
 const show=(parent,value)=>{const li=document.createElement('li');li.textContent=value;parent.append(li)};
 (async()=>{
  try{
-  const me=await fetch('/api/auth/me',{credentials:'same-origin',cache:'no-store',redirect:'error'});
-  if(!me.ok)throw new Error('sign_in_required');
-  const session=await me.json();
+  if(!api)throw new Error('api_unavailable');
+  const session=await api.request('/api/auth/me');
   if(session?.user?.role!=='manager')throw new Error('manager_role_required');
-  const options={credentials:'same-origin',cache:'no-store',redirect:'error'};
-  const [overviewResponse,reportsResponse]=await Promise.all([
-   fetch('/api/workspace/managers/my-dashboard',options),
-   fetch('/api/workspace/managers/my-reports',options)
+  const [overview,reportData]=await Promise.all([
+   api.request('/api/workspace/managers/my-dashboard'),
+   api.request('/api/workspace/managers/my-reports')
   ]);
-  if(!overviewResponse.ok||!reportsResponse.ok)throw new Error('manager_scope_unavailable');
-  const [overview,reportData]=await Promise.all([overviewResponse.json(),reportsResponse.json()]);
   if(overview?.scope!=='assigned_locations_only'||!Array.isArray(overview.locations)||!Array.isArray(reportData?.reports))throw new Error('invalid_response');
   for(const location of overview.locations)show(locations,String(location.name||location.town||'Assigned location'));
   if(!overview.locations.length)show(locations,'No location assigned yet. Ask the company owner to assign a location.');
