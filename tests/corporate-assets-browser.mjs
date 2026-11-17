@@ -123,7 +123,7 @@ try{
  await page.getByText('Asset registration is unavailable in this workspace. No records can be saved.').waitFor();
  await page.getByRole('heading',{name:'Asset register unavailable'}).waitFor();
  assert.equal(await page.getByText('Register equipment, vehicles or furniture to start your company register.').count(),0,'failed backend must not be mistaken for an empty register');
- assert.equal(await page.getByRole('button',{name:'Register asset',exact:true}).getAttribute('aria-disabled'),'true');
+ assert.equal(await page.getByRole('button',{name:'Register asset',exact:true}).getAttribute('data-asset-save-blocked'),'true');
  await page.getByRole('button',{name:'Retry loading assets'}).click();
  await page.getByRole('heading',{name:'Asset register unavailable'}).waitFor();
 
@@ -136,7 +136,7 @@ try{
  });
  await page.getByRole('button',{name:'Retry loading assets'}).click();
  await page.getByText('Maintenance schedule unavailable. Asset register remains available.').waitFor();
- assert.equal(await page.getByRole('button',{name:'Register asset',exact:true}).getAttribute('aria-disabled'),'false');
+ assert.equal(await page.getByRole('button',{name:'Register asset',exact:true}).getAttribute('data-asset-save-blocked'),'false');
  await page.getByRole('button',{name:'Register asset',exact:true}).click();
  await page.getByRole('heading',{name:'Register asset',exact:true}).waitFor();
  await page.getByRole('button',{name:'Cancel',exact:true}).click();
