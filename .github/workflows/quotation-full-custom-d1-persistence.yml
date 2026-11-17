@@ -1,0 +1,32 @@
+name: Quotation Complete Custom Draft Persistence
+on:
+  pull_request:
+    paths:
+      - 'server/quotation-draft-model.mjs'
+      - 'server/quotation-draft-d1-store.mjs'
+      - 'server/quotation-draft-persistence-http.mjs'
+      - 'tests/quotation-full-custom-d1-persistence.test.mjs'
+      - '.github/workflows/quotation-full-custom-d1-persistence.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'server/quotation-draft-model.mjs'
+      - 'server/quotation-draft-d1-store.mjs'
+      - 'server/quotation-draft-persistence-http.mjs'
+      - 'tests/quotation-full-custom-d1-persistence.test.mjs'
+      - '.github/workflows/quotation-full-custom-d1-persistence.yml'
+permissions:
+  contents: read
+jobs:
+  private-custom-persistence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate full quotation customization and existing draft security
+        run: node --test tests/quotation-full-custom-d1-persistence.test.mjs tests/quotation-draft-persistence-http.test.mjs tests/quotation-draft-d1-store.test.mjs tests/quotation-twelve-items-server-parity.test.mjs tests/quotation-private-host-persistence-e2e.test.mjs
