@@ -1,16 +1,16 @@
 import {mountManagerInvites} from './manager-invitations-owner.js';
 const target=document.querySelector('#invites'),link=document.querySelector('#secure-link'),copy=document.querySelector('#copy-link');
 let activationLink='';
+const api=window.BW?.api?.createClient?.({retries:0,getCsrfToken:()=>sessionCsrf});
+let sessionCsrf='';
 try{
- const r=await fetch('/api/auth/me',{credentials:'same-origin',cache:'no-store',redirect:'error'});
- if(!r.ok)throw Error('signin_required');
- const session=await r.json();
+ if(!api)throw Error('api_unavailable');
+ const session=await api.request('/api/auth/me');
  if(session?.user?.role!=='owner'||!session?.csrfToken)throw Error('owner_required');
+ sessionCsrf=session.csrfToken;
  mountManagerInvites({container:target,ownerConfirmed:true,request:async input=>{
-  const result=await fetch('/api/workspace/managers/invitations',{method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',
-   headers:{'content-type':'application/json','x-csrf-token':session.csrfToken},body:JSON.stringify(input)});
-  if(!result.ok)throw Error('invitation_failed');
-  const value=await result.json();const token=value?.invitation?.token;
+  const value=await api.request('/api/workspace/managers/invitations',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(input)});
+  const token=value?.invitation?.token;
   if(!/^[a-f0-9]{64}$/.test(token))throw Error('invalid_invitation');
   // Fragment not sent to server. Never store token or send it to analytics.
   activationLink=location.origin+'/manager-invite/activate/#token='+token;
@@ -25,15 +25,11 @@ try{
   directory.replaceChildren();
   const heading=document.createElement('h2');heading.textContent='Existing manager access';directory.append(heading);
   const actionStatus=document.createElement('p');actionStatus.setAttribute('role','status');actionStatus.setAttribute('aria-live','polite');directory.append(actionStatus);
-  const response=await fetch('/api/workspace/managers/directory',{credentials:'same-origin',cache:'no-store',redirect:'error'});
-  if(!response.ok)throw Error('directory_unavailable');
-  const data=await response.json();
+  const data=await api.request('/api/workspace/managers/directory');
   if(!data?.ok||!Array.isArray(data.invites)||!Array.isArray(data.locations)||!Array.isArray(data.grants))throw Error('invalid_directory');
   const list=document.createElement('ul');directory.append(list);
   const requestAction=async(path,body)=>{
-   const response=await fetch(path,{method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',
-    headers:{'content-type':'application/json','x-csrf-token':session.csrfToken},body:JSON.stringify(body)});
-   if(!response.ok)throw Error('action_failed');
+   await api.request(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
    await refreshDirectory();
   };
   const button=(label,action)=>{
