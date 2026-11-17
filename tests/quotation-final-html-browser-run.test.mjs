@@ -60,10 +60,10 @@ test("invalid runtime binding denies before launch",async()=>{
  await assert.rejects(call(h,{browserBinding:null}),/binding_unconfigured/);
  assert.deepEqual(h.events,[]);
 });
-test("missing reviewed terms closes browser after private auth",async()=>{
+test("missing reviewed terms rejects without allocating Browser Run",async()=>{
  const h=harness(),q=draft();q.termsText="";
  await assert.rejects(call(h,{draft:q}),/terms_not_qualified/);
- assert.deepEqual(h.events,["launch","browserClose"]);
+ assert.deepEqual(h.events,[]);
 });
 test("oversized terms detected as clipped before pdf, browser always closed",async()=>{
  const h=harness({geometry:[
