@@ -1,0 +1,44 @@
+name: Quotation Final HTML Private Browser Bundle Qualification
+on:
+  pull_request:
+    paths:
+      - 'deploy/quotation-final-html-private/**'
+      - 'server/quotation-final-html-browser-run.mjs'
+      - 'server/quotation-final-html-private-preview-host.mjs'
+      - 'tests/quotation-final-html-browser-package.test.mjs'
+      - '.github/workflows/quotation-final-html-private-bundle.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/quotation-final-html-private/**'
+      - 'server/quotation-final-html-browser-run.mjs'
+      - 'server/quotation-final-html-private-preview-host.mjs'
+      - 'tests/quotation-final-html-browser-package.test.mjs'
+      - '.github/workflows/quotation-final-html-private-bundle.yml'
+permissions:
+  contents: read
+jobs:
+  bundle-inert-private-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install immutable application dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install exact Browser Run package into isolated runtime folder
+        run: npm ci --prefix deploy/quotation-final-html-private --ignore-scripts --no-audit --no-fund
+      - name: Assert source, lock and deny-all runtime
+        run: |
+          node --test tests/quotation-final-html-browser-package.test.mjs tests/quotation-final-html-private-manifest.test.mjs
+          node --check deploy/quotation-final-html-private/worker.mjs
+      - name: Bundle only, no Worker upload or version/deploy
+        run: |
+          npx --no-install wrangler deploy --dry-run --config deploy/quotation-final-html-private/wrangler.jsonc --outdir quotation-browser-bundle-inspect
+          test -d quotation-browser-bundle-inspect
+          test -n "$(find quotation-browser-bundle-inspect -type f | head -1)"
+          echo 'Private Browser Run Worker bundle produced locally. No Cloudflare writes.'
