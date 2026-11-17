@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'cloudflare/src/manager-invitations-*.js'
+      - 'cloudflare/src/worker.js'
       - 'public/js/manager-invitations-owner.js'
       - 'db/drafts/manager-invitations-2578.sql'
       - 'tests/manager-invitation*.test.mjs'
@@ -20,4 +21,4 @@ jobs:
         with:
           node-version: '22'
       - name: Candidate unit tests (no secrets, no deployment)
-        run: node --test tests/manager-invitations-foundation.test.mjs tests/manager-invitation-schema.test.mjs tests/manager-invitations-service.test.mjs tests/manager-invitations-ui.test.mjs tests/manager-invitations-http.test.mjs tests/manager-invitations-d1.test.mjs tests/manager-invitations-d1-service.test.mjs
+        run: node --test tests/manager-invitations-foundation.test.mjs tests/manager-invitation-schema.test.mjs tests/manager-invitations-service.test.mjs tests/manager-invitations-ui.test.mjs tests/manager-invitations-http.test.mjs tests/manager-invitations-d1.test.mjs tests/manager-invitations-d1-service.test.mjs tests/manager-invitations-worker-stage.test.mjs
