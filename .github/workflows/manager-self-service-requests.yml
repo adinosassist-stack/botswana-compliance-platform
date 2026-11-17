@@ -9,6 +9,7 @@ on:
       - 'cloudflare/src/worker.js'
       - 'cloudflare/wrangler.manager-invitations-functional-staging.toml'
       - 'db/drafts/manager-access-requests-self-service.sql'
+      - 'public/js/auth-portal.js'
       - 'public/js/manager-access-request-entry.js'
       - 'public/js/manager-invite-owner-entry.js'
       - 'public/manager-invite/request/**'
@@ -37,5 +38,6 @@ jobs:
           node --check cloudflare/src/manager-access-provisioning.js
           node --check cloudflare/src/manager-request-codes.js
           node --check cloudflare/src/worker.js
+          node --check public/js/auth-portal.js
           node --check public/js/manager-access-request-entry.js
           node --check public/js/manager-invite-owner-entry.js
