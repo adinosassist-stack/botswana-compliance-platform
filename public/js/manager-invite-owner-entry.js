@@ -74,6 +74,39 @@ try{
   if(!data.invites.length){const empty=document.createElement('p');empty.textContent='No invitations yet.';directory.append(empty)}
  }
  try{await refreshDirectory()}catch{directory.textContent='Manager directory is unavailable. Invitations can still be created.';}
+
+ // Customer tenant owners can review requests from their own registered team.
+ // An approval queues secure provisioning; it does not create manager permissions.
+ const requestsSection=document.createElement('section');
+ requestsSection.setAttribute('aria-label','Manager access requests');
+ target.after(requestsSection);
+ async function refreshAccessRequests(){
+  const data=await api.request('/api/workspace/managers/access-requests/inbox');
+  if(!data?.ok||!Array.isArray(data.requests))throw Error('requests_unavailable');
+  requestsSection.replaceChildren();
+  const h=document.createElement('h2');h.textContent='Manager access requests';requestsSection.append(h);
+  const message=document.createElement('p');message.setAttribute('role','status');requestsSection.append(message);
+  const list=document.createElement('ul');requestsSection.append(list);
+  for(const item of data.requests){
+   const li=document.createElement('li');
+   const desc=document.createElement('span');desc.textContent=String(item.requester_email||'User')+' — '+String(item.status||'pending')+' — '+String(item.reason||'');li.append(desc);
+   if(item.status==='pending')for(const [label,decision] of [['Approve for provisioning','approve'],['Reject','reject']]){
+    const b=document.createElement('button');b.type='button';b.textContent=label;
+    b.addEventListener('click',async()=>{
+     b.disabled=true;
+     try{
+      const result=await api.request('/api/workspace/managers/access-requests/decide',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({requestId:item.id,decision})});
+      if(!result?.ok||result.managerActive!==false)throw Error('unexpected_result');
+      await refreshAccessRequests();
+      message.textContent='Decision recorded. Manager access is not active until separately provisioned.';
+     }catch{message.textContent='Could not review this request. Reload and try again.';b.disabled=false;}
+    });li.append(b);
+   }
+   list.append(li);
+  }
+  if(!data.requests.length){const p=document.createElement('p');p.textContent='No requests yet.';requestsSection.append(p);}
+ }
+ try{await refreshAccessRequests()}catch{requestsSection.remove();/* Route not enabled in this environment. */}
  copy.addEventListener('click',async()=>{
   try{await navigator.clipboard.writeText(activationLink);copy.textContent='Link copied';}
   catch{copy.textContent='Select and copy the link above';}
