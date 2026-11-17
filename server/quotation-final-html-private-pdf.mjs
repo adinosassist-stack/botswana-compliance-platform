@@ -6,6 +6,7 @@
  */
 import {renderLovelyFinalQuotationPrintHtml} from "./quotation-final-html-print.mjs";
 import {LOVELY_FINAL_HTML_REFERENCE} from "./quotation-final-html-contract.mjs";
+import {decodeAndSanitizeWebPngLogo} from "./quotation-logo-web-png-sanitizer.mjs";
 
 const reject=code=>{throw Error(code)};
 const A4={width:595.28,height:841.89};
@@ -17,7 +18,7 @@ const within=(a,b)=>Math.abs(a-b)<=1.1;
  * invoking this function. This rechecks a trusted independent authority.
  */
 export async function renderLovelyFinalQuotationPrivatePdf({
-  actor,companyId,draft,authority,browser,pdfLib,sourceSha256
+  actor,companyId,draft,authority,browser,pdfLib,sourceSha256,logoSource=null
 }={}){
  if(sourceSha256!==LOVELY_FINAL_HTML_REFERENCE.sourceSha256)
    reject("lovely_html_source_identity_mismatch");
@@ -28,7 +29,24 @@ export async function renderLovelyFinalQuotationPrivatePdf({
  if(typeof browser?.newPage!=="function"||
     typeof pdfLib?.PDFDocument?.load!=="function")
    reject("lovely_html_private_pdf_engine_unavailable");
- const {html}=renderLovelyFinalQuotationPrintHtml(draft);
+ let trustedLogo=null;
+ if(logoSource!==null){
+   if(typeof logoSource?.getPrivateCompanyLogo!=="function")
+     reject("lovely_html_private_logo_source_required");
+   // Fetch only AFTER tenant authentication; no request may supply an image URL.
+   const stored=await logoSource.getPrivateCompanyLogo({actor,companyId});
+   if(!stored||stored.mimeType!=="image/png"||
+      !(stored.bytes instanceof Uint8Array)||
+      !Number.isInteger(stored.widthPercent)||
+      !Number.isInteger(stored.xPercent))
+     reject("lovely_html_private_logo_unconfigured");
+   const png=await decodeAndSanitizeWebPngLogo({bytes:stored.bytes,mimeType:stored.mimeType});
+   if(png.width!==stored.width||png.height!==stored.height)
+     reject("lovely_html_private_logo_dimension_mismatch");
+   trustedLogo={mimeType:"image/png",base64:Buffer.from(png.bytes).toString("base64"),
+     widthPercent:stored.widthPercent,xPercent:stored.xPercent};
+ }
+ const {html}=renderLovelyFinalQuotationPrintHtml(draft,{trustedLogo});
  let page;
  try{
    page=await browser.newPage({viewport:{width:1100,height:900}});

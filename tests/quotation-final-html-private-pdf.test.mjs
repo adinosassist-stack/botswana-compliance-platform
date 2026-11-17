@@ -66,3 +66,48 @@ test("refuses wrong A4 size even when PDF contains two pages",async()=>{
     {getSize:()=>({width:595.28,height:841.89})}]
  })}}}),/invalid_page_geometry/);
 });
+
+
+const PRIVATE_SYNTHETIC_PNG=new Uint8Array(Buffer.from(
+ "iVBORw0KGgoAAAANSUhEUgAAACAAAAAYCAYAAACbU/80AAAALElEQVR42u3OIQEAAAgDMJKg6Z+HLhDjZmJ+tT2XVAICAgICAgICAgIC6cADRvhjW1wPDGYAAAAASUVORK5CYII=",
+ "base64"));
+const validLogo=()=>({
+ mimeType:"image/png",bytes:PRIVATE_SYNTHETIC_PNG,width:32,height:24,
+ widthPercent:32,xPercent:0
+});
+test("revalidates private PNG and embeds it on both pages only after tenant authorization",async()=>{
+ const b=browser();
+ const z=await run({browser:b,logoSource:{
+  getPrivateCompanyLogo:async ({actor:a,companyId:c})=>{
+   assert.equal(a,actor);assert.equal(c,companyId);return validLogo()
+  }
+ }});
+ assert.equal(z.pageCount,2);
+ const html=b.calls.find(x=>x[0]==="setContent")[1];
+ assert.equal((html.match(/data:image\/png;base64,/g)||[]).length,2);
+ assert.ok(!html.includes("http://"));
+});
+test("cross-tenant denial prevents logo read",async()=>{
+ let lookedUp=false;
+ await assert.rejects(run({authority:{assertPrivatePreview:async()=>false},
+  logoSource:{getPrivateCompanyLogo:async()=>{lookedUp=true;return validLogo()}}}),
+  /authorization_denied/);
+ assert.equal(lookedUp,false);
+});
+test("missing logo and mismatched private metadata fail closed",async()=>{
+ await assert.rejects(run({logoSource:{getPrivateCompanyLogo:async()=>null}}),
+  /logo_unconfigured/);
+ await assert.rejects(run({logoSource:{getPrivateCompanyLogo:async()=>({
+  ...validLogo(),width:64
+ })}}),/dimension_mismatch/);
+});
+test("arbitrary logo mime types and malformed PNG are never passed to browser",async()=>{
+ const b=browser();
+ await assert.rejects(run({browser:b,logoSource:{
+  getPrivateCompanyLogo:async()=>({...validLogo(),mimeType:"image/svg+xml"})
+ }}),/logo_unconfigured/);
+ await assert.rejects(run({browser:b,logoSource:{
+  getPrivateCompanyLogo:async()=>({...validLogo(),bytes:new Uint8Array([1,2,3])})
+ }}),/invalid_png_logo/);
+ assert.deepEqual(b.calls,[]);
+});

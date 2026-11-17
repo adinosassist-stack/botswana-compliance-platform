@@ -99,3 +99,39 @@ test("protected final HTML adapter makes real PDF bytes using isolated Chromium 
  assert.ok(result.bytes.length>1000);
  assert.equal((await pdfLib.PDFDocument.load(result.bytes)).getPageCount(),2);
 });
+
+
+test("sanitized private PNG logo is visible twice in the actual A4 PDF preview DOM",async()=>{
+ const {renderLovelyFinalQuotationPrivatePdf}=await import("../server/quotation-final-html-private-pdf.mjs");
+ const {LOVELY_FINAL_HTML_REFERENCE}=await import("../server/quotation-final-html-contract.mjs");
+ const actor={id:"syntheticLogoEditor"};
+ const tinyPng=new Uint8Array(Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAACAAAAAYCAYAAACbU/80AAAALElEQVR42u3OIQEAAAgDMJKg6Z+HLhDjZmJ+tT2XVAICAgICAgICAgIC6cADRvhjW1wPDGYAAAAASUVORK5CYII=",
+  "base64"));
+ const watchedBrowser={
+  newPage:async(...args)=>{
+   const page=await browser.newPage(...args);
+   const originalPdf=page.pdf.bind(page);
+   page.pdf=async(options)=>{
+    const images=page.locator("article.page .brand img");
+    assert.equal(await images.count(),2);
+    for(const node of await images.all()){
+     assert.ok(await node.evaluate(img=>img.complete&&img.naturalWidth===32&&img.naturalHeight===24));
+    }
+    return originalPdf(options);
+   };
+   return page;
+  }
+ };
+ const result=await renderLovelyFinalQuotationPrivatePdf({
+  actor,companyId:"syntheticTenant",draft:sample(),browser:watchedBrowser,pdfLib,
+  sourceSha256:LOVELY_FINAL_HTML_REFERENCE.sourceSha256,
+  authority:{assertPrivatePreview:async({actor:a,companyId,mode})=>
+   a===actor&&companyId==="syntheticTenant"&&mode==="synthetic-preview"},
+  logoSource:{getPrivateCompanyLogo:async()=>({
+   mimeType:"image/png",bytes:tinyPng,width:32,height:24,widthPercent:32,xPercent:0
+  })}
+ });
+ assert.equal(result.pageCount,2);
+ assert.equal((await pdfLib.PDFDocument.load(result.bytes)).getPageCount(),2);
+});
