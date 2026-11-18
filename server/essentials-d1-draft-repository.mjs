@@ -18,6 +18,6 @@ export async function insertEssentialsDraftD1({db,record}={}){
 export async function findEssentialsDraftByKeyD1({db,tenantId,idempotencyKey}={}){
  if(!db||typeof db.prepare!=="function")throw new TypeError("db_required");
  if(typeof tenantId!=="string"||!tenantId||typeof idempotencyKey!=="string"||!idempotencyKey)throw new TypeError("invalid_lookup");
- const row=await db.prepare("SELECT id,tenant_id,source_quotation_id,invoice_number,status FROM essentials_invoice_drafts WHERE tenant_id=? AND idempotency_key=? LIMIT 1").bind(tenantId,idempotencyKey).first();
- return row?Object.freeze({id:row.id,tenantId:row.tenant_id,sourceQuotationId:row.source_quotation_id,invoiceReference:row.invoice_number,status:row.status}):null;
+ const row=await db.prepare("SELECT id,tenant_id,customer_id,source_quotation_id,invoice_number,status,created_by_user_id,draft_payload_json FROM essentials_invoice_drafts WHERE tenant_id=? AND idempotency_key=? LIMIT 1").bind(tenantId,idempotencyKey).first();
+ return row?Object.freeze({id:row.id,tenantId:row.tenant_id,sourceQuotationId:row.source_quotation_id,invoiceReference:row.invoice_number,customerId:row.customer_id,createdByUserId:row.created_by_user_id,draft:JSON.parse(row.draft_payload_json),status:row.status}):null;
 }
