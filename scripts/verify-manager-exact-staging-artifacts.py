@@ -39,7 +39,7 @@ def archive(path, expected):
 def manifest(data):
     result = {}
     for line in data.decode("utf-8").splitlines():
-        m = re.fullmatch(r"([a-f0-9]{64})\\s+\\*?(.+)", line)
+        m = re.fullmatch(r"([a-f0-9]{64})\s+\*?(.+)", line)
         assert m, f"invalid checksum manifest line: {line[:100]}"
         name = m[2].removeprefix("./")
         assert safe_name(name) and name not in result
@@ -92,7 +92,7 @@ def main():
         "deployed": False,
     }
     a.report.parent.mkdir(parents=True, exist_ok=True)
-    a.report.write_text(json.dumps(report, indent=2) + "\\n")
+    a.report.write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2))
 
 if __name__ == "__main__":
