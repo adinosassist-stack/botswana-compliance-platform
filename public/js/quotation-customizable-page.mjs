@@ -34,6 +34,7 @@ const css=[
  ".qcp-watermark{position:absolute;top:8px;left:35px;color:#9a1318;font-size:10px;letter-spacing:.6px;font-weight:750}",
  ".qcp-masthead{display:flex;justify-content:space-between;align-items:center;gap:20px;border-bottom:2px solid #d20c15;padding-bottom:12px;min-height:116px}",
  ".qcp-brand{font-size:26px;font-weight:800;max-width:55%;min-width:0;line-height:1.12}",
+ ".qcp-issuer{font-size:11px;font-weight:600;margin-top:4px}",
  ".qcp-brand img{display:block;max-height:105px;max-width:100%;object-fit:contain;object-position:left center}",
  ".qcp-heading{font-size:23px;background:#d10d16;color:white;font-weight:800;padding:8px 17px;max-width:50%;text-align:right}",
  ".qcp-meta{display:grid;grid-template-columns:1.45fr 1fr;gap:10px}",
@@ -87,13 +88,18 @@ const details=(heading,open=false)=>{
  return {element,content};
 };
 /** Explicit additional capability required; this does NOT mount automatically. */
-export function mountQuotationCustomizablePage(root,{capability,initial}={}){
+export function mountQuotationCustomizablePage(root,{capability,initial,issuerName,defaultBankAccount}={}){
  if(!root||typeof root.replaceChildren!=="function")throw Error("invalid_quotation_custom_root");
  if(capability?.enabled!==true||capability?.authenticated!==true||
     capability?.canEditQuotations!==true||
     capability?.canCustomizeQuotationPreview!==true)
     throw Error("quotation_custom_preview_disabled");
- const state=initial===undefined?quotationCustomSample():JSON.parse(JSON.stringify(initial));
+ const makeSample=()=> {
+  const sample=quotationCustomSample();
+  if(defaultBankAccount)sample.copy.bankAccount=defaultBankAccount;
+  return sample;
+ };
+ const state=initial===undefined?makeSample():JSON.parse(JSON.stringify(initial));
  let checked=validateQuotationCustomPage(state);
  let logoUrl=null,logoWidth=32,logoX=0,disposed=false;
  const shell=elt("section","qcp-shell");
@@ -187,6 +193,7 @@ export function mountQuotationCustomizablePage(root,{capability,initial}={}){
    const logo=elt("img");logo.src=logoUrl;logo.alt="Company logo";
    logo.style.width=logoWidth+"%";logo.style.marginLeft=logoX+"%";brand.append(logo);
   }else brand.append(elt("span","",checked.copy.brandName));
+  if(issuerName)brand.append(elt("div","qcp-issuer","Issued by "+issuerName));
   head.append(brand,elt("div","qcp-heading",heading));page.append(head);
  }
  function info(section,heading,rows){
@@ -311,7 +318,7 @@ export function mountQuotationCustomizablePage(root,{capability,initial}={}){
   status.textContent="JSON exported locally; logo image bytes are not included. Nothing uploaded or issued.";
  });
  reset.addEventListener("click",()=>{
-  const original=quotationCustomSample();
+  const original=makeSample();
   Object.assign(state,original);
   if(logoUrl)URL.revokeObjectURL(logoUrl);
   logoUrl=null;logoField.value="";logoWidth=32;logoX=0;
