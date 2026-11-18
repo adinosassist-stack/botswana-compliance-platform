@@ -23,8 +23,8 @@ export async function mountEmployeeCashManager(host,{client,employees=[]}={}){
  form.append(node(doc,"h4","Issue or record employee cash advance"),field(doc,"Employee",employee),
   field(doc,"Amount in Pula",amount),field(doc,"Purpose",purpose),field(doc,"Date",on),button);
  if(!employees.length)button.disabled=true;
- const activity=node(doc,"div",null,"thebe-cash-table-wrap"),counts=node(doc,"div",null,"thebe-cash-table-wrap");
- section.append(form,node(doc,"h4","Expenses and advances"),activity,node(doc,"h4","Physical cash counts"),counts);
+ const activity=node(doc,"div",null,"thebe-cash-table-wrap"),counts=node(doc,"div",null,"thebe-cash-table-wrap"),balances=node(doc,"div",null,"thebe-cash-table-wrap");
+ section.append(form,node(doc,"h4","Cash position by employee"),node(doc,"p","Expected cash is based on recorded advances minus all reported spending, including rejected expenses. Physical counts are shown separately and may be from an earlier date."),balances,node(doc,"h4","Expenses and advances"),activity,node(doc,"h4","Physical cash counts"),counts);
  host.replaceChildren(section);
  async function refresh(){data=await client.request("/api/employee-self-service/cash");render()}
  async function decide(path,decision,note){
@@ -54,6 +54,11 @@ export async function mountEmployeeCashManager(host,{client,employees=[]}={}){
   const wrapper=node(doc,"div");wrapper.append(note,container);return wrapper;
  }
  function render(){
+  table(balances,["Employee","Cash issued","Cash spent","Expected cash","Last physical count","Review required"],(data.balances||[]).map(r=>[
+   r.employee_name||"Employee",money(r.advances_minor),money(r.spent_minor),money(r.expected_minor),
+   r.last_count_date?(money(r.last_counted_minor)+" · "+r.last_count_date):"Not counted",
+   r.pending_minor||r.rejected_minor?("Pending "+money(r.pending_minor)+" · Disputed "+money(r.rejected_minor)):"No expense exceptions"
+  ]));
   table(activity,["Date","Employee","Purpose","Amount","Status"],(data.entries||[]).map(r=>[
    r.occurred_on,r.employee_name||"Employee",(r.kind==="advance"?"Cash issued: ":"Expense: ")+r.purpose,
    (r.kind==="expense"?"−":"+")+money(r.amount_minor),actions("entries",r)]));
