@@ -94,6 +94,13 @@ test("manager advance, employee expense, cash count, balance and review use real
  assert.deepEqual([summary.body.summary.advancesMinor,summary.body.summary.reportedSpentMinor,
   summary.body.summary.expectedMinor,summary.body.summary.pendingReviewMinor],[200000,85000,115000,85000]);
  assert.equal(summary.body.items.length,2);
+ const managerBalances=await f.manager("/api/employee-self-service/cash");
+ assert.equal(managerBalances.status,200);
+ assert.equal(managerBalances.body.balances.length,1);
+ assert.equal(managerBalances.body.balances[0].employee_id,EM_A);
+ assert.equal(managerBalances.body.balances[0].expected_minor,115000);
+ assert.equal(managerBalances.body.balances[0].pending_minor,85000);
+ assert.equal(managerBalances.body.summary,undefined);
  assert.equal(summary.body.summary.accountingBalanceVerified,false);
  const count=await f.staff("/public/employee/cash/counts","POST",{countedMinor:115000,reportDate:day,note:"Checked with supervisor"});
  assert.equal(count.status,201,JSON.stringify(count.body));
@@ -125,6 +132,10 @@ test("cross-tenant employee selection and review are denied",async t=>{
  const other=await f.staff("/public/employee/cash", "GET",undefined,{tenant_id:B,employee_id:EM_B,account_id:"staff-bob",csrf_token:"bob"});
  assert.equal(other.body.items.length,0);
  assert.equal(other.body.summary.expectedMinor,0);
+ const otherTenantManager=await f.manager("/api/employee-self-service/cash","GET",undefined,B);
+ assert.equal(otherTenantManager.body.balances.length,1);
+ assert.equal(otherTenantManager.body.balances[0].employee_id,EM_B);
+ assert.equal(otherTenantManager.body.balances[0].expected_minor,0);
  assert.equal(f.sql.prepare("SELECT COUNT(*) n FROM employee_cash_entries WHERE tenant_id=?").get(B).n,0);
 });
 test("CSRF, amount validation, calendar validation and duplicate cash counts fail closed",async t=>{
