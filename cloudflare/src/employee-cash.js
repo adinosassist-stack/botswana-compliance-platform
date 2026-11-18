@@ -128,11 +128,13 @@ export async function handleEmployeeCashManager({request,url,env,auth,json,readJ
  const path=url.pathname;
  return guarded(json,async()=>{
   if(path==="/api/employee-self-service/cash"&&request.method==="GET"){
-   const [entries,counts]=await Promise.all([
+   const [entries,counts,balances]=await Promise.all([
     env.DB.prepare("SELECT c.id,c.employee_id,e.full_name employee_name,c.kind,c.amount_minor,c.category,c.purpose,c.receipt_reference,c.job_reference,c.occurred_on,c.status,c.review_note,c.created_at FROM employee_cash_entries c JOIN employees e ON e.id=c.employee_id AND e.tenant_id=c.tenant_id WHERE c.tenant_id=? ORDER BY c.created_at DESC,c.id DESC LIMIT 150").bind(auth.tenant_id).all(),
     env.DB.prepare("SELECT c.id,c.employee_id,e.full_name employee_name,c.report_date,c.counted_minor,c.status,c.review_note,c.created_at FROM employee_cash_counts c JOIN employees e ON e.id=c.employee_id AND e.tenant_id=c.tenant_id WHERE c.tenant_id=? ORDER BY c.report_date DESC,c.created_at DESC LIMIT 100").bind(auth.tenant_id).all()
+,
+    env.DB.prepare("SELECT e.id employee_id,e.full_name employee_name,COALESCE(SUM(CASE WHEN c.kind='advance' AND c.status='approved' THEN c.amount_minor ELSE 0 END),0) advances_minor,COALESCE(SUM(CASE WHEN c.kind='expense' THEN c.amount_minor ELSE 0 END),0) spent_minor,COALESCE(SUM(CASE WHEN c.kind='expense' AND c.status='submitted' THEN c.amount_minor ELSE 0 END),0) pending_minor,COALESCE(SUM(CASE WHEN c.kind='expense' AND c.status='rejected' THEN c.amount_minor ELSE 0 END),0) rejected_minor,(SELECT cc.report_date FROM employee_cash_counts cc WHERE cc.tenant_id=e.tenant_id AND cc.employee_id=e.id ORDER BY cc.report_date DESC LIMIT 1) last_count_date,(SELECT cc.counted_minor FROM employee_cash_counts cc WHERE cc.tenant_id=e.tenant_id AND cc.employee_id=e.id ORDER BY cc.report_date DESC LIMIT 1) last_counted_minor FROM employees e LEFT JOIN employee_cash_entries c ON c.tenant_id=e.tenant_id AND c.employee_id=e.id WHERE e.tenant_id=? AND lower(trim(coalesce(e.status,'')))='active' GROUP BY e.id,e.full_name ORDER BY e.full_name ASC,e.id ASC LIMIT 200").bind(auth.tenant_id).all()
    ]);
-   return reply(json,{entries:entries.results||[],counts:counts.results||[],financePosted:false});
+   return reply(json,{entries:entries.results||[],counts:counts.results||[],balances:(balances.results||[]).map(row=>({...row,expected_minor:value(row.advances_minor)-value(row.spent_minor)})),financePosted:false});
   }
   if(request.method!=="POST")return reply(json,{error:"method_not_allowed"},405);
   const b=await jsonBody(readJson,request);
