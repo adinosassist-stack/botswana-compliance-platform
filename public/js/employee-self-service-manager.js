@@ -1,3 +1,4 @@
+import {mountEmployeeCashManager} from "./employee-cash-manager.js";
 /** Manager-only People panel. Self-service remains hidden when server feature is off. */
 const make=(doc,tag,content,cls)=>{
  const node=doc.createElement(tag);
@@ -112,7 +113,9 @@ export async function mountStaffManager(host,{client}={}){
   finally{assignButton.disabled=false}
  });
  if(!roster.length){inviteButton.disabled=true;assignButton.disabled=true;status.textContent="Add an active employee before issuing access or assigning work."}
+ const cashHost=make(doc,"div");section.append(cashHost);
  host.replaceChildren(section);
  await refresh().catch(error=>{status.textContent=errorText(error)});
+ await mountEmployeeCashManager(cashHost,{client,employees:roster}).catch(()=>{});
  return true;
 }
