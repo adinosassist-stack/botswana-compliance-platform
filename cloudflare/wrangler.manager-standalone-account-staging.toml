@@ -1,0 +1,50 @@
+# Manager standalone Cloudflare staging account: source-only config; NO DEPLOYMENT.
+# Account f585813fa376f7c71c7d4a79254168fa has no domain/Access ingress.
+# Must be independently reviewed and newly SHA-pinned before any upload.
+# NOT APPROVED FOR DEPLOYMENT. No public / preview URLs, domain or routes.
+# Use only after separate owner-approved private Access ingress, isolated SESSION_SECRET,
+# immutable source/binding review, actual deny tests and staging recovery preflight.
+# This deliberately leaves all manager activation/readiness flags OFF.
+name = "bw-manager-invitations-functional-private-staging"
+account_id = "f585813fa376f7c71c7d4a79254168fa"
+main = "src/worker.js"
+compatibility_date = "2026-09-03"
+workers_dev = false
+preview_urls = false
+keep_vars = false
+
+[vars]
+APP_ENV = "staging"
+REGISTRATION_MODE = "hold"
+MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED = "false"
+MANAGER_INVITATIONS_SCHEMA_READY = "false"
+MANAGER_INVITATIONS_ACCESS_READY = "false"
+# Registration-linked manager requests remain OFF until separately reviewed staging schema and access gates.
+MANAGER_ACCESS_REQUESTS_ENABLED = "false"
+# Separate owner provisioning/role transition gate; requires approved private staging tests.
+MANAGER_ACCESS_PROVISIONING_ENABLED = "false"
+PAYMENT_PROVIDER = "none"
+EVIDENCE_UPLOADS_ENABLED = "false"
+THEBE_GENERAL_AI_ENABLED = "false"
+THEBE_AI_EXPORTS_ENABLED = "false"
+POP_UPLOAD_STAGING_ENABLED = "false"
+# Set PUBLIC_ORIGIN / PUBLIC_APP_URL through protected staging configuration
+# only once Access-protected ingress is independently qualified.
+PUBLIC_ORIGIN = ""
+PUBLIC_APP_URL = ""
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bw-manager-invitations-synthetic-staging"
+database_id = "1a2fc702-2592-491c-9f55-80e032a56dd8"
+
+[assets]
+directory = "../public"
+binding = "ASSETS"
+not_found_handling = "404-page"
+html_handling = "auto-trailing-slash"
+run_worker_first = ["/auth", "/auth/*", "/api/*", "/manager-invite/*"]
+
+# No production EVIDENCE R2 binding, no AI binding, no Worker cron triggers,
+# no secrets, and NO customer-facing routing. Functional readiness and
+# authentication remain blocked until a separate protected rollout.
