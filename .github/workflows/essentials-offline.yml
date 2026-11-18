@@ -7,6 +7,8 @@ on:
       - 'server/project-job-costing-preview.js'
       - 'public/js/essentials-*.mjs'
       - 'tests/essentials-*.test.mjs'
+      - 'tests/essentials_d1_schema_sqlite.py'
+      - 'cloudflare/migrations/essentials_invoice_drafts_STAGING_ONLY.sql'
       - '.github/workflows/essentials-offline.yml'
 permissions:
   contents: read
@@ -28,3 +30,5 @@ jobs:
       - name: Run Essentials unit tests and existing job-cost regression
         run: |
           node --test tests/essentials-*.test.mjs tests/project-job-costing-preview.test.mjs
+      - name: Qualify additive draft D1 schema using SQLite
+        run: python3 tests/essentials_d1_schema_sqlite.py
