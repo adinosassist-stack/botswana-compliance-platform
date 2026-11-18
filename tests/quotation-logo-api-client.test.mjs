@@ -92,3 +92,57 @@ test("WebP cannot silently go to PNG-only API if browser conversion is absent",a
   fetchImpl:async()=>{throw Error("upload_should_not_run")}});
  await assert.rejects(api.upload(new Blob([new Uint8Array(64)],{type:"image/webp"})),/webp_conversion_unavailable/);
 });
+
+
+test("JPEG and WebP logos are normalized to safe PNG transport for portable staging",async()=>{
+ const previousBitmap=globalThis.createImageBitmap,previousDocument=globalThis.document;
+ const inputBytes=new Uint8Array(64).fill(65);
+ const normalizedBytes=new Uint8Array(72).fill(137);
+ let closed=0,conversions=0;
+ try{
+  globalThis.createImageBitmap=async()=>({width:240,height:120,close(){closed++}});
+  globalThis.document={createElement(tag){
+   assert.equal(tag,"canvas");
+   return {getContext(kind){assert.equal(kind,"2d");return {drawImage(){}}},
+    toBlob(callback,mime){assert.equal(mime,"image/png");conversions++;callback(new Blob([normalizedBytes],{type:"image/png"}))}};
+  }};
+  const calls=[];
+  const api=createQuotationLogoHttpClient({enabled:true,csrfToken:token,fetchImpl:async(url,options)=>{
+   calls.push({url,options});
+   return new Response(JSON.stringify({ok:true,logoAssetId:"tenant_asset",aspectRatio:2}),{
+    headers:{"content-type":"application/json"}});
+  }});
+  for(const mime of ["image/jpeg","image/webp"]){
+   const saved=await api.upload(new Blob([inputBytes],{type:mime}));
+   assert.equal(saved.logoAssetId,"tenant_asset");
+  }
+  assert.equal(conversions,2);
+  assert.equal(closed,2);
+  assert.equal(calls.length,2);
+  for(const call of calls){
+   assert.equal(call.url,"/api/quotation/logo/upload");
+   assert.equal(call.options.headers["content-type"],"image/png");
+   assert.equal(call.options.headers["x-csrf-token"],token);
+   assert.equal(call.options.credentials,"same-origin");
+   assert.equal(call.options.body.type,"image/png");
+   assert.equal(call.options.body.size,normalizedBytes.length);
+  }
+ }finally{
+  if(previousBitmap===undefined)delete globalThis.createImageBitmap;else globalThis.createImageBitmap=previousBitmap;
+  if(previousDocument===undefined)delete globalThis.document;else globalThis.document=previousDocument;
+ }
+});
+test("JPEG conversion errors fail without an unsafe upload",async()=>{
+ const previousBitmap=globalThis.createImageBitmap,previousDocument=globalThis.document;
+ try{
+  globalThis.createImageBitmap=async()=>({width:240,height:120,close(){}});
+  globalThis.document={createElement:()=>({getContext:()=>({drawImage(){}}),
+   toBlob:callback=>callback(new Blob([new Uint8Array(2*1024*1024+1)],{type:"image/png"}))})};
+  const api=createQuotationLogoHttpClient({enabled:true,csrfToken:token,
+   fetchImpl:async()=>{throw Error("network_must_not_be_called")}});
+  await assert.rejects(api.upload(new Blob([new Uint8Array(64)],{type:"image/jpeg"})),/converted_logo_too_large/);
+ }finally{
+  if(previousBitmap===undefined)delete globalThis.createImageBitmap;else globalThis.createImageBitmap=previousBitmap;
+  if(previousDocument===undefined)delete globalThis.document;else globalThis.document=previousDocument;
+ }
+});
