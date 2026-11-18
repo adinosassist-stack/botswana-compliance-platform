@@ -1,3 +1,4 @@
+import {quotationBrowserPreview} from "./quotation-browser-preview.js";
 import worker from "./worker.js";
 import {handleAgenticRequest} from "./agentic-core.js";
 import {durableRegistrationChallengeGate,registrationClientIp,registrationProofSecret,validateAndClaimRegistrationProof} from "./registration-boundary.js";
@@ -490,6 +491,8 @@ async function rewriteRegistrationVerificationFailure(response){
 }
 
 async function fetchWithTurnstileCspRepair(request,env,ctx){
+  const quotationPreview=await quotationBrowserPreview(request,env,inner=>worker.fetch(inner,env,ctx));
+  if(quotationPreview)return quotationPreview;
   const agenticResponse=await handleAgenticRequest({
     request,
     logicalPath:logicalRequestPath(request),

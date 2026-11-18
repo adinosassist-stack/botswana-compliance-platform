@@ -34,6 +34,7 @@ jobs:
     env:
       TARGET_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.expected_sha }}
       CI: 'true'
+      THEBE_QUOTATION_PREVIEW_TENANT_ID: ${{ vars.THEBE_QUOTATION_PREVIEW_TENANT_ID }}
       D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
       PUBLIC_APP_URL: https://thebedesk.com
       PUBLIC_ORIGIN: https://thebedesk.com
