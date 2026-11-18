@@ -1,0 +1,98 @@
+name: Employee Cash - protected isolated staging read-only preflight
+run-name: Employee Cash preflight ${{ inputs.expected_main_sha || github.sha }}
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/employee-cash-protected-staging-preflight.mjs'
+      - 'tests/employee-cash-protected-staging-preflight.test.mjs'
+      - '.github/workflows/employee-cash-protected-staging-preflight.yml'
+      - 'cloudflare/migrations/20261118_employee_cash_reports.sql'
+      - 'docs/employee-cash-protected-staging-preflight.md'
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Exact current main SHA (40 lowercase hex), never a historical PR commit
+        type: string
+        required: true
+      authorization:
+        description: Read-only evidence only; never authorizes D1 writes or Worker creation
+        type: choice
+        required: true
+        default: DO_NOT_RUN
+        options:
+          - DO_NOT_RUN
+          - PREFLIGHT_ONLY
+
+permissions:
+  contents: read
+
+concurrency:
+  group: employee-cash-protected-staging-preflight
+  cancel-in-progress: false
+
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Qualify isolated cash migration, tenant boundaries and preflight guards
+        run: |
+          node --check scripts/employee-cash-protected-staging-preflight.mjs
+          node --test tests/employee-cash.test.mjs tests/employee-cash-protected-staging-preflight.test.mjs
+          node scripts/employee-cash-protected-staging-preflight.mjs --offline
+          node scripts/employee-self-service-staging-preflight.mjs
+
+  protected-read-only:
+    needs: offline
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.authorization == 'PREFLIGHT_ONLY'
+    environment: employee-self-service-staging-protected
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+      DEPLOY_MODE: preflight
+      AUTHORIZATION: PREFLIGHT_ONLY
+      CASH_PREFLIGHT_SCOPE: READ_ONLY_EMPLOYEE_CASH_STAGING_PREFLIGHT
+      CLOUDFLARE_ACCOUNT_ID: ddd23cab31928a4bb3d4998df9b26d1d
+      STAFF_STAGING_GITHUB_READ_TOKEN: ${{ secrets.STAFF_STAGING_GITHUB_READ_TOKEN }}
+      STAFF_STAGING_CLOUDFLARE_TOKEN: ${{ secrets.STAFF_STAGING_CLOUDFLARE_TOKEN }}
+    steps:
+      - name: Deny stale main, wrong source and empty authority before provider access
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_MAIN_SHA" =~ ^[a-f0-9]{40}$ ]] || exit 1
+          test "$GITHUB_SHA" = "$EXPECTED_MAIN_SHA"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$AUTHORIZATION" = "PREFLIGHT_ONLY"
+      - name: Checkout immutable main commit without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.expected_main_sha }}
+          persist-credentials: false
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Read-only independently protected exact-main staging inspection
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN_SHA"
+          node scripts/employee-cash-protected-staging-preflight.mjs verify-remote
