@@ -9,7 +9,7 @@ db.executescript(sql)
 def insert(identifier,tenant,customer,source,key,number):
  db.execute("""INSERT INTO essentials_invoice_drafts
  (id,tenant_id,customer_id,source_quotation_id,idempotency_key,invoice_number,draft_payload_json,created_by_user_id)
- VALUES (?,?,?,?,?,?,?,?)""",(identifier,tenant,customer,source,key,number,'{"status":"draft"}','owner-1'))
+ VALUES (?,?,?,?,?,?,?,?)""",(identifier,tenant,customer,source,key,number,'{"status":"draft"}','synthetic-owner-a'))
 insert("1","synthetic-tenant-a","synthetic-customer-a","quote-1","request-1","INV-1")
 for case in [
  ("2","synthetic-tenant-a","synthetic-customer-a","quote-2","request-1","INV-2"), # same idempotency key
