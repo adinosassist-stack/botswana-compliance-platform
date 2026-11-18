@@ -29,7 +29,7 @@ class QualificationError(ValueError):
 
 def qualified_config(new_config=CONFIG_PATH, old_config=LEGACY_CONFIG):
     payload = new_config.read_bytes()
-    git_blob = b"blob " + str(len(payload)).encode() + b"\\0" + payload
+    git_blob = b"blob " + str(len(payload)).encode() + b"\0" + payload
     if hashlib.sha1(git_blob).hexdigest() != CONFIG_BLOB:
         raise QualificationError("new-account configuration differs from reviewed Git blob")
     new = tomllib.loads(payload.decode("utf-8"))
@@ -87,7 +87,7 @@ def main():
     args=p.parse_args()
     result=qualify(args.prepared_artifacts)
     args.report.parent.mkdir(parents=True,exist_ok=True)
-    args.report.write_text(json.dumps(result,sort_keys=True,indent=2)+"\\n",encoding="utf-8")
+    args.report.write_text(json.dumps(result,sort_keys=True,indent=2)+"\n",encoding="utf-8")
     print("Standalone Manager account exact-artifact offline qualification PASSED; no Cloudflare writes")
 
 if __name__=="__main__":
