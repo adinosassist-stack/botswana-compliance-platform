@@ -155,7 +155,7 @@ export function mountQuotationCustomizablePage(root,{capability,initial}={}){
  termsSection.content.append(label("Exact contract wording (editable, preserve line breaks)",state.termsText,v=>{
   state.termsText=v;refresh();
  },true));
- termsSection.content.append(elt("p","qcp-hint","Provide the previously reviewed terms before using the PDF outside a private preview. No terms are silently rewritten."));
+ termsSection.content.append(elt("p","qcp-hint","The sample starts with Lovely Tombstones’ terms. You can edit the wording for this draft."));
  const logoSection=details("Logo sizing and placement");
  const logoField=elt("input");logoField.type="file";logoField.accept="image/png,image/jpeg";
  logoField.setAttribute("aria-label","Upload company logo");
