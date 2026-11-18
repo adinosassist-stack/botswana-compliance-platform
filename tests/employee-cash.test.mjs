@@ -148,3 +148,16 @@ test("separate reporting module cannot write canonical Money or execute payments
  const config=readFileSync(new URL("../cloudflare/wrangler.toml",import.meta.url),"utf8");
  assert.match(config,/THEBE_EMPLOYEE_CASH_ENABLED = "false"/);
 });
+
+test("rejected expense remains a cash outflow pending a separately documented recovery",async t=>{
+ const f=fixture(t);
+ await f.manager("/api/employee-self-service/cash/advances","POST",advance());
+ const spent=await f.staff("/public/employee/cash/expenses","POST",expense());
+ const rejected=await f.manager("/api/employee-self-service/cash/entries/"+spent.body.id+"/review","POST",{decision:"reject",note:"Receipt missing; employee must reconcile"});
+ assert.equal(rejected.status,200,JSON.stringify(rejected.body));
+ const state=await f.staff("/public/employee/cash");
+ assert.equal(state.body.summary.reportedSpentMinor,85000);
+ assert.equal(state.body.summary.expectedMinor,115000);
+ assert.equal(state.body.summary.rejectedReviewMinor,85000);
+ assert.equal(state.body.summary.pendingReviewMinor,0);
+});
