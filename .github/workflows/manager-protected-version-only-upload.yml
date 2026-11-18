@@ -1,0 +1,163 @@
+name: Manager Private Version-Only Upload — Protected, No Deploy
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/manager-protected-version-only-upload.yml'
+      - 'scripts/prepare-manager-version-upload.py'
+      - 'scripts/manager-version-cloudflare-inventory.py'
+  workflow_dispatch:
+    inputs:
+      authorization:
+        description: 'Exact owner authorization string'
+        required: true
+        type: string
+      reviewed_artifact_sha:
+        description: 'Pinned original compiled Worker source SHA'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: manager-private-version-only-upload
+  cancel-in-progress: false
+
+jobs:
+  offline-qualification:
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download historical reviewed artifact ZIPs via read-only GitHub token
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/manager-artifacts"
+          for ID in 14407666400 14407970936; do
+            curl -fsSL --retry 3 --proto '=https' --tlsv1.2 \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$ID/zip" \
+              -o "$RUNNER_TEMP/manager-artifacts/$ID.zip"
+          done
+      - name: Exact artifact and fail-closed config checks (OFFLINE ONLY)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/prepare-manager-version-upload.py scripts/manager-version-cloudflare-inventory.py
+          python3 scripts/verify-manager-exact-staging-artifacts.py \
+            --worker "$RUNNER_TEMP/manager-artifacts/14407666400.zip" \
+            --assets "$RUNNER_TEMP/manager-artifacts/14407970936.zip" \
+            --report "$RUNNER_TEMP/offline-verify.json"
+          python3 scripts/prepare-manager-version-upload.py \
+            --worker "$RUNNER_TEMP/manager-artifacts/14407666400.zip" \
+            --assets "$RUNNER_TEMP/manager-artifacts/14407970936.zip" \
+            --target "$RUNNER_TEMP/manager-version-only"
+          test "$(find "$RUNNER_TEMP/manager-version-only/public" -type f | wc -l)" -eq 278
+          test -f "$RUNNER_TEMP/manager-version-only/public/404.html"
+          test ! -e "$RUNNER_TEMP/manager-version-only/public/public"
+          test "$(sha256sum "$RUNNER_TEMP/manager-version-only/cloudflare/src/worker.js" | cut -d' ' -f1)" = 9a9496e2481a03db0c9f1dcaccc89a450d5048f1bad3523ab6454b240a0bc75e
+
+  version-only:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.authorization == 'PRIVATE_MANAGER_VERSION_ONLY_NO_DEPLOYMENT' && inputs.reviewed_artifact_sha == 'd17e15dc5080d093efbd84c976f15d612d064bb0' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: manager-private-version-only-protected
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Fail closed unless protected environment has independent thusico review
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_OWNER: adinosassist-stack
+          EXPECTED_REPO: botswana-compliance-platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "$EXPECTED_OWNER/$EXPECTED_REPO"
+          test "$GITHUB_REF" = refs/heads/main
+          gh api "repos/$GITHUB_REPOSITORY/environments/manager-private-version-only-protected" > "$RUNNER_TEMP/manager-env.json"
+          python3 - "$RUNNER_TEMP/manager-env.json" <<'PY'
+          import json,sys
+          env=json.load(open(sys.argv[1]))
+          reviewers=[]
+          for rule in env.get("protection_rules", []):
+              if rule.get("type")=="required_reviewers":
+                  reviewers += [r.get("reviewer",{}).get("login") for r in rule.get("reviewers",[]) if r.get("type")=="User"]
+          assert "thusico" in reviewers, "independent thusico reviewer not required by environment"
+          assert env.get("prevent_self_review") is True, "self-review is allowed"
+          assert env.get("deployment_branch_policy",{}).get("protected_branches") is True, "environment must permit protected branches only"
+          print("Protected environment checks PASS; no remote writes yet")
+          PY
+      - name: Install exact pinned toolchain
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Download pinned immutable GitHub artifact ZIPs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/manager-artifacts"
+          for ID in 14407666400 14407970936; do
+            curl -fsSL --retry 3 --proto '=https' --tlsv1.2 \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$ID/zip" \
+              -o "$RUNNER_TEMP/manager-artifacts/$ID.zip"
+          done
+      - name: Verify every original byte and prepare isolated upload directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/verify-manager-exact-staging-artifacts.py \
+            --worker "$RUNNER_TEMP/manager-artifacts/14407666400.zip" \
+            --assets "$RUNNER_TEMP/manager-artifacts/14407970936.zip" \
+            --report "$RUNNER_TEMP/manager-verify.json"
+          python3 scripts/prepare-manager-version-upload.py \
+            --worker "$RUNNER_TEMP/manager-artifacts/14407666400.zip" \
+            --assets "$RUNNER_TEMP/manager-artifacts/14407970936.zip" \
+            --target "$RUNNER_TEMP/manager-version-only"
+          sha256sum "$RUNNER_TEMP/manager-version-only/cloudflare/src/worker.js"
+          test "$(sha256sum "$RUNNER_TEMP/manager-version-only/cloudflare/src/worker.js" | cut -d' ' -f1)" = 9a9496e2481a03db0c9f1dcaccc89a450d5048f1bad3523ab6454b240a0bc75e
+      - name: Verify Cloudflare isolated target and absence of active ingress before upload
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.MANAGER_STAGING_VERSION_CLOUDFLARE_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ddd23cab31928a4bb3d4998df9b26d1d
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          export CLOUDFLARE_ACCOUNT_ID
+          python3 scripts/manager-version-cloudflare-inventory.py --phase before
+      - name: Upload version ONLY (no deploy, routes, DNS, triggers or preview)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.MANAGER_STAGING_VERSION_CLOUDFLARE_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ddd23cab31928a4bb3d4998df9b26d1d
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler versions upload \
+            --config "$RUNNER_TEMP/manager-version-only/cloudflare/wrangler.manager-invitations-functional-staging.toml" \
+            --no-bundle --strict \
+            --message "Private staging exact verified artifact; NOT DEPLOYED; source d17e15dc"
+      - name: Assert zero active deployments or public ingress after version upload
+        if: ${{ always() }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.MANAGER_STAGING_VERSION_CLOUDFLARE_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ddd23cab31928a4bb3d4998df9b26d1d
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then
+            python3 scripts/manager-version-cloudflare-inventory.py --phase after
+          fi
