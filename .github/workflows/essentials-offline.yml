@@ -8,6 +8,7 @@ on:
       - 'public/js/essentials-*.mjs'
       - 'tests/essentials-*.test.mjs'
       - 'tests/essentials_d1_schema_sqlite.py'
+      - 'tests/fixtures/essentials_d1_synthetic_dependencies_STAGING_ONLY.sql'
       - 'cloudflare/migrations/essentials_invoice_drafts_STAGING_ONLY.sql'
       - '.github/workflows/essentials-offline.yml'
 permissions:
