@@ -1,5 +1,9 @@
 name: Manager Exact Artifact Transfer Preflight — No Deploy
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/manager-exact-artifact-transfer-preflight.yml'
+      - 'scripts/verify-manager-exact-staging-artifacts.py'
   workflow_dispatch:
 
 permissions:
@@ -22,7 +26,11 @@ jobs:
         run: |
           set -euo pipefail
           test "$GITHUB_REPOSITORY" = "$EXPECTED_REPO"
-          test "$GITHUB_REF" = refs/heads/main
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            test "$GITHUB_REF" = refs/heads/main
+          else
+            test "$GITHUB_EVENT_NAME" = pull_request
+          fi
           test -f scripts/verify-manager-exact-staging-artifacts.py
       - name: Download exact two immutable artifact ZIPs (read-only GitHub API)
         shell: bash
