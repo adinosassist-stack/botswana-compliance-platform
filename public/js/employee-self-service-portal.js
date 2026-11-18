@@ -4,7 +4,7 @@ const byId=id=>document.getElementById(id);
 // All browser transport stays in the shared Thebe API client. The employee-only
 // page opts out of canonical production redirect for private staging acceptance;
 // the main workspace retains its normal production-canonical policy.
-const STAFF_PATH=/^\/public\/employee\/(?:accept|login|logout|me|tasks(?:\/[a-f0-9-]{32,36}\/progress)?)$/i;
+const STAFF_PATH=/^\/public\/employee\/(?:accept|login|logout|me|tasks(?:\/[a-f0-9-]{32,36}\/progress)?|cash(?:\/(?:expenses|counts))?)$/i;
 const client=globalThis.BW?.api?.createClient?.({timeoutMs:30000,retries:0});
 let staffCsrf="";
 const api=async(path,{method="GET",body=null,csrf=false}={})=>{
@@ -70,6 +70,7 @@ async function showDashboard(){
  byId("staffWelcome").textContent="Hello, "+String(info.employee?.name||"employee");
  byId("staffCompany").textContent=String(info.companyName||"")+" · Personal employee workspace";
  panel("staffDashboard");await refreshTasks();
+ await globalThis.ThebeEmployeeCash?.mount?.({api});
 }
 async function bootstrap(){
  const url=new URL(location.href);
