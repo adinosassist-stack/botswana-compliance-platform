@@ -160,6 +160,7 @@ class StandaloneInertTransportTests(unittest.TestCase):
             self.public = False
             self.preexisting = False
             self.missing_completion = False
+            self.last_version_body = None
 
         def request(self, method, path, body=None, jwt=None, multipart=False, content_type=None):
             self.calls.append((method, path))
@@ -196,7 +197,7 @@ class StandaloneInertTransportTests(unittest.TestCase):
                         "id": "version_12345678", "deployed_on": None, "urls": [],
                         "main_module": "worker.js", "compatibility_date": "2026-09-03",
                         "bindings": [
-                            {"type": "d1", "name": "DB", "id": inert.DATABASE},
+                            {"type": "d1", "name": "DB", "database_id": inert.DATABASE},
                             {"type": "assets", "name": "ASSETS"},
                             {"type": "plain_text", "name": "MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED", "text": "false"},
                         ],
@@ -219,6 +220,7 @@ class StandaloneInertTransportTests(unittest.TestCase):
             if path == b + "/workers/assets/upload?base64=true":
                 return {"jwt": None if self.missing_completion else "upload-final-jwt"}
             if path == b + "/workers/workers/worker_12345678/versions?deploy=false":
+                self.last_version_body = body
                 return {"id": "version_12345678", "deployed_on": None}
             raise AssertionError("unexpected POST path " + path)
 
@@ -272,6 +274,10 @@ class StandaloneInertTransportTests(unittest.TestCase):
         self.assertEqual(len(writes), 3)
         self.assertTrue(all(path.startswith(inert.BASE + "/") for path in writes))
         self.assertTrue(writes[-1].endswith("/versions?deploy=false"))
+        self.assertIsNotNone(client.last_version_body)
+        d1_bindings = [b for b in client.last_version_body["bindings"] if b["type"] == "d1"]
+        self.assertEqual(d1_bindings, [{"type": "d1", "name": "DB", "database_id": inert.DATABASE}])
+        self.assertNotIn("id", d1_bindings[0])
         self.assertFalse(any("/deployments" in path for path in writes))
         self.assertFalse(report["workers_dev"])
         self.assertFalse(report["preview_urls"])
@@ -310,6 +316,48 @@ class StandaloneInertTransportTests(unittest.TestCase):
             with self.assertRaisesRegex(inert.FirstVersionGateError, "completion token"):
                 self.invoke(client, root)
         self.assertFalse(any("/versions" in path and method == "POST" for method, path in client.calls))
+
+    def test_api_postflight_rejects_deprecated_id_only_d1_response(self):
+        class DeprecatedBindingClient(self.FakeClient):
+            def request(self, method, path, **kwargs):
+                response = super().request(method, path, **kwargs)
+                if method == "GET" and path.endswith("/versions/version_12345678"):
+                    for binding in response["bindings"]:
+                        if binding.get("type") == "d1":
+                            binding["id"] = binding.pop("database_id")
+                return response
+
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            worker = root / "cloudflare/src/worker.js"
+            worker.parent.mkdir(parents=True)
+            worker.write_bytes(b"synthetic-compiled-worker")
+            client = DeprecatedBindingClient()
+            with self.assertRaisesRegex(inert.FirstVersionGateError, "version bindings differ"):
+                self.invoke(client, root)
+        # POST construction uses canonical Cloudflare API syntax even when
+        # its synthetic readback intentionally reports a deprecated alias.
+        d1 = [b for b in client.last_version_body["bindings"] if b["type"] == "d1"]
+        self.assertEqual(d1[0]["database_id"], inert.DATABASE)
+        self.assertNotIn("id", d1[0])
+
+    def test_api_postflight_rejects_wrong_database_id(self):
+        class WrongDatabaseClient(self.FakeClient):
+            def request(self, method, path, **kwargs):
+                response = super().request(method, path, **kwargs)
+                if method == "GET" and path.endswith("/versions/version_12345678"):
+                    for binding in response["bindings"]:
+                        if binding.get("type") == "d1":
+                            binding["database_id"] = "518a9e33-b2ba-4204-ac52-aae4150a7b52"
+                return response
+
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            worker = root / "cloudflare/src/worker.js"
+            worker.parent.mkdir(parents=True)
+            worker.write_bytes(b"synthetic-compiled-worker")
+            with self.assertRaisesRegex(inert.FirstVersionGateError, "version bindings differ"):
+                self.invoke(WrongDatabaseClient(), root)
 
     def test_manifest_approval_drift_blocks_before_any_api_call(self):
         client = self.FakeClient()
