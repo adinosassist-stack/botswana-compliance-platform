@@ -1,3 +1,4 @@
+import {handleEmployeeCashStaff,handleEmployeeCashManager} from "./employee-cash.js";
 import {staffPortalEnabled,staffEmail,staffPasswordValid,staffUuidValid,staffTaskInput,staffTaskTransition,staffNote} from "./employee-self-service-policy.js";
 
 // Separate staff identity. A staff cookie NEVER grants /api workspace access.
@@ -97,6 +98,8 @@ export async function handleStaffPublic({request,url,env,json,readJson,requestOr
   return json({ok:true,csrfToken:csrf},200,{"set-cookie":sessionCookie(token)});
  }
  const staff=await staffSession(request,env);
+ const cash=await handleEmployeeCashStaff({request,url,env,staff,json,readJson,id,isCsrfValid});
+ if(cash)return cash;
  if(path==="/public/employee/me"&&method==="GET"){
   if(!staff)return json({error:"unauthenticated"},401);
   return json({employee:{id:staff.employee_id,name:staff.full_name,email:staff.email},tenantId:staff.tenant_id,companyName:staff.company_name,csrfToken:staff.csrf_token});
@@ -128,6 +131,8 @@ export async function handleStaffManager({request,url,env,auth,json,readJson,id}
  if(!auth||!["owner","manager"].includes(auth.role))return json({error:"forbidden"},403);
  if(!env.PUBLIC_RATE_LIMITER||!env.SESSION_SECRET)return json({error:"staff_security_configuration_incomplete"},503);
  const method=request.method,path=url.pathname,tenantId=auth.tenant_id;
+ const cash=await handleEmployeeCashManager({request,url,env,auth,json,readJson,id});
+ if(cash)return cash;
  if(path==="/api/employee-self-service/tasks"&&method==="GET"){
   const rows=await env.DB.prepare("SELECT t.id,t.employee_id,e.full_name employee_name,t.title,t.detail,t.priority,t.status,t.due_date,t.version,t.updated_at,n.note latest_note,n.actor_kind latest_note_actor FROM employee_portal_tasks t JOIN employees e ON e.id=t.employee_id AND e.tenant_id=t.tenant_id LEFT JOIN employee_portal_task_events n ON n.rowid=(SELECT MAX(ev.rowid) FROM employee_portal_task_events ev WHERE ev.task_id=t.id AND ev.tenant_id=t.tenant_id AND LENGTH(TRIM(ev.note))>0) WHERE t.tenant_id=? ORDER BY CASE t.status WHEN 'submitted' THEN 0 ELSE 1 END,t.updated_at DESC LIMIT 100").bind(tenantId).all();
   return json({items:rows.results||[]});
