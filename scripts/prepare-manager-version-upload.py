@@ -27,7 +27,7 @@ def main():
     cfg=pathlib.Path("cloudflare/wrangler.manager-invitations-functional-staging.toml")
     content=cfg.read_bytes()
     # Git blob hash protects the configuration against unreviewed source drift.
-    blob=b"blob "+str(len(content)).encode()+b"\\0"+content
+    blob=b"blob "+str(len(content)).encode()+b"\0"+content
     assert hashlib.sha1(blob).hexdigest()==EXPECTED_CONFIG_SHA, "reviewed Wrangler config changed"
     import tomllib
     config=tomllib.loads(content.decode())
