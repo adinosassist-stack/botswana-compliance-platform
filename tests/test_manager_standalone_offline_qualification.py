@@ -205,7 +205,7 @@ class StandaloneInertTransportTests(unittest.TestCase):
                 return worker
             if path == b + "/workers/scripts/" + inert.WORKER + "/assets-upload-session":
                 if self.missing_completion:
-                    return {"jwt": "session-jwt", "buckets": [["a" * 32]]}
+                    return {"jwt": "session-jwt", "buckets": [["0" * 32]]}
                 return {"jwt": "complete-jwt", "buckets": []}
             if path == b + "/workers/assets/upload?base64=true":
                 return {"jwt": None if self.missing_completion else "upload-final-jwt"}
