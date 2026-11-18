@@ -1,9 +1,12 @@
-# Manager standalone Cloudflare staging account: source-only config; NO DEPLOYMENT.\n# Account f585813fa376f7c71c7d4a79254168fa has no domain/Access ingress.\n# Must be independently reviewed and newly SHA-pinned before any upload.
+# Manager standalone Cloudflare staging account: source-only config; NO DEPLOYMENT.
+# Account f585813fa376f7c71c7d4a79254168fa has no domain/Access ingress.
+# Must be independently reviewed and newly SHA-pinned before any upload.
 # NOT APPROVED FOR DEPLOYMENT. No public / preview URLs, domain or routes.
 # Use only after separate owner-approved private Access ingress, isolated SESSION_SECRET,
 # immutable source/binding review, actual deny tests and staging recovery preflight.
 # This deliberately leaves all manager activation/readiness flags OFF.
-name = "bw-manager-invitations-functional-private-staging"\naccount_id = "f585813fa376f7c71c7d4a79254168fa"
+name = "bw-manager-invitations-functional-private-staging"
+account_id = "f585813fa376f7c71c7d4a79254168fa"
 main = "src/worker.js"
 compatibility_date = "2026-09-03"
 workers_dev = false
