@@ -62,3 +62,36 @@ CREATE TABLE IF NOT EXISTS employee_cash_events(
 );
 CREATE INDEX IF NOT EXISTS employee_cash_events_tenant_idx
   ON employee_cash_events(tenant_id,employee_id,created_at);
+
+-- Defense in depth: each cash employee must belong to the same tenant.
+-- A standalone employee_id FK does not imply tenant ownership.
+CREATE TRIGGER IF NOT EXISTS employee_cash_entries_tenant_guard
+BEFORE INSERT ON employee_cash_entries
+WHEN NOT EXISTS (
+  SELECT 1 FROM employees e
+  WHERE e.id=NEW.employee_id AND e.tenant_id=NEW.tenant_id
+)
+BEGIN SELECT RAISE(ABORT,'employee_cash_tenant_mismatch'); END;
+
+CREATE TRIGGER IF NOT EXISTS employee_cash_counts_tenant_guard
+BEFORE INSERT ON employee_cash_counts
+WHEN NOT EXISTS (
+  SELECT 1 FROM employees e
+  WHERE e.id=NEW.employee_id AND e.tenant_id=NEW.tenant_id
+)
+BEGIN SELECT RAISE(ABORT,'employee_cash_tenant_mismatch'); END;
+
+-- Audit rows must identify the same tenant and employee as their linked entry/count.
+CREATE TRIGGER IF NOT EXISTS employee_cash_events_tenant_guard
+BEFORE INSERT ON employee_cash_events
+WHEN NOT EXISTS (
+  SELECT 1 FROM employees e
+  WHERE e.id=NEW.employee_id AND e.tenant_id=NEW.tenant_id
+) OR (NEW.entry_id IS NOT NULL AND NOT EXISTS (
+  SELECT 1 FROM employee_cash_entries c
+  WHERE c.id=NEW.entry_id AND c.employee_id=NEW.employee_id AND c.tenant_id=NEW.tenant_id
+)) OR (NEW.count_id IS NOT NULL AND NOT EXISTS (
+  SELECT 1 FROM employee_cash_counts c
+  WHERE c.id=NEW.count_id AND c.employee_id=NEW.employee_id AND c.tenant_id=NEW.tenant_id
+))
+BEGIN SELECT RAISE(ABORT,'employee_cash_audit_tenant_mismatch'); END;

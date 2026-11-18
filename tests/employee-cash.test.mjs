@@ -172,3 +172,32 @@ test("rejected expense remains a cash outflow pending a separately documented re
  assert.equal(state.body.summary.rejectedReviewMinor,85000);
  assert.equal(state.body.summary.pendingReviewMinor,0);
 });
+
+test("cash schema rejects cross-tenant employee identities and audit linkage",async t=>{
+ const f=fixture(t);
+ assert.throws(()=>f.sql.prepare("INSERT INTO employee_cash_entries(id,tenant_id,employee_id,actor_kind,actor_id,kind,amount_minor,category,purpose,occurred_on,idempotency_key,status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)")
+  .run(randomUUID(),A,EM_B,"employee","staff-b","expense",100,"fuel","Unauthorized cross-tenant spend",day,"tenant-mismatch-key-0001","submitted"),/employee_cash_tenant_mismatch/);
+ assert.throws(()=>f.sql.prepare("INSERT INTO employee_cash_counts(id,tenant_id,employee_id,report_date,counted_minor) VALUES(?,?,?,?,?)")
+  .run(randomUUID(),A,EM_B,day,100),/employee_cash_tenant_mismatch/);
+ const created=await f.staff("/public/employee/cash/expenses","POST",expense());
+ assert.equal(created.status,201);
+ assert.throws(()=>f.sql.prepare("INSERT INTO employee_cash_events(id,tenant_id,employee_id,entry_id,actor_kind,actor_id,action) VALUES(?,?,?,?,?,?,?)")
+  .run(randomUUID(),B,EM_B,created.body.id,"employee","staff-b","expense_submitted"),/employee_cash_audit_tenant_mismatch/);
+ assert.equal(f.sql.prepare("SELECT COUNT(*) n FROM employee_cash_events").get().n,1);
+});
+
+test("manager cash overview retains inactive employee cash history",async t=>{
+ const f=fixture(t);
+ const issued=await f.manager("/api/employee-self-service/cash/advances","POST",advance());
+ assert.equal(issued.status,201);
+ const spent=await f.staff("/public/employee/cash/expenses","POST",expense());
+ assert.equal(spent.status,201);
+ f.sql.prepare("UPDATE employees SET status='inactive' WHERE id=?").run(EM_A);
+ const overview=await f.manager("/api/employee-self-service/cash");
+ assert.equal(overview.status,200);
+ assert.equal(overview.body.balances.length,1);
+ assert.equal(overview.body.balances[0].employee_id,EM_A);
+ assert.equal(overview.body.balances[0].expected_minor,115000);
+ assert.equal(overview.body.balances[0].pending_minor,85000);
+ assert.equal((await f.manager("/api/employee-self-service/cash/advances","POST",advance(EM_A,20000,"no-cash-to-inactive-0001"))).status,404);
+});
