@@ -92,7 +92,7 @@ export async function runCashStagingPreflight(env=process.env){
   isolatedStagingD1:true,stagingHasCustomerRows:false,cashTablesPresent:false,
   stagingWorkerPresent:false,protectedReviewer:"thusico",
   recoveryBookmarkAvailable:true,migrationSha256:sqlSha256,
-  sqlExecuted:false,productionWrites:false,stagingWrites:false
+  migrationExecuted:false,productionWrites:false,stagingWrites:false
  }));
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
