@@ -136,14 +136,25 @@ def inert_bootstrap(client, target):
     wid = response_checks.verify_worker_record(created)
     session = client.request("POST", base + f"/workers/scripts/{NAME}/assets-upload-session", {"manifest": manifest})
     response_checks.verify_assets_session(session, manifest)
-    completion = session["jwt"]
-    for bucket in session["buckets"]:
+    # A manifest JWT is NOT an upload-completion JWT when files are missing.
+    # Cloudflare returns the final completion JWT only after every requested
+    # bucket is uploaded. Never attach a partially uploaded asset set.
+    completion = session["jwt"] if len(session["buckets"]) == 0 else None
+    upload_jwt = session["jwt"]
+    for index, bucket in enumerate(session["buckets"]):
         result = client.request("POST", base + "/workers/assets/upload?base64=true",
-                                encode_bucket(bucket, files), jwt=completion, multipart=True)
-        if "jwt" in result:
-            completion = result["jwt"]
+                                encode_bucket(bucket, files), jwt=upload_jwt, multipart=True)
+        if not isinstance(result, dict):
+            raise ProtocolError("malformed asset upload response")
+        next_jwt = result.get("jwt")
+        if index == len(session["buckets"]) - 1:
+            if not isinstance(next_jwt, str) or not next_jwt:
+                raise ProtocolError("final asset upload did not return completion JWT")
+            completion = next_jwt
+        elif isinstance(next_jwt, str) and next_jwt:
+            upload_jwt = next_jwt
     if not isinstance(completion, str) or not completion:
-        raise ProtocolError("missing assets completion JWT")
+        raise ProtocolError("assets not confirmed complete")
     bindings = [{"type": "d1", "name": "DB", "id": manifest_checks.EXPECTED_DB},
                 {"type": "assets", "name": "ASSETS"}]
     bindings += [{"type": "plain_text", "name": k, "text": v}
