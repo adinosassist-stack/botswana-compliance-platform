@@ -12,7 +12,14 @@ export async function quotationBrowserPreview(request,env,fetchSession){
   if(!tenant)return unavailable("tenant_binding_missing");
 
   const sessionUrl=new URL("/__thebe_api/auth/me",request.url);
-  const session=await fetchSession(new Request(sessionUrl,{headers:request.headers}));
+  // This read-only, in-process lookup needs the cookie and any explicit Origin.
+  // Fetch metadata describes the outer document navigation, not this lookup.
+  const sessionHeaders=new Headers();
+  for(const name of ["cookie","origin"]){
+    const value=request.headers.get(name);
+    if(value!==null)sessionHeaders.set(name,value);
+  }
+  const session=await fetchSession(new Request(sessionUrl,{headers:sessionHeaders}));
   if(!session.ok)return unavailable("session_response",session.status);
   const identity=await session.json().catch(()=>null);
   const {user,landingPath}=identity||{};
