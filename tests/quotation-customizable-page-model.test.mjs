@@ -75,10 +75,12 @@ test("invalid field injection, fake totals and unsafe newlines are rejected",()=
  assert.throws(()=>validateQuotationCustomPage({...data,items:[{description:"x",quantity:"0",unitPrice:"0"}]}),/invalid_quotation_custom_quantity/);
  assert.throws(()=>validateQuotationCustomPage({...data,copy:{...data.copy,heading:"One\nTwo"}}),/invalid_quotation_custom_text/);
 });
-test("review-only sample never includes a default account number or fabricated legal terms",()=>{
+test("review-only sample pre-fills the Lovely terms without supplying a bank account",()=>{
  const data=quotationCustomSample();
  assert.equal(data.copy.bankAccount,"");
- assert.equal(data.termsText,"");
+ assert.match(data.termsText,/^Dear Lovely Tombstone customer,/);
+ assert.match(data.termsText,/Customer Declaration:/);
  const result=validateQuotationCustomPage(data);
+ assert.equal(result.termsText,data.termsText);
  assert.equal(result.reviewOnly,true);
 });
