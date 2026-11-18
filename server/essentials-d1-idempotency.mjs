@@ -12,7 +12,10 @@ export async function insertOrReplayEssentialsDraftD1({db,record}={}){
   if(!/(UNIQUE constraint failed|SQLITE_CONSTRAINT_UNIQUE|SQLITE_CONSTRAINT_PRIMARYKEY)/i.test(message))throw error;
   const existing=await findEssentialsDraftByKeyD1({db,tenantId:record?.tenantId,idempotencyKey:record?.idempotencyKey});
   if(!existing)throw error;
-  if(existing.sourceQuotationId!==record.sourceQuotationId||existing.status!=="draft")throw new Error("idempotency_conflict");
+  const normalize=draft=>{const copy={...draft};delete copy.invoiceReference;return JSON.stringify(copy);};
+  if(existing.sourceQuotationId!==record.sourceQuotationId||existing.status!=="draft"||
+     existing.customerId!==record.customerId||existing.createdByUserId!==record.createdByUserId||
+     !record.draft||normalize(existing.draft)!==normalize(record.draft))throw new Error("idempotency_conflict");
   return Object.freeze({invoice:existing,replayed:true});
  }
 }
