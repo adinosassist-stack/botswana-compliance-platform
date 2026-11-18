@@ -36,6 +36,31 @@ export const QUOTATION_CUSTOM_DEFAULT_COPY=Object.freeze({
  footerEmail:"lovelystones26@gmail.com",
  footerPhone:"+267 74 583 606"
 });
+const LOVELY_TOMBSTONES_DEFAULT_TERMS=[
+ "Dear Lovely Tombstone customer,",
+ "We at Lovely Tombstone understand that purchasing a tombstone is an investment towards the memory of your loved ones.Please take note of the following as to ensure that your purchase at Lovely Tombstone is a memorable and stress free experience.",
+ "1. Ensure that all information given to Lovely Tombstone is accurate and correct. Lovely Tombstone will not be liable for any costs as a result of incorrect or wrong information given, whether intentional or unintentional, and the customer will not be entitled to any compensation or refund as a result of incorrect or wrong information.",
+ "2. On the date of installation:",
+ "I. Please ensure that we are able to reach you on the contact numbers you provided as to ensure that proper communication between yourself and Lovely Tombstone personnel can take place in the event of any unforeseen circumstances that might cause the installation to be delayed.",
+ "II. Please note that should we be unable to reach you, or you are unavailable to meet the installation team on the date scheduled and the tombstone cannot be installed, Lovely Tombstone will not be responsible for any costs incurred, you also not be entitled to a refund however, Lovely Tombstone will re-schedule your installation to the soonest opening on the installation schedule, such costs will be for the customer's account.",
+ "Ill. Although every effort will be made to erect stones on dates indicated we cannot guarantee the erection date. Therefore erection dates should be seen as an indicative date and not as a confirmed date.",
+ "IV. The customer is responsible for cleaning the grave (old foundations and rocks etc), if the grave is not cleaned on the day of installation the client will be charged five hundred pula for us to do it.",
+ "V. Should the installation not be able to take place as scheduled due to any unforeseen circumstances like rainy weather, accidents, vehicle breakdowns or manufacturing defects you will not be entitled to a refund, however, Lovely Tombstone will re-schedule your installation for a later date, the customer exempts Lovely Tombstone from any civil or legal liability in such an event.",
+ "4. Should you decide to cancel a lay buy purchase, you will only be entitled to a refund of 80% of the amount paid during the first month of the lay-buy due to Administration and Bank fee's, and 30% of the amount paid after the first month due to the fact that the manufacturing process of your tombstone had already started.",
+ "5. Refunds will be given within 3 days of purchaing the tombstone!",
+ "6. Please ensure that the lettering and colour of your tombstone is correct. Incorrect information will result in additional costs to rectify. Such costs will be for the customer's account if incorrect information was given .",
+ "7. Be sure that you were given the contact details of Lovely Tombstone to enable you to contact us with any queries or further requests, also to enable us to provide you with personal, professional after sales service.",
+ "8. All products supplied remain the property of Lovely Tombstone until paid in full.",
+ "9. Lay-buy not paid up in full after the agreed period of 12 Months will be cancelled, should you still want to continue due to unforeseen circumstances then you have to apply for extension in writing before the expiry date. In such a case you will pay in any difference in price increases provided your extension is approved by Lovely Tombstones.",
+ "10. If a Tombstones has to be stored after manufacturing, no storage fee will be charged for a maximum period of six months after which the stone will be destroyed or recycled to defray any costs and no refund will given.",
+ "11. No tombstone will be erected under any circumstance in rainy weather.",
+ "12. The Client acknowledges that Lovely may put their Company Name and Contact details on every tombstone.",
+ "13. Transport of P50.00 per kilometre will be charged on the clients account if the erection place is further than specified on this Quote and paid for before installation will commence.",
+ "14. Obtaining a Permit is the clients own responsibility and for the client's own account. Permits need to be faxed or mailed to Lovely Tombstones. Permission to enter and install must be obtained by the client.",
+ "15. Granite and Marble are natural products and no uniformity in pattern and colour can be guaranteed.",
+ "Customer Declaration:",
+ "I the under signed understand and accept the content of this document and agree that I am the responsible person for this order and acknowledge the correctness of all information supplied."
+].join("\n");
 const invalid=code=>{throw Error(code)};
 const validateText=(value,max,{allowBlank=false,multiline=false}={})=>{
  if(typeof value!=="string"||value.length>max||(!allowBlank&&!value.trim())||
@@ -73,9 +98,7 @@ export function quotationCustomSample(){
    {description:"Labour / Transport",quantity:"1",unitPrice:"0.00"}
   ],
   copy:{...QUOTATION_CUSTOM_DEFAULT_COPY},
-  // Terms must be supplied from a separately reviewed, operator-controlled
-  // source; do not silently replace the original agreement with invented text.
-  termsText:""
+  termsText:LOVELY_TOMBSTONES_DEFAULT_TERMS
  };
 }
 export function validateQuotationCustomPage(value){
