@@ -141,5 +141,190 @@ class StandaloneFirstVersionDryRunTests(unittest.TestCase):
         with self.assertRaisesRegex(plan_mod.ReviewPlanError, "provenance"):
             plan_mod.plan(report, self.manifest())
 
+
+_inert_spec = importlib.util.spec_from_file_location(
+    "standalone_manager_inert_transport",
+    ROOT / "scripts/manager-standalone-inert-version-transport.py",
+)
+inert = importlib.util.module_from_spec(_inert_spec)
+_inert_spec.loader.exec_module(inert)
+
+
+class StandaloneInertTransportTests(unittest.TestCase):
+    """Synthetic API adapter only; no Cloudflare credentials or network."""
+
+    class FakeClient:
+        def __init__(self):
+            self.calls = []
+            self.created = False
+            self.public = False
+            self.preexisting = False
+            self.missing_completion = False
+
+        def request(self, method, path, body=None, jwt=None, multipart=False):
+            self.calls.append((method, path))
+            b = inert.BASE
+            worker = {
+                "id": "worker_12345678", "name": inert.WORKER, "deployed_on": None,
+                "subdomain": {"enabled": self.public, "previews_enabled": False},
+            }
+            if method == "GET":
+                routes = {
+                    b + "/d1/database/" + inert.DATABASE: {
+                        "uuid": inert.DATABASE,
+                        "name": "bw-manager-invitations-synthetic-staging",
+                        "num_tables": 13, "read_replication": {"mode": "disabled"},
+                    },
+                    b + "/access/organizations": {
+                        "deny_unmatched_requests": True, "strict_service_token_auth": True,
+                    },
+                    b + "/access/policies": [{
+                        "id": inert.POLICY_ID, "app_count": 0,
+                        "decision": "allow", "include": [{"email": {"email": inert.TESTER}}],
+                        "exclude": [], "require": [],
+                    }],
+                    b + "/access/identity_providers": [{"id": inert.IDP_ID, "type": "onetimepin"}],
+                    b + "/access/apps": [],
+                    b + "/workers/workers": [worker] if (self.created or self.preexisting) else [],
+                    b + "/workers/scripts": [],
+                    b + "/workers/domains": [],
+                    b + "/workers/workers/worker_12345678": worker,
+                    b + "/workers/workers/worker_12345678/versions": [
+                        {"id": "version_12345678", "deployed_on": None},
+                    ],
+                    b + "/workers/scripts/" + inert.WORKER + "/deployments": [],
+                    b + "/workers/scripts/" + inert.WORKER + "/subdomain": {"enabled": False},
+                }
+                if path not in routes:
+                    raise AssertionError("unexpected GET path " + path)
+                return routes[path]
+            if method != "POST":
+                raise AssertionError("unsafe non-POST write")
+            if path == b + "/workers/workers":
+                self.created = True
+                return worker
+            if path == b + "/workers/scripts/" + inert.WORKER + "/assets-upload-session":
+                if self.missing_completion:
+                    return {"jwt": "session-jwt", "buckets": [["a" * 32]]}
+                return {"jwt": "complete-jwt", "buckets": []}
+            if path == b + "/workers/assets/upload?base64=true":
+                return {"jwt": None if self.missing_completion else "upload-final-jwt"}
+            if path == b + "/workers/workers/worker_12345678/versions?deploy=false":
+                return {"id": "version_12345678", "deployed_on": None}
+            raise AssertionError("unexpected POST path " + path)
+
+    @staticmethod
+    def manifest():
+        m = {f"/asset{i}.html": {"hash": f"{i:032x}", "size": 1} for i in range(277)}
+        m["/404.html"] = {"hash": "f" * 32, "size": 1}
+        return m
+
+    @staticmethod
+    def qualification():
+        return {
+            "account_id": inert.ACCOUNT,
+            "database_id": inert.DATABASE,
+            "original_worker_sha256": inert.WORKER_SHA256,
+        }
+
+    @staticmethod
+    def config():
+        return {
+            "compatibility_date": "2026-09-03",
+            "vars": {"MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED": "false"},
+            "assets": {
+                "html_handling": "auto-trailing-slash", "not_found_handling": "404-page",
+                "run_worker_first": ["/auth", "/auth/*", "/api/*", "/manager-invite/*"],
+            },
+        }
+
+    def invoke(self, client, root):
+        manifest = self.manifest()
+        with (
+            mock.patch.object(inert.offline, "qualify", return_value=self.qualification()),
+            mock.patch.object(inert.offline, "qualified_config", return_value=self.config()),
+            mock.patch.object(inert.offline.immutable, "build_manifest", return_value=manifest),
+            mock.patch.object(inert.offline.immutable, "hash_file", return_value=inert.WORKER_SHA256),
+        ):
+            return inert.bootstrap_inert_record_and_version(
+                client, root, inert._hash_manifest(manifest)
+            )
+
+    def test_inert_first_version_uses_only_isolated_paths_and_never_deploys(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            worker = root / "cloudflare/src/worker.js"
+            worker.parent.mkdir(parents=True)
+            worker.write_bytes(b"synthetic-compiled-worker")
+            client = self.FakeClient()
+            report = self.invoke(client, root)
+        self.assertEqual(report["status"], "FIRST_VERSION_UNDEPLOYED_POSTFLIGHT_PASS")
+        writes = [path for method, path in client.calls if method == "POST"]
+        self.assertEqual(len(writes), 3)
+        self.assertTrue(all(path.startswith(inert.BASE + "/") for path in writes))
+        self.assertTrue(writes[-1].endswith("/versions?deploy=false"))
+        self.assertFalse(any("/deployments" in path for path in writes))
+        self.assertFalse(report["workers_dev"])
+        self.assertFalse(report["preview_urls"])
+
+    def test_existing_worker_refuses_all_writes(self):
+        client = self.FakeClient()
+        client.preexisting = True
+        with self.assertRaisesRegex(inert.FirstVersionGateError, "already exists"):
+            inert.preflight(client)
+        self.assertFalse(any(method == "POST" for method, _ in client.calls))
+
+    def test_detached_access_is_required(self):
+        class WrongPolicy(self.FakeClient):
+            def request(self, method, path, **kwargs):
+                result = super().request(method, path, **kwargs)
+                if method == "GET" and path.endswith("/access/policies"):
+                    result[0]["app_count"] = 1
+                return result
+        client = WrongPolicy()
+        with self.assertRaisesRegex(inert.FirstVersionGateError, "policy mismatch"):
+            inert.preflight(client)
+        self.assertFalse(any(method == "POST" for method, _ in client.calls))
+
+    def test_missing_asset_completion_token_prevents_version(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            worker = root / "cloudflare/src/worker.js"
+            worker.parent.mkdir(parents=True)
+            worker.write_bytes(b"synthetic-compiled-worker")
+            public = root / "public"
+            public.mkdir()
+            (public / "asset10.html").write_bytes(b"synthetic")
+            (public / "asset0.html").write_bytes(b"synthetic")
+            client = self.FakeClient()
+            client.missing_completion = True
+            with self.assertRaisesRegex(inert.FirstVersionGateError, "completion token"):
+                self.invoke(client, root)
+        self.assertFalse(any("/versions" in path and method == "POST" for method, path in client.calls))
+
+    def test_manifest_approval_drift_blocks_before_any_api_call(self):
+        client = self.FakeClient()
+        with self.assertRaisesRegex(inert.FirstVersionGateError, "manifest differs"):
+            with (
+                mock.patch.object(inert.offline, "qualify", return_value=self.qualification()),
+                mock.patch.object(inert.offline, "qualified_config", return_value=self.config()),
+                mock.patch.object(inert.offline.immutable, "build_manifest", return_value=self.manifest()),
+            ):
+                inert.bootstrap_inert_record_and_version(client, pathlib.Path("/nonexistent"), "0" * 64)
+        self.assertEqual(client.calls, [])
+
+    def test_unsafe_new_record_refuses_asset_upload(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            worker = root / "cloudflare/src/worker.js"
+            worker.parent.mkdir(parents=True)
+            worker.write_bytes(b"synthetic-compiled-worker")
+            client = self.FakeClient()
+            client.public = True
+            with self.assertRaisesRegex(inert.FirstVersionGateError, "public or preview"):
+                self.invoke(client, root)
+        writes = [path for method, path in client.calls if method == "POST"]
+        self.assertEqual(writes, [inert.BASE + "/workers/workers"])
+
 if __name__=="__main__":
     unittest.main()
