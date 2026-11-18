@@ -90,6 +90,10 @@ run_worker_first = ["/", "/index.html", "/auth", "/auth/*", "/app", "/app/*", "/
 # Set with: npx wrangler secret put TURNSTILE_SECRET_KEY
 # Configure TURNSTILE_SITE_KEY as a public environment variable for the production hostname.
 
+# Preserve application logs while redacting URL query strings in logs and traces.
+[observability]
+redact_query_string = true
+
 [observability.logs]
 enabled = true
 head_sampling_rate = 0.1
