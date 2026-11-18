@@ -269,3 +269,79 @@
   }
   if(doc.readyState==="loading")doc.addEventListener("DOMContentLoaded",start,{once:true});else start();
 })(window);
+
+/**
+ * Lovely quotations: a first-class entry in the existing workspace sidebar.
+ * Capability discovery is a GET against the server-authorized owner/tenant
+ * route, never a client-side claim that a user may create quotations.
+ */
+(function installLovelyQuotationWorkspaceNavigation(global){
+  "use strict";
+  const document=global.document;
+  const ROUTE="/app/quotations/customer-ready/";
+  const ID="workspaceCustomerQuotationNav";
+  if(!document||typeof global.BW?.api?.createClient!=="function")return;
+  function mount(){
+    const nav=document.getElementById("nav");
+    const after=nav?.querySelector('button[data-view="moneyhub"]');
+    const shell=document.getElementById("appShell");
+    const roleLabel=document.getElementById("roleLabel");
+    if(!nav||!after||!shell||!roleLabel||document.getElementById(ID))return;
+    const button=document.createElement("button");
+    button.id=ID;
+    button.type="button";
+    button.className="nav-primary nav-quotation-entry";
+    button.setAttribute("aria-label","Create customer quotation");
+    button.title="Create quotation";
+    const icon=document.createElement("span");
+    icon.className="nav-primary-icon";
+    icon.setAttribute("aria-hidden","true");
+    icon.textContent="▤";
+    const label=document.createElement("span");
+    label.textContent="Quotations";
+    button.append(icon,label);
+    after.after(button);
+    const style=document.createElement("style");
+    style.textContent="#"+ID+"[hidden]{display:none!important}#"+ID+"{width:100%;text-align:left;cursor:pointer}";
+    document.head.append(style);
+    let revision=0,scheduled=false,granted=false;
+    const ready=()=>global.__THEBE_WORKSPACE_READY__===true&&
+      roleLabel.textContent.trim().toLowerCase()==="owner"&&
+      shell.style.display!=="none"&&shell.style.visibility!=="hidden"&&
+      !shell.classList.contains("hidden");
+    function conceal(){granted=false;button.hidden=true;button.disabled=true}
+    function probe(epoch){
+      if(epoch!==revision||!ready())return;
+      // All network access goes through the hardened centralized transport.
+      // The existing server route returns this title only after exact tenant,
+      // owner role, onboarding and session authorization.
+      Promise.resolve().then(()=>global.BW.api.createClient({retries:0}).request(ROUTE,{method:"GET"}))
+        .then(response=>{
+          if(epoch!==revision||!ready())return;
+          const documentStart=String(response?.message||"");
+          granted=documentStart.startsWith("<!doctype html>")&&
+            documentStart.includes("<title>Customer quotation | Thebe Desk</title>");
+          button.hidden=!granted;button.disabled=!granted;
+        }).catch(()=>{if(epoch===revision)conceal()});
+    }
+    function sync(){
+      revision++;
+      conceal();
+      if(scheduled)return;
+      scheduled=true;
+      Promise.resolve().then(()=>{scheduled=false;probe(revision)});
+    }
+    button.addEventListener("click",()=>{
+      if(!granted||!ready())return;
+      global.location.assign(ROUTE); // Server rechecks owner, tenant and session.
+    });
+    new MutationObserver(sync).observe(roleLabel,{childList:true,characterData:true,subtree:true});
+    new MutationObserver(sync).observe(shell,{attributes:true,attributeFilter:["class","style"]});
+    global.addEventListener("thebe:workspace-ready",sync);
+    global.addEventListener("pageshow",event=>{if(event.persisted)sync()});
+    conceal();
+    if(global.__THEBE_WORKSPACE_READY__===true)sync();
+  }
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",mount,{once:true});
+  else mount();
+})(window);
