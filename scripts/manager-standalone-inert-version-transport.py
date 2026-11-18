@@ -165,7 +165,10 @@ def postflight(client, worker_id, version_id, config, approved_bindings):
         kind, name = binding.get("type"), binding.get("name")
         if not isinstance(name, str) or kind not in ("d1", "assets", "plain_text"):
             raise FirstVersionGateError("unapproved version binding")
-        fields = ("type", "name", "id") if kind == "d1" else (
+        # Cloudflare's version API requires `database_id` for D1 bindings.
+        # The former `id` alias is deprecated and is not sufficient for a
+        # reviewer-qualified response binding identity.
+        fields = ("type", "name", "database_id") if kind == "d1" else (
             ("type", "name", "text") if kind == "plain_text" else ("type", "name")
         )
         return tuple((f, binding.get(f)) for f in fields)
@@ -253,7 +256,7 @@ def bootstrap_inert_record_and_version(client, prepared_artifacts, approved_mani
         raise FirstVersionGateError("incomplete assets; version creation forbidden")
 
     bindings = [
-        {"type": "d1", "name": "DB", "id": DATABASE},
+        {"type": "d1", "name": "DB", "database_id": DATABASE},
         {"type": "assets", "name": "ASSETS"},
     ] + [{"type": "plain_text", "name": k, "text": v} for k, v in sorted(config["vars"].items())]
     version = _expect_record(client.request(
