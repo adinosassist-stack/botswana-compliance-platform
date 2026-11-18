@@ -7,7 +7,6 @@ on:
       - scripts/production-operations-metadata.mjs
       - tests/production-operations-metadata.test.mjs
       - tests/production-logging-query-redaction.test.mjs
-      - cloudflare/wrangler.toml
       - docs/security/thebe-edge-audit-20261118.md
       - .github/workflows/production-operations-metadata.yml
       - docs/production-operations-metadata-evidence.md
