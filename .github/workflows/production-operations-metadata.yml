@@ -6,6 +6,9 @@ on:
     paths:
       - scripts/production-operations-metadata.mjs
       - tests/production-operations-metadata.test.mjs
+      - tests/production-logging-query-redaction.test.mjs
+      - cloudflare/wrangler.toml
+      - docs/security/thebe-edge-audit-20261118.md
       - .github/workflows/production-operations-metadata.yml
       - docs/production-operations-metadata-evidence.md
   workflow_dispatch:
@@ -46,7 +49,9 @@ jobs:
           node-version-file: .nvmrc
           package-manager-cache: false
       - name: Qualify metadata boundary without credentials
-        run: node --test tests/production-operations-metadata.test.mjs
+        run: |
+          node --test tests/production-operations-metadata.test.mjs
+          node --test tests/production-logging-query-redaction.test.mjs
   collect:
     needs: qualify
     if: >-
@@ -70,7 +75,9 @@ jobs:
           node-version-file: .nvmrc
           package-manager-cache: false
       - name: Qualify read-only transport and redaction
-        run: node --test tests/production-operations-metadata.test.mjs
+        run: |
+          node --test tests/production-operations-metadata.test.mjs
+          node --test tests/production-logging-query-redaction.test.mjs
       - name: Confirm exact current main before provider access
         env:
           GH_TOKEN: ${{ github.token }}
