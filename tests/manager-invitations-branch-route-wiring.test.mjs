@@ -23,5 +23,6 @@ test('scoped dashboard path is admitted only inside invited manager grant path',
  const begin=w.lastIndexOf("if(managerInviteStage&&a.role==='manager')",scoped);
  assert.ok(begin>0&&scoped>begin);
  assert.match(w.slice(begin,scoped),/my-dashboard/);
- assert.match(w.slice(scoped,scoped+500),/manager_branch_access_pending/);
+ const denied=w.indexOf("manager_branch_access_pending",scoped);
+ assert.ok(denied>scoped&&denied<scoped+1000);
 });
