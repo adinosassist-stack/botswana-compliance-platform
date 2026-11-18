@@ -87,9 +87,24 @@ const details=(heading,open=false)=>{
  const content=elt("div","qcp-editor-grid");element.append(content);
  return {element,content};
 };
+/** Customer-ready printing never uses the untouched sample or an unentered account. */
+function customerReadyBlocker(q){
+ if(!q.termsText.trim())return "Enter the full contract terms.";
+ if(/^(?:DEMO|SAMPLE|TEST)(?:[-\s]|$)/i.test(q.quoteNumber)||
+    q.customerName.trim().toLowerCase()==="sample customer"||
+    q.customerPhone.trim()==="+267 71 000 000")
+    return "Replace the sample quote number and customer details before printing.";
+ if(!/^[0-9]{1,34}$/.test(q.copy.bankAccount))
+    return "Enter and verify the bank account number (digits only).";
+ return "";
+}
 /** Explicit additional capability required; this does NOT mount automatically. */
-export function mountQuotationCustomizablePage(root,{capability,initial,issuerName,defaultBankAccount}={}){
+export function mountQuotationCustomizablePage(root,{capability,initial,issuerName,defaultBankAccount,documentMode="preview"}={}){
  if(!root||typeof root.replaceChildren!=="function")throw Error("invalid_quotation_custom_root");
+ if(documentMode!=="preview"&&documentMode!=="customer")throw Error("invalid_quotation_document_mode");
+ const customerReady=documentMode==="customer";
+ if(customerReady&&capability?.canPrepareCustomerQuotation!==true)
+    throw Error("quotation_customer_ready_disabled");
  if(capability?.enabled!==true||capability?.authenticated!==true||
     capability?.canEditQuotations!==true||
     capability?.canCustomizeQuotationPreview!==true)
@@ -107,10 +122,12 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
  const style=elt("style");style.textContent=css;
  const nonce=document.querySelector("script[nonce],style[nonce]")?.nonce;
  if(nonce)style.nonce=nonce;
- sidebar.append(elt("h2","","Quotation customization"),
-  elt("p","qcp-hint","PRIVATE PREVIEW ONLY. All wording can be edited. This is not a customer quotation or the approved two-page contract."));
+ sidebar.append(elt("h2","",customerReady?"Customer quotation":"Quotation customization"),
+  elt("p","qcp-hint",customerReady?
+   "Customer-ready print mode. Verify the customer, amounts, account and full terms before sharing. Printing does not send or save a quotation.":
+   "PRIVATE PREVIEW ONLY. All wording can be edited. This is not a customer quotation or the approved two-page contract."));
  const status=elt("div","qcp-status",""),actions=elt("div","qcp-actions");
- const print=elt("button","","Print / Save PDF");print.type="button";print.dataset.primary="";
+ const print=elt("button","",customerReady?"Print customer quotation / Save PDF":"Print / Save PDF");print.type="button";print.dataset.primary="";
  const reset=elt("button","","Reset sample");reset.type="button";
  const download=elt("button","","Export draft JSON");download.type="button";
  const importButton=elt("button","","Import draft JSON");importButton.type="button";
@@ -203,7 +220,7 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
  }
  function makePage(index){
   const page=elt("article","qcp-page");page.setAttribute("aria-label","Quotation page "+index);
-  page.append(elt("div","qcp-watermark","SAMPLE PREVIEW — NOT FOR CUSTOMER ISSUE"));
+  if(!customerReady)page.append(elt("div","qcp-watermark","SAMPLE PREVIEW — NOT FOR CUSTOMER ISSUE"));
   return page;
  }
  function rowText(parent,labelText,value){
@@ -263,10 +280,15 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
   if(disposed)return;
   try{
    checked=validateQuotationCustomPage(state);
-   renderPreview();print.disabled=false;download.disabled=false;
-   status.textContent=checked.termsText?
+   renderPreview();download.disabled=false;
+   const blocker=customerReady?customerReadyBlocker(checked):"";
+   print.disabled=Boolean(blocker);
+   status.textContent=customerReady?
+    (blocker?"Customer quotation not ready: "+blocker:
+    "Customer-ready two-page print. Check all details before sharing; no quotation has been sent or saved."):
+    (checked.termsText?
     "Valid two-page private preview. No data has been saved or issued.":
-    "Preview only: terms have not been loaded; not suitable for customer issue.";
+    "Preview only: terms have not been loaded; not suitable for customer issue.");
   }catch(error){
    print.disabled=true;download.disabled=true;
    status.textContent="Fix the fields: "+String(error?.message||"invalid draft");
