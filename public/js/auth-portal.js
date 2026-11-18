@@ -67,7 +67,7 @@ function showWorkspaceChoices(error){
  const choices=Array.isArray(error?.data?.workspaces)?error.data.workspaces:[];
  if(!choices.length)return false;
  workspace.replaceChildren();
- for(const item of choices){const option=document.createElement("option");option.value=String(item?.tenantId||"");option.textContent=String(item?.tenantName||item?.name||item?.companyName||"Workspace");workspace.append(option)}
+ for(const item of choices){const option=document.createElement("option");option.value=String(item?.tenantId||"");option.textContent=String(item?.tenantName||item?.name||item?.companyName||"Workspace")+(item?.role==="manager"?" — Manager":item?.role==="owner"?" — Owner":" — "+String(item?.role||"Member"));workspace.append(option)}
  workspaceField.hidden=false;setStatus("Choose the workspace you want to open.","good");return true;
 }
 async function login(payload){
