@@ -52,3 +52,25 @@ test("preview denies unqualified identities and invalid responses",async()=>{
     assert.equal(response.status,404);
   }
 });
+
+test("customer-ready route is owner-only, with explicit print capability and no preview-mode downgrade",async()=>{
+  const ready=request("/app/quotations/customer-ready/");
+  const ownerResponse=await quotationBrowserPreview(ready,config,
+    async()=>Response.json({user:owner}));
+  assert.equal(ownerResponse.status,200);
+  const markup=await ownerResponse.text();
+  assert.match(markup,/documentMode:"customer"/);
+  assert.match(markup,/canPrepareCustomerQuotation:true/);
+  assert.match(markup,/Lovely Stones PTY LTD/);
+  assert.doesNotMatch(markup,/private-session-material/);
+  const preview=await quotationBrowserPreview(request(),config,
+    async()=>Response.json({user:owner}));
+  assert.match(await preview.text(),/documentMode:"preview"/);
+  const manager=await quotationBrowserPreview(ready,config,
+    async()=>Response.json({user:{...owner,role:"manager"}}));
+  assert.equal(manager.status,404);
+  const foreign=await quotationBrowserPreview(ready,config,
+    async()=>Response.json({user:{...owner,tenantId:"elsewhere"}}));
+  assert.equal(foreign.status,404);
+  assert.equal((await quotationBrowserPreview(ready,{},()=>assert.fail("no session expected"))).status,404);
+});
