@@ -55,7 +55,7 @@ class Client:
             f"/accounts/{ACCOUNT}/workers/assets/upload?base64=true",
         } and not (
             path.startswith(f"/accounts/{ACCOUNT}/workers/workers/")
-            and path.endswith("/versions") and path.count("/") == 7
+            and path.endswith("/versions") and path.count("/") == 6
         ):
             raise ProtocolError("unapproved Cloudflare write path")
         if method == "GET" and any(v in path for v in ("?include=modules", "/tokens/", "/secrets")):
@@ -164,7 +164,7 @@ def inert_bootstrap(client, target):
     # This is NOT a postflight approval. The protected workflow must separately
     # verify deployments, routes, domains, DNS and Access policy via read-only API.
     return {"worker_id": wid, "version_id": version_id, "assets_count": 278,
-            "postflight_required": True, "deployed": False}
+            "postflight_required": True, "deployment_status": "UNVERIFIED"}
 
 def main():
     p = argparse.ArgumentParser()
