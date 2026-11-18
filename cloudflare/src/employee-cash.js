@@ -45,17 +45,17 @@ async function listEmployee(env,tenantId,employeeId){
  const [entries,counts,total]=await Promise.all([
   env.DB.prepare("SELECT id,kind,amount_minor,category,purpose,receipt_reference,job_reference,occurred_on,status,review_note,created_at FROM employee_cash_entries WHERE tenant_id=? AND employee_id=? ORDER BY occurred_on DESC,created_at DESC,id DESC LIMIT 100").bind(tenantId,employeeId).all(),
   env.DB.prepare("SELECT id,report_date,counted_minor,status,review_note,created_at FROM employee_cash_counts WHERE tenant_id=? AND employee_id=? ORDER BY report_date DESC LIMIT 20").bind(tenantId,employeeId).all(),
-  env.DB.prepare("SELECT COALESCE(SUM(CASE WHEN kind='advance' AND status='approved' THEN amount_minor ELSE 0 END),0) advances,COALESCE(SUM(CASE WHEN kind='expense' AND status IN ('submitted','approved') THEN amount_minor ELSE 0 END),0) spent,COALESCE(SUM(CASE WHEN kind='expense' AND status='submitted' THEN amount_minor ELSE 0 END),0) pending FROM employee_cash_entries WHERE tenant_id=? AND employee_id=?").bind(tenantId,employeeId).first()
+  env.DB.prepare("SELECT COALESCE(SUM(CASE WHEN kind='advance' AND status='approved' THEN amount_minor ELSE 0 END),0) advances,COALESCE(SUM(CASE WHEN kind='expense' THEN amount_minor ELSE 0 END),0) spent,COALESCE(SUM(CASE WHEN kind='expense' AND status='submitted' THEN amount_minor ELSE 0 END),0) pending,COALESCE(SUM(CASE WHEN kind='expense' AND status='rejected' THEN amount_minor ELSE 0 END),0) rejected FROM employee_cash_entries WHERE tenant_id=? AND employee_id=?").bind(tenantId,employeeId).first()
  ]);
  const latest=(counts.results||[])[0]||null;
  let varianceMinor=null;
  if(latest){
-  const at=await env.DB.prepare("SELECT COALESCE(SUM(CASE WHEN kind='advance' AND status='approved' THEN amount_minor ELSE 0 END),0) advances,COALESCE(SUM(CASE WHEN kind='expense' AND status IN ('submitted','approved') THEN amount_minor ELSE 0 END),0) spent FROM employee_cash_entries WHERE tenant_id=? AND employee_id=? AND occurred_on<=?")
+  const at=await env.DB.prepare("SELECT COALESCE(SUM(CASE WHEN kind='advance' AND status='approved' THEN amount_minor ELSE 0 END),0) advances,COALESCE(SUM(CASE WHEN kind='expense' THEN amount_minor ELSE 0 END),0) spent FROM employee_cash_entries WHERE tenant_id=? AND employee_id=? AND occurred_on<=?")
     .bind(tenantId,employeeId,latest.report_date).first();
   varianceMinor=value(latest.counted_minor)-(value(at?.advances)-value(at?.spent));
  }
  return {items:entries.results||[],counts:counts.results||[],summary:{
-  advancesMinor:value(total?.advances),reportedSpentMinor:value(total?.spent),pendingReviewMinor:value(total?.pending),
+  advancesMinor:value(total?.advances),reportedSpentMinor:value(total?.spent),pendingReviewMinor:value(total?.pending),rejectedReviewMinor:value(total?.rejected),
   expectedMinor:value(total?.advances)-value(total?.spent),
   lastCountDate:latest?.report_date??null,lastCountedMinor:latest?.counted_minor??null,
   varianceAtLastCountMinor:varianceMinor,financePosted:false,accountingBalanceVerified:false
