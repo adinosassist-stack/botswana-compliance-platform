@@ -28,6 +28,8 @@ export async function quotationBrowserPreview(request,env,fetchSession){
   if(user.role!=="owner"||landingPath)return unavailable("owner_required");
   if(user.onboardingComplete!==true)return unavailable("onboarding_incomplete");
 
+  const configuredAccount=String(env.THEBE_QUOTATION_PREVIEW_BANK_ACCOUNT??"").trim();
+  const bankAccount=/^[0-9]{1,34}$/.test(configuredAccount)?configuredAccount:"";
   const nonce=crypto.randomUUID();
   headers["content-type"]="text/html; charset=utf-8";
   headers["content-security-policy"]="default-src 'none'; script-src 'self' 'nonce-"+nonce+
@@ -38,7 +40,8 @@ export async function quotationBrowserPreview(request,env,fetchSession){
     '<script type="module" nonce="'+nonce+'">'+
     'import {mountQuotationCustomizablePage} from "/js/quotation-customizable-page.mjs";'+
     'const preview=mountQuotationCustomizablePage(document.getElementById("quotation-preview"),'+
-    '{capability:{enabled:true,authenticated:true,canEditQuotations:true,canCustomizeQuotationPreview:true}});'+
+    '{issuerName:"Lovely Stones PTY LTD",defaultBankAccount:'+JSON.stringify(bankAccount)+','+
+    'capability:{enabled:true,authenticated:true,canEditQuotations:true,canCustomizeQuotationPreview:true}});'+
     'addEventListener("pagehide",()=>preview.destroy(),{once:true});'+
     'addEventListener("pageshow",event=>{if(event.persisted)location.reload()});</script></html>';
   return new Response(html,{headers});
