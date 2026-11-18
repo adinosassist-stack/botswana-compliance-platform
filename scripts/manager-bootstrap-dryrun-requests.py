@@ -71,7 +71,7 @@ def create_redacted_plan(target: pathlib.Path):
         },
         {
             "order": 4, "method": "POST",
-            "path": f"/accounts/{ACCOUNT}/workers/workers/{worker_id}/versions",
+            "path": f"/accounts/{ACCOUNT}/workers/workers/{{worker_id}}/versions",
             "body": {
                 "main_module": "worker.js",
                 "modules": "<exact original compiled worker.js, base64, verified sha256>",
