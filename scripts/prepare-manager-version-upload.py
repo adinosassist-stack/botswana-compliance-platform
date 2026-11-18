@@ -61,7 +61,8 @@ def main():
         for m in files:
             path=pathlib.PurePosixPath(m.name)
             assert not path.is_absolute() and ".." not in path.parts and "\\" not in m.name
-            dest=public.joinpath(*path.parts)
+            assert len(path.parts)>1 and path.parts[0]=="public", "unexpected tar root"
+            dest=public.joinpath(*path.parts[1:])
             dest.parent.mkdir(parents=True,exist_ok=True)
             dest.write_bytes(tf.extractfile(m).read())
     assert sum(x.is_file() for x in public.rglob("*"))==278
