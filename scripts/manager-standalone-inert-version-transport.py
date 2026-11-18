@@ -31,6 +31,7 @@ TESTER = "banabothem@yahoo.com"
 PRODUCTION_ACCOUNT = "ddd23cab31928a4bb3d4998df9b26d1d"
 WORKER_SHA256 = "9a9496e2481a03db0c9f1dcaccc89a450d5048f1bad3523ab6454b240a0bc75e"
 BASE = "/accounts/" + ACCOUNT
+ASSET_MULTIPART_BOUNDARY = "thebe-standalone-manager-assets-f26a7b"
 
 
 class FirstVersionGateError(ValueError):
@@ -120,7 +121,7 @@ def _assets(manifest, prepared):
 def _bucket_payload(bucket, files):
     if not isinstance(bucket, list) or not bucket or len(set(bucket)) != len(bucket):
         raise FirstVersionGateError("invalid asset upload bucket")
-    boundary = "thebe-standalone-manager-assets-f26a7b"
+    boundary = ASSET_MULTIPART_BOUNDARY
     result = []
     for digest in bucket:
         if digest not in files:
@@ -137,7 +138,7 @@ def _bucket_payload(bucket, files):
     return b''.join(result)
 
 
-def postflight(client, worker_id, version_id):
+def postflight(client, worker_id, version_id, config, approved_bindings):
     """Fail closed unless exact one version and no deploy/ingress in standalone account."""
     record = _expect_record(client.request("GET", BASE + "/workers/workers/" + worker_id), "Worker")
     if _record(record) != worker_id:
@@ -146,6 +147,32 @@ def postflight(client, worker_id, version_id):
     if (len(versions) != 1 or not isinstance(versions[0], dict) or
         versions[0].get("id") != version_id or versions[0].get("deployed_on") not in (None, "")):
         raise FirstVersionGateError("unexpected version count or deployment")
+    details = _expect_record(
+        client.request("GET", BASE + "/workers/workers/" + worker_id + "/versions/" + version_id),
+        "Worker version details",
+    )
+    if (details.get("id") != version_id or
+        details.get("main_module") != "worker.js" or
+        details.get("compatibility_date") != config["compatibility_date"] or
+        details.get("deployed_on") not in (None, "")):
+        raise FirstVersionGateError("version identity/runtime/deployment mismatch")
+    actual_bindings = details.get("bindings")
+    if not isinstance(actual_bindings, list) or len(actual_bindings) != len(approved_bindings):
+        raise FirstVersionGateError("version binding count mismatch")
+    def normalize(binding):
+        if not isinstance(binding, dict):
+            raise FirstVersionGateError("malformed Worker version binding")
+        kind, name = binding.get("type"), binding.get("name")
+        if not isinstance(name, str) or kind not in ("d1", "assets", "plain_text"):
+            raise FirstVersionGateError("unapproved version binding")
+        fields = ("type", "name", "id") if kind == "d1" else (
+            ("type", "name", "text") if kind == "plain_text" else ("type", "name")
+        )
+        return tuple((f, binding.get(f)) for f in fields)
+    if sorted(normalize(b) for b in actual_bindings) != sorted(normalize(b) for b in approved_bindings):
+        raise FirstVersionGateError("version bindings differ from reviewed isolated configuration")
+    if details.get("urls") not in (None, []):
+        raise FirstVersionGateError("first version unexpectedly exposes URLs")
     if _rows(client.request("GET", BASE + "/workers/scripts/" + WORKER + "/deployments"), "deployments"):
         raise FirstVersionGateError("Worker deployment unexpectedly exists")
     subdomain = _expect_record(
@@ -215,6 +242,7 @@ def bootstrap_inert_record_and_version(client, prepared_artifacts, approved_mani
         response = client.request(
             "POST", BASE + "/workers/assets/upload?base64=true",
             body=_bucket_payload(bucket, files), jwt=token, multipart=True,
+            content_type="multipart/form-data; boundary=" + ASSET_MULTIPART_BOUNDARY,
         )
         next_jwt = _expect_record(response, "asset completion").get("jwt")
         if not isinstance(next_jwt, str) or not next_jwt:
@@ -251,7 +279,7 @@ def bootstrap_inert_record_and_version(client, prepared_artifacts, approved_mani
         not re.fullmatch(r"[A-Za-z0-9_-]{8,64}", version_id) or
         version.get("deployed_on") not in (None, "")):
         raise FirstVersionGateError("first version ID/deployment status invalid")
-    return postflight(client, worker_id, version_id)
+    return postflight(client, worker_id, version_id, config, bindings)
 
 
 if __name__ == "__main__":
