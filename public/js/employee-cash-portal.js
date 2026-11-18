@@ -40,7 +40,7 @@
    cards.replaceChildren();tableHost.replaceChildren();
    const s=data.summary||{};
    for(const [label,number] of [["Cash issued",s.advancesMinor],["Cash used (reported)",s.reportedSpentMinor],
-       ["Expected cash",s.expectedMinor],["Pending review",s.pendingReviewMinor]]){
+       ["Expected cash",s.expectedMinor],["Pending review",s.pendingReviewMinor],["Rejected — reconcile",s.rejectedReviewMinor]]){
     const card=h("div",null,"thebe-cash-card");card.append(h("small",label),h("strong",p(number)));cards.append(card);
    }
    if(s.lastCountDate){
