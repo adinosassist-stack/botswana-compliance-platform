@@ -55,7 +55,7 @@ export async function collectProductionOperationsMetadata({accountId,token,datab
   return {
     schema:1,scope:'production_metadata_only',collectorSha:sourceSha,collectedAt:new Date().toISOString(),
     worker:{name:'bw-compliance-os',observabilityEnabled:flag(settings.observability?.enabled),logpushEnabled:flag(settings.logpush),
-      logging:{enabled:flag(logs?.enabled),invocationLogs:flag(logs?.invocation_logs),samplingRate:sample(logs?.head_sampling_rate),
+      logging:{enabled:flag(logs?.enabled),...(flag(settings.observability?.redact_query_string)===null?{}:{redactQueryString:flag(settings.observability.redact_query_string)}),invocationLogs:flag(logs?.invocation_logs),samplingRate:sample(logs?.head_sampling_rate),
         destinationCount:Array.isArray(logs?.destinations)?logs.destinations.length:null},
       deployments:deployments.slice(0,10),deploymentHistoryTruncated:deployments.length>10},
     database:{name:'bw-compliance-os',identityVerified:true,storageVersion:database.version==='production'?'production':'unknown',
