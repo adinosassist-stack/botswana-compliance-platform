@@ -90,7 +90,7 @@ const details=(heading,open=false)=>{
 /** Customer-ready printing never uses the untouched sample or an unentered account. */
 function customerReadyBlocker(q){
  if(!q.termsText.trim())return "Enter the full contract terms.";
- if(/^(?:DEMO|SAMPLE|TEST)(?:[-\\s]|$)/i.test(q.quoteNumber)||
+ if(/^(?:DEMO|SAMPLE|TEST)(?:[-\s]|$)/i.test(q.quoteNumber)||
     q.customerName.trim().toLowerCase()==="sample customer"||
     q.customerPhone.trim()==="+267 71 000 000")
     return "Replace the sample quote number and customer details before printing.";
