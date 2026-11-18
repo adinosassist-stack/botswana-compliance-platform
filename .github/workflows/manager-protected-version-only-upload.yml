@@ -14,6 +14,8 @@ on:
       - 'tests/test_manager_bootstrap_dryrun_requests.py'
       - 'scripts/manager-bootstrap-inert-api-transport.py'
       - 'tests/test_manager_bootstrap_inert_api_transport.py'
+      - 'scripts/manager-bootstrap-first-version-postflight.py'
+      - 'tests/test_manager_bootstrap_first_version_postflight.py'
   workflow_dispatch:
     inputs:
       authorization:
@@ -76,6 +78,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_manager_bootstrap_api_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_manager_bootstrap_dryrun_requests.py' -v
           python3 -m unittest discover -s tests -p 'test_manager_bootstrap_inert_api_transport.py' -v
+          python3 -m unittest discover -s tests -p 'test_manager_bootstrap_first_version_postflight.py' -v
           python3 scripts/manager-bootstrap-dryrun-requests.py --target "$RUNNER_TEMP/manager-version-only" --output "$RUNNER_TEMP/manager-bootstrap-redacted-dryrun.json"
           python3 scripts/manager-bootstrap-offline-manifest.py --target "$RUNNER_TEMP/manager-version-only" --output "$RUNNER_TEMP/manager-bootstrap-manifest.json"
           test "$(sha256sum "$RUNNER_TEMP/manager-version-only/cloudflare/src/worker.js" | cut -d' ' -f1)" = 9a9496e2481a03db0c9f1dcaccc89a450d5048f1bad3523ab6454b240a0bc75e
