@@ -8,7 +8,7 @@ const start=source.indexOf(marker);
 assert(start>=0,"Lovely quotations workspace entry must be installed");
 const script=new vm.Script(source.slice(start),{filename:"components.js quotation navigation"});
 
-function harness({role="Owner",status=200,contentType="text/html; charset=utf-8"}={}){
+function harness({role="Owner",status=200,documentStart="<!doctype html><html><title>Customer quotation | Thebe Desk</title>"}={}){
   const listeners=new Map(),nodes=new Map(),observed=new Map(),calls=[],navigation=[];
   const element=(tag)=>({
     tag,hidden:false,disabled:false,children:[],style:{display:"",visibility:""},
@@ -30,7 +30,7 @@ function harness({role="Owner",status=200,contentType="text/html; charset=utf-8"
     head:{append(){}}
   };
   const win={
-    document,fetch:async (path,init)=>{calls.push({path,init});return {status,headers:{get:()=>contentType}}},
+    document,BW:{api:{createClient:(config)=>({request:async (path,options)=>{calls.push({path,options,config});if(status!==200)throw Error("access_denied");return {message:documentStart}}})}},
     __THEBE_WORKSPACE_READY__:false,
     location:{assign:(path)=>navigation.push(path)},
     addEventListener:(name,fn)=>listeners.set(name,fn)
@@ -56,8 +56,9 @@ function harness({role="Owner",status=200,contentType="text/html; charset=utf-8"
   assert.equal(ui.button.children[1].textContent,"Quotations");
   assert.equal(ui.calls.length,1);
   assert.equal(ui.calls[0].path,"/app/quotations/customer-ready/");
-  assert.equal(ui.calls[0].init.credentials,"same-origin");
-  assert.equal(ui.calls[0].init.redirect,"manual");
+  assert.equal(ui.calls[0].options.method,"GET");
+  assert.equal(ui.calls[0].config.retries,0);
+  assert(source.includes("global.BW.api.createClient"),"Use the centralized API transport");
   ui.button.listeners.click();
   assert.deepEqual(ui.navigation,["/app/quotations/customer-ready/"]);
   ui.setRole("Manager");await ui.flush();
@@ -67,14 +68,15 @@ function harness({role="Owner",status=200,contentType="text/html; charset=utf-8"
   ui.setShellHidden();await ui.flush();
   assert.equal(ui.button.hidden,true,"signed-out shell must conceal quotation entry");
 }
-for(const {status,contentType} of [
-  {status:404,contentType:"text/plain"},
-  {status:302,contentType:"text/html"},
-  {status:200,contentType:"application/json"}
+for(const {status,documentStart} of [
+  {status:404,documentStart:"Not found"},
+  {status:302,documentStart:"Redirected"},
+  {status:200,documentStart:"{\"error\":\"success\"}"},
+  {status:200,documentStart:"<!doctype html><title>Wrong page</title>"}
 ]){
-  const ui=harness({status,contentType});
+  const ui=harness({status,documentStart});
   ui.emitReady();await ui.flush();
-  assert.equal(ui.button.hidden,true,"response "+status+"/"+contentType+" must fail closed");
+  assert.equal(ui.button.hidden,true,"unexpected route response must fail closed");
   ui.button.listeners.click();
   assert.equal(ui.navigation.length,0);
 }
