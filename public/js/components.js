@@ -280,7 +280,7 @@
   const document=global.document;
   const ROUTE="/app/quotations/customer-ready/";
   const ID="workspaceCustomerQuotationNav";
-  if(!document||typeof global.fetch!=="function")return;
+  if(!document||typeof global.BW?.api?.createClient!=="function")return;
   function mount(){
     const nav=document.getElementById("nav");
     const after=nav?.querySelector('button[data-view="moneyhub"]');
@@ -312,15 +312,17 @@
     function conceal(){granted=false;button.hidden=true;button.disabled=true}
     function probe(epoch){
       if(epoch!==revision||!ready())return;
-      Promise.resolve(global.fetch(ROUTE,{
-        method:"GET",credentials:"same-origin",cache:"no-store",redirect:"manual",
-        headers:{"accept":"text/html"}
-      })).then(response=>{
-        if(epoch!==revision||!ready())return;
-        const html=String(response?.headers?.get("content-type")||"").toLowerCase();
-        granted=response?.status===200&&html.startsWith("text/html");
-        button.hidden=!granted;button.disabled=!granted;
-      }).catch(()=>{if(epoch===revision)conceal()});
+      // All network access goes through the hardened centralized transport.
+      // The existing server route returns this title only after exact tenant,
+      // owner role, onboarding and session authorization.
+      Promise.resolve().then(()=>global.BW.api.createClient({retries:0}).request(ROUTE,{method:"GET"}))
+        .then(response=>{
+          if(epoch!==revision||!ready())return;
+          const documentStart=String(response?.message||"");
+          granted=documentStart.startsWith("<!doctype html>")&&
+            documentStart.includes("<title>Customer quotation | Thebe Desk</title>");
+          button.hidden=!granted;button.disabled=!granted;
+        }).catch(()=>{if(epoch===revision)conceal()});
     }
     function sync(){
       revision++;
