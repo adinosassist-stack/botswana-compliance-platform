@@ -16,7 +16,14 @@ test("preview skips other routes and requires explicit tenant configuration",asy
 });
 
 test("preview mounts the editor for the configured owner without exposing session data",async()=>{
-  const response=await quotationBrowserPreview(request(),config,async sessionRequest=>{
+  const navigation=request();
+  navigation.headers.set("sec-fetch-site","cross-site");
+  navigation.headers.set("sec-fetch-mode","navigate");
+  navigation.headers.set("origin","https://example.test");
+  const response=await quotationBrowserPreview(navigation,config,async sessionRequest=>{
+    assert.equal(sessionRequest.headers.get("sec-fetch-site"),null);
+    assert.equal(sessionRequest.headers.get("sec-fetch-mode"),null);
+    assert.equal(sessionRequest.headers.get("origin"),"https://example.test");
     assert.equal(new URL(sessionRequest.url).pathname,"/__thebe_api/auth/me");
     assert.equal(sessionRequest.headers.get("cookie"),"session=synthetic");
     return Response.json({user:owner,csrfToken:"private-session-material"});
