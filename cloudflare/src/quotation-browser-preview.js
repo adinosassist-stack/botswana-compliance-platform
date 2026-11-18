@@ -4,16 +4,22 @@ export async function quotationBrowserPreview(request,env,fetchSession){
   const tenant=String(env?.THEBE_QUOTATION_PREVIEW_TENANT_ID||"").trim();
   const headers={"cache-control":"no-store","x-robots-tag":"noindex, nofollow",
     "x-content-type-options":"nosniff","referrer-policy":"no-referrer","x-frame-options":"DENY"};
-  const unavailable=()=>new Response("Not found",{status:404,headers});
-  if(request.method!=="GET"||!tenant)return unavailable();
+  const unavailable=(reason,sessionStatus)=>{
+    console.info("quotation_preview_denied",{reason,sessionStatus});
+    return new Response("Not found",{status:404,headers});
+  };
+  if(request.method!=="GET")return unavailable("method");
+  if(!tenant)return unavailable("tenant_binding_missing");
 
   const sessionUrl=new URL("/__thebe_api/auth/me",request.url);
   const session=await fetchSession(new Request(sessionUrl,{headers:request.headers}));
-  if(!session.ok)return unavailable();
+  if(!session.ok)return unavailable("session_response",session.status);
   const identity=await session.json().catch(()=>null);
   const {user,landingPath}=identity||{};
-  if(!user?.id||user.tenantId!==tenant||user.onboardingComplete!==true||landingPath||
-    user.role!=="owner")return unavailable();
+  if(!user?.id)return unavailable("session_identity_missing");
+  if(user.tenantId!==tenant)return unavailable("tenant_mismatch");
+  if(user.role!=="owner"||landingPath)return unavailable("owner_required");
+  if(user.onboardingComplete!==true)return unavailable("onboarding_incomplete");
 
   const nonce=crypto.randomUUID();
   headers["content-type"]="text/html; charset=utf-8";
