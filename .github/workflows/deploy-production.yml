@@ -446,7 +446,8 @@ jobs:
             'SESSION_SECRET','AUDIT_INTEGRITY_SECRET','OPERATIONS_SECRET','AUTOMATION_SECRET',
             'TURNSTILE_SECRET_KEY','PAYMENT_WEBHOOK_SECRET','BILLING_WEBHOOK_SECRET','RESEND_API_KEY','OPENAI_API_KEY'
           ];
-          const optionalNames = ['GOOGLE_OAUTH_CLIENT_SECRET','FACEBOOK_APP_SECRET','THEBE_QUOTATION_PREVIEW_BANK_ACCOUNT'];
+          const optionalNames = ['GOOGLE_OAUTH_CLIENT_SECRET','FACEBOOK_APP_SECRET'];
+          optionalNames.push('THEBE_QUOTATION_PREVIEW_BANK_ACCOUNT');
           const out = {};
           for (const name of coreNames) {
             const value = process.env[name] || '';
