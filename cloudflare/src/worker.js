@@ -5,6 +5,7 @@ import {createManagerScopedReadHttp} from './manager-invitations-scoped-read.js'
 import {createManagerAccessAdminHttp} from './manager-invitations-admin-http.js';
 import {createManagerInvitationD1Service} from './manager-invitations-d1-service.js';
 import {createManagerInvitationsHttp} from './manager-invitations-http.js';
+import {createManagerAccessRequestsHttp} from './manager-access-requests-http.js';
 import {advisorProviderInput,advisorProviderOutput} from "./advisor-provider-contract.js";
 import {handlePopHttp} from "./payment-pop-http.js";
 import {handleCorporateAssets} from "./corporate-assets.js";
@@ -5344,7 +5345,8 @@ export default {
       String(env.MANAGER_INVITATIONS_SCHEMA_READY||'').toLowerCase()==='true'&&
       String(env.MANAGER_INVITATIONS_ACCESS_READY||'').toLowerCase()==='true'&&selected.role==='manager'){
         const scoped=await env.DB.prepare("SELECT 1 ok FROM workspace_manager_invites WHERE tenant_id=? AND accepted_by_user_id=? AND status='accepted' LIMIT 1").bind(selected.tenant_id,u.id).first();
-        if(scoped?.ok)managerLandingPath='/manager-invite/dashboard/';
+        const requested=(!scoped?.ok&&String(env.MANAGER_ACCESS_REQUESTS_ENABLED||'').toLowerCase()==='true'&&String(env.MANAGER_ACCESS_PROVISIONING_ENABLED||'').toLowerCase()==='true')?await env.DB.prepare("SELECT 1 ok FROM workspace_manager_access_requests WHERE tenant_id=? AND requester_user_id=? AND status='provisioned' LIMIT 1").bind(selected.tenant_id,u.id).first():null;
+        if(scoped?.ok||requested?.ok)managerLandingPath='/manager-invite/dashboard/';
       }
       return json({ok:true,csrfToken:sess.csrf,...(managerLandingPath?{landingPath:managerLandingPath}:{}),user:{id:u.id,email:u.email,displayName:u.display_name,role:selected.role,tenantId:selected.tenant_id,tenantName:selected.tenant_name}},200,{"set-cookie":sessionCookie(sess.raw)});
     }
@@ -5716,21 +5718,47 @@ export default {
       if(!requestOriginAllowed(req,env))return json({error:"origin_failed"},403);
       if(!mutationCsrfOk(req,a))return json({error:"csrf_failed"},403);
       if(!workspaceSessionRole(a)&&!selfServiceApi(url.pathname,req.method))return json({error:"workspace_role_forbidden"},403);
+      // Registered customer self-service manager requests are tenant-scoped and
+      // separately gated. A request/review NEVER grants a manager role.
+      const managerRequestStage=managerInviteStage&&
+        String(env.MANAGER_ACCESS_REQUESTS_ENABLED||'').toLowerCase()==='true';
+      if(managerRequestStage&&(url.pathname.startsWith('/api/workspace/managers/access-requests')||url.pathname==='/api/workspace/managers/request-locations')){
+        return createManagerAccessRequestsHttp({
+          db:env.DB,origin:String(env.PUBLIC_ORIGIN||''),
+          provisioningEnabled:String(env.MANAGER_ACCESS_PROVISIONING_ENABLED||'').toLowerCase()==='true',
+          authenticate:async()=>({tenantId:a.tenant_id,userId:a.user_id,role:a.role}),
+          verifyCsrf:async()=>mutationCsrfOk(req,a),
+          rateLimit:async(r,scope)=>{
+            const result=await authRateLimit(env,r,scope,{limit:5,windowSeconds:900});
+            return result.ok===true;
+          }
+        })(req);
+      }
+      // Manager accounts in private staging must never fall back to the broad
+      // workspace when staging activation flags are disabled.
+      if(String(env.APP_ENV||'').toLowerCase()==='staging'&&a.role==='manager'&&!managerInviteStage&&!(
+        (url.pathname==='/api/auth/me'&&req.method==='GET')||
+        (url.pathname==='/api/auth/logout'&&req.method==='POST')
+      ))return json({error:'manager_private_stage_not_ready'},403);
       // #2578: fail closed for newly invited branch managers until per-branch
       // read AND write enforcement is implemented and independently qualified.
       // Existing managers are not affected; activated invitations identify the
       // restricted accounts in the isolated invitation table.
       if(managerInviteStage&&a.role==='manager'){
         const branchInvite=await env.DB.prepare("SELECT 1 scoped_manager FROM workspace_manager_invites WHERE tenant_id=? AND accepted_by_user_id=? AND status='accepted' LIMIT 1").bind(a.tenant_id,a.user_id).first();
-        if(branchInvite?.scoped_manager&&req.method==='GET'&&(
+        const provisionedManager=(!branchInvite?.scoped_manager&&String(env.MANAGER_ACCESS_REQUESTS_ENABLED||'').toLowerCase()==='true'&&String(env.MANAGER_ACCESS_PROVISIONING_ENABLED||'').toLowerCase()==='true')?await env.DB.prepare("SELECT 1 scoped_manager FROM workspace_manager_access_requests WHERE tenant_id=? AND requester_user_id=? AND status='provisioned' LIMIT 1").bind(a.tenant_id,a.user_id).first():null;
+        const isScopedManager=!!(branchInvite?.scoped_manager||provisionedManager?.scoped_manager);
+        if(!isScopedManager&&!((url.pathname==='/api/auth/me'&&req.method==='GET')||(url.pathname==='/api/auth/logout'&&req.method==='POST')))
+          return json({error:'manager_scope_not_qualified'},403);
+        if(isScopedManager&&req.method==='GET'&&(
           url.pathname==='/api/workspace/managers/my-locations'||
           url.pathname==='/api/workspace/managers/my-reports'||
           url.pathname==='/api/workspace/managers/my-dashboard')){
-          return createManagerScopedReadHttp({db:env.DB})(req,{
+          return createManagerScopedReadHttp({db:env.DB,allowProvisioned:String(env.MANAGER_ACCESS_REQUESTS_ENABLED||'').toLowerCase()==='true'&&String(env.MANAGER_ACCESS_PROVISIONING_ENABLED||'').toLowerCase()==='true'})(req,{
             tenantId:a.tenant_id,userId:a.user_id,role:a.role
           });
         }
-        if(branchInvite?.scoped_manager&&!(
+        if(isScopedManager&&!(
           (url.pathname==='/api/auth/me'&&req.method==='GET')||
           (url.pathname==='/api/auth/logout'&&req.method==='POST')
         ))return json({error:'manager_branch_access_pending'},403);
@@ -5791,7 +5819,8 @@ export default {
         let managerLandingPath=null;
         if(managerInviteStage&&a.role==='manager'){
           const scoped=await env.DB.prepare("SELECT 1 ok FROM workspace_manager_invites WHERE tenant_id=? AND accepted_by_user_id=? AND status='accepted' LIMIT 1").bind(a.tenant_id,a.user_id).first();
-          if(scoped?.ok)managerLandingPath='/manager-invite/dashboard/';
+          const requested=(!scoped?.ok&&String(env.MANAGER_ACCESS_REQUESTS_ENABLED||'').toLowerCase()==='true'&&String(env.MANAGER_ACCESS_PROVISIONING_ENABLED||'').toLowerCase()==='true')?await env.DB.prepare("SELECT 1 ok FROM workspace_manager_access_requests WHERE tenant_id=? AND requester_user_id=? AND status='provisioned' LIMIT 1").bind(a.tenant_id,a.user_id).first():null;
+        if(scoped?.ok||requested?.ok)managerLandingPath='/manager-invite/dashboard/';
         }
         return json({...(managerLandingPath?{landingPath:managerLandingPath}:{}),user:{id:a.user_id,email:a.email,displayName:a.display_name,role:a.role,tenantId:a.tenant_id,tenantName:a.tenant_name,onboardingComplete:!!a.onboarding_complete,platformBillingAdmin:platformBillingAdmin(a,env)},csrfToken:a.csrf_token});
       }
@@ -8623,7 +8652,7 @@ export default {
         (req.method==='GET'||req.method==='HEAD');
       if(!permitted)return json({error:'not_found'},404);
       const page=url.pathname.replace(/\/+$/,'');
-      if(page==='/manager-invite/owner'||page==='/manager-invite/activate'||page==='/manager-invite/dashboard'){
+      if(page==='/manager-invite/owner'||page==='/manager-invite/activate'||page==='/manager-invite/dashboard'||(page==='/manager-invite/request'&&String(env.MANAGER_ACCESS_REQUESTS_ENABLED||'').toLowerCase()==='true')){
         const target=page+'/index.html';
         const assetReq=new Request(new URL(target,url.origin),{method:req.method,headers:req.headers});
         const response=await env.ASSETS.fetch(assetReq);

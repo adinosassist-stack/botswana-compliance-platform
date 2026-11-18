@@ -13,6 +13,7 @@ custom_domain = true
 required = ["SESSION_SECRET", "AUDIT_INTEGRITY_SECRET", "OPERATIONS_SECRET", "AUTOMATION_SECRET", "TURNSTILE_SECRET_KEY", "PAYMENT_WEBHOOK_SECRET", "BILLING_WEBHOOK_SECRET", "OPENAI_API_KEY", "RESEND_API_KEY"]
 
 [vars]
+THEBE_QUOTATION_PREVIEW_TENANT_ID = "REPLACE_WITH_THEBE_QUOTATION_PREVIEW_TENANT_ID"
 # Corporate asset storage and rollout require separate qualification.
 THEBE_CORPORATE_ASSETS_ENABLED = "false"
 # General AI remains disabled until staging/provider qualification and reviewed rollout.

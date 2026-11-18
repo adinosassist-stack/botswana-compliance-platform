@@ -4,6 +4,7 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 TEMPLATE=${1:-"$SCRIPT_DIR/wrangler.toml"}
 D1_ID=${D1_DATABASE_ID:-}
+QUOTE_TENANT=${THEBE_QUOTATION_PREVIEW_TENANT_ID:-}
 PAYMENT_MODE=${PAYMENT_PROVIDER_OVERRIDE:-none}
 PUBLIC_APP=${PUBLIC_APP_URL:-}
 PUBLIC_ORIGIN_VALUE=${PUBLIC_ORIGIN:-}
@@ -135,13 +136,20 @@ ASSET_DIR_LINES=$(grep -Ec '^[[:space:]]*directory[[:space:]]*=[[:space:]]*"\.\.
 [ "$MAIN_LINES" -eq 1 ] || fail "template must contain exactly one canonical release governance entrypoint"
 [ "$ASSET_DIR_LINES" -eq 1 ] || fail "template must contain exactly one canonical public assets directory"
 
-for key in PUBLIC_APP_URL PUBLIC_ORIGIN TURNSTILE_SITE_KEY PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS EVIDENCE_SCAN_API_URL GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_REDIRECT_URI FACEBOOK_APP_ID FACEBOOK_OAUTH_REDIRECT_URI EMAIL_FROM THEBE_BANK_NAME THEBE_BANK_ACCOUNT_NUMBER THEBE_BANK_ACCOUNT_TYPE THEBE_BANK_BRANCH_NAME THEBE_BANK_BRANCH_CODE THEBE_BANK_SWIFT_CODE; do
+if [ -n "$QUOTE_TENANT" ]; then
+  [ "${#QUOTE_TENANT}" -eq 36 ] || fail "THEBE_QUOTATION_PREVIEW_TENANT_ID must be a lowercase tenant UUID"
+  printf '%s\n' "$QUOTE_TENANT" | grep -Eq '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' ||
+    fail "THEBE_QUOTATION_PREVIEW_TENANT_ID must be a lowercase tenant UUID"
+fi
+
+for key in PUBLIC_APP_URL PUBLIC_ORIGIN TURNSTILE_SITE_KEY PLATFORM_ADMIN_EMAILS PLATFORM_REGULATORY_REVIEWERS EVIDENCE_SCAN_API_URL GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_REDIRECT_URI FACEBOOK_APP_ID FACEBOOK_OAUTH_REDIRECT_URI EMAIL_FROM THEBE_BANK_NAME THEBE_BANK_ACCOUNT_NUMBER THEBE_BANK_ACCOUNT_TYPE THEBE_BANK_BRANCH_NAME THEBE_BANK_BRANCH_CODE THEBE_BANK_SWIFT_CODE THEBE_QUOTATION_PREVIEW_TENANT_ID; do
   count=$(grep -Ec "^[[:space:]]*${key}[[:space:]]*=[[:space:]]*\"REPLACE_WITH_${key}\"[[:space:]]*$" "$TEMPLATE" || true)
   [ "$count" -eq 1 ] || fail "template must contain exactly one ${key} placeholder"
 done
 
 awk \
   -v id="$D1_ID" \
+  -v quote_tenant="$QUOTE_TENANT" \
   -v payment="$PAYMENT_MODE" \
   -v public_app="$PUBLIC_APP" \
   -v public_origin="$PUBLIC_ORIGIN_VALUE" \
@@ -167,6 +175,7 @@ awk \
   /^[[:space:]]*directory[[:space:]]*=[[:space:]]*"\.\.\/public"[[:space:]]*$/ { print "directory = \"" assets_directory "\""; assets_replaced++; next }
   /^[[:space:]]*database_id[[:space:]]*=[[:space:]]*"REPLACE_WITH_D1_DATABASE_ID"[[:space:]]*$/ { print "database_id = \"" id "\""; id_replaced++; next }
   /^[[:space:]]*PAYMENT_PROVIDER[[:space:]]*=[[:space:]]*"none"[[:space:]]*$/ { print "PAYMENT_PROVIDER = \"" payment "\""; payment_replaced++; next }
+  /^[[:space:]]*THEBE_QUOTATION_PREVIEW_TENANT_ID[[:space:]]*=/ { emit("THEBE_QUOTATION_PREVIEW_TENANT_ID",quote_tenant); next }
   /^[[:space:]]*PUBLIC_APP_URL[[:space:]]*=/ { emit("PUBLIC_APP_URL",public_app); next }
   /^[[:space:]]*PUBLIC_ORIGIN[[:space:]]*=/ { emit("PUBLIC_ORIGIN",public_origin); next }
   /^[[:space:]]*TURNSTILE_SITE_KEY[[:space:]]*=/ { emit("TURNSTILE_SITE_KEY",turnstile_site); next }
@@ -188,6 +197,7 @@ awk \
   END {
     if (id_replaced != 1 || payment_replaced != 1 || main_replaced != 1 || assets_replaced != 1) exit 42
     keys[1]="PUBLIC_APP_URL";keys[2]="PUBLIC_ORIGIN";keys[3]="TURNSTILE_SITE_KEY";keys[4]="PLATFORM_ADMIN_EMAILS";keys[5]="PLATFORM_REGULATORY_REVIEWERS";keys[6]="EVIDENCE_SCAN_API_URL";keys[7]="GOOGLE_OAUTH_CLIENT_ID";keys[8]="GOOGLE_OAUTH_REDIRECT_URI";keys[9]="FACEBOOK_APP_ID";keys[10]="FACEBOOK_OAUTH_REDIRECT_URI";keys[11]="EMAIL_FROM";keys[12]="THEBE_BANK_NAME";keys[13]="THEBE_BANK_ACCOUNT_NUMBER";keys[14]="THEBE_BANK_ACCOUNT_TYPE";keys[15]="THEBE_BANK_BRANCH_NAME";keys[16]="THEBE_BANK_BRANCH_CODE";keys[17]="THEBE_BANK_SWIFT_CODE"
-    for(i=1;i<=17;i++)if(replaced[keys[i]]!=1)exit 43
+    keys[18]="THEBE_QUOTATION_PREVIEW_TENANT_ID"
+    for(i=1;i<=18;i++)if(replaced[keys[i]]!=1)exit 43
   }
 ' "$TEMPLATE"

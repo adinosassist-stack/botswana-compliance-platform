@@ -9,7 +9,7 @@ function scope(identity){
    typeof identity.userId!=='string'||!identity.userId)throw new Error('forbidden');
  return {tenantId:identity.tenantId,userId:identity.userId};
 }
-export function createManagerScopedReadHttp({db}={}){
+export function createManagerScopedReadHttp({db,allowProvisioned=false}={}){
  if(!db||typeof db.prepare!=='function')throw new TypeError('d1_binding_required');
  return async function(req,identity){
   const path=new URL(req.url).pathname;
@@ -21,7 +21,8 @@ export function createManagerScopedReadHttp({db}={}){
    // Always revalidate membership and the accepted invitation. Do not trust
    // stale session values or a display branch string.
    const member=await db.prepare("SELECT 1 ok FROM memberships m JOIN workspace_manager_invites i ON i.tenant_id=m.tenant_id AND i.accepted_by_user_id=m.user_id AND i.status='accepted' WHERE m.tenant_id=? AND m.user_id=? AND m.role='manager' AND m.status='active' LIMIT 1").bind(actor.tenantId,actor.userId).first();
-   if(!member?.ok)return reply(403,{error:'forbidden'});
+   const provisioned=(!member?.ok&&allowProvisioned===true)?await db.prepare("SELECT 1 ok FROM memberships m JOIN workspace_manager_access_requests r ON r.tenant_id=m.tenant_id AND r.requester_user_id=m.user_id AND r.status='provisioned' WHERE m.tenant_id=? AND m.user_id=? AND m.role='manager' AND m.status='active' LIMIT 1").bind(actor.tenantId,actor.userId).first():null;
+   if(!member?.ok&&!provisioned?.ok)return reply(403,{error:'forbidden'});
    if(path==='/api/workspace/managers/my-locations'){
     const r=await db.prepare("SELECT l.id,l.name,l.code,l.town FROM workspace_manager_location_grants g JOIN operating_locations l ON l.id=g.location_id AND l.tenant_id=g.tenant_id AND l.active=1 WHERE g.tenant_id=? AND g.manager_user_id=? AND g.status='active' ORDER BY l.name,l.id LIMIT 50").bind(actor.tenantId,actor.userId).all();
     return reply(200,{ok:true,locations:r.results||[]});
