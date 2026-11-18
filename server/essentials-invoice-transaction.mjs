@@ -11,7 +11,7 @@ export async function createEssentialsInvoiceDraft({principal,tenantId,quotation
   if(typeof tx.getQuotationForTenant!=="function"||typeof tx.getDraftByIdempotencyKey!=="function"||typeof tx.reserveInvoiceReference!=="function"||typeof tx.insertDraftInvoice!=="function")throw new TypeError("transaction_contract_missing");
   const existing=await tx.getDraftByIdempotencyKey({tenantId,idempotencyKey});
   if(existing){
-   if(existing.sourceQuotationId!==quotationId)throw new Error("idempotency_conflict");
+   if(existing.tenantId!==tenantId||existing.sourceQuotationId!==quotationId||existing.status!=="draft")throw new Error("idempotency_conflict");
    return Object.freeze({invoice:existing,replayed:true});
   }
   const quotation=await tx.getQuotationForTenant({tenantId,quotationId});
