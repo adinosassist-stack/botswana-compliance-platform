@@ -1,0 +1,48 @@
+name: Employee Cash & Expenses - isolated security CI
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/src/employee-cash.js'
+      - 'cloudflare/src/employee-self-service.js'
+      - 'cloudflare/migrations/20261118_employee_cash_reports.sql'
+      - 'cloudflare/wrangler.toml'
+      - 'public/js/employee-cash-portal.js'
+      - 'public/js/employee-cash-manager.js'
+      - 'public/js/employee-self-service-portal.js'
+      - 'public/js/employee-self-service-manager.js'
+      - 'public/staff/index.html'
+      - 'public/assets/employee-self-service.css'
+      - 'tests/employee-cash.test.mjs'
+      - '.github/workflows/employee-cash-ci.yml'
+permissions:
+  contents: read
+concurrency:
+  group: employee-cash-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact PR SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Setup pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+      - name: Validate module and UI syntax
+        run: |
+          node --check cloudflare/src/employee-cash.js
+          node --check cloudflare/src/employee-self-service.js
+          node --check public/js/employee-cash-portal.js
+          node --check public/js/employee-cash-manager.js
+          node --check public/js/employee-self-service-portal.js
+          node --check public/js/employee-self-service-manager.js
+      - name: Exercise isolated SQLite schema, access and authorization
+        run: |
+          node --test tests/employee-cash.test.mjs
+          node --test tests/employee-self-service-runtime.test.mjs

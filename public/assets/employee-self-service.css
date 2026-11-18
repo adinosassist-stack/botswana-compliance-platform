@@ -40,3 +40,19 @@
 .thebe-staff-manager__task textarea{min-height:50px}
 .thebe-staff-manager__actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 @media(max-width:680px){.thebe-staff-manager__forms{grid-template-columns:1fr}.thebe-staff-card{padding:20px}.thebe-staff-counts>div{padding:10px}}
+
+/* Employee cash reporting: mobile-first, no charts or unauthorized client totals. */
+.thebe-staff-cash{margin-top:28px;padding:18px;border:1px solid #dfe5ee;border-radius:16px;background:white}
+.thebe-staff-cash h2{font-size:20px}
+.thebe-cash-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}
+.thebe-cash-card{border:1px solid #dfe5ee;padding:12px;border-radius:12px;min-width:0}
+.thebe-cash-card small{display:block;font-size:12px;color:#596577}
+.thebe-cash-card strong{display:block;font-size:19px;overflow-wrap:anywhere}
+.thebe-cash-forms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:16px 0}
+.thebe-cash-forms form{padding:14px;border:1px solid #dfe5ee;border-radius:12px;min-width:0}
+.thebe-cash-table-wrap{max-width:100%;overflow-x:auto;margin:12px 0}
+.thebe-cash-table-wrap table{border-collapse:collapse;width:100%;min-width:470px;font-size:13px}
+.thebe-cash-table-wrap th,.thebe-cash-table-wrap td{text-align:left;padding:9px;border-bottom:1px solid #e3e8f0;vertical-align:top}
+.thebe-cash-table-wrap th{background:#f6f8fc}
+.thebe-cash-table-wrap td:last-child{white-space:normal}
+@media(max-width:680px){.thebe-cash-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.thebe-cash-forms{grid-template-columns:1fr}.thebe-staff-cash{padding:12px}}
