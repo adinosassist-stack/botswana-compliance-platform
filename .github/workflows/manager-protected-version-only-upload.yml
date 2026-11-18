@@ -6,6 +6,10 @@ on:
       - '.github/workflows/manager-protected-version-only-upload.yml'
       - 'scripts/prepare-manager-version-upload.py'
       - 'scripts/manager-version-cloudflare-inventory.py'
+      - 'scripts/manager-bootstrap-offline-manifest.py'
+      - 'tests/test_manager_bootstrap_offline_manifest.py'
+      - 'scripts/manager-bootstrap-api-contract.py'
+      - 'tests/test_manager_bootstrap_api_contract.py'
   workflow_dispatch:
     inputs:
       authorization:
@@ -64,6 +68,9 @@ jobs:
           test "$(find "$RUNNER_TEMP/manager-version-only/public" -type f | wc -l)" -eq 278
           test -f "$RUNNER_TEMP/manager-version-only/public/404.html"
           test ! -e "$RUNNER_TEMP/manager-version-only/public/public"
+          python3 -m unittest discover -s tests -p 'test_manager_bootstrap_offline_manifest.py' -v
+          python3 -m unittest discover -s tests -p 'test_manager_bootstrap_api_contract.py' -v
+          python3 scripts/manager-bootstrap-offline-manifest.py --target "$RUNNER_TEMP/manager-version-only" --output "$RUNNER_TEMP/manager-bootstrap-manifest.json"
           test "$(sha256sum "$RUNNER_TEMP/manager-version-only/cloudflare/src/worker.js" | cut -d' ' -f1)" = 9a9496e2481a03db0c9f1dcaccc89a450d5048f1bad3523ab6454b240a0bc75e
 
   version-only:
