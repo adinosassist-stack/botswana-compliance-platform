@@ -161,7 +161,7 @@ class StandaloneInertTransportTests(unittest.TestCase):
             self.preexisting = False
             self.missing_completion = False
 
-        def request(self, method, path, body=None, jwt=None, multipart=False):
+        def request(self, method, path, body=None, jwt=None, multipart=False, content_type=None):
             self.calls.append((method, path))
             b = inert.BASE
             worker = {
@@ -192,6 +192,15 @@ class StandaloneInertTransportTests(unittest.TestCase):
                     b + "/workers/workers/worker_12345678/versions": [
                         {"id": "version_12345678", "deployed_on": None},
                     ],
+                    b + "/workers/workers/worker_12345678/versions/version_12345678": {
+                        "id": "version_12345678", "deployed_on": None, "urls": [],
+                        "main_module": "worker.js", "compatibility_date": "2026-09-03",
+                        "bindings": [
+                            {"type": "d1", "name": "DB", "id": inert.DATABASE},
+                            {"type": "assets", "name": "ASSETS"},
+                            {"type": "plain_text", "name": "MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED", "text": "false"},
+                        ],
+                    },
                     b + "/workers/scripts/" + inert.WORKER + "/deployments": [],
                     b + "/workers/scripts/" + inert.WORKER + "/subdomain": {"enabled": False},
                 }
