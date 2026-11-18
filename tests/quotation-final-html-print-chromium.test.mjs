@@ -172,3 +172,49 @@ test("signed-in preview loads the editor and prints two A4 pages without Browser
   assert.match(await page.locator(".qcp-stage").innerText(),/Synthetic contract terms for browser acceptance/);
  }finally{await page.close()}
 });
+
+
+test("customer-ready browser print requires real fields and produces exactly two watermark-free A4 pages",async()=>{
+ const origin="https://quotation-customer.test",path="/app/quotations/customer-ready/";
+ const response=await quotationBrowserPreview(new Request(origin+path),{
+   THEBE_QUOTATION_PREVIEW_TENANT_ID:"synthetic-lovely"
+ },async()=>Response.json({user:{
+   id:"synthetic-owner",tenantId:"synthetic-lovely",role:"owner",onboardingComplete:true
+ }}));
+ assert.equal(response.status,200);
+ const html=await response.text();
+ const page=await browser.newPage({viewport:{width:1280,height:960}});
+ try{
+  await page.addInitScript(()=>{window.printCalls=0;window.print=()=>{window.printCalls++}});
+  const modules=new Set(["/js/quotation-customizable-page.mjs","/js/quotation-customizable-page-model.mjs"]);
+  await page.route(origin+"/**",async route=>{
+   const requestPath=new URL(route.request().url()).pathname;
+   if(requestPath===path)return route.fulfill({status:200,headers:Object.fromEntries(response.headers),body:html});
+   if(!modules.has(requestPath))return route.abort();
+   return route.fulfill({contentType:"text/javascript",body:await readFile(new URL("../public"+requestPath,import.meta.url))});
+  });
+  await page.goto(origin+path);
+  assert.equal(await page.locator(".qcp-page").count(),2);
+  assert.equal(await page.locator(".qcp-watermark").count(),0);
+  const print=page.getByRole("button",{name:"Print customer quotation / Save PDF"});
+  assert.equal(await print.isDisabled(),true,"Synthetic draft must not print as customer-ready");
+  await page.getByLabel("Quote number",{exact:true}).fill("Q-2026-1001");
+  await page.getByLabel("Customer name",{exact:true}).fill("Synthetic buyer");
+  await page.getByLabel("Customer number",{exact:true}).fill("+267 72 111 222");
+  await page.locator("details").filter({hasText:"Customize ALL document wording"}).locator("summary").click();
+  await page.getByLabel("bank Account",{exact:true}).fill("123456789");
+  assert.equal(await print.isEnabled(),true);
+  await print.click();
+  assert.equal(await page.evaluate(()=>window.printCalls),1);
+  await page.emulateMedia({media:"print"});
+  const pdf=await pdfLib.PDFDocument.load(await page.pdf({format:"A4",preferCSSPageSize:true,printBackground:true}));
+  assert.equal(pdf.getPageCount(),2);
+  for(const sheet of pdf.getPages()){
+   assert.ok(Math.abs(sheet.getWidth()-595.28)<1);
+   assert.ok(Math.abs(sheet.getHeight()-841.89)<1);
+  }
+  assert.match(await page.locator(".qcp-stage").innerText(),/Synthetic buyer/);
+  assert.match(await page.locator(".qcp-terms").innerText(),/Customer Declaration/);
+  assert.equal(await page.locator(".qcp-watermark").count(),0);
+ }finally{await page.close()}
+});
