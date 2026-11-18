@@ -1,6 +1,11 @@
 name: Manager Private Version-Only Upload — Protected, No Deploy
 
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/manager-protected-version-only-upload.yml'
+      - 'scripts/prepare-manager-version-upload.py'
+      - 'scripts/manager-version-cloudflare-inventory.py'
   workflow_dispatch:
     inputs:
       authorization:
@@ -21,8 +26,48 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  offline-qualification:
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download historical reviewed artifact ZIPs via read-only GitHub token
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/manager-artifacts"
+          for ID in 14407666400 14407970936; do
+            curl -fsSL --retry 3 --proto '=https' --tlsv1.2 \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$ID/zip" \
+              -o "$RUNNER_TEMP/manager-artifacts/$ID.zip"
+          done
+      - name: Exact artifact and fail-closed config checks (OFFLINE ONLY)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/prepare-manager-version-upload.py scripts/manager-version-cloudflare-inventory.py
+          python3 scripts/verify-manager-exact-staging-artifacts.py \
+            --worker "$RUNNER_TEMP/manager-artifacts/14407666400.zip" \
+            --assets "$RUNNER_TEMP/manager-artifacts/14407970936.zip" \
+            --report "$RUNNER_TEMP/offline-verify.json"
+          python3 scripts/prepare-manager-version-upload.py \
+            --worker "$RUNNER_TEMP/manager-artifacts/14407666400.zip" \
+            --assets "$RUNNER_TEMP/manager-artifacts/14407970936.zip" \
+            --target "$RUNNER_TEMP/manager-version-only"
+          test "$(find "$RUNNER_TEMP/manager-version-only/public" -type f | wc -l)" -eq 278
+          test -f "$RUNNER_TEMP/manager-version-only/public/404.html"
+          test ! -e "$RUNNER_TEMP/manager-version-only/public/public"
+          test "$(sha256sum "$RUNNER_TEMP/manager-version-only/cloudflare/src/worker.js" | cut -d' ' -f1)" = 9a9496e2481a03db0c9f1dcaccc89a450d5048f1bad3523ab6454b240a0bc75e
+
   version-only:
-    if: ${{ github.ref == 'refs/heads/main' && inputs.authorization == 'PRIVATE_MANAGER_VERSION_ONLY_NO_DEPLOYMENT' && inputs.reviewed_artifact_sha == 'd17e15dc5080d093efbd84c976f15d612d064bb0' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.authorization == 'PRIVATE_MANAGER_VERSION_ONLY_NO_DEPLOYMENT' && inputs.reviewed_artifact_sha == 'd17e15dc5080d093efbd84c976f15d612d064bb0' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: manager-private-version-only-protected
