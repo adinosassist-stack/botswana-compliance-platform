@@ -48,6 +48,11 @@ def main():
     subdomain=get(f"/accounts/{ACCOUNT}/workers/scripts/{NAME}/subdomain",allow404=True)
     assert subdomain is None or subdomain.get("enabled") is False, "workers.dev subdomain unexpectedly enabled"
     version=get(f"/accounts/{ACCOUNT}/workers/scripts/{NAME}/versions",allow404=True)
+    if a.phase=="before":
+        assert version is not None, ("CLOUDFLARE_FIRST_VERSION_BOOTSTRAP_REQUIRED: target Worker is absent. "
+                                     "Wrangler versions upload cannot initialize a never-deployed Worker. "
+                                     "Do not use wrangler deploy as a workaround; obtain separate review "
+                                     "for Cloudflare Workers API create-Worker plus first undeployed-version procedure.")
     if a.phase=="after":
         assert version is not None, "no uploaded Worker versions found"
         print("VERSION_ONLY_UPLOAD_RECORDED; deployment/route/hostname/subdomain checks PASS")
