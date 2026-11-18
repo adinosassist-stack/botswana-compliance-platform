@@ -94,5 +94,36 @@ class TransportTests(unittest.TestCase):
                 mod.inert_bootstrap(Fake(),pathlib.Path("none"))
         self.assertEqual([x[0] for x in calls],["GET","POST"])
 
+    def test_missing_final_assets_completion_jwt_blocks_version_write(self):
+        calls = []
+        fake_manifest = {f"/asset{i}.html": {"hash": f"{i:032x}", "size": i}
+                         for i in range(278)}
+        expected = fake_manifest["/asset1.html"]["hash"]
+        class Fake:
+            def request(self, method, path, body=None, **kw):
+                calls.append((method, path))
+                if method == "GET":
+                    return []
+                if path.endswith("/workers/workers"):
+                    return {"id": "worker_12345678", "name": mod.NAME, "deployed_on": None,
+                            "subdomain": {"enabled": False, "previews_enabled": False}}
+                if path.endswith("/assets-upload-session"):
+                    return {"jwt": "synthetic-session", "buckets": [[expected]]}
+                if "assets/upload" in path:
+                    return {"status": "accepted", "jwt": None}
+                raise AssertionError("no version upload should occur")
+        with tempfile.TemporaryDirectory() as td:
+            f = pathlib.Path(td) / "asset1.html"
+            f.write_bytes(b"same")
+            fake_files = {expected: f}
+            fake_config = {"vars": {}, "compatibility_date": "2026-09-03",
+                           "assets": {"html_handling":"auto-trailing-slash",
+                                      "not_found_handling":"404-page", "run_worker_first":[]}}
+            prepared = (fake_config, fake_manifest, fake_files, f)
+            with mock.patch.object(mod, "prepare", return_value=prepared):
+                with self.assertRaisesRegex(mod.ProtocolError, "completion JWT"):
+                    mod.inert_bootstrap(Fake(), pathlib.Path(td))
+        self.assertEqual(sum("/versions" in path for _, path in calls), 0)
+
 if __name__=="__main__":
     unittest.main()
