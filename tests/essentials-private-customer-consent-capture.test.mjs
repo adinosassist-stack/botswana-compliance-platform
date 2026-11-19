@@ -108,6 +108,8 @@ test("accepts signed fresh IdP reauthentication and exact frozen quote only once
   assert.equal(consent.identityIssuer, ISSUER);
   assert.equal(consent.quotationSha256, frozenHash);
   assert.equal(consent.consentSubjectId, "customerAuthA");
+  assert.equal(consent.customerIdentityLinkId, "linkA");
+  assert.equal(consent.identitySubjectHmacSha256, "c".repeat(64));
   assert.equal(consent.decision, "accept");
   assert.equal(consent.identitySubjectSha256,
     await digest(encoder.encode(ISSUER + "\u0000" + claims.sub)));
