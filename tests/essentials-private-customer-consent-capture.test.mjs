@@ -65,7 +65,8 @@ function harness(options = {}) {
       ({ ...quote, ...(options.quote ?? {}) }),
     resolveCustomerAccountLink: async input => {
       assert.equal(input.subject, options.subject ?? "customer-subject-A");
-      return options.link ?? { linked: true, consentSubjectId: "customerAuthA" };
+      return options.link ?? { linked: true, consentSubjectId: "customerAuthA",
+        customerIdentityLinkId: "linkA", identitySubjectHmacSha256: "c".repeat(64) };
     },
     commitVerifiedConsent: async record => {
       committed.push(record);
@@ -107,6 +108,8 @@ test("accepts signed fresh IdP reauthentication and exact frozen quote only once
   assert.equal(consent.identityIssuer, ISSUER);
   assert.equal(consent.quotationSha256, frozenHash);
   assert.equal(consent.consentSubjectId, "customerAuthA");
+  assert.equal(consent.customerIdentityLinkId, "linkA");
+  assert.equal(consent.identitySubjectHmacSha256, "c".repeat(64));
   assert.equal(consent.decision, "accept");
   assert.equal(consent.identitySubjectSha256,
     await digest(encoder.encode(ISSUER + "\u0000" + claims.sub)));
@@ -175,6 +178,10 @@ test("expired/changed challenge, revoked or altered quote, unlinked customer, fa
     { quote: { immutableQuotationBytes: encoder.encode("tampered") } },
     { link: { linked: false, consentSubjectId: "customerAuthA" } },
     { link: { linked: true, consentSubjectId: "../malformed" } },
+    { link: { linked: true, consentSubjectId: "customerAuthA",
+        customerIdentityLinkId: "../invalid", identitySubjectHmacSha256: "c".repeat(64) } },
+    { link: { linked: true, consentSubjectId: "customerAuthA",
+        customerIdentityLinkId: "linkA", identitySubjectHmacSha256: "invalid" } },
     { commit: false }
   ]) {
     const h = harness(opts);

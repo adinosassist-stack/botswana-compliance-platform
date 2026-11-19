@@ -106,9 +106,9 @@ CREATE TRIGGER essentials_private_capture_commit AFTER INSERT
     AND ch.quotation_sha256=q.quotation_sha256
     AND ch.actor_user_id=NEW.actor_user_id
     AND ch.nonce_sha256=NEW.nonce_sha256
-    AND ch.issued_at_ms<=(CAST(strftime('%s','now') AS INTEGER)*1000)
-    AND ch.expires_at_ms>(CAST(strftime('%s','now') AS INTEGER)*1000)
-    AND ABS(NEW.accepted_at_ms-(CAST(strftime('%s','now') AS INTEGER)*1000))<=60000;
+    AND ch.issued_at_ms<=(CAST(strftime('%s','now') AS INTEGER)*1000 + CAST(substr(strftime('%f','now'),4,3) AS INTEGER))
+    AND ch.expires_at_ms>(CAST(strftime('%s','now') AS INTEGER)*1000 + CAST(substr(strftime('%f','now'),4,3) AS INTEGER))
+    AND ABS(NEW.accepted_at_ms-(CAST(strftime('%s','now') AS INTEGER)*1000 + CAST(substr(strftime('%f','now'),4,3) AS INTEGER)))<=60000;
   SELECT CASE WHEN changes()<>1 THEN RAISE(ABORT,'capture_guard_rejected') END;
   UPDATE essentials_private_one_time_challenges SET
     state='consumed',consumed_at=NEW.accepted_at

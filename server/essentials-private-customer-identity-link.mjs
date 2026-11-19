@@ -80,7 +80,8 @@ export function createEssentialsPrivateCustomerIdentityLinkResolver({
     });
    }catch{reject()}
    if(current!==true)reject();
-   return Object.freeze({linked:true,consentSubjectId:row.consent_subject_id});
+   return Object.freeze({linked:true,consentSubjectId:row.consent_subject_id,
+     customerIdentityLinkId:row.link_id,identitySubjectHmacSha256:tag});
   }
  });
 }

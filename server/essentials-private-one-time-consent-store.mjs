@@ -31,8 +31,8 @@ export const ESSENTIALS_PRIVATE_LOAD_CHALLENGE_SQL=[
  " ON q.tenant_id=ch.tenant_id AND q.quotation_id=ch.quotation_id",
  "WHERE ch.challenge_id=? AND ch.tenant_id=? AND ch.quotation_id=?",
  " AND ch.actor_user_id=? AND ch.state='pending'",
- " AND ch.issued_at_ms<=(CAST(strftime('%s','now') AS INTEGER)*1000)",
- " AND ch.expires_at_ms>(CAST(strftime('%s','now') AS INTEGER)*1000)",
+ " AND ch.issued_at_ms<=(CAST(strftime('%s','now') AS INTEGER)*1000 + CAST(substr(strftime('%f','now'),4,3) AS INTEGER))",
+ " AND ch.expires_at_ms>(CAST(strftime('%s','now') AS INTEGER)*1000 + CAST(substr(strftime('%f','now'),4,3) AS INTEGER))",
  " AND q.state='accepted' AND q.customer_id=ch.customer_id",
  " AND q.quotation_reference=ch.quotation_reference",
  " AND q.acceptance_version=ch.acceptance_version",
@@ -166,6 +166,7 @@ export function createEssentialsPrivateOneTimeConsentStore({
       ev.acceptanceVersion!==acceptanceVersion||ev.totalMinor!==totalMinor||
       ev.quotationSha256!==quotationSha256||
       ev.consentSubjectId!==consentSubjectId||ev.acceptedAt!==acceptedAt||
+      !ident(ev.customerIdentityLinkId)||!hash(ev.identitySubjectHmacSha256)||
       !hash(ev.challengeNonceSha256)||!hash(ev.identitySubjectSha256)||
       typeof ev.identityIssuer!=="string"||
       !/^https:\/\/[^/\s?#]+/.test(ev.identityIssuer)||

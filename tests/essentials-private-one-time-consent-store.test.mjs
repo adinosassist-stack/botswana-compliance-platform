@@ -48,7 +48,8 @@ function consentArgs(overrides={}){
   challengeId:"challengeA",tenantId:"tenantA",quotationId:"quoteA",
   actorUserId:"actorA",customerId:"customerA",quotationReference:"Q-101",
   acceptanceVersion:2,totalMinor:10000,quotationSha256:quoteHash,
-  consentSubjectId:"customerAuthA",challengeNonceSha256:nonceHash,
+  consentSubjectId:"customerAuthA",customerIdentityLinkId:"linkA",
+  identitySubjectHmacSha256:"c".repeat(64),challengeNonceSha256:nonceHash,
   identitySubjectSha256:"b".repeat(64),identityIssuer:"https://id.example.test",
   reauthenticatedAt:acceptedAt,acceptedAt
  };
@@ -118,7 +119,8 @@ test("tampered bytes, subject, acceptance, total and failed D1 writes are denied
   {consentSha256:"c".repeat(64)}, {customerId:"other"},
   {totalMinor:1}, {consentSubjectId:"other"},
   {immutableConsentBytes:encoder.encode('{"decision":"decline"}')},
-  {acceptedAt:"invalid"}, {quotationSha256:"f".repeat(64)}
+  {acceptedAt:"invalid"}, {quotationSha256:"f".repeat(64)},
+  {immutableConsentBytes:encoder.encode(JSON.stringify({...ev,customerIdentityLinkId:"../invalid"}))}
  ]){
   const h=harness();
   await assert.rejects(h.store.commitVerifiedConsent({...params,...invalid}),
