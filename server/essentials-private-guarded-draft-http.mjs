@@ -111,7 +111,8 @@ export function createEssentialsPrivateGuardedDraftHandler({
      createdAt:new Date().toISOString().slice(0,10)
     });
     if(!result||typeof result.replayed!=="boolean"||
-       !result.invoice||result.invoice.status!=="draft")
+       !result.invoice||result.invoice.status!=="draft"||
+       !validId(result.invoice.id)||!validId(result.invoice.invoiceReference))
      throw Error("invalid_draft_result");
     return respond(result.replayed?200:201,{ok:true,replayed:result.replayed,
      invoice:{id:result.invoice.id??null,status:"draft",
