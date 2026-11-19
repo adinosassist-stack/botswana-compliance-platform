@@ -82,6 +82,22 @@ test("full immutable terms render without HTML injection, private no-store and s
  assert.equal(page.html.includes("radial-gradient("),false);
  assert.equal(page.html.includes(oauthCookie),false);
 });
+test("fragment-ticket customer invitation landing has no tokens in served HTML and no-store CSP",async()=>{
+ const h=make();
+ const r=await h.gateway.handleRequest(new Request(
+  origin+"/private/customer/invitations/inviteA"));
+ assert.equal(r.status,200);
+ assert.equal(r.headers.get("cache-control"),"private, no-store, max-age=0");
+ assert.match(r.headers.get("content-security-policy"),/script-src 'nonce-N{32}'/);
+ const page=await r.text();
+ assert.match(page,/Verify your identity/);
+ assert.match(page,/history.replaceState/);
+ assert.match(page,/location.hash/);
+ assert.match(page,/ticket/);
+ assert.equal(page.includes("Q-101"),false);
+ assert.equal(page.includes("__Host-thebe-consent"),false);
+ assert.equal(h.called.login.length,0);
+});
 test("customer-only POST login issues private redirect with secure oauth cookie",async()=>{
  const h=make();
  const r=await h.gateway.handleRequest(new Request(
@@ -91,8 +107,9 @@ test("customer-only POST login issues private redirect with secure oauth cookie"
     "sec-fetch-site":"same-origin"
    },body:'{"ticket":"valid"}'
   }));
- assert.equal(r.status,303);
- assert.match(r.headers.get("location"),/^https:\/\/idp.private.test\//);
+ assert.equal(r.status,200);
+ assert.equal(r.headers.get("content-type"),"application/json; charset=utf-8");
+ assert.match((await r.json()).authorizationUrl,/^https:\/\/idp.private.test\//);
  assert.match(r.headers.get("set-cookie"),/^__Host-thebe-customer-oauth=/);
  assert.equal(r.headers.get("cache-control"),"private, no-store, max-age=0");
  assert.equal(h.called.login.length,1);
