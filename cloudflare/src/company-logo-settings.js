@@ -108,6 +108,11 @@ export async function handleCompanyLogoRoute({request,env,fetchSession}={}){
  const isMutation=request.method==="PUT"||request.method==="POST";
  if(isMutation&&(!originAllowed(request)||!cleanToken(session.csrfToken,request.headers.get("x-csrf-token"))))
   return json("company_logo_csrf_denied",403);
+ // The portable sanitizer accepts only PNG. JPG/WebP are converted by the
+ // authenticated browser client; raw JPEG/other formats must never reach R2.
+ if(request.method==="POST"&&pathname==="/api/quotation/logo/upload"&&
+    request.headers.get("content-type")?.split(";")[0].trim().toLowerCase()!=="image/png")
+  return json("unsupported_logo_type",415);
  if(isMutation){
   // A staging/production host must provide a rate-limit binding. Fail closed.
   if(typeof env.PUBLIC_RATE_LIMITER?.limit!=="function")return json("company_logo_rate_limit_unavailable",503);
