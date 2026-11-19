@@ -116,7 +116,7 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
  };
  const state=initial===undefined?makeSample():JSON.parse(JSON.stringify(initial));
  let checked=validateQuotationCustomPage(state);
- let logoUrl=null,logoWidth=32,logoX=0,disposed=false;
+ let logoUrl=null,logoWidth=32,logoX=0,disposed=false,logoRevision=0;
  const shell=elt("section","qcp-shell");
  const sidebar=elt("aside","qcp-sidebar"),stage=elt("div","qcp-stage");
  const style=elt("style");style.textContent=css;
@@ -179,12 +179,13 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
   state.termsText=v;refresh();
  },true));
  termsSection.content.append(elt("p","qcp-hint","The sample starts with Lovely Tombstones’ terms. You can edit the wording for this draft."));
- const logoSection=details("Logo sizing and placement");
- const logoField=elt("input");logoField.type="file";logoField.accept="image/png,image/jpeg";
+ const logoSection=details("Logo sizing and placement",true);
+ const logoField=elt("input");logoField.type="file";logoField.accept="image/png,image/jpeg,image/webp";
  logoField.setAttribute("aria-label","Upload company logo");
  const sizeField=elt("input");sizeField.type="range";sizeField.min="15";sizeField.max="50";sizeField.value=String(logoWidth);
  const offsetField=elt("input");offsetField.type="range";offsetField.min="0";offsetField.max="60";offsetField.value=String(logoX);
- logoSection.content.append(label("Logo image (PNG/JPEG)","",()=>{}));
+ logoSection.content.append(elt("p","qcp-hint","PNG, JPG or WebP, max 2 MB. The logo appears in the current preview and printed PDF only; it is not saved to your business account."));
+ logoSection.content.append(label("Logo image for local preview","",()=>{}));
  logoSection.content.lastChild.replaceChildren(elt("span","","Company logo"),logoField);
  logoSection.content.append(label("Logo width (%)","",()=>{}));
  logoSection.content.lastChild.replaceChildren(elt("span","","Logo width (%)"),sizeField);
@@ -193,11 +194,30 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
  logoField.addEventListener("change",()=>{
   const file=logoField.files?.[0];
   if(!file)return;
-  if(!["image/png","image/jpeg"].includes(file.type)||file.size>2*1024*1024){
-   status.textContent="Logo must be PNG/JPEG under 2 MB.";logoField.value="";return;
+  const revision=++logoRevision;
+  if(!["image/png","image/jpeg","image/webp"].includes(file.type)||
+     file.size<32||file.size>2*1024*1024){
+   status.textContent="Choose a PNG, JPG or WebP logo under 2 MB.";logoField.value="";return;
   }
-  if(logoUrl)URL.revokeObjectURL(logoUrl);
-  logoUrl=URL.createObjectURL(file);refresh();
+  const candidate=URL.createObjectURL(file);
+  const probe=new Image();
+  probe.onload=()=>{
+   if(disposed||revision!==logoRevision){URL.revokeObjectURL(candidate);return}
+   if(probe.naturalWidth<30||probe.naturalHeight<20||
+      probe.naturalWidth>5000||probe.naturalHeight>5000){
+    URL.revokeObjectURL(candidate);logoField.value="";
+    status.textContent="Logo dimensions must be 30–5000 px wide and 20–5000 px tall.";return;
+   }
+   if(logoUrl)URL.revokeObjectURL(logoUrl);
+   logoUrl=candidate;refresh();
+   status.textContent="Logo added to this preview and print only. It is not saved to your account.";
+  };
+  probe.onerror=()=>{
+   URL.revokeObjectURL(candidate);
+   if(disposed||revision!==logoRevision)return;
+   logoField.value="";status.textContent="Logo could not be opened. Choose a valid PNG, JPG or WebP image.";
+  };
+  probe.src=candidate;
  });
  sizeField.addEventListener("input",()=>{logoWidth=Number(sizeField.value);refresh()});
  offsetField.addEventListener("input",()=>{logoX=Number(offsetField.value);refresh()});
@@ -317,7 +337,7 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
     "location","discount","items","copy","termsText"])state[key]=JSON.parse(JSON.stringify(incoming[key]));
    // Imported JSON does not contain a logo binary. Clear the previous logo
    // instead of falsely implying the imported quote retained that attachment.
-   if(logoUrl)URL.revokeObjectURL(logoUrl);
+   logoRevision++;if(logoUrl)URL.revokeObjectURL(logoUrl);
    logoUrl=null;logoField.value="";logoWidth=32;logoX=0;
    sizeField.value="32";offsetField.value="0";
    const fields=basic.content.querySelectorAll("input");
@@ -342,7 +362,7 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
  reset.addEventListener("click",()=>{
   const original=makeSample();
   Object.assign(state,original);
-  if(logoUrl)URL.revokeObjectURL(logoUrl);
+  logoRevision++;if(logoUrl)URL.revokeObjectURL(logoUrl);
   logoUrl=null;logoField.value="";logoWidth=32;logoX=0;
   sizeField.value="32";offsetField.value="0";
   // Reset field controls in-place so the caller's editor handle stays valid.
@@ -358,6 +378,6 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
  drawItemInputs();refresh();
  return Object.freeze({
   getDraft(){if(disposed)throw Error("quotation_custom_preview_disposed");return JSON.parse(JSON.stringify(state));},
-  destroy(){disposed=true;if(logoUrl)URL.revokeObjectURL(logoUrl);root.replaceChildren();}
+  destroy(){disposed=true;logoRevision++;if(logoUrl)URL.revokeObjectURL(logoUrl);root.replaceChildren();}
  });
 }

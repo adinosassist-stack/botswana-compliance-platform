@@ -187,3 +187,29 @@ test("invalid JSON import does not mutate current quotation",async()=>{
   assert.deepEqual(await page.evaluate(()=>window.editor.getDraft()),before);
  }finally{await context.close()}
 });
+
+
+test("logo chooser accepts a browser PNG preview, rejects corrupt image and never claims account persistence",async()=>{
+ const {context,page}=await open({width:390,height:844});
+ try{
+  const logoFile=page.locator('input[aria-label="Upload company logo"]');
+  assert.ok(await logoFile.isVisible(),"Logo chooser should be expanded and discoverable");
+  const base64=await page.evaluate(()=>{
+   const canvas=document.createElement("canvas");
+   canvas.width=120;canvas.height=60;
+   canvas.getContext("2d").fillRect(0,0,120,60);
+   return canvas.toDataURL("image/png").split(",")[1];
+  });
+  await logoFile.setInputFiles({name:"company.png",mimeType:"image/png",buffer:Buffer.from(base64,"base64")});
+  await page.waitForFunction(()=>document.querySelectorAll(".qcp-brand img").length===2);
+  assert.match(await page.locator(".qcp-status").innerText(),/not saved to your account/);
+  assert.equal(await page.locator(".qcp-brand img").count(),2);
+  const draft=await page.evaluate(()=>window.editor.getDraft());
+  assert.equal(JSON.stringify(draft).includes("data:image"),false,"Logo bytes must not leak into JSON draft");
+  await logoFile.setInputFiles({name:"corrupt.jpg",mimeType:"image/jpeg",buffer:Buffer.alloc(100,42)});
+  await page.waitForFunction(()=>document.querySelector(".qcp-status").textContent.includes("could not be opened"));
+  assert.equal(await page.locator(".qcp-brand img").count(),2,"Failed replacement must not clear existing preview");
+  await page.getByRole("button",{name:"Reset sample"}).click();
+  assert.equal(await page.locator(".qcp-brand img").count(),0,"Reset clears local object URL");
+ }finally{await context.close()}
+});
