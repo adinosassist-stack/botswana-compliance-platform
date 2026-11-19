@@ -1,0 +1,24 @@
+# Essentials private tenant-actor session store — source-only candidate
+
+**UNMOUNTED. ISOLATED STAGING SCHEMA ONLY. NOT A REAL CUSTOMER LOGIN OR CONSENT SERVICE.**
+
+This follows #2703's source-only confidential OIDC exchange, and fills one missing callback dependency of #2697 (active browser session) and #2701 (current session check). The session represents a **separately authenticated Thebe Desk TENANT ACTOR**, not the external customer who must independently complete OIDC authentication, verified customer-account ownership and explicit acceptance.
+
+## Trusted lifecycle
+
+- A private host must independently authenticate the tenant actor and obtain a fresh, server-origin **grant** carrying tenant ID, actor ID, unique grant ID and grant expiration. This module cannot verify that a browser-supplied grant is real. `verifyCurrentActorGrant` is a required independent authoritative callback, invoked before issuing any session, on each current-session read, and additionally for the exact `oidc-begin` / `oidc-complete` operation. It must validate current roles, grants, revocation, tenant/branch assignment and issuer of the grant. Never treat a D1 row or a browser claim as proof.
+- `issueSession` generates independent 256-bit random opaque session-cookie and CSRF secrets using a host-provided cryptographic random generator. The D1 candidate stores only SHA-256 digests, the grant/tenant/actor binding and time limits; the raw token and CSRF secret are never stored in SQL. Duplicate grants and tokens fail closed. The trusted host sends `Set-Cookie: __Host-thebe-consent=...; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=...` only over HTTPS and delivers the CSRF secret inside a same-origin authenticated page, never a URL or log. Responses must use `Cache-Control: no-store`. The Lax policy accommodates an OIDC cross-site **GET** callback while the consent action separately requires same-origin POST and CSRF.
+- Session lifetime is the lesser of 10 minutes and the original grant expiration, without sliding renewals. Renewal must require a new independently authenticated grant; do not extend stale roles by extending cookie TTL.
+- `loadActiveSession({sessionKeyHash})` uses the actual DB row, both authoritative D1 millisecond and host clocks, irreversible revoked state and fresh independent actor grant review. It returns tenant/actor IDs and CSRF hash **only** after these checks. It is compatible with #2697's injected server-session callback. `verifyActiveSession` additionally checks the exact actor/tenant and permitted OIDC operation for #2701.
+- `revokeSession` requires a separate `authorizeSessionRevocation` trusted-host callback (server-side authenticated logout or administrator). Its single guarded UPDATE returns the session identifier only if the active exact actor and tenant match. Database triggers prevent changing historical session identity, deleting records or reversing a revocation. Stale/expired sessions fail read even without a revocation write.
+- The key hash is not a session password; the original high-entropy raw cookie must be private to the user agent and host. Client-provided tenant/actor/permission strings never authorize account identity.
+
+## Offline verification
+
+Node tests exercise default-off staging gate, independent token generation, cookie flags, SHA-256 storage, current actor grant denial and revocation, OIDC begin/complete operation checks, duplicate issuance, wrong-actor revocation, rejected malformed credentials and expired session. A separate in-memory SQLite test executes the actual exported JavaScript SQL, verifying unique grants/tokens, dual-clock expiry, current session read, tenant/actor-specific revocation and irreversible audit status. Both run through Essentials offline CI.
+
+## Remaining launch gates
+
+The following still **do not exist as operational qualified services**: actual Thebe Desk actor authentication/grant issuance, host HTTPS session/callback routes, private resource binding, secure state/nonce and challenge persistence, real IdP registration and OIDC identity verification, independently provisioned real customer-to-Finance-account ownership, customer-visible quote terms and explicit acceptance, production-ready client-key custody, session/revocation privacy retention and approved cleanup, and real end-to-end staging proof. This source does not authorize access to live users.
+
+**DO NOT execute the candidate SQL, deploy a Worker, set a cookie on production, activate consent, or alter Finance/Cloudflare.** Source merge requires complete current-SHA CI and independent formal `thusico` approval. Separate owner and reviewer exact-D1/SQL/Worker/identity-provider approvals plus backup/recovery acceptance are mandatory before protected staging execution; production approval is distinct.
