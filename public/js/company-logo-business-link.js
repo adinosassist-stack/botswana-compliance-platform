@@ -22,7 +22,7 @@
   if(hero)hero.insertAdjacentElement("afterend",block);
   else root.prepend(block);
  }
- const schedule=()=>{if(!scheduled){scheduled=true;requestAnimationFrame(insert)}};
+ const schedule=()=>{if(document.getElementById(marker))return;if(!scheduled){scheduled=true;requestAnimationFrame(insert)}};
  async function start(){
   try{
    const r=await fetch("/__thebe_api/auth/me",{credentials:"same-origin",cache:"no-store",redirect:"error"});
