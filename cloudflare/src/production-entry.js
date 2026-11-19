@@ -4,6 +4,28 @@ import worker from "./worker.js";
 import {handleAgenticRequest} from "./agentic-core.js";
 import {durableRegistrationChallengeGate,registrationClientIp,registrationProofSecret,validateAndClaimRegistrationProof} from "./registration-boundary.js";
 
+/**
+ * The first-party Worker validates the cookie, active tenant membership and
+ * current role. Never infer permission from a client-supplied role or header.
+ * Called only for feature-enabled, private-bucket-backed workspace documents.
+ */
+async function companyLogoWorkspaceMemberAllowed(request,env,ctx){
+ const headers=new Headers();
+ for(const name of ["cookie","origin"]){
+  const value=request.headers.get(name);
+  if(value!==null)headers.set(name,value);
+ }
+ try{
+  const url=new URL("/__thebe_api/auth/me",request.url);
+  const response=await worker.fetch(new Request(url,{headers}),env,ctx);
+  if(!response?.ok)return false;
+  const session=await response.json();
+  return !!session?.user&&
+   ["owner","manager"].includes(session.user.role)&&
+   !session.landingPath&&typeof session.user.tenantId==="string";
+ }catch{return false}
+}
+
 /** Attach discoverable Business logo action only after separate activation. */
 function injectCompanyLogoBusinessLink(html){
  const source=String(html||"");
@@ -555,8 +577,10 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
   const workspaceSurface=path==="/"||path==="/app"||path==="/app/";
   const surfaceHtml=workspaceSurface?externalizeWorkspaceViews(externalizeWorkspaceHeadStyles(externalizeWorkspaceRuntime(baseHtml))):baseHtml;
   const repaired=workspaceSurface?injectOwnerCommandCentreAssets(surfaceHtml):publicSurface?injectPublicThebeAssets(surfaceHtml):surfaceHtml;
-  const withCompanyLogo=workspaceSurface&&env?.THEBE_COMPANY_LOGO_ENABLED==="true"&&
-    typeof env?.COMPANY_LOGOS?.get==="function"?injectCompanyLogoBusinessLink(repaired):repaired;
+  const canShowCompanyLogo=workspaceSurface&&env?.THEBE_COMPANY_LOGO_ENABLED==="true"&&
+    typeof env?.COMPANY_LOGOS?.get==="function"&&
+    await companyLogoWorkspaceMemberAllowed(request,env,ctx);
+  const withCompanyLogo=canShowCompanyLogo?injectCompanyLogoBusinessLink(repaired):repaired;
   if(withCompanyLogo===html)return response;
   const headers=new Headers(response.headers);
   headers.set("x-thebe-csp-meta","server-header-authoritative");
