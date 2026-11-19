@@ -4,6 +4,16 @@ import worker from "./worker.js";
 import {handleAgenticRequest} from "./agentic-core.js";
 import {durableRegistrationChallengeGate,registrationClientIp,registrationProofSecret,validateAndClaimRegistrationProof} from "./registration-boundary.js";
 
+/** Attach discoverable Business logo action only after separate activation. */
+function injectCompanyLogoBusinessLink(html){
+ const source=String(html||"");
+ if(source.includes("/js/company-logo-business-link.js"))return source;
+ const markup='<link rel="stylesheet" href="/assets/company-logo-business-link.css">'+
+  '<script defer src="/js/company-logo-business-link.js"></script>';
+ const end=source.toLowerCase().lastIndexOf("</body>");
+ return end>=0?source.slice(0,end)+markup+source.slice(end):source+markup;
+}
+
 const TURNSTILE_ORIGIN="https://challenges.cloudflare.com";
 const TURNSTILE_VERIFY_URL=`${TURNSTILE_ORIGIN}/turnstile/v0/siteverify`;
 const LEGACY_TURNSTILE_CONFIGURATION_ERROR="turnstile_configuration_error";
@@ -545,7 +555,9 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
   const workspaceSurface=path==="/"||path==="/app"||path==="/app/";
   const surfaceHtml=workspaceSurface?externalizeWorkspaceViews(externalizeWorkspaceHeadStyles(externalizeWorkspaceRuntime(baseHtml))):baseHtml;
   const repaired=workspaceSurface?injectOwnerCommandCentreAssets(surfaceHtml):publicSurface?injectPublicThebeAssets(surfaceHtml):surfaceHtml;
-  if(repaired===html)return response;
+  const withCompanyLogo=workspaceSurface&&env?.THEBE_COMPANY_LOGO_ENABLED==="true"&&
+    typeof env?.COMPANY_LOGOS?.get==="function"?injectCompanyLogoBusinessLink(repaired):repaired;
+  if(withCompanyLogo===html)return response;
   const headers=new Headers(response.headers);
   headers.set("x-thebe-csp-meta","server-header-authoritative");
   headers.set("x-thebe-favicon","optimized-512");
@@ -558,10 +570,11 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
     headers.set("x-thebe-property-ui","v230-resident-visible-command-center");
   }
   if(workspaceSurface||publicSurface)headers.set("x-thebe-ai-dock",THEBE_AI_DOCK_RELEASE);
-  return new Response(repaired,{status:response.status,statusText:response.statusText,headers});
+  return new Response(withCompanyLogo,{status:response.status,statusText:response.statusText,headers});
 }
 
 export {
+  injectCompanyLogoBusinessLink,
   createRegistrationProofChallenge,
   injectFirstPartyRegistrationClient,
   injectLogoFavicon,
