@@ -182,7 +182,7 @@ test("business navigation is feature-and-bucket gated; static branding links do 
  assert.match(entry,/COMPANY_LOGOS\?\.get/);
  assert.match(link,/businesshub/);
  assert.match(entry,/companyLogoWorkspaceMemberAllowed/);
- assert.doesNotMatch(link,/\\bfetch\\s*\\(/);
+ assert.doesNotMatch(link,/\bfetch\s*\(/);
  assert.match(link,/company-logo\/"/);
  assert.doesNotMatch(link,/localStorage|sessionStorage/);
  assert.doesNotMatch(html,/document\.cookie|localStorage|sessionStorage/);
