@@ -33,6 +33,7 @@ function harness({allowFreeze=true,allowReview=true,active=true,zeroWrites=false
  const db={prepare(sql){return {bind(...args){
   state.queries.push({sql,args});
   return {
+   sql,args,
    async first(){
     if(sql===READ_QUOTE){
      if(!state.quotes||!state.terms)return null;
