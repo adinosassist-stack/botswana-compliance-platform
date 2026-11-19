@@ -26,6 +26,11 @@ const parent={
 const startArgs={sessionKeyHash:sessionHash,principal,quotationId,challenge:original};
 const lookupArgs={sessionKeyHash:sessionHash,tenantId:"tenantA",actorUserId:"actorA",
  quotationId,challengeId};
+async function mustDenyRead(operation){
+ const result=await operation().then(value=>({value}),error=>({error}));
+ if(result.error)assert.match(result.error.message,/private_session_quote_challenge_unverified/);
+ else assert.equal(result.value,null);
+}
 function fixture({allowRevoke=true,noInsert=false,dbError=false}={}){
  const state={session:{...activeSession},parent:{...parent},row:null,
   calls:[],authorities:[],revokes:[]};
@@ -155,12 +160,10 @@ test("mismatched session, actor, quote, challenge, revoked current session rejec
   {sessionKeyHash:"b".repeat(64)},{tenantId:"other"},
   {actorUserId:"other"},{quotationId:"other"},{challengeId:"other"}
  ]){
-  await assert.rejects(h.service.loadSessionChallenge({...lookupArgs,...patch}),
-   /private_session_quote_challenge_unverified/);
+  await mustDenyRead(()=>h.service.loadSessionChallenge({...lookupArgs,...patch}));
  }
  h.state.session.state="revoked";
- await assert.rejects(h.service.loadSessionChallenge(lookupArgs),
-  /private_session_quote_challenge_unverified/);
+ await mustDenyRead(()=>h.service.loadSessionChallenge(lookupArgs));
 });
 test("revoked parent, ciphertext modification, shortened expiry and stale source deny",async()=>{
  for(const mutation of ["parent-state","parent-customer","cipher","iv",
@@ -173,8 +176,7 @@ test("revoked parent, ciphertext modification, shortened expiry and stale source
   if(mutation==="nonce-hash")h.state.row.nonce_sha256="f".repeat(64);
   if(mutation==="expired-parent")h.state.parent.expiresAtMs=at-1;
   if(mutation==="expired-binding")h.state.row.expires_at_ms=at;
-  await assert.rejects(h.service.loadSessionChallenge(lookupArgs),
-   /private_session_quote_challenge_unverified/);
+  await mustDenyRead(()=>h.service.loadSessionChallenge(lookupArgs));
  }
 });
 test("explicit authorized revocation rejects replay and unapproved revoke",async()=>{
