@@ -18,7 +18,7 @@ FREEZE,TERMS,ASSERT,READ,INSERT_OFFER,READ_OFFER=json.loads(subprocess.check_out
  ["node","--input-type=module","-e",JS],text=True))
 assert [x.count("?") for x in [FREEZE,TERMS,ASSERT,READ,INSERT_OFFER,READ_OFFER]]==[10,10,5,3,12,7]
 schemas=[
- "essentials_private_consent_authority_STAGING_CANDIDATE.sql",
+ "essentials_private_customer_only_baseline_STAGING_CANDIDATE.sql",
  "essentials_private_customer_identity_links_STAGING_CANDIDATE.sql",
  "essentials_private_verified_customer_sessions_STAGING_CANDIDATE.sql",
  "essentials_private_frozen_terms_customer_review_STAGING_CANDIDATE.sql",
