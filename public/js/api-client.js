@@ -294,6 +294,52 @@
       }
       throw lastError||new ApiError("Request failed",{requestId});
     }
+    /**
+     * Bounded same-origin raw-response transport for authenticated binary APIs.
+     * This is the ONLY browser module permitted to make real fetch calls.
+     * GET may probe transports; mutations send once to the last verified route.
+     * The consumer must enforce its own streamed response size/mime bounds.
+     */
+    async function requestRaw(url,options={}){
+      const logicalTarget=apiUrl(url),method=String(options.method||"GET").toUpperCase();
+      if(!["GET","HEAD","POST","PUT","PATCH","DELETE"].includes(method))
+        throw new ApiError("Unsupported upload method.",{code:"invalid_api_method"});
+      const idempotent=method==="GET"||method==="HEAD";
+      const attempts=idempotent?transportCandidates(logicalTarget):[
+        {name:preferredTransport,url:transportApiUrl(logicalTarget,preferredTransport)}
+      ];
+      const timeout=options.timeoutMs==null?timeoutMs:
+        Math.max(1000,Math.min(120000,Number(options.timeoutMs)||timeoutMs));
+      const headers=new Headers(options.headers||{});
+      if(!headers.has("accept"))headers.set("accept","application/json, image/png, application/pdf");
+      if(!idempotent){
+        const csrf=String(getCsrfToken()||"");
+        if(csrf)headers.set("x-csrf-token",csrf);
+      }
+      let firstError=null;
+      for(let index=0;index<attempts.length;index++){
+        const candidate=attempts[index],controller=new AbortController();
+        const timer=setTimeout(()=>controller.abort("timeout"),timeout);
+        const optionsRaw={method,headers,body:options.body,
+          credentials:"same-origin",cache:"no-store",redirect:"error",signal:controller.signal};
+        try{
+          const response=await fetch(candidate.url,optionsRaw);
+          if(idempotent&&transportRouteRejected(response)&&index<attempts.length-1){
+            try{await response.body?.cancel?.()}catch{}
+            continue;
+          }
+          preferredTransport=candidate.name;
+          if(response.status===401)try{onUnauthorized()}catch{}
+          return response;
+        }catch(error){
+          if(!firstError)firstError=error;
+          if(!idempotent||index===attempts.length-1)break;
+        }finally{clearTimeout(timer)}
+      }
+      throw new ApiError(firstError?.name==="AbortError"?"Binary request timed out.":"Secure same-origin request failed.",{
+       code:firstError?.name==="AbortError"?"timeout":"network_error"
+      });
+    }
     async function uploadPresigned(url,{body,contentType="application/octet-stream",timeout=timeoutMs}={}){
       const target=uploadUrl(url),controller=new AbortController(),timer=setTimeout(()=>controller.abort("timeout"),timeout);
       try{
@@ -306,7 +352,7 @@
         throw err;
       }finally{clearTimeout(timer)}
     }
-    return Object.freeze({request,uploadPresigned});
+    return Object.freeze({request,requestRaw,uploadPresigned});
   }
   global.BW=global.BW||{};global.BW.api=Object.freeze({ApiError,createClient});
 })(window);
