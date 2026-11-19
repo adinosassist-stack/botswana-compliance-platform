@@ -8,6 +8,8 @@ on:
       - 'public/js/essentials-*.mjs'
       - 'tests/essentials-*.test.mjs'
       - 'tests/essentials_d1_schema_sqlite.py'
+      - 'tests/essentials_accepted_quotation_sqlite.py'
+      - 'cloudflare/migrations/essentials_accepted_quotation_snapshots_STAGING_CANDIDATE.sql'
       - 'tests/fixtures/essentials_d1_synthetic_dependencies_STAGING_ONLY.sql'
       - 'cloudflare/migrations/essentials_invoice_drafts_STAGING_ONLY.sql'
       - '.github/workflows/essentials-offline.yml'
@@ -32,4 +34,6 @@ jobs:
         run: |
           node --test tests/essentials-*.test.mjs tests/project-job-costing-preview.test.mjs
       - name: Qualify additive draft D1 schema using SQLite
-        run: python3 tests/essentials_d1_schema_sqlite.py
+        run: |
+          python3 tests/essentials_d1_schema_sqlite.py
+          python3 tests/essentials_accepted_quotation_sqlite.py
