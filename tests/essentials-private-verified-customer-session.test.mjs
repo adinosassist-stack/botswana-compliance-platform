@@ -166,7 +166,7 @@ test("unverified browser callback, missing invitation and withdrawn ownership fa
  for(const opts of [{allowCallback:false},{currentInvitation:false},
    {allowOwnership:false}]){
   const h=fixture(opts);
-  await deny(()=>h.service.issueVerifiedCustomerSession({
+  await deny(async()=>h.service.issueVerifiedCustomerSession({
    invitationId:"inviteA",idToken:await idToken()
   }));
   assert.equal(h.state.batch.length,0);
@@ -175,7 +175,7 @@ test("unverified browser callback, missing invitation and withdrawn ownership fa
 test("SQL rollback and replay fail closed, never issue half-baked session",async()=>{
  for(const opts of [{batchFailure:true},{zeroRow:true}]){
   const h=fixture(opts);
-  await deny(()=>h.service.issueVerifiedCustomerSession({
+  await deny(async()=>h.service.issueVerifiedCustomerSession({
    invitationId:"inviteA",idToken:await idToken()
   }));
   assert.equal(h.state.row,null);
