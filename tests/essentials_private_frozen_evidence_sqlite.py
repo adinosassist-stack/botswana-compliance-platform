@@ -25,13 +25,13 @@ def qinsert(q, customer="customerA", reference="Q-100", amount=10000):
  total_minor,quotation_sha256,immutable_quotation_bytes,frozen_by_actor_user_id,frozen_at)
  VALUES (?,?,?,?,?,?,?,?,?,?)""",
  (tenant,q,customer,reference,2,amount,hq,qbytes,actor,"2026-11-19T09:00:00Z"))
-def cinsert(q, customer="customerA", reference="Q-100",amount=10000):
+def cinsert(q, customer="customerA", reference="Q-100",amount=10000,subject="verified-customer-subject-a"):
  db.execute("""INSERT INTO essentials_private_verified_consents
  (tenant_id,quotation_id,customer_id,quotation_reference,acceptance_version,
  total_minor,quotation_sha256,consent_sha256,immutable_consent_bytes,
  consent_subject_id,actor_user_id,accepted_at)
  VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
- (tenant,q,customer,reference,2,amount,hq,hc,cbytes,"verified-customer-subject-a",actor,
+ (tenant,q,customer,reference,2,amount,hq,hc,cbytes,subject,actor,
  "2026-11-19T09:00:00Z"))
 def read(q,who=actor,company=tenant):
  db.row_factory=sqlite3.Row
@@ -56,7 +56,6 @@ qinsert("quoteD",customer="customerA");cinsert("quoteD",customer="customerB")
 assert read("quoteD") is None
 qinsert("quoteE");cinsert("quoteE",reference="Q-OTHER")
 assert read("quoteE") is None
-qinsert("quoteF");cinsert("quoteF")
-db.execute("UPDATE essentials_private_verified_consents SET consent_subject_id='' WHERE quotation_id='quoteF'")
+qinsert("quoteF");cinsert("quoteF",subject="")
 assert read("quoteF") is None
 print("PASS: real joined D1 source query rejects revoked, cross-tenant, wrong actor, missing subject and money/customer/reference mismatch")
