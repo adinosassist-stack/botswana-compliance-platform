@@ -68,7 +68,7 @@ test("invoice-number and source uniqueness, transport failure never recover",asy
   Error("D1 connection failure")
  ]){
   const h=harness({rows:[null,existing()],error});
-  await assert.rejects(insertOrReplayAcceptedEssentialsDraft(args(h.db)),new RegExp(error.message.replace(/[.*+?^$\{\}()|[\]\\]/g,"\\$&")));
+  await assert.rejects(insertOrReplayAcceptedEssentialsDraft(args(h.db)),e=>e.message===error.message);
   assert.equal(h.stats().reads,1);
  }
 });
