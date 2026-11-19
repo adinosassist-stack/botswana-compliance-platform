@@ -48,6 +48,7 @@ CREATE TRIGGER essentials_private_customer_invite_issue_assert
    AND i.state='pending' AND i.nonce_sha256 IS NOT NULL
    AND x.issued_at_ms=NEW.issued_at_ms AND i.issued_at_ms=x.issued_at_ms
    AND i.expires_at_ms=x.expires_at_ms
+   AND x.expires_at_ms>(CAST(strftime('%s','now') AS INTEGER)*1000 + CAST(substr(strftime('%f','now'),4,3) AS INTEGER))
    AND l.tenant_id=i.tenant_id AND l.customer_id=i.customer_id
    AND l.state='active' AND l.expires_at_ms>x.issued_at_ms
    AND q.state='accepted' AND q.customer_id=i.customer_id
