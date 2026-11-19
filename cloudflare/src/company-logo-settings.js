@@ -64,7 +64,7 @@ function page(){
  <section id="company-logo-status" role="status" aria-live="polite">Verifying your workspace…</section>
  <section id="company-logo-editor" aria-label="Upload and position your company logo"></section>
  <p class="cls-note">Your logo is saved privately to your business account once you select <strong>Save company logo</strong>. Invoice and quotation PDF integration will appear after separate release qualification.</p>
- </main><script type="module" src="/js/company-logo-settings.mjs"></script></body></html>`;
+ </main><script defer src="/js/api-client.js"></script><script type="module" src="/js/company-logo-settings.mjs"></script></body></html>`;
  return new Response(html,{status:200,headers:{
   "content-type":"text/html; charset=utf-8","cache-control":"no-store",
   "x-content-type-options":"nosniff","x-frame-options":"DENY",
