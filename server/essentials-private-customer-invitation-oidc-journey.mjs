@@ -128,7 +128,7 @@ function validUrl(x){
  if(typeof x!=="string"||x.length>500)deny();
  let u;try{u=new URL(x)}catch{deny()}
  if(u.protocol!=="https:"||u.username||u.password||u.hash||u.search||
-    u.href!==x)deny();
+    (u.href!==x&&u.origin!==x))deny();
  return u;
 }
 function safeString(x){
@@ -154,12 +154,15 @@ async function encrypt(subtle,key,plaintext,aad,randomBytes){
  return {iv:Array.from(iv),cipher:Array.from(ct)};
 }
 async function decrypt(subtle,key,iv,cipher,aad){
- if(!Array.isArray(iv)||iv.length!==12||
-    !Array.isArray(cipher)||cipher.length<17||cipher.length>256)deny();
+ const a=iv instanceof Uint8Array?iv:iv instanceof ArrayBuffer?
+  new Uint8Array(iv):Array.isArray(iv)?Uint8Array.from(iv):null;
+ const b=cipher instanceof Uint8Array?cipher:cipher instanceof ArrayBuffer?
+  new Uint8Array(cipher):Array.isArray(cipher)?Uint8Array.from(cipher):null;
+ if(!a||a.length!==12||!b||b.length<17||b.length>256)deny();
  let raw;try{raw=new Uint8Array(await subtle.decrypt({
-  name:"AES-GCM",iv:Uint8Array.from(iv),
+  name:"AES-GCM",iv:a,
   additionalData:aad,tagLength:128
- },key,Uint8Array.from(cipher)))}catch{deny()}
+ },key,b))}catch{deny()}
  let text;try{text=td.decode(raw)}catch{deny()}finally{raw.fill(0)}
  return text;
 }
@@ -447,8 +450,11 @@ export function createEssentialsPrivateCustomerInviteOidcJourney({
      typeof issued.setCookie!=="string"||
      !/^__Host-thebe-customer=[A-Za-z0-9_-]{43}; Secure; HttpOnly; SameSite=Lax; Path=\/; Max-Age=\d+$/.test(issued.setCookie)||
      !TOKEN(issued.csrfToken))deny();
+   const lifetime=Math.max(1,Math.floor((issued.expiresAtMs-at)/1000));
    return Object.freeze({
-    customerSetCookie:issued.setCookie,csrfToken:issued.csrfToken,
+    customerSetCookie:issued.setCookie,
+    csrfSetCookie:"__Host-thebe-customer-csrf="+issued.csrfToken+
+     "; Secure; SameSite=Strict; Path=/; Max-Age="+lifetime,
     oauthClearCookie:COOKIE+
       "=; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
     invitationId:row.invitation_id,quotationId:scope.quotationId
