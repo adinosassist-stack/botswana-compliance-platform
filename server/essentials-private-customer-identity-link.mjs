@@ -23,7 +23,7 @@ function verifyIssuer(value) {
  try{
   const u=new URL(value);
   return u.protocol==="https:"&&!u.username&&!u.password&&
-    !u.search&&!u.hash&&u.href===value;
+    !u.search&&!u.hash&&(u.href===value||u.origin===value);
  }catch{return false}
 }
 export function createEssentialsPrivateCustomerIdentityLinkResolver({
