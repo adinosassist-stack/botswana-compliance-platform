@@ -20,6 +20,8 @@ WHERE a.tenant_id=? AND a.quotation_id=? AND a.customer_id=?
  AND json_extract(?, '$.sourceQuotationReference')=a.quotation_reference
  AND json_extract(?, '$.totalMinor')=a.total_minor
  AND json_extract(?, '$.status')='draft'
+ AND json_extract(?, '$.invoiceReference')=?
+ AND json_extract(?, '$.currency')='BWP'
 `.trim();
 
 export async function insertAcceptedEssentialsDraftGuarded({
@@ -50,7 +52,8 @@ export async function insertAcceptedEssentialsDraftGuarded({
   record.id,record.idempotencyKey,record.invoiceNumber,payload,record.createdByUserId,
   record.tenantId,record.sourceQuotationId,record.customerId,
   sourceQuotationReference,acceptanceVersion,draft.totalMinor,
-  payload,payload,payload,payload,payload,payload
+  payload,payload,payload,payload,payload,payload,
+  payload,record.invoiceNumber,payload
  ).run();
  if(result?.success!==true||result.meta?.changes!==1)
   throw Error("acceptance_stale_or_unverified");
