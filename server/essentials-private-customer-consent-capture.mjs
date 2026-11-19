@@ -209,6 +209,8 @@ export function createEssentialsPrivateCustomerConsentCapture({
         challengeId, challengeNonceSha256: nonceHash,
         identityIssuer: issuer, identitySubjectSha256: subjectHash,
         consentSubjectId: account.consentSubjectId,
+        customerIdentityLinkId: account.customerIdentityLinkId,
+        identitySubjectHmacSha256: account.identitySubjectHmacSha256,
         reauthenticatedAt: new Date(identity.auth_time * 1000).toISOString()
           .replace(/\.000Z$/, "Z"),
         acceptedAt, decision: "accept"
