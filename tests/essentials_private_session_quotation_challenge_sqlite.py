@@ -61,7 +61,7 @@ def setup(*, expired_session=False,revoked_session=False,
    nonce_sha256,issued_at_ms,expires_at_ms)
    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
    ("challengeA","tenantA","quoteA","customerA","actorA","Q-101",2,10000,
-    QHASH,NONCE_SHA,AT-1000,AT-1 if expired_challenge else AT+300000))
+    QHASH,NONCE_SHA,AT-1000,AT-1 if expired_challenge else AT+299000))
  if revoked_challenge:
   db.execute("""UPDATE essentials_private_one_time_challenges
     SET state='revoked' WHERE challenge_id='challengeA'""")
