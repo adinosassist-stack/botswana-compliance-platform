@@ -122,7 +122,8 @@ export function createEssentialsPrivateConsentRequestBoundary({
         current.customerId!==bound.customerId||
         current.quotationId!==quotationId||
         current.nonce!==bound.nonce||
-        current.expiresAtMs>bound.expiresAtMs)reject();
+        !Number.isSafeInteger(current.expiresAtMs)||
+        current.expiresAtMs<bound.expiresAtMs)reject();
      return current;
     }
    });
