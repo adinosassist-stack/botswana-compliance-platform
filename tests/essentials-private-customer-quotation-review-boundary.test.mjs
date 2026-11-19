@@ -120,7 +120,7 @@ test("customer cannot accept before getting full current frozen quote and server
  assert.deepEqual(validated,{
   role:"customer",tenantId:"tenantA",customerId:"customerA",
   quotationId:"quoteA",customerIdentityLinkId:"linkA",
-  sessionKeyHash,presentationId:"offerA",
+  sessionKeyHash:sessionHash,presentationId:"offerA",
   confirmedQuoteSha256:quoteHash,confirmedTermsSha256:termsHash,
   confirmedTotalMinor:10000,confirmedAcceptanceVersion:2,
   decision:"accept",explicitlyAccepted:true
