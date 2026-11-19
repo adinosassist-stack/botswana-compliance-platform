@@ -48,7 +48,7 @@ function checkedRecord(a){
     !fields.every(k=>Object.hasOwn(a,k))||
     !HEX(a.stateSha256)||!HEX(a.sessionKeyHash)||!HEX(a.nonceSha256)||
     ![a.tenantId,a.actorUserId,a.quotationId,a.challengeId,a.customerId]
-      .every(ID)||!ID(a.clientId)||
+      .every(ID)||!/^[A-Za-z0-9._~:-]{1,128}$/.test(a.clientId)||
     ![a.issuer,a.redirectUri,a.tokenEndpoint].every(x=>
       typeof x==="string"&&x.length>=10&&x.length<=500&&x.startsWith("https://"))||
     !Number.isSafeInteger(a.issuedAtMs)||!Number.isSafeInteger(a.expiresAtMs)||
