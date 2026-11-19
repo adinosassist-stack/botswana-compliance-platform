@@ -6,9 +6,10 @@
  * Replays only an existing identical draft for the same actor, tenant,
  * customer and quotation. A revoked/stale acceptance cannot be bypassed by
  * this module: every request must first pass caller's current acceptance
- * verification. Database INSERT still verifies acceptance in the same write.
+ * verification. The replay SELECT itself also checks the accepted snapshot
+ * status/version, tenant/customer/reference/total in the same D1 statement.
+ * Database INSERT still verifies acceptance in the same write.
  */
-import {findEssentialsDraftByKeyD1} from "./essentials-d1-draft-repository.mjs";
 import {insertAcceptedEssentialsDraftGuarded} from "./essentials-accepted-quotation-guard.mjs";
 
 const valid=x=>typeof x==="string"&&/^[A-Za-z0-9_-]{1,100}$/.test(x);
@@ -59,9 +60,30 @@ export async function insertOrReplayAcceptedEssentialsDraft({
     !valid(sourceQuotationReference)||
     record.draft?.sourceQuotationReference!==sourceQuotationReference)
   throw Error("acceptance_version_unverified");
- const read=()=>findEssentialsDraftByKeyD1({
-  db,tenantId:principal.tenantId,idempotencyKey:record.idempotencyKey
- });
+ const read=async()=>{
+  // Do not replay a previously saved draft if acceptance was revoked,
+  // versioned out or mismatches current trusted quotation evidence.
+  // Query eligibility and the draft row in ONE D1 SELECT statement.
+  const row=await db.prepare(`
+   SELECT d.id,d.tenant_id,d.customer_id,d.source_quotation_id,
+    d.invoice_number,d.status,d.created_by_user_id,d.draft_payload_json
+   FROM essentials_invoice_drafts AS d
+   JOIN essentials_accepted_quotation_snapshots AS a
+    ON a.tenant_id=d.tenant_id AND a.quotation_id=d.source_quotation_id
+   WHERE d.tenant_id=? AND d.idempotency_key=? AND d.source_quotation_id=?
+    AND d.customer_id=? AND a.state='accepted'
+    AND a.acceptance_version=? AND a.quotation_reference=?
+    AND a.total_minor=? AND a.customer_id=d.customer_id
+   LIMIT 1
+  `).bind(principal.tenantId,record.idempotencyKey,record.sourceQuotationId,
+   record.customerId,acceptanceVersion,sourceQuotationReference,
+   record.draft.totalMinor).first();
+  if(!row)return null;
+  return Object.freeze({id:row.id,tenantId:row.tenant_id,
+   sourceQuotationId:row.source_quotation_id,invoiceReference:row.invoice_number,
+   customerId:row.customer_id,createdByUserId:row.created_by_user_id,
+   draft:JSON.parse(row.draft_payload_json),status:row.status});
+ };
  const previous=match(await read(),record);
  if(previous)return previous;
  try{

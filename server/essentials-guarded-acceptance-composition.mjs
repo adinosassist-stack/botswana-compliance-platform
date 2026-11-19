@@ -3,11 +3,11 @@
  * guarded draft INSERT. Does not mount HTTP, deploy, or prove host verification.
  * A trusted host supplies tenant-scoped quote retrieval and authenticated
  * session/membership/origin/CSRF. A failed D1 acceptance predicate is fail-closed.
- * Deliberately does NOT claim idempotent replay; retry is a separate gate.
+ * Retries use same-D1 acceptance-validated lookup on both initial and\n * uniqueness-conflict paths. Still no mounted route or customer consent verifier.
  */
 import {prepareAuthorizedInvoiceDraft} from "./essentials-invoice-draft-adapter.mjs";
 import {createEssentialsServerInvoiceIdentifiers} from "./essentials-server-invoice-identifiers.mjs";
-import {insertAcceptedEssentialsDraftGuarded} from "./essentials-accepted-quotation-guard.mjs";
+import {insertOrReplayAcceptedEssentialsDraft} from "./essentials-guarded-idempotent-replay.mjs";
 
 const valid=v=>typeof v==="string"&&/^[A-Za-z0-9_-]{1,100}$/.test(v);
 export function createEssentialsGuardedAcceptanceComposition({
@@ -37,14 +37,14 @@ export function createEssentialsGuardedAcceptanceComposition({
    const {draftId,invoiceReference}=createEssentialsServerInvoiceIdentifiers({randomUUID});
    const {draft}=prepareAuthorizedInvoiceDraft({principal,tenantId,quotation,
       invoiceReference,createdAt});
-   const persisted=await insertAcceptedEssentialsDraftGuarded({
+   const persisted=await insertOrReplayAcceptedEssentialsDraft({
     db,principal,acceptanceVersion:quotation.acceptanceVersion,
     sourceQuotationReference:quotation.reference,
     record:{id:draftId,tenantId,customerId:draft.customerId,
      sourceQuotationId:quotationId,idempotencyKey,
      invoiceNumber:invoiceReference,createdByUserId:principal.userId,draft}
    });
-   return Object.freeze({invoice:persisted,replayed:false});
+   return persisted;
   }
  });
 }
