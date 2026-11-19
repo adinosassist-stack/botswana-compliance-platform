@@ -49,6 +49,11 @@ test("guarded commit binds exact quote, actor, receipt and consent fingerprint i
  assert.equal(call.sql,ESSENTIALS_PRIVATE_COMMIT_RECEIPT_SQL);
  assert.match(call.sql,/JOIN essentials_private_verified_consents AS c/);
  assert.match(call.sql,/q.state='accepted' AND c.state='accepted'/);
+ assert.match(call.sql,/JOIN essentials_private_customer_identity_links AS link/);
+ assert.match(call.sql,/ch.state='consumed'/);
+ assert.match(call.sql,/link.state='active' AND link.revoked_at_ms IS NULL/);
+ assert.match(call.sql,/a.immutable_consent_bytes=c.immutable_consent_bytes/);
+ assert.match(call.sql,/link.expires_at_ms>/);
  assert.equal(call.params.length,16);
  assert.deepEqual(call.params.slice(0,6),[
   "receiptA","actorA",JSON.stringify(payload),receipt.signature,
@@ -91,6 +96,11 @@ test("read side uses same-D1 joined eligibility and returns only server-side rec
  assert.equal(h.stats()[0].sql,ESSENTIALS_PRIVATE_CURRENT_RECEIPT_SQL);
  assert.deepEqual(h.stats()[0].params,["tenantA","quoteA","actorA"]);
  assert.match(h.stats()[0].sql,/r.state='issued' AND q.state='accepted' AND c.state='accepted'/);
+ assert.match(h.stats()[0].sql,/JOIN essentials_private_customer_identity_links AS link/);
+ assert.match(h.stats()[0].sql,/ch.state='consumed'/);
+ assert.match(h.stats()[0].sql,/link.state='active' AND link.revoked_at_ms IS NULL/);
+ assert.match(h.stats()[0].sql,/a.immutable_consent_bytes=c.immutable_consent_bytes/);
+ assert.match(h.stats()[0].sql,/link.expires_at_ms>/);
 });
 test("revoked, stale or unavailable read returns no evidence",async()=>{
  const h=harness();

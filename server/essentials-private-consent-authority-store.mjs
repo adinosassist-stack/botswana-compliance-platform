@@ -28,6 +28,41 @@ WHERE q.tenant_id=? AND q.quotation_id=?
  AND c.consent_sha256=? AND c.actor_user_id=?
  AND length(c.consent_subject_id)>0
  AND c.accepted_at=?
+ AND EXISTS (
+   SELECT 1
+   FROM essentials_private_capture_attestations AS a
+   JOIN essentials_private_one_time_challenges AS ch
+     ON ch.challenge_id=a.challenge_id
+      AND ch.tenant_id=a.tenant_id AND ch.quotation_id=a.quotation_id
+   JOIN essentials_private_customer_identity_links AS link
+     ON link.link_id=json_extract((CASE WHEN json_valid(CAST(a.immutable_consent_bytes AS TEXT)) THEN CAST(a.immutable_consent_bytes AS TEXT) ELSE '{}' END),'$.customerIdentityLinkId')
+   WHERE a.tenant_id=q.tenant_id AND a.quotation_id=q.quotation_id
+     AND a.customer_id=q.customer_id AND a.actor_user_id=c.actor_user_id
+     AND a.consent_sha256=c.consent_sha256
+     AND a.immutable_consent_bytes=c.immutable_consent_bytes
+     AND a.consent_subject_id=c.consent_subject_id
+     AND a.quotation_sha256=q.quotation_sha256
+     AND a.accepted_at=c.accepted_at
+     AND a.acceptance_version=q.acceptance_version
+     AND a.total_minor=q.total_minor
+     AND a.quotation_reference=q.quotation_reference
+     AND ch.state='consumed' AND ch.consumed_at=a.accepted_at
+     AND ch.customer_id=a.customer_id AND ch.actor_user_id=a.actor_user_id
+     AND ch.nonce_sha256=a.nonce_sha256
+     AND link.state='active' AND link.revoked_at_ms IS NULL
+     AND link.tenant_id=q.tenant_id AND link.customer_id=q.customer_id
+     AND link.consent_subject_id=c.consent_subject_id
+     AND link.issuer=json_extract((CASE WHEN json_valid(CAST(a.immutable_consent_bytes AS TEXT)) THEN CAST(a.immutable_consent_bytes AS TEXT) ELSE '{}' END),'$.identityIssuer')
+     AND link.subject_hmac_sha256=json_extract((CASE WHEN json_valid(CAST(a.immutable_consent_bytes AS TEXT)) THEN CAST(a.immutable_consent_bytes AS TEXT) ELSE '{}' END),'$.identitySubjectHmacSha256')
+     AND link.consent_subject_id=json_extract((CASE WHEN json_valid(CAST(a.immutable_consent_bytes AS TEXT)) THEN CAST(a.immutable_consent_bytes AS TEXT) ELSE '{}' END),'$.consentSubjectId')
+     AND a.challenge_id=json_extract((CASE WHEN json_valid(CAST(a.immutable_consent_bytes AS TEXT)) THEN CAST(a.immutable_consent_bytes AS TEXT) ELSE '{}' END),'$.challengeId')
+     AND a.nonce_sha256=json_extract((CASE WHEN json_valid(CAST(a.immutable_consent_bytes AS TEXT)) THEN CAST(a.immutable_consent_bytes AS TEXT) ELSE '{}' END),'$.challengeNonceSha256')
+     AND json_extract((CASE WHEN json_valid(CAST(a.immutable_consent_bytes AS TEXT)) THEN CAST(a.immutable_consent_bytes AS TEXT) ELSE '{}' END),'$.method')='oidc-rs256-explicit-accept-v1'
+     AND json_extract((CASE WHEN json_valid(CAST(a.immutable_consent_bytes AS TEXT)) THEN CAST(a.immutable_consent_bytes AS TEXT) ELSE '{}' END),'$.decision')='accept'
+     AND link.proof_verified_at_ms<=a.accepted_at_ms
+     AND link.proof_verified_at_ms<=(CAST(strftime('%s','now') AS INTEGER)*1000 + CAST(substr(strftime('%f','now'),4,3) AS INTEGER))
+     AND link.expires_at_ms>(CAST(strftime('%s','now') AS INTEGER)*1000 + CAST(substr(strftime('%f','now'),4,3) AS INTEGER))
+ )
 `.trim();
 
 export const ESSENTIALS_PRIVATE_CURRENT_RECEIPT_SQL=`
@@ -59,6 +94,41 @@ WHERE r.tenant_id=? AND r.quotation_id=? AND r.actor_user_id=?
  AND json_extract(r.receipt_payload_json,'$.quotationSha256')=q.quotation_sha256
  AND json_extract(r.receipt_payload_json,'$.consentSha256')=c.consent_sha256
  AND json_extract(r.receipt_payload_json,'$.acceptedAt')=c.accepted_at
+ AND EXISTS (
+   SELECT 1
+   FROM essentials_private_capture_attestations AS a
+   JOIN essentials_private_one_time_challenges AS ch
+     ON ch.challenge_id=a.challenge_id
+      AND ch.tenant_id=a.tenant_id AND ch.quotation_id=a.quotation_id
+   JOIN essentials_private_customer_identity_links AS link
+     ON link.link_id=json_extract((CASE WHEN json_valid(CAST(a.immutable_consent_bytes AS TEXT)) THEN CAST(a.immutable_consent_bytes AS TEXT) ELSE '{}' END),'$.customerIdentityLinkId')
+   WHERE a.tenant_id=q.tenant_id AND a.quotation_id=q.quotation_id
+     AND a.customer_id=q.customer_id AND a.actor_user_id=c.actor_user_id
+     AND a.consent_sha256=c.consent_sha256
+     AND a.immutable_consent_bytes=c.immutable_consent_bytes
+     AND a.consent_subject_id=c.consent_subject_id
+     AND a.quotation_sha256=q.quotation_sha256
+     AND a.accepted_at=c.accepted_at
+     AND a.acceptance_version=q.acceptance_version
+     AND a.total_minor=q.total_minor
+     AND a.quotation_reference=q.quotation_reference
+     AND ch.state='consumed' AND ch.consumed_at=a.accepted_at
+     AND ch.customer_id=a.customer_id AND ch.actor_user_id=a.actor_user_id
+     AND ch.nonce_sha256=a.nonce_sha256
+     AND link.state='active' AND link.revoked_at_ms IS NULL
+     AND link.tenant_id=q.tenant_id AND link.customer_id=q.customer_id
+     AND link.consent_subject_id=c.consent_subject_id
+     AND link.issuer=json_extract((CASE WHEN json_valid(CAST(a.immutable_consent_bytes AS TEXT)) THEN CAST(a.immutable_consent_bytes AS TEXT) ELSE '{}' END),'$.identityIssuer')
+     AND link.subject_hmac_sha256=json_extract((CASE WHEN json_valid(CAST(a.immutable_consent_bytes AS TEXT)) THEN CAST(a.immutable_consent_bytes AS TEXT) ELSE '{}' END),'$.identitySubjectHmacSha256')
+     AND link.consent_subject_id=json_extract((CASE WHEN json_valid(CAST(a.immutable_consent_bytes AS TEXT)) THEN CAST(a.immutable_consent_bytes AS TEXT) ELSE '{}' END),'$.consentSubjectId')
+     AND a.challenge_id=json_extract((CASE WHEN json_valid(CAST(a.immutable_consent_bytes AS TEXT)) THEN CAST(a.immutable_consent_bytes AS TEXT) ELSE '{}' END),'$.challengeId')
+     AND a.nonce_sha256=json_extract((CASE WHEN json_valid(CAST(a.immutable_consent_bytes AS TEXT)) THEN CAST(a.immutable_consent_bytes AS TEXT) ELSE '{}' END),'$.challengeNonceSha256')
+     AND json_extract((CASE WHEN json_valid(CAST(a.immutable_consent_bytes AS TEXT)) THEN CAST(a.immutable_consent_bytes AS TEXT) ELSE '{}' END),'$.method')='oidc-rs256-explicit-accept-v1'
+     AND json_extract((CASE WHEN json_valid(CAST(a.immutable_consent_bytes AS TEXT)) THEN CAST(a.immutable_consent_bytes AS TEXT) ELSE '{}' END),'$.decision')='accept'
+     AND link.proof_verified_at_ms<=a.accepted_at_ms
+     AND link.proof_verified_at_ms<=(CAST(strftime('%s','now') AS INTEGER)*1000 + CAST(substr(strftime('%f','now'),4,3) AS INTEGER))
+     AND link.expires_at_ms>(CAST(strftime('%s','now') AS INTEGER)*1000 + CAST(substr(strftime('%f','now'),4,3) AS INTEGER))
+ )
  LIMIT 1
 `.trim();
 
