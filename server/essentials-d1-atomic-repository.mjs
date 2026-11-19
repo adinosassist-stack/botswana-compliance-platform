@@ -35,7 +35,8 @@ export function createEssentialsD1AtomicRepository({
    const result=await withAtomicTransaction(async context=>{
     if(entered)fail("transaction_reentry_denied");
     entered=true;
-    if(!context||context.atomic!==true||!valid(context.tenantId)||\n       !valid(context.actorUserId)||
+    if(!context||context.atomic!==true||!valid(context.tenantId)||
+       !valid(context.actorUserId)||
        typeof context.db?.prepare!=="function"||
        typeof context.loadQuotationForTenant!=="function"||
        typeof context.reserveInvoiceReference!=="function"||
