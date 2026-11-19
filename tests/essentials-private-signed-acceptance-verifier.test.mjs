@@ -72,7 +72,7 @@ test("rejects edited or invalid signatures before consulting live authority",asy
  for(const receipt of [
   {...good,payload:{...base,totalMinor:9000}},
   {...good,payload:{...base,customerId:"other"}},
-  {...good,signature:"A"+good.signature.slice(1)},
+  {...good,signature:(good.signature[0]==="A"?"B":"A")+good.signature.slice(1)},
   {...good,signature:"invalid"},
   {...good,payload:{...base,unexpected:"claim"}},
   {...good,payload:{...base,consentSha256:"invalid"}}
