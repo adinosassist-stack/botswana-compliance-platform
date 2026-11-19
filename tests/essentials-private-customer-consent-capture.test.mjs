@@ -178,6 +178,10 @@ test("expired/changed challenge, revoked or altered quote, unlinked customer, fa
     { quote: { immutableQuotationBytes: encoder.encode("tampered") } },
     { link: { linked: false, consentSubjectId: "customerAuthA" } },
     { link: { linked: true, consentSubjectId: "../malformed" } },
+    { link: { linked: true, consentSubjectId: "customerAuthA",
+        customerIdentityLinkId: "../invalid", identitySubjectHmacSha256: "c".repeat(64) } },
+    { link: { linked: true, consentSubjectId: "customerAuthA",
+        customerIdentityLinkId: "linkA", identitySubjectHmacSha256: "invalid" } },
     { commit: false }
   ]) {
     const h = harness(opts);
