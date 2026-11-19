@@ -102,6 +102,17 @@ test("secure request resolves only a server-session principal and session-owned 
  await assert.rejects(context.loadOneTimeChallenge({challengeId:"other"}),
   /private_consent_session_unverified/);
 });
+test("a current one-time challenge may outlive a shorter session-bound nonce",async()=>{
+ const h=harness({storeResult:{expiresAtMs:at+90_000}});
+ const context=await h.boundary.validateCaptureRequest({
+  request:makeRequest(),...captureParams
+ });
+ const source=await context.loadOneTimeChallenge({challengeId:"challengeA"});
+ assert.equal(source.expiresAtMs,at+90_000);
+ assert.equal(h.calls.store.length,1);
+ // The separately authorized binding restricts nonce/session use to
+ // 60 seconds even though the underlying one-time quote lasts 90 seconds.
+});
 test("cross-origin, cross-site, malformed cookie or missing CSRF fails before storage access",async()=>{
  const invalidRequests=[
   makeRequest({headers:{origin:"https://attacker.example.test"}}),
