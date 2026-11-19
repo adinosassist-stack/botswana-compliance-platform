@@ -160,14 +160,13 @@ for q,opts in [
 quote("quote-active");ch=valid_consent("quote-active")
 assert insert("quote-active","receipt-active",ch)==1
 assert read("quote-active") is not None
+quote("quote-unissued");cu=valid_consent("quote-unissued")
 db.execute("UPDATE essentials_private_customer_identity_links SET state='revoked',revoked_at_ms=? WHERE link_id=?",(NOW,LINK))
 assert read("quote-active") is None
-# Once the customer link is revoked, issuance is impossible even for older consent.
-quote("quote-after-revocation")
-# Directly inject otherwise matching immutable consent/challenge rows as tampering
-# to show that a previously revoked link cannot authorize any fresh receipt.
-original=db.execute("SELECT * FROM essentials_private_verified_consents WHERE quotation_id='quote-active'").fetchone()
-# Test the existing accepted quote's receipt record is immutable even after link removal.
+# Link revoked AFTER consent capture but BEFORE receipt issue: zero write.
+assert insert("quote-unissued","receipt-unissued",cu)==0
+assert read("quote-unissued") is None
+# A revoked customer link cannot be revived for future receipt reads.
 try:
  db.execute("UPDATE essentials_private_customer_identity_links SET state='active',revoked_at_ms=NULL WHERE link_id=?",(LINK,))
 except sqlite3.IntegrityError: pass
