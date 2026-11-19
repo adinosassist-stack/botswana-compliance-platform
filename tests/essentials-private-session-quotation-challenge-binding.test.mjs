@@ -13,7 +13,7 @@ const key=await subtle.generateKey({name:"AES-GCM",length:256},false,["encrypt",
 const sessionHash="a".repeat(64),nonce="N".repeat(43);
 const principal={tenantId:"tenantA",userId:"actorA"};
 const quotationId="quoteA",challengeId="challengeA";
-const original={challengeId,nonce,expiresAtMs:at+300000};
+const original={challengeId,nonce,expiresAtMs:at+299000};
 const expectedNonceHash=Array.from(new Uint8Array(await subtle.digest(
  "SHA-256",new TextEncoder().encode(nonce))),b=>b.toString(16).padStart(2,"0")).join("");
 const activeSession={state:"active",tenantId:"tenantA",
