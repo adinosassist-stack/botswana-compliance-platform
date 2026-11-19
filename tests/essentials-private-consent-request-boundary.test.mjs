@@ -138,15 +138,6 @@ test("bad CSRF proof, dead session, stale bound challenge, changed account and o
  ];
  for(const opts of cases){
   const h=harness(opts);
-  if(opts.session?.tenantId==="tenantB"||opts.session?.actorUserId==="actorB"){
-   // These are trusted values: the bound challenge lookup must reject mismatches.
-   const c=await h.boundary.validateCaptureRequest({
-    request:makeRequest(),...captureParams
-   });
-   assert.equal(c.principal.tenantId,opts.session?.tenantId??"tenantA");
-   assert.equal(c.principal.userId,opts.session?.actorUserId??"actorA");
-   continue;
-  }
   await assert.rejects(h.boundary.validateCaptureRequest({
    request:makeRequest(),...captureParams
   }),/private_consent_session_unverified/);
