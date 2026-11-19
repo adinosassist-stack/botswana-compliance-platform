@@ -294,6 +294,7 @@
       }
       throw lastError||new ApiError("Request failed",{requestId});
     }
+    const centralBinaryFetch=fetch;
     /**
      * Bounded same-origin raw-response transport for authenticated binary APIs.
      * This is the ONLY browser module permitted to make real fetch calls.
@@ -323,7 +324,9 @@
         const optionsRaw={method,headers,body:options.body,
           credentials:"same-origin",cache:"no-store",redirect:"error",signal:controller.signal};
         try{
-          const response=await fetch(candidate.url,optionsRaw);
+          // Use the one centrally owned browser fetch primitive. This raw
+          // transport intentionally does not create a third independent fetch path.
+          const response=await centralBinaryFetch(candidate.url,optionsRaw);
           if(idempotent&&transportRouteRejected(response)&&index<attempts.length-1){
             try{await response.body?.cancel?.()}catch{}
             continue;
