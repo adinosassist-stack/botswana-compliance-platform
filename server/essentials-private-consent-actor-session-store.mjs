@@ -159,7 +159,9 @@ export function createEssentialsPrivateConsentActorSessionStore({
    if(!SHA(sessionKeyHash)||!ID(tenantId)||!ID(actorUserId)||
       !["oidc-begin","oidc-complete"].includes(operation))return false;
    const row=await read({sessionKeyHash});
-   return row?.tenantId===tenantId&&row.actorUserId===actorUserId;
+   if(row?.tenantId!==tenantId||row.actorUserId!==actorUserId)
+    return false;
+   return checkGrant({grantId:row.grantId,tenantId,actorUserId},operation);
   },
   // Only an independently authorized server revocation (logout/admin)
   // can transition current state to revoked. Never let browser tenant
