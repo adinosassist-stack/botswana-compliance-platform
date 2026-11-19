@@ -9,6 +9,8 @@ on:
       - 'tests/essentials-*.test.mjs'
       - 'tests/essentials_d1_schema_sqlite.py'
       - 'tests/essentials_accepted_quotation_sqlite.py'
+      - 'tests/essentials_private_consent_authority_sqlite.py'
+      - 'cloudflare/migrations/essentials_private_consent_authority_STAGING_CANDIDATE.sql'
       - 'tests/essentials_guarded_replay_sqlite.py'
       - 'cloudflare/migrations/essentials_accepted_quotation_snapshots_STAGING_CANDIDATE.sql'
       - 'tests/fixtures/essentials_d1_synthetic_dependencies_STAGING_ONLY.sql'
@@ -38,4 +40,5 @@ jobs:
         run: |
           python3 tests/essentials_d1_schema_sqlite.py
           python3 tests/essentials_accepted_quotation_sqlite.py
+          python3 tests/essentials_private_consent_authority_sqlite.py
           python3 tests/essentials_guarded_replay_sqlite.py
