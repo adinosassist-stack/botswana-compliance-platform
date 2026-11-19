@@ -45,7 +45,8 @@ fails(lambda:db.execute("DELETE FROM essentials_private_oidc_authorization_attem
 fails(lambda:db.execute(SAVE,params()),"reused state hash")
 db.execute(SAVE,params(state="d"*64,session="e"*64,quote="quoteB",expiry=now-1))
 assert db.execute(CONSUME,(now,"d"*64,"e"*64,now,now)).fetchone() is None,"expired state consumed"
-fails(lambda:db.execute(SAVE,params(state="f"*64,session="b"*64)),"parallel pending state on same session and quotation")
+db.execute(SAVE,params(state="f"*64,session="b"*64))
+fails(lambda:db.execute(SAVE,params(state="g"*64,session="b"*64)),"parallel pending state on same session and quotation")
 fails(lambda:db.execute(SAVE,params(state="invalid",session="f"*64,quote="quoteC")),"invalid state hash written")
 db.execute(SAVE,params(state="e"*64,session="f"*64,quote="quoteC"))
 fails(lambda:db.execute("UPDATE essentials_private_oidc_authorization_attempts SET verifier_ciphertext=x'00' WHERE state_sha256=?",("e"*64,)),"modified encrypted PKCE")
