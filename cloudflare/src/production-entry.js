@@ -1,7 +1,40 @@
+import {handleCompanyLogoRoute,companyLogoRoute} from "./company-logo-settings.js";
 import {quotationBrowserPreview} from "./quotation-browser-preview.js";
 import worker from "./worker.js";
 import {handleAgenticRequest} from "./agentic-core.js";
 import {durableRegistrationChallengeGate,registrationClientIp,registrationProofSecret,validateAndClaimRegistrationProof} from "./registration-boundary.js";
+
+/**
+ * The first-party Worker validates the cookie, active tenant membership and
+ * current role. Never infer permission from a client-supplied role or header.
+ * Called only for feature-enabled, private-bucket-backed workspace documents.
+ */
+async function companyLogoWorkspaceMemberAllowed(request,env,ctx){
+ const headers=new Headers();
+ for(const name of ["cookie","origin"]){
+  const value=request.headers.get(name);
+  if(value!==null)headers.set(name,value);
+ }
+ try{
+  const url=new URL("/__thebe_api/auth/me",request.url);
+  const response=await worker.fetch(new Request(url,{headers}),env,ctx);
+  if(!response?.ok)return false;
+  const session=await response.json();
+  return !!session?.user&&
+   ["owner","manager"].includes(session.user.role)&&
+   !session.landingPath&&typeof session.user.tenantId==="string";
+ }catch{return false}
+}
+
+/** Attach discoverable Business logo action only after separate activation. */
+function injectCompanyLogoBusinessLink(html){
+ const source=String(html||"");
+ if(source.includes("/js/company-logo-business-link.js"))return source;
+ const markup='<link rel="stylesheet" href="/assets/company-logo-business-link.css">'+
+  '<script defer src="/js/company-logo-business-link.js"></script>';
+ const end=source.toLowerCase().lastIndexOf("</body>");
+ return end>=0?source.slice(0,end)+markup+source.slice(end):source+markup;
+}
 
 const TURNSTILE_ORIGIN="https://challenges.cloudflare.com";
 const TURNSTILE_VERIFY_URL=`${TURNSTILE_ORIGIN}/turnstile/v0/siteverify`;
@@ -490,7 +523,20 @@ async function rewriteRegistrationVerificationFailure(response){
   }catch{return response}
 }
 
+/**
+ * Align the business logo endpoint with the sanctioned three API transports.
+ * Unrecognized paths are left unchanged; no arbitrary browser-chosen target
+ * or tenant is passed to the host service.
+ */
+function normalizedCompanyLogoRequest(request){
+ const logical=logicalRequestPath(request);
+ if(!companyLogoRoute(logical)||logical===new URL(request.url).pathname)return request;
+ return new Request(new URL(logical,request.url),request);
+}
 async function fetchWithTurnstileCspRepair(request,env,ctx){
+   const companyLogo=await handleCompanyLogoRoute({request:normalizedCompanyLogoRequest(request),
+    env,fetchSession:inner=>worker.fetch(inner,env,ctx)});
+   if(companyLogo)return companyLogo;
   const quotationPreview=await quotationBrowserPreview(request,env,inner=>worker.fetch(inner,env,ctx));
   if(quotationPreview)return quotationPreview;
   const agenticResponse=await handleAgenticRequest({
@@ -542,7 +588,11 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
   const workspaceSurface=path==="/"||path==="/app"||path==="/app/";
   const surfaceHtml=workspaceSurface?externalizeWorkspaceViews(externalizeWorkspaceHeadStyles(externalizeWorkspaceRuntime(baseHtml))):baseHtml;
   const repaired=workspaceSurface?injectOwnerCommandCentreAssets(surfaceHtml):publicSurface?injectPublicThebeAssets(surfaceHtml):surfaceHtml;
-  if(repaired===html)return response;
+  const canShowCompanyLogo=workspaceSurface&&env?.THEBE_COMPANY_LOGO_ENABLED==="true"&&
+    typeof env?.COMPANY_LOGOS?.get==="function"&&
+    await companyLogoWorkspaceMemberAllowed(request,env,ctx);
+  const withCompanyLogo=canShowCompanyLogo?injectCompanyLogoBusinessLink(repaired):repaired;
+  if(withCompanyLogo===html)return response;
   const headers=new Headers(response.headers);
   headers.set("x-thebe-csp-meta","server-header-authoritative");
   headers.set("x-thebe-favicon","optimized-512");
@@ -555,10 +605,12 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
     headers.set("x-thebe-property-ui","v230-resident-visible-command-center");
   }
   if(workspaceSurface||publicSurface)headers.set("x-thebe-ai-dock",THEBE_AI_DOCK_RELEASE);
-  return new Response(repaired,{status:response.status,statusText:response.statusText,headers});
+  return new Response(withCompanyLogo,{status:response.status,statusText:response.statusText,headers});
 }
 
 export {
+  normalizedCompanyLogoRequest,
+  injectCompanyLogoBusinessLink,
   createRegistrationProofChallenge,
   injectFirstPartyRegistrationClient,
   injectLogoFavicon,

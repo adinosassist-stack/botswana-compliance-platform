@@ -1,0 +1,64 @@
+name: Company Logo - tenant scoped upload security CI
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/src/company-logo-settings.js'
+      - 'cloudflare/src/production-entry.js'
+      - 'cloudflare/wrangler.toml'
+      - 'cloudflare/migrations/20261119_company_logo_private_storage.sql'
+      - 'public/js/api-client.js'\n      - 'public/js/company-logo-settings.mjs'
+      - 'public/js/company-logo-business-link.js'
+      - 'public/assets/company-logo-business-link.css'
+      - 'public/js/quotation-logo-api-client.mjs'
+      - 'public/js/quotation-logo-editor.mjs'
+      - 'public/assets/company-logo-settings.css'
+      - 'server/quotation-logo-http.mjs'
+      - 'server/quotation-logo-d1-r2-store.mjs'
+      - 'server/quotation-logo-web-png-sanitizer.mjs'
+      - 'tests/company-logo-protected-upload.test.mjs'
+      - 'tests/company-logo-api-transport.test.mjs'
+      - 'tests/quotation-logo-api-client.test.mjs'
+      - '.github/workflows/company-logo-protected-upload-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: company-logo-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  company-logo-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Check production and client modules compile without migration/deploy
+        run: |
+          node --check cloudflare/src/company-logo-settings.js
+          node --check cloudflare/src/production-entry.js
+          node --check public/js/company-logo-settings.mjs
+          node --check public/js/api-client.js
+          node --check public/js/company-logo-business-link.js
+          node --check public/js/quotation-logo-api-client.mjs
+          node --check server/quotation-logo-http.mjs
+      - name: Test account isolation, CSRF, durable private store, and logo sanitizer
+        run: |
+          node --test tests/company-logo-api-transport.test.mjs tests/company-logo-protected-upload.test.mjs tests/quotation-logo-api-client.test.mjs tests/quotation-logo-service.test.mjs tests/quotation-logo-d1-r2-store.test.mjs tests/quotation-logo-http.test.mjs tests/quotation-logo-web-png-sanitizer.test.mjs
+      - name: Verify disabled production defaults and explicit private binding prerequisite
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fx 'THEBE_COMPANY_LOGO_ENABLED = "false"  # #2672; requires private R2 + approved migration' cloudflare/wrangler.toml
+          grep -q 'COMPANY_LOGOS' cloudflare/src/company-logo-settings.js
+          ! grep -Eq '\bfetch[[:space:]]*\(' public/js/company-logo-settings.mjs public/js/company-logo-business-link.js
+          ! grep -Eq '^[[:space:]]*bucket_name[[:space:]]*=[[:space:]]*"bw-company-logos-private"' cloudflare/wrangler.toml
+          ! grep -Eq '^CREATE TABLE IF NOT EXISTS quotation_logo_' cloudflare/migrations/20261119_company_logo_private_storage.sql

@@ -35,11 +35,16 @@ async function normalizeLogoForUpload(file){
  // decoders. Convert browser-native JPG/WebP to PNG *before transport* rather
  // than inviting formats the server cannot process. The server still verifies
  // and sanitizes the resulting pixels; browser conversion is not a trust gate.
- if(file.type==="image/png")return file;
- if(!["image/jpeg","image/webp"].includes(file.type))deny("unsupported_logo_type");
- const kind=file.type==="image/webp"?"webp":"jpeg";
- if(typeof createImageBitmap!=="function"||typeof document==="undefined")
+ // Decode and re-encode PNGs too. Many real logos contain palette or
+ // ancillary PNG chunks rejected by the strict server sanitizer. A browser
+ // canvas produces a small, normalized RGB/RGBA PNG. The server independently
+ // validates the resulting bytes; this conversion grants no trust.
+ if(!["image/png","image/jpeg","image/webp"].includes(file.type))deny("unsupported_logo_type");
+ const kind=file.type==="image/webp"?"webp":file.type==="image/jpeg"?"jpeg":"png";
+ if(typeof createImageBitmap!=="function"||typeof document==="undefined"){
+  if(kind==="png")return file; // Node synthetic clients: server still validates
   deny(kind+"_conversion_unavailable");
+ }
  let bitmap;
  try{
   bitmap=await createImageBitmap(file);
@@ -124,7 +129,7 @@ export function createQuotationLogoHttpClient({fetchImpl,csrfToken,enabled=false
  * Explicit user-driven mounting. Do not call from public page boot.
  * The backend must be independently authorized and configured before enabling.
  */
-export async function mountCompanyQuotationLogoEditor(root,{companyId,capability,fetchImpl,csrfToken}={}) {
+export async function mountCompanyQuotationLogoEditor(root,{companyId,capability,fetchImpl,csrfToken,pdfPreviewEnabled=false}={}) {
  if(capability?.enabled!==true||capability?.authenticated!==true)
   deny("quotation_logo_feature_disabled");
  const api=createQuotationLogoHttpClient({fetchImpl,csrfToken,enabled:true});
@@ -136,7 +141,7 @@ export async function mountCompanyQuotationLogoEditor(root,{companyId,capability
   initialLayout:current.settings?.layout,
   initialLogoBlob:savedLogoBlob,initialAspectRatio:verifiedAspectRatio,
   onUpload:async file=>{const uploaded=await api.upload(file);verifiedAspectRatio=uploaded.aspectRatio;return uploaded},
-  onPreviewPdf:()=>api.previewPdf(),
+  onPreviewPdf:pdfPreviewEnabled?()=>api.previewPdf():undefined,
   onSave:async settings=>{
    if(!Number.isFinite(verifiedAspectRatio)||verifiedAspectRatio<=0)deny('logo_aspect_ratio_unavailable');
    return api.save({...settings,aspectRatio:verifiedAspectRatio});
