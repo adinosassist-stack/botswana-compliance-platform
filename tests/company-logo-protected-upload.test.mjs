@@ -192,3 +192,26 @@ test("business navigation is feature-and-bucket gated; static branding links do 
  assert.match(userUi,/client\.requestRaw/);
  assert.doesNotMatch(userUi,/\bfetch\s*\(/);
 });
+
+
+test("direct, shadow and root-tunnel logo uploads normalize without changing credentials or bytes",async()=>{
+ const {normalizedCompanyLogoRequest}=await import("../cloudflare/src/production-entry.js");
+ const bytes=png();
+ const make=(route)=>new Request(ORIGIN+route,{method:"POST",body:bytes,
+  headers:{"content-type":"image/png","origin":ORIGIN,"cookie":"test=synthetic",
+   "x-csrf-token":CSRF}});
+ for(const route of [
+  "/api/quotation/logo/upload",
+  "/__thebe_api/quotation/logo/upload",
+  "/?__thebe_api_path=%2Fapi%2Fquotation%2Flogo%2Fupload"
+ ]){
+  const converted=normalizedCompanyLogoRequest(make(route));
+  assert.equal(new URL(converted.url).pathname,"/api/quotation/logo/upload");
+  assert.equal(converted.method,"POST");
+  assert.equal(converted.headers.get("origin"),ORIGIN);
+  assert.equal(converted.headers.get("x-csrf-token"),CSRF);
+  assert.deepEqual(new Uint8Array(await converted.arrayBuffer()),bytes);
+ }
+ const other=make("/?__thebe_api_path=%2Fapi%2Ffinance%2Ftransfer");
+ assert.equal(normalizedCompanyLogoRequest(other),other,"foreign API route not rewritten");
+});
