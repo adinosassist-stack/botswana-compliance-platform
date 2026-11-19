@@ -6,7 +6,8 @@ on:
       - 'cloudflare/src/production-entry.js'
       - 'cloudflare/wrangler.toml'
       - 'cloudflare/migrations/20261119_company_logo_private_storage.sql'
-      - 'public/js/api-client.js'\n      - 'public/js/company-logo-settings.mjs'
+      - 'public/js/api-client.js'
+      - 'public/js/company-logo-settings.mjs'
       - 'public/js/company-logo-business-link.js'
       - 'public/assets/company-logo-business-link.css'
       - 'public/js/quotation-logo-api-client.mjs'
@@ -17,6 +18,7 @@ on:
       - 'server/quotation-logo-web-png-sanitizer.mjs'
       - 'tests/company-logo-protected-upload.test.mjs'
       - 'tests/company-logo-api-transport.test.mjs'
+      - 'tests/company-logo-production-schema.test.py'
       - 'tests/quotation-logo-api-client.test.mjs'
       - '.github/workflows/company-logo-protected-upload-ci.yml'
   workflow_dispatch:
@@ -50,6 +52,8 @@ jobs:
           node --check public/js/company-logo-business-link.js
           node --check public/js/quotation-logo-api-client.mjs
           node --check server/quotation-logo-http.mjs
+      - name: Rehearse production-shaped logo D1 schema offline
+        run: python3 tests/company-logo-production-schema.test.py -v
       - name: Test account isolation, CSRF, durable private store, and logo sanitizer
         run: |
           node --test tests/company-logo-api-transport.test.mjs tests/company-logo-protected-upload.test.mjs tests/quotation-logo-api-client.test.mjs tests/quotation-logo-service.test.mjs tests/quotation-logo-d1-r2-store.test.mjs tests/quotation-logo-http.test.mjs tests/quotation-logo-web-png-sanitizer.test.mjs
