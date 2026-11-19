@@ -22,7 +22,7 @@ assert [x.count("?") for x in [
  ISSUE,LAUNCH,ISSUE_AUDIT,READ,START,SAVE,START_AUDIT,CONSUME
 ]]==[7,7,2,2,4,10,3,5]
 schemas=[
- "essentials_private_consent_authority_STAGING_CANDIDATE.sql",
+ "essentials_private_customer_only_baseline_STAGING_CANDIDATE.sql",
  "essentials_private_customer_identity_links_STAGING_CANDIDATE.sql",
  "essentials_private_verified_customer_sessions_STAGING_CANDIDATE.sql",
  "essentials_private_frozen_terms_customer_review_STAGING_CANDIDATE.sql",
