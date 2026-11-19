@@ -16,7 +16,7 @@ CONSUME,INSERT,ASSERT,READ=json.loads(subprocess.check_output(
  ["node","--input-type=module","-e",js],text=True))
 assert [s.count("?") for s in [CONSUME,INSERT,ASSERT,READ]]==[12,23,6,2]
 schemas=[
- "essentials_private_consent_authority_STAGING_CANDIDATE.sql",
+ "essentials_private_customer_only_baseline_STAGING_CANDIDATE.sql",
  "essentials_private_customer_identity_links_STAGING_CANDIDATE.sql",
  "essentials_private_verified_customer_sessions_STAGING_CANDIDATE.sql",
  "essentials_private_frozen_terms_customer_review_STAGING_CANDIDATE.sql",
