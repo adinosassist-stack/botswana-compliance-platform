@@ -61,7 +61,7 @@ function fixture({allowCallback=true,allowOwnership=true,allowRevoke=true,
     throw Error("wrong query");
    }
   };
- }}}},
+ }}},
  async batch(stmts){
   state.batch.push(stmts);
   if(batchFailure||zeroRow||state.inviteConsumed)throw Error("SQL ABORT");
