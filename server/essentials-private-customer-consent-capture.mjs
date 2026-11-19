@@ -167,7 +167,9 @@ export function createEssentialsPrivateCustomerConsentCapture({
           customerId: challenge.customerId, quotationId: challenge.quotationId
         });
       } catch { err(); }
-      if (!account || account.linked !== true || !ID(account.consentSubjectId))
+      if (!account || account.linked !== true || !ID(account.consentSubjectId) ||
+          !ID(account.customerIdentityLinkId) ||
+          !HEX(account.identitySubjectHmacSha256))
         err();
 
       let quote;
