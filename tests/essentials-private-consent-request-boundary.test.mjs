@@ -146,7 +146,7 @@ test("bad CSRF proof, dead session, stale bound challenge, changed account and o
  for(const opts of [
   {storeFails:true},{storeResult:{state:"revoked"}},
   {storeResult:{customerId:"other"}},{storeResult:{tenantId:"other"}},
-  {storeResult:{nonce:"different"}},{storeResult:{expiresAtMs:at+90_000}}
+  {storeResult:{nonce:"different"}},{storeResult:{expiresAtMs:at+30_000}}
  ]){
   const h=harness(opts);
   const context=await h.boundary.validateCaptureRequest({
