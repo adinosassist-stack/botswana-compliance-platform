@@ -26,7 +26,7 @@ const scope={tenantId:"tenantA",customerId:"customerA",quotationId:"quoteA"};
 const sessionKeyHash="a".repeat(64);
 const session={role:"customer",state:"active",...scope,invitationId:"inviteA",
  customerIdentityLinkId:"linkA",expiresAtMs:at+120000};
-function harness({allowFreeze=true,allowReview=true,active=true,zeroWrites=false}={}){
+function harness({allowFreeze=true,allowReview=true,active=true,zeroWrites=false,sessionHash=sessionKeyHash}={}){
  const state={quotes:null,terms:null,offer:null,authorizations:[],
   queries:[],batches:[],active};
  let entropy=0;
@@ -96,7 +96,7 @@ function harness({allowFreeze=true,allowReview=true,active=true,zeroWrites=false
    return allowFreeze;
   },
   loadActiveCustomerSession:async ({sessionKeyHash:sh})=>
-   sh===sessionKeyHash&&state.active?{...session}:null,
+   sh===sessionHash&&state.active?{...session}:null,
   authorizeCustomerReviewOffer:async p=>{
    state.authorizations.push({type:"offer",p});return allowReview;
   }
@@ -201,35 +201,22 @@ test("wrong customer, missing parent freeze, withdrawn grant or expiry deny offe
  await deny(()=>noFreeze.store.recordCustomerReviewOffered(input));
 });
 test("current review/terms store wires directly to merged customer GET/POST boundary",async()=>{
- const h=harness();await frozen(h);
  const customerCookie="C".repeat(43),csrfToken="S".repeat(43);
  const hash=async v=>[...new Uint8Array(await webcrypto.subtle.digest(
   "SHA-256",te.encode(v)))].map(x=>x.toString(16).padStart(2,"0")).join("");
- // The store uses the actual cookie hash; the test fixture must mirror it.
+ // The store and HTTP boundary use the IDENTICAL authentic cookie hash.
  const liveHash=await hash(customerCookie),csrfHash=await hash(csrfToken);
- const h2=harness();await frozen(h2);
- // Directly exercise the existing boundary with an isolated host-scoped
- // adapter that maps the current authenticated customer cookie to test store.
+ const h2=harness({sessionHash:liveHash});await frozen(h2);
+ // Exercise the existing boundary with the real store callbacks, without
+ // remapping cookie hashes or synthesizing identity in an adapter.
  const boundary=createEssentialsPrivateCustomerQuotationReviewBoundary({
   enabled:true,environment:"essentials-private-staging",
   expectedOrigin:origin,now:()=>at,cryptoSubtle:webcrypto.subtle,
   loadActiveCustomerSession:async({sessionKeyHash:sh})=>
    sh===liveHash?{...session,csrfSha256:csrfHash}:null,
   loadFrozenCustomerQuote:h2.store.loadFrozenCustomerQuote,
-  recordCustomerReviewOffered:async input=>{
-   // Test adapter translates only the synthetic host's exact cookie digest.
-   // No browser principal is supplied to the source service.
-   if(input.sessionKeyHash!==liveHash)throw Error("bad cookie");
-   return h2.store.recordCustomerReviewOffered({
-    ...input,sessionKeyHash
-   }).then(x=>({...x,sessionKeyHash:liveHash}));
-  },
-  loadCustomerReviewOffered:async input=>{
-   if(input.sessionKeyHash!==liveHash)throw Error("bad cookie");
-   return h2.store.loadCustomerReviewOffered({
-    ...input,sessionKeyHash
-   }).then(x=>x&&({...x,sessionKeyHash:liveHash}));
-  },
+  recordCustomerReviewOffered:h2.store.recordCustomerReviewOffered,
+  loadCustomerReviewOffered:h2.store.loadCustomerReviewOffered,
   authorizeCustomerAcceptancePost:async()=>true
  });
  const get=new Request(origin+"/private/customer/quotations/quoteA/review",{
