@@ -17,6 +17,8 @@ on:
       - 'tests/essentials_private_oidc_state_sqlite.py'
       - 'tests/essentials_private_consent_actor_sessions_sqlite.py'
       - 'tests/essentials_private_session_quotation_challenge_sqlite.py'
+      - 'tests/essentials_private_atomic_session_begin_sqlite.py'
+      - 'cloudflare/migrations/essentials_private_atomic_session_begin_STAGING_CANDIDATE.sql'
       - 'cloudflare/migrations/essentials_private_session_quotation_challenges_STAGING_CANDIDATE.sql'
       - 'cloudflare/migrations/essentials_private_consent_actor_sessions_STAGING_CANDIDATE.sql'
       - 'cloudflare/migrations/essentials_private_oidc_state_STAGING_CANDIDATE.sql'
@@ -61,4 +63,5 @@ jobs:
           python3 tests/essentials_private_oidc_state_sqlite.py
           python3 tests/essentials_private_consent_actor_sessions_sqlite.py
           python3 tests/essentials_private_session_quotation_challenge_sqlite.py
+          python3 tests/essentials_private_atomic_session_begin_sqlite.py
           python3 tests/essentials_guarded_replay_sqlite.py
