@@ -11,7 +11,7 @@
  */
 const PURPOSE="thebe.essentials.quotation-acceptance.v1";
 const ISSUER="thebe-private-quotation-consent-staging";
-const fields=["acceptedAt","acceptedByUserId","acceptanceVersion","consentSha256",
+const fields=["acceptanceVersion","acceptedAt","acceptedByUserId","consentSha256",
  "customerId","expiresAt","issuedAt","issuer","purpose","quotationId",
  "quotationReference","quotationSha256","receiptId","tenantId","totalMinor"];
 const validId=x=>typeof x==="string"&&/^[A-Za-z0-9_-]{1,100}$/.test(x);
