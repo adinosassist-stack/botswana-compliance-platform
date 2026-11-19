@@ -41,14 +41,19 @@ export const ESSENTIALS_PRIVATE_SAVE_OIDC_HANDOFF_SQL=[
  "AND s.expires_at_ms>"+DB_NOW+" AND s.grant_expires_at_ms>"+DB_NOW,
  "AND ch.expires_at_ms>"+DB_NOW+" AND b.expires_at_ms>"+DB_NOW
 ].join(" ");
-export const ESSENTIALS_PRIVATE_CONSUME_OIDC_HANDOFF_SQL=[
- "UPDATE essentials_private_oidc_token_handoffs",
- "SET state='consumed',consumed_at_ms=?",
- "WHERE handoff_key_sha256=? AND session_key_sha256=?",
- "AND tenant_id=? AND actor_user_id=? AND quotation_id=?",
- "AND challenge_id=? AND state='pending'",
- "AND issued_at_ms<=? AND expires_at_ms>?",
- "AND issued_at_ms<="+DB_NOW+" AND expires_at_ms>"+DB_NOW,
+// SELECT + guarded WIPE + mandatory assertion all execute in ONE D1 batch.
+// D1 returns the encrypted token from the SELECT only after the batch commits;
+// UPDATE clears the ciphertext and IV before the value reaches the host.
+export const ESSENTIALS_PRIVATE_SELECT_OIDC_HANDOFF_SQL=[
+ "SELECT h.handoff_key_sha256,h.session_key_sha256,h.tenant_id,h.actor_user_id,",
+ "h.quotation_id,h.challenge_id,h.customer_id,h.token_iv,h.token_ciphertext,",
+ "h.issued_at_ms,h.expires_at_ms,h.state",
+ "FROM essentials_private_oidc_token_handoffs AS h",
+ "WHERE h.handoff_key_sha256=? AND h.session_key_sha256=?",
+ "AND h.tenant_id=? AND h.actor_user_id=? AND h.quotation_id=?",
+ "AND h.challenge_id=? AND h.state='pending'",
+ "AND h.issued_at_ms<=? AND h.expires_at_ms>?",
+ "AND h.issued_at_ms<="+DB_NOW+" AND h.expires_at_ms>"+DB_NOW,
  "AND EXISTS(SELECT 1",
  " FROM essentials_private_session_quotation_challenges AS b",
  " JOIN essentials_private_one_time_challenges AS ch",
@@ -57,12 +62,10 @@ export const ESSENTIALS_PRIVATE_CONSUME_OIDC_HANDOFF_SQL=[
  " ON s.session_key_sha256=b.session_key_sha256",
  " JOIN essentials_private_frozen_quotes AS q",
  " ON q.tenant_id=b.tenant_id AND q.quotation_id=b.quotation_id",
- " WHERE b.challenge_id=essentials_private_oidc_token_handoffs.challenge_id",
- " AND b.session_key_sha256=essentials_private_oidc_token_handoffs.session_key_sha256",
- " AND b.tenant_id=essentials_private_oidc_token_handoffs.tenant_id",
- " AND b.actor_user_id=essentials_private_oidc_token_handoffs.actor_user_id",
- " AND b.quotation_id=essentials_private_oidc_token_handoffs.quotation_id",
- " AND b.customer_id=essentials_private_oidc_token_handoffs.customer_id",
+ " WHERE b.challenge_id=h.challenge_id",
+ " AND b.session_key_sha256=h.session_key_sha256",
+ " AND b.tenant_id=h.tenant_id AND b.actor_user_id=h.actor_user_id",
+ " AND b.quotation_id=h.quotation_id AND b.customer_id=h.customer_id",
  " AND b.state='pending' AND ch.state='pending' AND s.state='active'",
  " AND q.state='accepted' AND q.customer_id=b.customer_id",
  " AND ch.tenant_id=b.tenant_id AND ch.actor_user_id=b.actor_user_id",
@@ -73,10 +76,30 @@ export const ESSENTIALS_PRIVATE_CONSUME_OIDC_HANDOFF_SQL=[
  " AND q.total_minor=ch.total_minor AND q.quotation_reference=ch.quotation_reference",
  " AND s.expires_at_ms>"+DB_NOW+" AND s.grant_expires_at_ms>"+DB_NOW,
  " AND b.expires_at_ms>"+DB_NOW+" AND ch.expires_at_ms>"+DB_NOW+")",
- "RETURNING handoff_key_sha256,session_key_sha256,tenant_id,actor_user_id,",
- "quotation_id,challenge_id,customer_id,token_iv,token_ciphertext,",
- "issued_at_ms,expires_at_ms,state"
+ "LIMIT 1"
 ].join(" ");
+export const ESSENTIALS_PRIVATE_WIPE_OIDC_HANDOFF_SQL=[
+ "UPDATE essentials_private_oidc_token_handoffs",
+ "SET state='consumed',consumed_at_ms=?,token_iv=NULL,token_ciphertext=NULL",
+ "WHERE handoff_key_sha256=? AND session_key_sha256=?",
+ "AND tenant_id=? AND actor_user_id=? AND quotation_id=?",
+ "AND challenge_id=? AND state='pending'",
+ "AND issued_at_ms<=? AND expires_at_ms>?",
+ "AND issued_at_ms<="+DB_NOW+" AND expires_at_ms>"+DB_NOW
+].join(" ");
+export const ESSENTIALS_PRIVATE_ASSERT_OIDC_HANDOFF_ERASURE_SQL=[
+ "INSERT INTO essentials_private_oidc_handoff_erasures",
+ "(handoff_key_sha256,session_key_sha256,tenant_id,actor_user_id,",
+ "quotation_id,challenge_id,consumed_at_ms)",
+ "VALUES(?,?,?,?,?,?,?)"
+].join(" ");
+export const ESSENTIALS_PRIVATE_EXPIRE_OIDC_HANDOFF_SQL=[
+ "UPDATE essentials_private_oidc_token_handoffs",
+ "SET state='expired',expired_at_ms="+DB_NOW+",",
+ "token_iv=NULL,token_ciphertext=NULL",
+ "WHERE state='pending' AND expires_at_ms<=? AND expires_at_ms<="+DB_NOW
+].join(" ");
+
 function bytes(x){
  if(x instanceof Uint8Array)return new Uint8Array(x);
  if(x instanceof ArrayBuffer)return new Uint8Array(x);
@@ -124,11 +147,11 @@ export function createEssentialsPrivateOidcServerTokenHandoff({
  enabled=false,environment,db,tokenEncryptionKey,
  cryptoSubtle=globalThis.crypto?.subtle,randomBytes,now=()=>Date.now(),
  loadActiveSession,loadSessionChallenge,verifyTrustedOidcCompletion,
- authorizeExplicitConsentPost
+ authorizeExplicitConsentPost,authorizeExpiredHandoffCleanup
 }={}){
  if(enabled!==true||environment!=="essentials-private-staging")
   throw Error("private_oidc_handoff_disabled");
- if(typeof db?.prepare!=="function"||tokenEncryptionKey?.type!=="secret"||
+ if(typeof db?.prepare!=="function"||typeof db?.batch!=="function"||tokenEncryptionKey?.type!=="secret"||
     tokenEncryptionKey.extractable!==false||
     tokenEncryptionKey.algorithm?.name!=="AES-GCM"||
     tokenEncryptionKey.algorithm?.length!==256||
@@ -138,7 +161,8 @@ export function createEssentialsPrivateOidcServerTokenHandoff({
     typeof cryptoSubtle?.decrypt!=="function"||
     typeof cryptoSubtle?.digest!=="function"||
     [randomBytes,now,loadActiveSession,loadSessionChallenge,
-     verifyTrustedOidcCompletion,authorizeExplicitConsentPost]
+     verifyTrustedOidcCompletion,authorizeExplicitConsentPost,
+     authorizeExpiredHandoffCleanup]
       .some(fn=>typeof fn!=="function"))
   throw Error("private_oidc_handoff_unconfigured");
  async function context(claim,at){
@@ -202,17 +226,38 @@ export function createEssentialsPrivateOidcServerTokenHandoff({
    if(allowed!==true)deny();
    const bound=await context(claim,at);
    const handoffKeySha256=await digest(cryptoSubtle,proofKey(claim));
-   let dbrow;
-   try{dbrow=await db.prepare(ESSENTIALS_PRIVATE_CONSUME_OIDC_HANDOFF_SQL)
-      .bind(at,handoffKeySha256,claim.sessionKeyHash,
-       claim.tenantId,claim.actorUserId,claim.quotationId,
-       claim.challengeId,at,at).first()}catch{deny()}
-   if(!dbrow)return null;
+   let results;
+   try{
+    results=await db.batch([
+     db.prepare(ESSENTIALS_PRIVATE_SELECT_OIDC_HANDOFF_SQL).bind(
+      handoffKeySha256,claim.sessionKeyHash,claim.tenantId,
+      claim.actorUserId,claim.quotationId,claim.challengeId,at,at
+     ),
+     db.prepare(ESSENTIALS_PRIVATE_WIPE_OIDC_HANDOFF_SQL).bind(
+      at,handoffKeySha256,claim.sessionKeyHash,claim.tenantId,
+      claim.actorUserId,claim.quotationId,claim.challengeId,at,at
+     ),
+     db.prepare(ESSENTIALS_PRIVATE_ASSERT_OIDC_HANDOFF_ERASURE_SQL).bind(
+      handoffKeySha256,claim.sessionKeyHash,claim.tenantId,
+      claim.actorUserId,claim.quotationId,claim.challengeId,at
+     )
+    ]);
+   }catch{deny()}
+   // The mandatory assertion raises SQL ABORT if SELECT/UPDATE did not
+   // transition this exact pending row to consumed with its ciphertext gone.
+   // Never return a SELECT result from an incomplete or unconfirmed batch.
+   if(!Array.isArray(results)||results.length!==3||
+      results.some(r=>r?.success!==true)||
+      !Array.isArray(results[0].results)||
+      results[0].results.length!==1||
+      results[1].meta?.changes!==1||
+      results[2].meta?.changes!==1)deny();
+   const dbrow=results[0].results[0];
    const info={
     ...claim,customerId:dbrow.customer_id,handoffKeySha256,
     issuedAtMs:dbrow.issued_at_ms,expiresAtMs:dbrow.expires_at_ms
    };
-   if(dbrow.state!=="consumed"||
+   if(dbrow.state!=="pending"||
       dbrow.handoff_key_sha256!==handoffKeySha256||
       dbrow.session_key_sha256!==claim.sessionKeyHash||
       dbrow.tenant_id!==claim.tenantId||
@@ -234,6 +279,23 @@ export function createEssentialsPrivateOidcServerTokenHandoff({
    return Object.freeze({idToken,challengeId:claim.challengeId,
     quotationId:claim.quotationId,tenantId:claim.tenantId,
     actorUserId:claim.actorUserId});
+  },
+  // No scheduler, secret or D1 permission is installed by this source.
+  // A separately approved private maintenance host must invoke frequently
+  // enough to meet retention SLAs, preserving the tombstone row.
+  async eraseExpiredHandoffs(){
+   let allowed=false;
+   try{allowed=await authorizeExpiredHandoffCleanup({
+    action:"erase-expired-private-oidc-handoffs"
+   })}catch{deny()}
+   if(allowed!==true)deny();
+   const at=nowMs(now);
+   let result;
+   try{result=await db.prepare(ESSENTIALS_PRIVATE_EXPIRE_OIDC_HANDOFF_SQL)
+    .bind(at).run()}catch{deny()}
+   if(result?.success!==true||
+      !Number.isInteger(result.meta?.changes)||result.meta.changes<0)deny();
+   return Object.freeze({expiredRowsErased:result.meta.changes});
   }
  });
 }
