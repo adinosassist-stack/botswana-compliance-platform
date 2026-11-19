@@ -171,3 +171,18 @@ test("invalid PNG, unsupported MIME and absent rate limiter fail closed",async()
  assert.equal(r.status,503);
  assert.equal(f.objects.size,0);
 });
+
+
+test("business navigation is feature-and-bucket gated; static branding links do not expose token",()=>{
+ const entry=readFileSync(new URL("../cloudflare/src/production-entry.js",import.meta.url),"utf8");
+ const link=readFileSync(new URL("../public/js/company-logo-business-link.js",import.meta.url),"utf8");
+ const html=readFileSync(new URL("../cloudflare/src/company-logo-settings.js",import.meta.url),"utf8");
+ assert.match(entry,/injectCompanyLogoBusinessLink\(repaired\)/);
+ assert.match(entry,/THEBE_COMPANY_LOGO_ENABLED==="true"/);
+ assert.match(entry,/COMPANY_LOGOS\?\.get/);
+ assert.match(link,/businesshub/);
+ assert.match(link,/\.user\.role/);
+ assert.match(link,/company-logo\/"/);
+ assert.doesNotMatch(link,/localStorage|sessionStorage/);
+ assert.doesNotMatch(html,/document\.cookie|localStorage|sessionStorage/);
+});
