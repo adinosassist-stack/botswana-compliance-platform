@@ -23,18 +23,14 @@
   else root.prepend(block);
  }
  const schedule=()=>{if(document.getElementById(marker))return;if(!scheduled){scheduled=true;requestAnimationFrame(insert)}};
- async function start(){
-  try{
-   const r=await fetch("/__thebe_api/auth/me",{credentials:"same-origin",cache:"no-store",redirect:"error"});
-   if(!r.ok)return;
-   const session=await r.json();
-   if(!session?.user||!["owner","manager"].includes(session.user.role)||session.landingPath)return;
-   authorized=true;schedule();
-   // Business hub may be lazily rendered or refreshed by the workspace.
-   const observer=new MutationObserver(schedule);
-   observer.observe(document.body,{childList:true,subtree:true});
-   addEventListener("pagehide",()=>observer.disconnect(),{once:true});
-  }catch{}
+ function start(){
+  // This script is injected only after the host has independently verified
+  // the active membership and writer role. It never performs its own fetch.
+  authorized=true;schedule();
+  // Business hub may be lazily rendered or refreshed by the workspace.
+  const observer=new MutationObserver(schedule);
+  observer.observe(document.body,{childList:true,subtree:true});
+  addEventListener("pagehide",()=>observer.disconnect(),{once:true});
  }
  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start,{once:true});
  else start();
