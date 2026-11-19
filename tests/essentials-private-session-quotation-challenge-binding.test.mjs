@@ -23,8 +23,8 @@ const parent={
  quotationId,customerId:"customerA",nonce,
  issuedAtMs:at-500,expiresAtMs:at+300000
 };
-const startArgs={sessionKeyHash,principal,quotationId,challenge:original};
-const lookupArgs={sessionKeyHash,tenantId:"tenantA",actorUserId:"actorA",
+const startArgs={sessionKeyHash:sessionHash,principal,quotationId,challenge:original};
+const lookupArgs={sessionKeyHash:sessionHash,tenantId:"tenantA",actorUserId:"actorA",
  quotationId,challengeId};
 function fixture({allowRevoke=true,noInsert=false,dbError=false}={}){
  const state={session:{...activeSession},parent:{...parent},row:null,
