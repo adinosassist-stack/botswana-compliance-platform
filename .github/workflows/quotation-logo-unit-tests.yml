@@ -13,6 +13,8 @@ on:
       - 'scripts/quotation-staging-resource-inventory.mjs'
       - 'tests/quotation-logo-*.test.mjs'
       - 'tests/company-logo-*.test.mjs'
+      - 'tests/company-logo-production-schema.test.py'
+      - 'cloudflare/migrations/20261119_company_logo_private_storage.sql'
       - 'cloudflare/src/company-logo-settings.js'
       - 'public/js/company-logo-settings.mjs'
       - 'public/js/company-logo-business-link.js'
@@ -64,6 +66,8 @@ jobs:
           node --check server/quotation-portable-private-staging.mjs
           node --check server/quotation-logo-node-staging.mjs
           node --check server/quotation-logo-pdf-node-staging.mjs
+      - name: Rehearse production-shaped logo schema and cross-tenant isolation offline
+        run: python3 tests/company-logo-production-schema.test.py -v
       - name: Validate protected per-tenant company upload and centralized transport
         run: node --test tests/company-logo-protected-upload.test.mjs tests/company-logo-api-transport.test.mjs
       - name: Run quotation logo isolation, sizing and PDF tests
