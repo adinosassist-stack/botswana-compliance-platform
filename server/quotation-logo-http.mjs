@@ -125,6 +125,12 @@ export async function handleQuotationLogoHttp({request,actor,companyId,authoriza
   if(code==="logo_asset_not_found")return invalid(code,404);
   if(code==="logo_request_too_large")return invalid(code,413);
   if(code==="invalid_request_body")return invalid(code,400);
+  // The portable PNG decoder rejects corrupt, unsupported, animated or
+  // oversized images. These are client file errors, not server outages.
+  if(code==="unsupported_logo_decoder"||code.startsWith("unsupported_png_")||
+     code.startsWith("invalid_png_"))return invalid("invalid_or_unsupported_logo_image",400);
+  if(code==="png_stream_size_exceeded"||code==="png_decompressed_size_exceeded")
+   return invalid("logo_image_too_large",413);
   return invalid("logo_request_failed",500);
  }
 }
