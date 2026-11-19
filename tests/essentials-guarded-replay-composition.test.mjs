@@ -25,7 +25,7 @@ function fixture({old=null,acceptanceEligible=true,sqlError=null,load=async()=>q
       currency:"BWP",items:[{description:"Memorial",quantity:1,unitMinor:10000,lineMinor:10000}],
       subtotalMinor:10000,discountMinor:0,totalMinor:10000
      })};
-   })};
+   }})};
   }
   return {bind:()=>({run:async()=>{
    writes++;if(sqlError)throw sqlError;
