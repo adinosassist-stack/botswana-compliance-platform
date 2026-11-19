@@ -1,3 +1,4 @@
+import {handleCompanyLogoRoute} from "./company-logo-settings.js";
 import {quotationBrowserPreview} from "./quotation-browser-preview.js";
 import worker from "./worker.js";
 import {handleAgenticRequest} from "./agentic-core.js";
@@ -491,6 +492,8 @@ async function rewriteRegistrationVerificationFailure(response){
 }
 
 async function fetchWithTurnstileCspRepair(request,env,ctx){
+   const companyLogo=await handleCompanyLogoRoute({request,env,fetchSession:inner=>worker.fetch(inner,env,ctx)});
+   if(companyLogo)return companyLogo;
   const quotationPreview=await quotationBrowserPreview(request,env,inner=>worker.fetch(inner,env,ctx));
   if(quotationPreview)return quotationPreview;
   const agenticResponse=await handleAgenticRequest({
