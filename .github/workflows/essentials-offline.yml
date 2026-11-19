@@ -13,6 +13,8 @@ on:
       - 'tests/essentials_private_frozen_evidence_sqlite.py'
       - 'tests/essentials_private_one_time_consent_sqlite.py'
       - 'tests/essentials_private_customer_identity_links_sqlite.py'
+      - 'tests/essentials_private_identity_bound_capture_sqlite.py'
+      - 'cloudflare/migrations/essentials_private_identity_bound_capture_STAGING_CANDIDATE.sql'
       - 'cloudflare/migrations/essentials_private_customer_identity_links_STAGING_CANDIDATE.sql'
       - 'cloudflare/migrations/essentials_private_one_time_consent_STAGING_CANDIDATE.sql'
       - 'cloudflare/migrations/essentials_private_consent_authority_STAGING_CANDIDATE.sql'
@@ -49,4 +51,5 @@ jobs:
           python3 tests/essentials_private_frozen_evidence_sqlite.py
           python3 tests/essentials_private_one_time_consent_sqlite.py
           python3 tests/essentials_private_customer_identity_links_sqlite.py
+          python3 tests/essentials_private_identity_bound_capture_sqlite.py
           python3 tests/essentials_guarded_replay_sqlite.py
