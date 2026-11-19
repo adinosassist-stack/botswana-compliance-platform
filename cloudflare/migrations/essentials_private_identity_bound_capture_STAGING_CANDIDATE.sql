@@ -26,8 +26,8 @@ CREATE TRIGGER essentials_private_capture_requires_current_identity_link
       AND link.customer_id=NEW.customer_id
       AND link.state='active' AND link.revoked_at_ms IS NULL
       AND link.proof_verified_at_ms<=NEW.accepted_at_ms
-      AND link.expires_at_ms>(CAST(strftime('%s','now') AS INTEGER)*1000)
+      AND link.expires_at_ms>(CAST(strftime('%s','now') AS INTEGER)*1000 + CAST(substr(strftime('%f','now'),4,3) AS INTEGER))
       AND link.proof_verified_at_ms<=
-           (CAST(strftime('%s','now') AS INTEGER)*1000)
+           (CAST(strftime('%s','now') AS INTEGER)*1000 + CAST(substr(strftime('%f','now'),4,3) AS INTEGER))
   ) THEN RAISE(ABORT,'current_identity_link_required') END;
  END;
