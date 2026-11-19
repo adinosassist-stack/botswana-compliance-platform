@@ -286,7 +286,7 @@
     const after=nav?.querySelector('button[data-view="moneyhub"]');
     const shell=document.getElementById("appShell");
     const roleLabel=document.getElementById("roleLabel");
-    if(!nav||!after||!shell||!roleLabel||document.getElementById(ID))return;
+    if(!nav||!shell||!roleLabel||document.getElementById(ID))return;
     const button=document.createElement("button");
     button.id=ID;
     button.type="button";
@@ -300,9 +300,9 @@
     const label=document.createElement("span");
     label.textContent="Quotations";
     button.append(icon,label);
-    after.after(button);
+    if(after)after.after(button);else nav.append(button);
     const style=document.createElement("style");
-    style.textContent="#"+ID+"[hidden]{display:none!important}#"+ID+"{width:100%;text-align:left;cursor:pointer}";
+    style.textContent="#"+ID+"[hidden]{display:none!important}#"+ID+"{width:100%;text-align:left;cursor:pointer;min-height:44px} @media(max-width:620px){#"+ID+"{display:flex!important;align-items:center;gap:10px;white-space:normal;min-height:48px!important}#"+ID+" .nav-primary-icon{flex:0 0 28px}}";
     document.head.append(style);
     let revision=0,scheduled=false,granted=false;
     const ready=()=>global.__THEBE_WORKSPACE_READY__===true&&
