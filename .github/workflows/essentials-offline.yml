@@ -19,6 +19,8 @@ on:
       - 'tests/essentials_private_session_quotation_challenge_sqlite.py'
       - 'tests/essentials_private_atomic_session_begin_sqlite.py'
       - 'tests/essentials_private_oidc_token_handoff_sqlite.py'
+      - 'tests/essentials_private_verified_customer_sessions_sqlite.py'
+      - 'cloudflare/migrations/essentials_private_verified_customer_sessions_STAGING_CANDIDATE.sql'
       - 'cloudflare/migrations/essentials_private_oidc_token_handoff_STAGING_CANDIDATE.sql'
       - 'cloudflare/migrations/essentials_private_atomic_session_begin_STAGING_CANDIDATE.sql'
       - 'cloudflare/migrations/essentials_private_session_quotation_challenges_STAGING_CANDIDATE.sql'
@@ -67,4 +69,5 @@ jobs:
           python3 tests/essentials_private_session_quotation_challenge_sqlite.py
           python3 tests/essentials_private_atomic_session_begin_sqlite.py
           python3 tests/essentials_private_oidc_token_handoff_sqlite.py
+          python3 tests/essentials_private_verified_customer_sessions_sqlite.py
           python3 tests/essentials_guarded_replay_sqlite.py
