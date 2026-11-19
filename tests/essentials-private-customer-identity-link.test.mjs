@@ -53,7 +53,8 @@ test("disabled by default; requires isolated staging HMAC secret and host owners
 test("verified signed subject tag and independently current owner yield opaque identity",async()=>{
  const {resolver,calls}=setup();
  const result=await resolver.resolveCustomerAccountLink(p);
- assert.deepEqual(result,{linked:true,consentSubjectId:"customerAuthA"});
+ assert.deepEqual(result,{linked:true,consentSubjectId:"customerAuthA",
+  customerIdentityLinkId:"linkA",identitySubjectHmacSha256:await sign(p.subject)});
  assert.deepEqual(calls.sql,[{sql:ESSENTIALS_PRIVATE_CUSTOMER_IDENTITY_LINK_SQL,
   args:[issuer,await sign(p.subject),"tenantA","customerA",now]}]);
  assert.equal(JSON.stringify(calls.sql).includes(p.subject),false);
