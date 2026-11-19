@@ -8,6 +8,7 @@ const safe=x=>String(x).replace(/&/g,"&amp;").replace(/</g,"&lt;")
  .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 const td=new TextDecoder("utf-8",{fatal:true});
 const css=":root{--blue:#1762bd;--navy:#12263e}*{box-sizing:border-box}body{margin:0;background:#f4f6f9;color:var(--navy);font:16px system-ui,Arial}header{background:#17283c;color:white;padding:20px}main{max-width:900px;margin:24px auto;padding:0 16px 48px}article{background:#fff;border:1px solid #d6e0e9;border-radius:14px;padding:24px;margin:18px 0}h1{font-size:clamp(24px,4vw,34px)}h2{font-size:21px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.6}.muted{color:#5c6876}.amount{font-weight:750;font-size:24px}.choice{display:flex;gap:12px;align-items:flex-start;line-height:1.6}input{min-height:20px;min-width:20px;margin-top:5px}button{font:inherit;font-weight:650;border-radius:10px;min-height:48px;padding:12px 22px;border:1px solid #b5c3d2;background:white;cursor:pointer}button.primary{background:var(--blue);color:white;border-color:var(--blue)}button:disabled{opacity:.5;cursor:not-allowed}.actions{display:flex;flex-wrap:wrap;gap:12px;margin:20px 0}#feedback{min-height:28px;font-weight:600}@media(max-width:560px){article{padding:16px}.actions button{width:100%}}";
+const invitationClientScript="(()=>{const status=document.getElementById(\"invite-status\"),button=document.getElementById(\"continue\");const parts=new URLSearchParams(location.hash.startsWith(\"#\")?location.hash.slice(1):\"\");const values=parts.getAll(\"ticket\");const ticket=values.length===1?values[0]:\"\";history.replaceState(null,\"\",location.pathname);if(!/^[A-Za-z0-9_-]{43}$/.test(ticket)){status.textContent=\"This invitation link is incomplete or has expired.\";return;}button.disabled=false;button.addEventListener(\"click\",async()=>{button.disabled=true;status.textContent=\"Opening secure sign-in…\";try{const response=await fetch(location.pathname+\"/start\",{method:\"POST\",credentials:\"same-origin\",redirect:\"error\",cache:\"no-store\",referrerPolicy:\"no-referrer\",headers:{\"content-type\":\"application/json\"},body:JSON.stringify({ticket})});if(!response.ok)throw Error(\"invalid ticket\");const result=await response.json();const url=new URL(result.authorizationUrl);if(url.protocol!==\"https:\"||!url.hostname)throw Error(\"unsafe redirect\");location.assign(url.href);}catch{status.textContent=\"Sign-in could not be started. Request a new invitation.\";}})})();";
 const clientScript="(()=>{const form=document.getElementById(\"accept-form\"),box=document.getElementById(\"agree\"),button=document.getElementById(\"confirm\"),feedback=document.getElementById(\"feedback\"),reject=document.getElementById(\"decline\"),intent=JSON.parse(document.getElementById(\"intent\").textContent);box.addEventListener(\"change\",()=>{button.disabled=!box.checked});reject.addEventListener(\"click\",()=>{form.hidden=true;feedback.textContent=\"No acceptance recorded.\"});form.addEventListener(\"submit\",async e=>{e.preventDefault();if(!box.checked)return;const cookies=document.cookie.split(\";\").map(x=>x.trim()).filter(x=>x.startsWith(\"__Host-thebe-customer-csrf=\"));if(cookies.length!==1){feedback.textContent=\"Session expired.\";return;}const csrf=cookies[0].slice(\"__Host-thebe-customer-csrf=\".length);if(!/^[A-Za-z0-9_-]{43}$/.test(csrf)){feedback.textContent=\"Session expired.\";return;}button.disabled=true;feedback.textContent=\"Submitting…\";try{const response=await fetch(form.dataset.endpoint,{method:\"POST\",credentials:\"same-origin\",redirect:\"error\",cache:\"no-store\",referrerPolicy:\"no-referrer\",headers:{\"content-type\":\"application/json\",\"x-csrf-token\":csrf},body:JSON.stringify(intent)});if(!response.ok)throw Error(\"denied\");const receipt=await response.json();if(receipt.state!==\"recorded\")throw Error(\"denied\");form.hidden=true;feedback.textContent=\"Acceptance recorded. Reference: \"+receipt.quotationId;}catch{feedback.textContent=\"Acceptance not confirmed. Check your status before retrying.\";}})})();";
 function visibleText(x,max){
  const raw=x instanceof Uint8Array?x:x instanceof ArrayBuffer?
@@ -25,6 +26,38 @@ const noStore=(extra={})=>({
  "permissions-policy":"camera=(), microphone=(), geolocation=()",
  ...extra
 });
+export function renderCustomerInvitation({invitationId,nonce}={}){
+ if(!ID(invitationId)||typeof nonce!=="string"||
+  !/^[A-Za-z0-9_-]{16,128}$/.test(nonce))deny();
+ const html=[
+  "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">",
+  "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">",
+  "<meta name=\"robots\" content=\"noindex,nofollow,noarchive\">",
+  "<title>Private customer invitation | Thebe Desk</title>",
+  "<style>",css,"</style></head><body>",
+  "<header><strong>Thebe Desk</strong> · Secure customer invitation</header>",
+  "<main><h1>Verify your identity</h1><article>",
+  "<h2>Continue to secure sign-in</h2>",
+  "<p>This invitation is for the intended customer only. ",
+  "You will be asked to sign in before reviewing your quotation and all terms.</p>",
+  "<p class=\"muted\">Invitation reference: ",safe(invitationId),"</p>",
+  "<button id=\"continue\" class=\"primary\" type=\"button\" disabled>",
+  "Continue to identity verification</button>",
+  "<p id=\"invite-status\" role=\"status\" aria-live=\"polite\"></p>",
+  "<p class=\"muted\">A forwarded link does not establish customer ownership. ",
+  "Only an independently verified customer account can proceed.</p>",
+  "</article></main>",
+  "<script nonce=\"",nonce,"\">",invitationClientScript,
+  "</script></body></html>"
+ ].join("");
+ return Object.freeze({html,headers:noStore({
+  "content-type":"text/html; charset=utf-8",
+  "content-security-policy":"default-src 'none'; base-uri 'none'; "+
+   "object-src 'none'; frame-ancestors 'none'; form-action 'self'; "+
+   "connect-src 'self'; style-src 'unsafe-inline'; "+
+   "script-src 'nonce-"+nonce+"'; upgrade-insecure-requests"
+ })});
+}
 export function renderCustomerQuotation({review,nonce}={}){
  if(!review||!ID(review.quotationId)||!ID(review.quotationReference)||
    !ID(review.presentationId)||!/^[A-Za-z0-9_-]{16,128}$/.test(nonce||"")||
@@ -105,9 +138,11 @@ export function createEssentialsPrivateCustomerStagingHttpGateway({
    if(url.origin!==expectedOrigin)deny();
    const path=url.pathname,method=request.method;
    let kind="unknown",quotationId=null,invitationId=null;
+   const entry=path.match(/^\/private\/customer\/invitations\/([A-Za-z0-9_-]{1,100})$/);
    const inv=path.match(/^\/private\/customer\/invitations\/([A-Za-z0-9_-]{1,100})\/start$/);
    const quote=path.match(/^\/private\/customer\/quotations\/([A-Za-z0-9_-]{1,100})\/(review|accept)$/);
-   if(inv&&method==="POST"){kind="start";invitationId=inv[1]}
+   if(entry&&method==="GET"&&!url.search){kind="invite-entry";invitationId=entry[1]}
+   else if(inv&&method==="POST"){kind="start";invitationId=inv[1]}
    else if(path==="/private/customer/oidc/callback"&&method==="GET")
     kind="callback";
    else if(quote&&((method==="GET"&&quote[2]==="review")||
@@ -124,11 +159,20 @@ export function createEssentialsPrivateCustomerStagingHttpGateway({
    if(allowed!==true||withinLimit!==true)
     return new Response("Unavailable",{status:403,headers:noStore()});
    try{
+    if(kind==="invite-entry"){
+     const nonce=await makeCspNonce({request,invitationId});
+     const page=renderCustomerInvitation({invitationId,nonce});
+     return new Response(page.html,{status:200,headers:page.headers});
+    }
     if(kind==="start"){
      const a=await journey.beginCustomerLogin({request,invitationId});
-     const h=new Headers(noStore({location:a.authorizationUrl}));
+     const h=new Headers(noStore({
+      "content-type":"application/json; charset=utf-8"
+     }));
      h.append("set-cookie",a.setCookie);
-     return new Response(null,{status:303,headers:h});
+     return new Response(JSON.stringify({
+      authorizationUrl:a.authorizationUrl
+     }),{status:200,headers:h});
     }
     if(kind==="callback"){
      const r=await journey.completeCustomerLogin({request});
