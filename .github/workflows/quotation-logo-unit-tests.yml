@@ -12,6 +12,11 @@ on:
       - 'server/quotation-staging-readonly-preflight.mjs'
       - 'scripts/quotation-staging-resource-inventory.mjs'
       - 'tests/quotation-logo-*.test.mjs'
+      - 'tests/company-logo-*.test.mjs'
+      - 'cloudflare/src/company-logo-settings.js'
+      - 'public/js/company-logo-settings.mjs'
+      - 'public/js/company-logo-business-link.js'
+      - 'public/js/api-client.js'
       - 'docs/sql/quotation-logo-staging-candidate.sql'
       - '.github/workflows/quotation-logo-unit-tests.yml'
   workflow_dispatch:
@@ -59,5 +64,7 @@ jobs:
           node --check server/quotation-portable-private-staging.mjs
           node --check server/quotation-logo-node-staging.mjs
           node --check server/quotation-logo-pdf-node-staging.mjs
+      - name: Validate protected per-tenant company upload and centralized transport
+        run: node --test tests/company-logo-protected-upload.test.mjs tests/company-logo-api-transport.test.mjs
       - name: Run quotation logo isolation, sizing and PDF tests
         run: node --test $(find tests -maxdepth 1 \( -name 'quotation-logo-*.test.mjs' -o -name 'quotation-draft-*.test.mjs' \) ! -name 'quotation-logo-real-pdf.test.mjs' ! -name 'quotation-logo-real-private-e2e.test.mjs' ! -name 'quotation-logo-web-png-workerd.test.mjs' ! -name 'quotation-draft-real-browser.test.mjs' | sort)
