@@ -124,7 +124,7 @@ export function createQuotationLogoHttpClient({fetchImpl,csrfToken,enabled=false
  * Explicit user-driven mounting. Do not call from public page boot.
  * The backend must be independently authorized and configured before enabling.
  */
-export async function mountCompanyQuotationLogoEditor(root,{companyId,capability,fetchImpl,csrfToken}={}) {
+export async function mountCompanyQuotationLogoEditor(root,{companyId,capability,fetchImpl,csrfToken,pdfPreviewEnabled=false}={}) {
  if(capability?.enabled!==true||capability?.authenticated!==true)
   deny("quotation_logo_feature_disabled");
  const api=createQuotationLogoHttpClient({fetchImpl,csrfToken,enabled:true});
@@ -136,7 +136,7 @@ export async function mountCompanyQuotationLogoEditor(root,{companyId,capability
   initialLayout:current.settings?.layout,
   initialLogoBlob:savedLogoBlob,initialAspectRatio:verifiedAspectRatio,
   onUpload:async file=>{const uploaded=await api.upload(file);verifiedAspectRatio=uploaded.aspectRatio;return uploaded},
-  onPreviewPdf:()=>api.previewPdf(),
+  onPreviewPdf:pdfPreviewEnabled?()=>api.previewPdf():undefined,
   onSave:async settings=>{
    if(!Number.isFinite(verifiedAspectRatio)||verifiedAspectRatio<=0)deny('logo_aspect_ratio_unavailable');
    return api.save({...settings,aspectRatio:verifiedAspectRatio});
