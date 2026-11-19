@@ -421,7 +421,7 @@ export function createEssentialsPrivateCustomerInviteOidcJourney({
       row.issued_at_ms>at||row.expires_at_ms<=at||
       row.expires_at_ms-row.issued_at_ms>MAX_MS)deny();
    const att={attemptId:row.attempt_id,invitationId:row.invitation_id,
-    stateSha256,oauthCookieSha256,
+    stateSha256,oauthCookieSha256:cookieSha256,
     issuedAtMs:row.issued_at_ms,expiresAtMs:row.expires_at_ms};
    const verifier=await decrypt(cryptoSubtle,verifierEncryptionKey,
     row.verifier_iv,row.verifier_ciphertext,attemptAAD(att));
