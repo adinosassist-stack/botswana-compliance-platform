@@ -13,9 +13,9 @@ function existing(changes={}){return {
  draft:{...draft,invoiceReference:"ED-old"},...changes
 };}
 function harness({rows=[],error=null,changes=1}={}){
- let reads=0,writes=0;
+ let reads=0,writes=0,lastSelect="",lastParams=[];
  return {db:{prepare:sql=>{
-  if(sql.startsWith("SELECT"))return{bind:()=>({first:async()=>{reads++;const row=rows.shift();return row?{
+  if(sql.trimStart().startsWith("SELECT"))return{bind:(...params)=>({first:async()=>{reads++;lastSelect=sql;lastParams=params;const row=rows.shift();return row?{
    id:row.id,tenant_id:row.tenantId,customer_id:row.customerId,
    source_quotation_id:row.sourceQuotationId,invoice_number:row.invoiceReference,
    status:row.status,created_by_user_id:row.createdByUserId,
@@ -23,7 +23,7 @@ function harness({rows=[],error=null,changes=1}={}){
   }:null}})};
   return{bind:()=>({run:async()=>{writes++;if(error)throw error;
    return{success:true,meta:{changes}}}})};
- }},stats:()=>({reads,writes})};
+ }},stats:()=>({reads,writes}),select:()=>({sql:lastSelect,params:lastParams})};
 }
 const args=db=>({db,principal,record,acceptanceVersion:2,sourceQuotationReference:"Q-1"});
 test("first accepted conversion writes once and returns new invoice",async()=>{
@@ -36,6 +36,10 @@ test("exact same-key retry returns original invoice reference with no write",asy
  const x=await insertOrReplayAcceptedEssentialsDraft(args(h.db));
  assert.equal(x.replayed,true);assert.equal(x.invoice.invoiceReference,"ED-old");
  assert.deepEqual(h.stats(),{reads:1,writes:0});
+ assert.match(h.select().sql,/JOIN essentials_accepted_quotation_snapshots AS a/);
+ assert.match(h.select().sql,/a.state=\x27accepted\x27/);
+ assert.match(h.select().sql,/a.acceptance_version=\?/);
+ assert.deepEqual(h.select().params,["tenantA","keyA","quoteA","customerA",2,"Q-1",10000]);
 });
 test("same-key different customer, quotation, actor and payload all conflict",async()=>{
  for(const conflict of [
@@ -82,5 +86,17 @@ test("unauthorized principal, tenant spoof and missing version fail without read
   const h=harness();
   await assert.rejects(insertOrReplayAcceptedEssentialsDraft({...args(h.db),...opts}));
   assert.deepEqual(h.stats(),{reads:0,writes:0});
+ }
+});
+
+test("revoked or stale source snapshot cannot replay existing draft",async()=>{
+ // The joined database SELECT returns no eligible row for revoked,
+ // stale-version, different-reference or different-total acceptance.
+ for(const sourceState of ["revoked","version_changed","reference_changed","total_changed"]){
+  const h=harness({rows:[null],changes:0});
+  await assert.rejects(insertOrReplayAcceptedEssentialsDraft(args(h.db)),
+   /acceptance_stale_or_unverified/,sourceState);
+  assert.deepEqual(h.stats(),{reads:1,writes:1});
+  assert.match(h.select().sql,/a.state='accepted'/);
  }
 });
