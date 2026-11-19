@@ -17,6 +17,7 @@ const hex=async v=>Array.from(new Uint8Array(await subtle.digest(
 function fixture({allowGrant=true,allowRevoke=true,zeroWrite=false,
  failDb=false,clock=()=>at}={}){
  const rows=new Map(), calls=[];let counter=0;
+ let currentGrantAllowed=allowGrant;
  const db={prepare(sql){return {bind(...args){
   calls.push({sql,args});
   return {
@@ -62,13 +63,13 @@ function fixture({allowGrant=true,allowRevoke=true,zeroWrite=false,
   randomBytes:n=>new Uint8Array(n).fill(++counter),
   now:clock,
   verifyCurrentActorGrant:async arg=>{
-   approvals.push({type:"grant",...arg});return allowGrant;
+   approvals.push({type:"grant",...arg});return currentGrantAllowed;
   },
   authorizeSessionRevocation:async arg=>{
    approvals.push({type:"revoke",...arg});return allowRevoke;
   }
  });
- return {store,calls,rows,approvals};
+ return {store,calls,rows,approvals,revokeGrant:()=>{currentGrantAllowed=false}};
 }
 const issuedToken=output=>output.setCookie.split(";")[0].split("=")[1];
 test("unmounted actor session refuses missing staging and trusted grant callbacks",()=>{
@@ -127,6 +128,7 @@ test("read session and OIDC session verification require current independent act
   sessionKeyHash:"f".repeat(64)
  }),null);
  assert.ok(h.approvals.some(a=>a.operation==="session-read"));
+ assert.ok(h.approvals.some(a=>a.operation==="oidc-begin"));
  assert.equal(h.calls.filter(a=>a.sql===ESSENTIALS_PRIVATE_READ_SESSION_SQL).length>=2,true);
 });
 test("revocation immediately denies read and replay and is irreversible",async()=>{
@@ -174,10 +176,26 @@ test("deny revoked actor privileges, expired session and unauthorized revoke",as
   sessionKeyHash:sh,tenantId:"tenantA",actorUserId:"actorA"
  }),/private_consent_session_store_unverified/);
  assert.equal((await noRevoke.store.loadActiveSession({sessionKeyHash:sh})).state,"active");
- const grantExpired=fixture({clock:()=>grant.expiresAtMs+1});
- assert.equal(await grantExpired.store.loadActiveSession({sessionKeyHash:sh}),null);
+ let future=at;
+ const expired=fixture({clock:()=>future});
+ const mintedExp=await expired.store.issueSession({grant});
+ const expHash=await hex(issuedToken(mintedExp));
+ future=grant.expiresAtMs+1;
+ assert.equal(await expired.store.loadActiveSession({sessionKeyHash:expHash}),null);
  const other=fixture();
  await assert.rejects(other.store.revokeSession({
   sessionKeyHash:"bad-hash",tenantId:"tenantA",actorUserId:"actorA"
  }),/private_consent_session_store_unverified/);
+});
+
+test("revoking independent actor grant makes existing session unusable immediately",async()=>{
+ const h=fixture();
+ const minted=await h.store.issueSession({grant});
+ const sessionKeyHash=await hex(issuedToken(minted));
+ assert.ok(await h.store.loadActiveSession({sessionKeyHash}));
+ h.revokeGrant();
+ assert.equal(await h.store.loadActiveSession({sessionKeyHash}),null);
+ assert.equal(await h.store.verifyActiveSession({
+  sessionKeyHash,tenantId:"tenantA",actorUserId:"actorA",operation:"oidc-complete"
+ }),false);
 });
