@@ -7,7 +7,7 @@
  */
 import {prepareAuthorizedInvoiceDraft} from "./essentials-invoice-draft-adapter.mjs";
 import {createEssentialsServerInvoiceIdentifiers} from "./essentials-server-invoice-identifiers.mjs";
-import {insertAuthorizedEssentialsDraftBatch} from "./essentials-d1-atomic-batch.mjs";
+import {insertOrReplayEssentialsDraftBatch} from "./essentials-d1-batch-idempotent-replay.mjs";
 
 const valid=v=>typeof v==="string"&&/^[A-Za-z0-9_-]{1,100}$/.test(v);
 const fail=code=>{throw Error(code)};
@@ -38,12 +38,12 @@ export function createEssentialsPrivateInvoiceComposition({
    const prepared=prepareAuthorizedInvoiceDraft({
     principal,tenantId,quotation,invoiceReference,createdAt
    });
-   const invoice=await insertAuthorizedEssentialsDraftBatch({db,principal,record:{
+   const result=await insertOrReplayEssentialsDraftBatch({db,principal,record:{
     id:draftId,tenantId,customerId:draftCustomer(prepared.draft),
     sourceQuotationId:quotationId,idempotencyKey,invoiceNumber:invoiceReference,
     createdByUserId:principal.userId,draft:prepared.draft
    }});
-   return Object.freeze({invoice,replayed:false});
+   return result;
   }
  });
 }
