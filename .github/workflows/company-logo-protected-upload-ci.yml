@@ -6,7 +6,7 @@ on:
       - 'cloudflare/src/production-entry.js'
       - 'cloudflare/wrangler.toml'
       - 'cloudflare/migrations/20261119_company_logo_private_storage.sql'
-      - 'public/js/company-logo-settings.mjs'
+      - 'public/js/api-client.js'\n      - 'public/js/company-logo-settings.mjs'
       - 'public/js/company-logo-business-link.js'
       - 'public/assets/company-logo-business-link.css'
       - 'public/js/quotation-logo-api-client.mjs'
