@@ -20,3 +20,11 @@ test("delivery reminder bell exposes count and avoids mobile bottom rail",()=>{
  assert.match(js,/toggle\.dataset\.count=/);
  assert.match(js,/toggle\.setAttribute\("aria-label"/);
 });
+
+test("quotation sidebar entry has fallback when Money Hub is absent and remains server gated",()=>{
+ const js=read("../public/js/components.js");
+ assert.match(js,/if\(after\)after\.after\(button\);else nav\.append\(button\)/);
+ assert.match(js,/roleLabel\.textContent\.trim\(\)\.toLowerCase\(\)==="owner"/);
+ assert.match(js,/documentStart\.includes\("<title>Customer quotation \| Thebe Desk<\/title>"\)/);
+ assert.match(js,/min-height:48px!important/);
+});
