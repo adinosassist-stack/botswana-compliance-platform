@@ -9,7 +9,7 @@ const quotation={id:"quoteA",companyId:"tenantA",customerId:"customerA",
 const uuids=["123e4567-e89b-42d3-a456-426614174000","123e4567-e89b-42d3-a456-426614174001"];
 function fixture({quote=quotation,changes=1,load,fail=false}={}){
  let writes=0,reads=0,sql="",bound=[];
- const db={prepare:s=>{sql=s;return{bind:(...v)=>{bound=v;return{run:async()=>{
+ const db={prepare:s=>{if(s.trimStart().startsWith("SELECT"))return {bind:()=>({first:async()=>null})};sql=s;return{bind:(...v)=>{bound=v;return{run:async()=>{
   writes++;if(fail)throw Error("d1_unavailable");
   return{success:true,meta:{changes}};
  }}}}}};
