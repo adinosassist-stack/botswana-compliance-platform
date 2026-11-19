@@ -21,7 +21,7 @@ ISSUER="https://identity.private.example.test"
 QBYTES=b"synthetic frozen external customer quote"
 QHASH=hashlib.sha256(QBYTES).hexdigest()
 SRC=[
- "essentials_private_consent_authority_STAGING_CANDIDATE.sql",
+ "essentials_private_customer_only_baseline_STAGING_CANDIDATE.sql",
  "essentials_private_customer_identity_links_STAGING_CANDIDATE.sql",
  "essentials_private_verified_customer_sessions_STAGING_CANDIDATE.sql",
 ]

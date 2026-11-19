@@ -23,6 +23,9 @@ on:
       - 'tests/essentials_private_frozen_terms_customer_review_sqlite.py'
       - 'tests/essentials_private_customer_final_consent_sqlite.py'
       - 'tests/essentials_private_customer_invite_oidc_sqlite.py'
+      - 'tests/essentials_private_customer_only_cleanroom_sqlite.py'
+      - 'cloudflare/migrations/essentials_private_customer_only_baseline_STAGING_CANDIDATE.sql'
+      - 'docs/essentials-phase-c-customer-only-migration-plan.md'
       - 'cloudflare/migrations/essentials_private_customer_invite_oidc_STAGING_CANDIDATE.sql'
       - 'cloudflare/migrations/essentials_private_customer_final_consent_STAGING_CANDIDATE.sql'
       - 'cloudflare/migrations/essentials_private_frozen_terms_customer_review_STAGING_CANDIDATE.sql'
@@ -79,4 +82,5 @@ jobs:
           python3 tests/essentials_private_frozen_terms_customer_review_sqlite.py
           python3 tests/essentials_private_customer_final_consent_sqlite.py
           python3 tests/essentials_private_customer_invite_oidc_sqlite.py
+          python3 tests/essentials_private_customer_only_cleanroom_sqlite.py
           python3 tests/essentials_guarded_replay_sqlite.py
