@@ -166,6 +166,7 @@ export function createEssentialsPrivateOneTimeConsentStore({
       ev.acceptanceVersion!==acceptanceVersion||ev.totalMinor!==totalMinor||
       ev.quotationSha256!==quotationSha256||
       ev.consentSubjectId!==consentSubjectId||ev.acceptedAt!==acceptedAt||
+      !ident(ev.customerIdentityLinkId)||!hash(ev.identitySubjectHmacSha256)||
       !hash(ev.challengeNonceSha256)||!hash(ev.identitySubjectSha256)||
       typeof ev.identityIssuer!=="string"||
       !/^https:\/\/[^/\s?#]+/.test(ev.identityIssuer)||
