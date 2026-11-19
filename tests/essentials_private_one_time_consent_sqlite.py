@@ -43,8 +43,10 @@ def quote(q, state="accepted"):
 def begin(q, ch, nonce=None, issued=None, expires=None):
     nonce=nonce or ("nonce"+ch)
     nh=digest(nonce.encode())
-    db.execute(sql_begin,(ch,"actorA",nh,issued or NOW-20000,
+    result=db.execute(sql_begin,(ch,"actorA",nh,issued or NOW-20000,
                           expires or NOW+120000,"tenantA",q))
+    if result.rowcount != 1:
+        raise sqlite3.IntegrityError("zero_row_guarded_challenge_insert")
     return nh
 def captured(q,ch,nh, overrides=None):
     blob=(b'{"method":"oidc-rs256-explicit-accept-v1","decision":"accept",'
