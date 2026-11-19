@@ -88,6 +88,32 @@ async function verifiedQuote(active,load,subtle){
     !hexEqual(await sha(subtle,terms),q.termsSha256))deny();
  return {q,quote,terms};
 }
+async function boundedBody(request){
+ const declared=request.headers.get("content-length");
+ if(declared!==null&&(!/^[0-9]+$/.test(declared)||
+   Number(declared)>MAX_POST_BYTES))deny();
+ const reader=request.body?.getReader?.();
+ if(!reader)deny();
+ let chunks=[],size=0;
+ try{
+  while(true){
+   const {done,value}=await reader.read();
+   if(done)break;
+   if(!(value instanceof Uint8Array))deny();
+   size+=value.length;
+   if(size>MAX_POST_BYTES)deny();
+   chunks.push(value);
+  }
+ }catch{
+  try{await reader.cancel()}catch{}
+  deny();
+ }finally{try{reader.releaseLock()}catch{}}
+ if(size<2)deny();
+ const all=new Uint8Array(size);
+ let position=0;
+ for(const chunk of chunks){all.set(chunk,position);position+=chunk.length}
+ return all;
+}
 function getOrigin(value){
  if(typeof value!=="string")deny();
  let u;try{u=new URL(value)}catch{deny()}
@@ -166,9 +192,7 @@ export function createEssentialsPrivateCustomerQuotationReviewBoundary({
      request,quotationId,origin,cryptoSubtle,loadActiveCustomerSession,now);
    if(!hexEqual(await sha(cryptoSubtle,te.encode(rawCsrf)),
       active.csrfSha256))deny();
-   let bytes;
-   try{bytes=await request.arrayBuffer()}catch{deny()}
-   if(bytes.byteLength<2||bytes.byteLength>MAX_POST_BYTES)deny();
+   const bytes=await boundedBody(request);
    let payload;
    try{
     payload=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(bytes));
