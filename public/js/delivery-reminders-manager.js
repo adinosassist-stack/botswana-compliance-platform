@@ -56,6 +56,8 @@ function render(items){
   const toggle=bell(),panel=popup();
   toggle.hidden=items.length===0;
   toggle.textContent=`🔔 Deliveries & installations (${items.length})`;
+  toggle.dataset.count=String(items.length>99?"99+":items.length);
+  toggle.setAttribute("aria-label",`Delivery and installation reminders: ${items.length}. Open reminders`);
   panel.replaceChildren();
   const close=document.createElement("button");close.type="button";close.className="thebe-delivery-dismiss";close.textContent="×";close.setAttribute("aria-label","Close reminders");close.addEventListener("click",()=>panel.hidden=true);
   const title=document.createElement("h2");title.textContent="Upcoming delivery & installation";
