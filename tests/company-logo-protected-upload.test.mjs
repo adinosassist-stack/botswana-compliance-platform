@@ -181,8 +181,14 @@ test("business navigation is feature-and-bucket gated; static branding links do 
  assert.match(entry,/THEBE_COMPANY_LOGO_ENABLED==="true"/);
  assert.match(entry,/COMPANY_LOGOS\?\.get/);
  assert.match(link,/businesshub/);
- assert.match(link,/\.user\.role/);
+ assert.match(entry,/companyLogoWorkspaceMemberAllowed/);
+ assert.doesNotMatch(link,/\\bfetch\\s*\\(/);
  assert.match(link,/company-logo\/"/);
  assert.doesNotMatch(link,/localStorage|sessionStorage/);
  assert.doesNotMatch(html,/document\.cookie|localStorage|sessionStorage/);
+ assert.match(html,/\/js\/api-client\.js/);
+ const userUi=readFileSync(new URL("../public/js/company-logo-settings.mjs",import.meta.url),"utf8");
+ assert.match(userUi,/BW\?\.api\?\.createClient/);
+ assert.match(userUi,/client\.requestRaw/);
+ assert.doesNotMatch(userUi,/\bfetch\s*\(/);
 });
