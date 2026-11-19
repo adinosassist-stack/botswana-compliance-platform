@@ -65,7 +65,8 @@ function harness(options = {}) {
       ({ ...quote, ...(options.quote ?? {}) }),
     resolveCustomerAccountLink: async input => {
       assert.equal(input.subject, options.subject ?? "customer-subject-A");
-      return options.link ?? { linked: true, consentSubjectId: "customerAuthA" };
+      return options.link ?? { linked: true, consentSubjectId: "customerAuthA",
+        customerIdentityLinkId: "linkA", identitySubjectHmacSha256: "c".repeat(64) };
     },
     commitVerifiedConsent: async record => {
       committed.push(record);
