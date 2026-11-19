@@ -1,4 +1,4 @@
-import {handleCompanyLogoRoute} from "./company-logo-settings.js";
+import {handleCompanyLogoRoute,companyLogoRoute} from "./company-logo-settings.js";
 import {quotationBrowserPreview} from "./quotation-browser-preview.js";
 import worker from "./worker.js";
 import {handleAgenticRequest} from "./agentic-core.js";
@@ -523,8 +523,19 @@ async function rewriteRegistrationVerificationFailure(response){
   }catch{return response}
 }
 
+/**
+ * Align the business logo endpoint with the sanctioned three API transports.
+ * Unrecognized paths are left unchanged; no arbitrary browser-chosen target
+ * or tenant is passed to the host service.
+ */
+function normalizedCompanyLogoRequest(request){
+ const logical=logicalRequestPath(request);
+ if(!companyLogoRoute(logical)||logical===new URL(request.url).pathname)return request;
+ return new Request(new URL(logical,request.url),request);
+}
 async function fetchWithTurnstileCspRepair(request,env,ctx){
-   const companyLogo=await handleCompanyLogoRoute({request,env,fetchSession:inner=>worker.fetch(inner,env,ctx)});
+   const companyLogo=await handleCompanyLogoRoute({request:normalizedCompanyLogoRequest(request),
+    env,fetchSession:inner=>worker.fetch(inner,env,ctx)});
    if(companyLogo)return companyLogo;
   const quotationPreview=await quotationBrowserPreview(request,env,inner=>worker.fetch(inner,env,ctx));
   if(quotationPreview)return quotationPreview;
@@ -598,6 +609,7 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
 }
 
 export {
+  normalizedCompanyLogoRequest,
   injectCompanyLogoBusinessLink,
   createRegistrationProofChallenge,
   injectFirstPartyRegistrationClient,
