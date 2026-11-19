@@ -24,8 +24,10 @@ export const ESSENTIALS_PRIVATE_CONSUME_CUSTOMER_INVITE_SQL=[
  "AND state='pending' AND expires_at_ms>=?",
  "AND expires_at_ms>"+DB_NOW,
  "AND EXISTS(SELECT 1 FROM essentials_private_frozen_quotes AS q",
- " WHERE q.tenant_id=tenant_id AND q.quotation_id=quotation_id",
- " AND q.customer_id=customer_id AND q.state='accepted')"
+ " WHERE q.tenant_id=essentials_private_customer_consent_invitations.tenant_id",
+ " AND q.quotation_id=essentials_private_customer_consent_invitations.quotation_id",
+ " AND q.customer_id=essentials_private_customer_consent_invitations.customer_id",
+ " AND q.state='accepted')"
 ].join(" ");
 export const ESSENTIALS_PRIVATE_CREATE_CUSTOMER_SESSION_SQL=[
  "INSERT INTO essentials_private_customer_consent_sessions",
