@@ -17,7 +17,7 @@ test("tenant-scoped quotation callback blocks a cross-tenant result",async()=>{
  let requested=0;
  const r=createEssentialsD1AtomicRepository({enabled:true,environment:"essentials-private-staging",
   withAtomicTransaction:async cb=>cb({
-   atomic:true,tenantId:"tenant-a",db:{prepare:()=>{}},
+   atomic:true,tenantId:"tenant-a",actorUserId:"owner-1",db:{prepare:()=>{}},
    loadQuotationForTenant:async()=>{requested++;return {id:"quote-1",companyId:"tenant-b"}},
    reserveInvoiceReference:async()=> "INV-1",
    generateDraftId:async()=> "id-1"
@@ -45,7 +45,7 @@ test("reject tenant-mismatched insert before touching D1",async()=>{
 
 test("reject invalid invoice references and zero-call fake transaction",async()=>{
  const r=createEssentialsD1AtomicRepository({enabled:true,environment:"essentials-private-staging",
-  withAtomicTransaction:async cb=>cb({atomic:true,tenantId:"tenant-a",db:{prepare:()=>{}},
+  withAtomicTransaction:async cb=>cb({atomic:true,tenantId:"tenant-a",actorUserId:"owner-1",db:{prepare:()=>{}},
    loadQuotationForTenant:async()=>null,reserveInvoiceReference:async()=> "not a safe ref",
    generateDraftId:async()=> "id-1"})});
  await assert.rejects(r.transaction(tx=>tx.reserveInvoiceReference({tenantId:"tenant-a"})),/invalid_invoice_reference/);
