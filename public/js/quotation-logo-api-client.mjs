@@ -35,11 +35,16 @@ async function normalizeLogoForUpload(file){
  // decoders. Convert browser-native JPG/WebP to PNG *before transport* rather
  // than inviting formats the server cannot process. The server still verifies
  // and sanitizes the resulting pixels; browser conversion is not a trust gate.
- if(file.type==="image/png")return file;
- if(!["image/jpeg","image/webp"].includes(file.type))deny("unsupported_logo_type");
- const kind=file.type==="image/webp"?"webp":"jpeg";
- if(typeof createImageBitmap!=="function"||typeof document==="undefined")
+ // Decode and re-encode PNGs too. Many real logos contain palette or
+ // ancillary PNG chunks rejected by the strict server sanitizer. A browser
+ // canvas produces a small, normalized RGB/RGBA PNG. The server independently
+ // validates the resulting bytes; this conversion grants no trust.
+ if(!["image/png","image/jpeg","image/webp"].includes(file.type))deny("unsupported_logo_type");
+ const kind=file.type==="image/webp"?"webp":file.type==="image/jpeg"?"jpeg":"png";
+ if(typeof createImageBitmap!=="function"||typeof document==="undefined"){
+  if(kind==="png")return file; // Node synthetic clients: server still validates
   deny(kind+"_conversion_unavailable");
+ }
  let bitmap;
  try{
   bitmap=await createImageBitmap(file);
