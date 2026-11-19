@@ -38,9 +38,11 @@ async function boundedJson(response){
    if(size>MAX_RESPONSE_BYTES)deny();
    chunks.push(value);
   }
- }catch{deny()}finally{
-  try{reader.releaseLock()}catch{}
+ }catch{
   try{await reader.cancel()}catch{}
+  deny();
+ }finally{
+  try{reader.releaseLock()}catch{}
  }
  if(size<2)deny();
  const buf=new Uint8Array(size);let at=0;
@@ -50,7 +52,8 @@ async function boundedJson(response){
  catch{deny()}finally{buf.fill(0)}
  if(!data||typeof data!=="object"||Array.isArray(data)||
     Object.hasOwn(data,"error")||
-    data.token_type?.toLowerCase()!=="bearer"||
+    typeof data.token_type!=="string"||
+    data.token_type.toLowerCase()!=="bearer"||
     !canonicalJwt(data.id_token))deny();
  return data.id_token;
 }
