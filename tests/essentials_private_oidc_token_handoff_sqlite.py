@@ -34,7 +34,7 @@ QH=hashlib.sha256(QUOTE_BYTES).hexdigest()
 IV=bytes(range(12))
 ENCRYPTED=b"synthetic-encrypted-identity-token-data-and-tag"
 def make(*,revoke_session=False,revoke_quote=False,revoke_challenge=False):
- db=sqlite3.connect(":memory:")
+ db=sqlite3.connect(":memory:",isolation_level=None)
  db.execute("PRAGMA foreign_keys=ON")
  for name in BASE:db.executescript(Path("cloudflare/migrations",name).read_text())
  db.execute("""INSERT INTO essentials_private_frozen_quotes
