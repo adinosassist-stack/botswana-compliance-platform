@@ -29,7 +29,7 @@ function setup({
 }={}){
  const events={session:[],bound:[],saved:[],consumed:[],exchange:[]};
  const db=new Map();let rng=0;
- let live=challengeOK;
+ let live=challengeOK,activeNonce=challengeNonce,activeCustomer=challengeCustomer;
  const flow=createEssentialsPrivateOidcPkceHandshake({
   enabled:true,environment:"essentials-private-staging",
   issuer:ISSUER,clientId:CLIENT,
@@ -44,7 +44,7 @@ function setup({
    return {state:live?"pending":"revoked",
     challengeId:"challengeA",tenantId:"tenantA",
     actorUserId:"actorA",quotationId:"quoteA",
-    customerId:challengeCustomer,nonce:challengeNonce,
+    customerId:activeCustomer,nonce:activeNonce,
     expiresAtMs:at+120000};
   },
   persistAuthorizationAttempt:async attempt=>{
@@ -67,7 +67,8 @@ function setup({
    return {idToken:exchangeToken,access_token:"never-return-access-token"};
   }
  });
- return {flow,events,revokeChallenge:()=>{live=false}};
+ return {flow,events,revokeChallenge:()=>{live=false},
+  changeNonce:x=>{activeNonce=x},changeCustomer:x=>{activeCustomer=x}};
 }
 const callUrl=(authorizeUrl,{code="code-synthetic-123",issuer=ISSUER,change}={})=>{
  const a=new URL(authorizeUrl);
@@ -182,13 +183,16 @@ test("wrong session, expired or revoked attempt, changed challenge nonce and fai
     exchangeFails:scenario==="exchange-failure",
     exchangeToken:scenario==="malformed-token"?"not-a-jwt":fakeIdToken
   };
-  const h=setup(options);
+  const h=setup({
+    expiredAttempt:options.expiredAttempt,
+    exchangeFails:options.exchangeFails,
+    exchangeToken:options.exchangeToken
+  });
   const start=await h.flow.begin(args);
   if(scenario==="revoked-challenge")h.revokeChallenge();
-  // A changed nonce/customer before callback is simulated by changing
-  // protected host state only after begin in separate explicit cases below.
+  if(scenario==="nonce-changed")h.changeNonce("X".repeat(43));
+  if(scenario==="customer-changed")h.changeCustomer("customerB");
   const sessionKeyHash=scenario==="wrong-session"?OTHER_SESSION:SESSION;
-  if(scenario==="nonce-changed"||scenario==="customer-changed")continue;
   await assert.rejects(h.flow.complete({
    method:"GET",callbackUrl:callUrl(start.authorizationUrl),sessionKeyHash
   }),/private_oidc_handshake_unverified/);
