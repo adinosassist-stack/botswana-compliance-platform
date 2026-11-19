@@ -21,7 +21,7 @@ const activeSession={state:"active",tenantId:"tenantA",
 const parent={
  state:"pending",challengeId,tenantId:"tenantA",actorUserId:"actorA",
  quotationId,customerId:"customerA",nonce,
- issuedAtMs:at-500,expiresAtMs:at+300000
+ issuedAtMs:at-500,expiresAtMs:at+299000
 };
 const startArgs={sessionKeyHash:sessionHash,principal,quotationId,challenge:original};
 const lookupArgs={sessionKeyHash:sessionHash,tenantId:"tenantA",actorUserId:"actorA",
