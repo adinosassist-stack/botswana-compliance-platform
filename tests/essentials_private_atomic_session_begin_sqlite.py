@@ -69,7 +69,7 @@ def setup(*,quote_revoked=False,session_revoked=False,session_expired=False,
 
 def batch(db,*,quote="quoteA",session=S,
           challenge_id="challengeA",nonce_hash=N_HASH,
-          expiry=BOUND_EXP,iv=IV,skip_binding=False):
+          expiry=BOUND_EXP,iv=IV,skip_binding=False,binding_nonce_hash=None):
  db.execute("BEGIN")
  try:
   c=db.execute(CHALLENGE,(challenge_id,"actorA",nonce_hash,ISSUED,
@@ -77,7 +77,7 @@ def batch(db,*,quote="quoteA",session=S,
   b=0
   if not skip_binding:
    b=db.execute(BIND,(iv,CIPHER,challenge_id,session,quote,
-                     nonce_hash,ISSUED,expiry)).rowcount
+                     binding_nonce_hash or nonce_hash,ISSUED,expiry)).rowcount
   a=db.execute(ASSERT,(challenge_id,session,"tenantA","actorA",
     quote,"customerA",nonce_hash,ISSUED,expiry)).rowcount
   db.commit()
@@ -107,7 +107,7 @@ for reason,options,patch in [
  ("expired actor session",{"session_expired":True},{"expiry":AT-1}),
  ("wrong session",{},{"session":"f"*64}),
  ("wrong quote",{},{"quote":"quoteB"}),
- ("wrong binding nonce",{},{"nonce_hash":"d"*64}),
+ ("wrong binding nonce",{},{"binding_nonce_hash":"d"*64}),
  ("wrong effective binding expiry",{},{"expiry":AT+70000}),
  ("binding omitted entirely",{},{"skip_binding":True})
 ]:
