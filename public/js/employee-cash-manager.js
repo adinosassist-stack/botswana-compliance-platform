@@ -28,7 +28,8 @@ export async function mountEmployeeCashManager(host,{client,employees=[]}={}){
  host.replaceChildren(section);
  async function refresh(){data=await client.request("/api/employee-self-service/cash");render()}
  async function decide(path,decision,note){
-  await client.request(path,{method:"POST",body:JSON.stringify({decision,note})});await refresh();
+  // Separate a confirmed review write from a subsequent read-only refresh.
+  await client.request(path,{method:"POST",body:JSON.stringify({decision,note})});
  }
  function table(parent,headers,rows){
   parent.replaceChildren();const t=node(doc,"table"),head=node(doc,"thead"),top=node(doc,"tr");
@@ -43,12 +44,28 @@ export async function mountEmployeeCashManager(host,{client,employees=[]}={}){
   if(item.status!=="submitted")return node(doc,"span",item.status);
   const note=node(doc,"textarea");note.maxLength=500;note.placeholder="Reason if rejecting or flagging";note.rows=2;
   const path="/api/employee-self-service/cash/"+type+"/"+encodeURIComponent(item.id)+"/review";
+  // A cash review is a single server transition: do not allow competing actions.
+  let busy=false;
+  const buttons=[];
   for(const [decision,label] of [["approve","Approve"],[type==="entries"?"reject":"flag",type==="entries"?"Reject":"Flag discrepancy"]]){
-   const b=node(doc,"button",label,decision==="approve"?null:"thebe-staff-secondary");b.type="button";
+   const b=node(doc,"button",label,decision==="approve"?null:"thebe-staff-secondary");b.type="button";buttons.push(b);
    b.addEventListener("click",async()=>{
-    b.disabled=true;message.textContent="";
-    try{await decide(path,decision,note.value);message.textContent="Cash report reviewed."}
-    catch(e){message.textContent=String(e?.message||"Review failed.");b.disabled=false}
+    if(busy)return;
+    const reviewNote=note.value.trim();
+    if(decision!=="approve"&&reviewNote.length<5){
+     message.textContent="Enter a reason of at least 5 characters to reject or flag a cash report.";
+     note.focus();return;
+    }
+    busy=true;buttons.forEach(button=>{button.disabled=true});message.textContent="Submitting cash review…";
+    try{
+     await decide(path,decision,reviewNote);
+    }catch(e){
+     message.textContent=String(e?.message||"Review was not confirmed. Retry.");
+     busy=false;buttons.forEach(button=>{button.disabled=false});return;
+    }
+    message.textContent="Cash review recorded.";
+    try{await refresh()}
+    catch{message.textContent="Cash review recorded, but the list did not refresh. Reload the panel before reviewing again."}
    });container.append(b);
   }
   const wrapper=node(doc,"div");wrapper.append(note,container);return wrapper;
@@ -74,7 +91,9 @@ export async function mountEmployeeCashManager(host,{client,employees=[]}={}){
   key=key||requestKey();button.disabled=true;message.textContent="";
   try{await client.request("/api/employee-self-service/cash/advances",{method:"POST",body:JSON.stringify({
     employeeId:employee.value,amountMinor,purpose:purpose.value.trim(),occurredOn:on.value,requestKey:key})});
-   form.reset();on.value=dateToday();key=null;message.textContent="Cash issued recorded, pending physical reconciliation.";await refresh()
+   form.reset();on.value=dateToday();key=null;
+   message.textContent="Cash issued recorded, pending physical reconciliation.";
+   try{await refresh()}catch{message.textContent="Cash issued was recorded, but the list did not refresh. Reload the panel before recording again."}
   }catch(e){message.textContent=String(e?.message||"Could not record cash issued.")}
   finally{button.disabled=!employees.length}
  });
