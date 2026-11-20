@@ -96,6 +96,6 @@ test("reject invalid SHA, modified event and missing compiled Worker",()=>{
   assert.throws(()=>receipt({root:f.root,bundleDir:f.bundleDir,
    checkoutSha:source,eventName:"production/deploy"}),/invalid_event/);
   assert.throws(()=>receipt({root:f.root,bundleDir:join(f.root,"missing"),
-   checkoutSha:source}),/quotation_bundle_/);
+   checkoutSha:source}),/c4_offline_build_compiled_bundle_unavailable/);
  }finally{f.clean()}
 });
