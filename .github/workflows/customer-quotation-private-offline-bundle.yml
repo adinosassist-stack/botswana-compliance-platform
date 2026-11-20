@@ -52,7 +52,7 @@ jobs:
           node --check server/essentials-private-customer-ownership-authority-bridge.mjs
           node --check server/essentials-private-customer-ownership-source-issuer.mjs
           node --check scripts/customer-quotation-private-offline-bundle-receipt.mjs
-          node --test tests/customer-quotation-private-worker.test.mjs tests/customer-quotation-private-offline-bundle-receipt.test.mjs tests/customer-quotation-private-ownership-authority-bridge.test.mjs
+          node --test tests/customer-quotation-private-worker.test.mjs tests/customer-quotation-private-offline-bundle-receipt.test.mjs tests/customer-quotation-private-ownership-authority-bridge.test.mjs tests/customer-quotation-private-ownership-source-issuer.test.mjs
       - name: Offline build only — no Cloudflare upload or deployment
         shell: bash
         run: |
