@@ -132,16 +132,23 @@ export function createC4TrustedCustomerOwnershipVerifier({
 }={}){
  if(enabled!==true||environment!==ENVIRONMENT)
   throw Error("c4_customer_authority_disabled");
- if(!trustedIssuer(issuer)||!KID(keyId)||
-    publicKey?.type!=="public"||
-    publicKey?.algorithm?.name!=="RSASSA-PKCS1-v1_5"||
-    publicKey?.algorithm?.hash?.name!=="SHA-256"||
-    publicKey?.algorithm?.modulusLength<2048||
-    !publicKey.usages?.includes("verify")||
-    typeof sourceBinding?.fetch!=="function"||
-    typeof cryptoSubtle?.verify!=="function"||
-    typeof randomBytes!=="function"||typeof now!=="function")
-  denySetup();
+ const preflight={
+  issuer:trustedIssuer(issuer),
+  keyId:KID(keyId),
+  keyType:publicKey?.type==="public",
+  keyAlgorithm:publicKey?.algorithm?.name==="RSASSA-PKCS1-v1_5",
+  keyHash:publicKey?.algorithm?.hash?.name==="SHA-256",
+  keyBits:Number.isSafeInteger(publicKey?.algorithm?.modulusLength)&&
+    publicKey.algorithm.modulusLength>=2048,
+  keyUsage:publicKey?.usages?.includes("verify")===true,
+  privateSource:typeof sourceBinding?.fetch==="function",
+  subtle:typeof cryptoSubtle?.verify==="function",
+  nonceSource:typeof randomBytes==="function",
+  clock:typeof now==="function"
+ };
+ const invalid=Object.entries(preflight).filter(([,valid])=>!valid).map(([name])=>name);
+ if(invalid.length)
+  throw Error("c4_customer_authority_unconfigured:"+invalid.join(","));
 
  return Object.freeze({
   /**
