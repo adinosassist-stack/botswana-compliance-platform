@@ -42,9 +42,40 @@ customer invitation/OIDC/session and identity-link functions.
 - Returns true only for the exact current source-attested association.
   It does not create an identity link, customer account or invitation.
 
-The upstream authority itself is **NOT IMPLEMENTED NOR DEPLOYED** in this
-batch. Its signer's public key must be pinned from an independently
-qualified business source, not supplied by a browser or customer.
+The signed upstream issuer *interface* exists as source code, but the
+real production-authoritative read adapters, key custody and deployment
+are **NOT IMPLEMENTED OR DEPLOYED**. Its signer's public key must be pinned
+from an independently qualified business source, not supplied by a browser.
+
+## New standalone source-only proof issuer and integration test
+
+The same consolidated PR now adds
+`server/essentials-private-customer-ownership-source-issuer.mjs` as an
+**internal-only** issuer-side composition point. Its default Worker fetch
+returns 404. The named factory requires real, separately approved business
+read-only adapters for active customer, published quotation with pinned
+immutable quote/full terms, current non-revoked customer identity link and
+an independent ownership check, plus an authenticated private caller,
+per-caller rate limiting and a nonextractable RSA signing key.
+
+It receives one bounded internal challenge through the
+`CUSTOMER_OWNERSHIP_SOURCE` service binding, rejects any missing/revoked
+cross-tenant/customer/quote/link authority, and signs the exact short-lived
+challenge and ownership scope. The consumer verifier validates the genuine
+RSA signature and fresh nonce before granting any ownership assertion.
+
+**These are typed injection points, not actual production adapters.**
+Neither the real issuer service, its signing key, a customer-specific
+authoritative quotation source nor the service binding has been provisioned.
+The tests use generated synthetic RSA keys and synthetic approved records.
+
+The existing C4 offline workflow now tests both halves end-to-end:
+`tests/customer-quotation-private-ownership-authority-bridge.test.mjs`
+and `tests/customer-quotation-private-ownership-source-issuer.test.mjs`.
+The combined suite tests rejection of untrusted callers, quote/terms
+mismatch, revoked or cross-tenant associations, bad signatures, replay,
+invalid scope and failed data sources. It still compiles the *default-404*
+C4 Worker; it does not compile or deploy an executable customer sign-in host.
 
 ## Remaining proof required before staging operation
 
