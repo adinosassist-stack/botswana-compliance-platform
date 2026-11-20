@@ -1,0 +1,23 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+const read=path=>readFileSync(new URL(path,import.meta.url),"utf8");
+
+test("manager invitation rejects missing or unsupported branch before protected request",()=>{
+ const source=read("../public/js/manager-invitations-owner.js");
+ assert.match(source,/MANAGER_INVITE_BRANCHES\.includes\(select\.value\)/);
+ assert.match(source,/ownerConfirmed!==true/);
+});
+
+test("employee cash activity table has accessible caption without changing accounting",()=>{
+ const source=read("../public/js/employee-cash-portal.js");
+ assert.match(source,/h\("caption","Cash activity and manager review status"\)/);
+ assert.match(source,/Amounts are not yet posted to Money/);
+});
+
+test("mobile quotation print errors can focus status while keeping browser print",()=>{
+ const source=read("../public/js/quotation-customizable-page.mjs");
+ assert.match(source,/status\.setAttribute\("tabindex","-1"\)/);
+ assert.match(source,/status\.focus\(\{preventScroll:true\}\)/);
+ assert.match(source,/window\.print\(\)/);
+});

@@ -52,6 +52,7 @@
     cards.append(difference);
    }
    const table=h("table"),thead=h("thead"),tr=h("tr");
+   const caption=h("caption","Cash activity and manager review status");caption.className="thebe-cash-table-caption";table.append(caption);
    for(const title of ["Date","Type / purpose","Pula","Review"]){tr.append(h("th",title))}
    thead.append(tr);table.append(thead);
    const tbody=h("tbody");

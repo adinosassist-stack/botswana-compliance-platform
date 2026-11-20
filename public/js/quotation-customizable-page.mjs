@@ -305,6 +305,7 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
    // Keep the action operable so mobile users can see why printing is blocked.
    print.disabled=false;
    print.setAttribute("aria-describedby","qcp-print-status");
+   status.setAttribute("tabindex","-1");
    status.textContent=customerReady?
     (blocker?"Customer quotation not ready: "+blocker:
     "Customer-ready two-page print. Check all details before sharing; no quotation has been sent or saved."):
@@ -321,7 +322,7 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
   try{
    checked=validateQuotationCustomPage(state);
    const blocker=customerReady?customerReadyBlocker(checked):"";
-   if(blocker){status.textContent="Cannot print yet: "+blocker;status.scrollIntoView({block:"nearest"});return;}
+   if(blocker){status.textContent="Cannot print yet: "+blocker;status.scrollIntoView({block:"nearest"});status.focus({preventScroll:true});return;}
    // Screen-width overflow is not A4 overflow. Narrow mobile previews must not block printing.
    if(window.matchMedia("(min-width: 901px)").matches &&
       [...stage.querySelectorAll(".qcp-page")].some(page=>page.scrollHeight>page.clientHeight+2)){
