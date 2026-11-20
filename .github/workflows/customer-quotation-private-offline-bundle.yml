@@ -1,0 +1,82 @@
+name: C4 Customer Quotation Private Offline Bundle Qualification
+on:
+  pull_request:
+    paths:
+      - 'server/essentials-private-customer-worker-candidate.mjs'
+      - 'server/essentials-private-customer-staging-http-gateway.mjs'
+      - 'deploy/customer-quotation-private-staging/**'
+      - 'scripts/customer-quotation-private-offline-bundle-receipt.mjs'
+      - 'tests/customer-quotation-private-offline-bundle-receipt.test.mjs'
+      - 'tests/customer-quotation-private-worker.test.mjs'
+      - '.github/workflows/customer-quotation-private-offline-bundle.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'server/essentials-private-customer-worker-candidate.mjs'
+      - 'server/essentials-private-customer-staging-http-gateway.mjs'
+      - 'deploy/customer-quotation-private-staging/**'
+      - 'scripts/customer-quotation-private-offline-bundle-receipt.mjs'
+      - 'tests/customer-quotation-private-offline-bundle-receipt.test.mjs'
+      - 'tests/customer-quotation-private-worker.test.mjs'
+      - '.github/workflows/customer-quotation-private-offline-bundle.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  c4-offline-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout without retaining credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Use repository-pinned Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Install pinned dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Prove default 404 and check receipt adversarial tests
+        run: |
+          node --check server/essentials-private-customer-worker-candidate.mjs
+          node --check scripts/customer-quotation-private-offline-bundle-receipt.mjs
+          node --test tests/customer-quotation-private-worker.test.mjs tests/customer-quotation-private-offline-bundle-receipt.test.mjs
+      - name: Offline build only — no Cloudflare upload or deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$PWD/c4-offline-review"
+          mkdir -p "$OUT/compiled"
+          npx --no-install wrangler deploy --dry-run \
+            --outdir "$OUT/compiled" \
+            --config deploy/customer-quotation-private-staging/wrangler.jsonc
+          find "$OUT/compiled" -maxdepth 2 -type f -print
+          test -s "$OUT/compiled/essentials-private-customer-worker-candidate.js"
+          cp deploy/customer-quotation-private-staging/wrangler.jsonc "$OUT/WRANGLER-REVIEW-ONLY.jsonc"
+          CHECKOUT_SHA="$(git rev-parse HEAD)"
+          node scripts/customer-quotation-private-offline-bundle-receipt.mjs \
+            "$OUT/compiled" "$CHECKOUT_SHA" "$GITHUB_EVENT_NAME" > "$OUT/receipt.json"
+          node --input-type=module -e '
+            import {readFileSync} from "node:fs";
+            const x=JSON.parse(readFileSync(process.argv[1],"utf8"));
+            if(x.cloudflareUploadAuthorized!==false ||
+               x.cloudflareDeployAuthorized!==false ||
+               x.productionLoginEnabled!==false ||
+               x.privateStagingDeployed!==false ||
+               x.evidenceScope!=="OFFLINE_COMPILED_DEFAULT_DENY_ONLY")
+              throw Error("c4_offline_only_assertion_failed");
+            if(x.worker!=="bw-customer-quotation-identity-private-staging")
+              throw Error("c4_wrong_worker");
+          ' "$OUT/receipt.json"
+          (cd "$OUT" && find compiled -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > SHA256SUMS)
+          (cd "$OUT" && sha256sum --check SHA256SUMS)
+          printf 'C4 offline bundle verified. No Google/Cloudflare API credentials or writes used.\n'
+      - name: Preserve exact offline compiled artifact for independent review only
+        uses: actions/upload-artifact@v4
+        with:
+          name: c4-customer-quotation-private-offline-review
+          path: c4-offline-review/
+          if-no-files-found: error
+          retention-days: 7
