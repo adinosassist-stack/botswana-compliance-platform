@@ -47,11 +47,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          OUT="c4-offline-review"
+          OUT="$PWD/c4-offline-review"
           mkdir -p "$OUT/compiled"
           npx --no-install wrangler deploy --dry-run \
             --outdir "$OUT/compiled" \
             --config deploy/customer-quotation-private-staging/wrangler.jsonc
+          find "$OUT/compiled" -maxdepth 2 -type f -print
           test -s "$OUT/compiled/worker.js"
           cp deploy/customer-quotation-private-staging/wrangler.jsonc "$OUT/WRANGLER-REVIEW-ONLY.jsonc"
           CHECKOUT_SHA="$(git rev-parse HEAD)"
