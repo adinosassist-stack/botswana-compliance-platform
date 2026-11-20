@@ -138,3 +138,46 @@ test("unexpected response URL fails even if transport violates pinned no-redirec
  await assert.rejects(fixture({response:object}).service.exchangeAuthorizationCode(args),
   /private_oidc_exchange_unverified/);
 });
+
+test("Google confidential token endpoint is exact pinned exception, never a generic redirect or host override",async()=>{
+ const google={
+  enabled:true,environment:"essentials-private-staging",
+  providerProfile:"google-oidc",
+  issuer:"https://accounts.google.com",
+  clientId:CLIENT,tokenEndpoint:"https://oauth2.googleapis.com/token",
+  redirectUri:REDIRECT,
+  getConfidentialClientSecret:async()=>SECRET
+ };
+ const calls=[];
+ const cfg={...google,fetchToken:async request=>{
+  calls.push(request);return good();
+ }};
+ const service=createEssentialsPrivateOidcConfidentialExchange(cfg);
+ const result=await service.exchangeAuthorizationCode({
+  ...args,tokenEndpoint:google.tokenEndpoint
+ });
+ assert.deepEqual(result,{idToken:JWT});
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].url,google.tokenEndpoint);
+ assert.equal(calls[0].redirect,"error");
+ await assert.rejects(
+  service.exchangeAuthorizationCode(args),
+  /private_oidc_exchange_unverified/
+ );
+ for(const change of [
+  {providerProfile:"same-origin"},
+  {providerProfile:"unknown"},
+  {issuer:"https://accounts.google.com/"},
+  {issuer:"https://accounts.google.com.evil.example"},
+  {tokenEndpoint:"https://evil.example/token"},
+  {tokenEndpoint:"https://oauth2.googleapis.com.evil.example/token"},
+  {tokenEndpoint:"https://oauth2.googleapis.com/token?redirect=evil"},
+  {tokenEndpoint:"https://accounts.google.com/token"},
+  {tokenEndpoint:"http://oauth2.googleapis.com/token"}
+ ]){
+  assert.throws(
+   ()=>createEssentialsPrivateOidcConfidentialExchange({...cfg,...change}),
+   /private_oidc_exchange_unconfigured/
+  );
+ }
+});
