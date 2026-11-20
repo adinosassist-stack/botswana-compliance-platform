@@ -16,7 +16,6 @@ const ID=x=>typeof x==="string"&&/^[A-Za-z0-9_-]{1,100}$/.test(x);
 const HEX=x=>typeof x==="string"&&/^[a-f0-9]{64}$/.test(x);
 const KEY_ID=x=>typeof x==="string"&&/^[A-Za-z0-9._-]{1,96}$/.test(x);
 const NONCE=x=>typeof x==="string"&&/^[A-Za-z0-9_-]{43}$/.test(x);
-const HEADER_KEYS="accept,cache-control,content-type";
 const BODY_KEYS="audience,customerId,linkId,nonce,quotationId,schema,tenantId";
 const ENCODER=new TextEncoder();
 const DECODER=new TextDecoder("utf-8",{fatal:true});
@@ -75,7 +74,7 @@ function issuerOriginValid(value){
  catch{return false}
 }
 function approvedCustomer(r,s){
- return noExtra(r,Object.keys(r||{}).sort().join(","))&&
+ return r&&typeof r==="object"&&!Array.isArray(r)&&
   r.tenantId===s.tenantId&&r.customerId===s.customerId&&
   r.state==="active"&&r.deleted!==true&&r.revoked!==true;
 }
