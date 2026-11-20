@@ -53,7 +53,7 @@ jobs:
             --outdir "$OUT/compiled" \
             --config deploy/customer-quotation-private-staging/wrangler.jsonc
           find "$OUT/compiled" -maxdepth 2 -type f -print
-          test -s "$OUT/compiled/worker.js"
+          test -s "$OUT/compiled/essentials-private-customer-worker-candidate.js"
           cp deploy/customer-quotation-private-staging/wrangler.jsonc "$OUT/WRANGLER-REVIEW-ONLY.jsonc"
           CHECKOUT_SHA="$(git rev-parse HEAD)"
           node scripts/customer-quotation-private-offline-bundle-receipt.mjs \
