@@ -94,7 +94,7 @@ test("must be enabled explicitly with pinned source binding and 2048-bit+ verifi
  const pair=await keys();
  const h=setup();
  assert.throws(()=>createBridge(),/c4_customer_authority_disabled/);
- assert.throws(()=>createBridge({enabled:true}),/c4_customer_authority_unconfigured/);
+ assert.throws(()=>createBridge({enabled:true,environment:"essentials-private-staging"}),/c4_customer_authority_unconfigured/);
  assert.throws(()=>createBridge({
   enabled:true,environment:"production",sourceBinding:h.binding,
   issuer,keyId,publicKey:pair.publicKey
