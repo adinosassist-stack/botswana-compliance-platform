@@ -69,7 +69,10 @@ export function createC4PrivateOfflineReceipt({
     !source.includes("fetch() { return denied(); }")||
     !source.includes("defaultWorkerEnabled: false"))
   failure("default_deny_source_changed");
- const bundle=hashBundleDirectory(bundleDir);
+ let bundle;
+ try{bundle=hashBundleDirectory(bundleDir)}
+ catch{failure("compiled_bundle_unavailable")}
+
  const worker=bundle.entries.find(x=>x.path==="worker.js");
  if(!worker||worker.bytes<100)failure("compiled_worker_missing");
  const sources=Object.freeze({
