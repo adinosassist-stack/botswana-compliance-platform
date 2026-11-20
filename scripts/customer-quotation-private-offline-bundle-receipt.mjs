@@ -73,7 +73,7 @@ export function createC4PrivateOfflineReceipt({
  try{bundle=hashBundleDirectory(bundleDir)}
  catch{failure("compiled_bundle_unavailable")}
 
- const worker=bundle.entries.find(x=>x.path==="worker.js");
+ const worker=bundle.entries.find(x=>x.path==="essentials-private-customer-worker-candidate.js");
  if(!worker||worker.bytes<100)failure("compiled_worker_missing");
  const sources=Object.freeze({
   [manifestRelative]:digest(manifestBytes),
