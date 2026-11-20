@@ -28,3 +28,9 @@ test("quotation sidebar entry has fallback when Money Hub is absent and remains 
  assert.match(js,/documentStart\.includes\("<title>Customer quotation \| Thebe Desk<\/title>"\)/);
  assert.match(js,/min-height:48px!important/);
 });
+
+test("mobile delivery reminder does not auto-open over workspace navigation",()=>{
+ const js=read("../public/js/delivery-reminders-manager.js");
+ assert.match(js,/if\(newDue\.length && !window\.matchMedia\("\(max-width: 620px\)"\)\.matches\)popup\(\)\.hidden=false/);
+ assert.match(js,/button\.addEventListener\("click",\(\)=>\{const panel=popup\(\);panel\.hidden=!panel\.hidden\}\)/);
+});
