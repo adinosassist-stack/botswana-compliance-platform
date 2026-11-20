@@ -1,0 +1,19 @@
+{
+  // C4 SOURCE-ONLY REVIEW. DO NOT UPLOAD OR DEPLOY WITHOUT NEW EXACT-RESOURCE
+  // OWNER + INDEPENDENT thusico APPROVAL, PRIVATE HOST/ACCESS AND RECOVERY.
+  // This main entry point is ALWAYS 404-only, including when accidentally run.
+  // Existing bw-quotation-auth-private-staging is an unrelated inert bootstrap.
+  "name": "bw-customer-quotation-identity-private-staging",
+  "main": "../../server/essentials-private-customer-worker-candidate.mjs",
+  "compatibility_date": "2026-11-20",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [],
+  "d1_databases": [
+    {
+      "binding": "CUSTOMER_CONSENT_DB",
+      "database_name": "bw-essentials-customer-consent-private-staging",
+      "database_id": "56f48000-9d89-47d5-a077-47dfe0825662"
+    }
+  ]
+}
