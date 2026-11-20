@@ -17,7 +17,7 @@
 
 const ENVIRONMENT="essentials-private-staging";
 const AUDIENCE="c4-private-customer-quotation-staging";
-const URL="https://c4-internal-customer-authority.invalid/v1/ownership/check";
+const SOURCE_ENDPOINT="https://c4-internal-customer-authority.invalid/v1/ownership/check";
 const ID=x=>typeof x==="string"&&/^[A-Za-z0-9_-]{1,100}$/.test(x);
 const HEX=x=>typeof x==="string"&&/^[a-f0-9]{64}$/.test(x);
 const KID=x=>typeof x==="string"&&/^[A-Za-z0-9._-]{1,96}$/.test(x);
@@ -179,7 +179,7 @@ export function createC4TrustedCustomerOwnershipVerifier({
     audience:AUDIENCE,nonce,...scope
    });
    try{
-    const request=new Request(URL,{
+    const request=new Request(SOURCE_ENDPOINT,{
      method:"POST",redirect:"error",cache:"no-store",credentials:"omit",
      headers:{
       "content-type":"application/json",
@@ -203,7 +203,7 @@ export function createC4TrustedCustomerOwnershipVerifier({
 export const C4_CUSTOMER_OWNERSHIP_BRIDGE_CONTRACT=Object.freeze({
  environment:ENVIRONMENT,audience:AUDIENCE,
  bindingName:"CUSTOMER_OWNERSHIP_SOURCE",
- internalServiceUrl:URL,
+ internalServiceUrl:SOURCE_ENDPOINT,
  usesProductionD1Directly:false,
  usesGlobalFetch:false,
  requiresExternallyApprovedIssuer:true,
