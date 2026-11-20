@@ -2,7 +2,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {identifyActiveCoreDeployment,verifyLiveCoreOnlyBindings,
-  readAndVerifyLiveCoreOnlyBindings} from '../scripts/verify-live-core-only-bindings.mjs';
+  readAndVerifyLiveCoreOnlyBindings,
+  readAndVerifyLiveCoreOnlyBindingsWithRetry} from '../scripts/verify-live-core-only-bindings.mjs';
 
 const values={APP_ENV:'production',PAYMENT_PROVIDER:'none',
   POP_UPLOAD_STAGING_ENABLED:'false',THEBE_AI_EXPORTS_ENABLED:'false',
@@ -106,4 +107,49 @@ test('protected deployment checks live active bindings after write and before re
   const protectedStep=workflow.slice(mutation,readiness);
   assert.match(protectedStep,/CLOUDFLARE_API_TOKEN:.*secrets\.CLOUDFLARE_API_TOKEN/);
   assert.ok(protectedStep.indexOf('node "$WRANGLER_JS" deploy')<protectedStep.indexOf(name));
+});
+
+
+test('bounded postdeploy retry accepts only stable immutable bindings after transient 503',async()=>{
+  let calls=0,sleeps=0;
+  const fetchImpl=async url=>{
+    if(url.includes('/deployments?')){
+      if(++calls===1)return {ok:false,status:503};
+      return ok(deployments());
+    }
+    return ok(version());
+  };
+  const result=await readAndVerifyLiveCoreOnlyBindingsWithRetry({
+    accountId:'a'.repeat(32),token:'token',fetchImpl,
+    attempts:3,delayMs:0,sleep:async()=>{sleeps++}
+  });
+  assert.equal(result.activeVersionId,versionId);
+  assert.equal(result.evidence,'immutable_active_worker_version');
+  assert.equal(sleeps,1);
+});
+
+test('postdeploy retry never masks permanent forbidden read permissions',async()=>{
+  let calls=0,sleeps=0;
+  await assert.rejects(readAndVerifyLiveCoreOnlyBindingsWithRetry({
+    accountId:'a'.repeat(32),token:'token',
+    fetchImpl:async()=>{calls++;return {ok:false,status:403}},
+    attempts:5,delayMs:0,sleep:async()=>{sleeps++}
+  }),/live_core_bindings_permission_denied/);
+  assert.equal(calls,1);
+  assert.equal(sleeps,0);
+});
+
+test('postdeploy retries fail closed on persistent prohibited feature binding',async()=>{
+  let sleeps=0;
+  const fetchImpl=async url=>{
+    if(url.includes('/deployments?'))return ok(deployments());
+    const bad=version();
+    bad.result.resources.bindings.find(b=>b.name==='THEBE_GENERAL_AI_ENABLED').text='true';
+    return ok(bad);
+  };
+  await assert.rejects(readAndVerifyLiveCoreOnlyBindingsWithRetry({
+    accountId:'a'.repeat(32),token:'token',fetchImpl,
+    attempts:3,delayMs:0,sleep:async()=>{sleeps++}
+  }),/live_core_bindings_mismatch_THEBE_GENERAL_AI_ENABLED/);
+  assert.equal(sleeps,2);
 });
