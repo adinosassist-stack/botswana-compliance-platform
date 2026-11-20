@@ -126,7 +126,7 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
   elt("p","qcp-hint",customerReady?
    "Customer-ready print mode. Verify the customer, amounts, account and full terms before sharing. Printing does not send or save a quotation.":
    "PRIVATE PREVIEW ONLY. All wording can be edited. This is not a customer quotation or the approved two-page contract."));
- const status=elt("div","qcp-status",""),actions=elt("div","qcp-actions");status.id="qcp-print-status";status.setAttribute("role","status");
+ const status=elt("div","qcp-status",""),actions=elt("div","qcp-actions");status.id="qcp-print-status";status.setAttribute("aria-live","polite");
  const print=elt("button","",customerReady?"Print customer quotation / Save PDF":"Print / Save PDF");print.type="button";print.dataset.primary="";
  const reset=elt("button","","Reset sample");reset.type="button";
  const download=elt("button","","Export draft JSON");download.type="button";
