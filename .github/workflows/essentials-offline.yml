@@ -7,6 +7,9 @@ on:
       - 'server/project-job-costing-preview.js'
       - 'public/js/essentials-*.mjs'
       - 'tests/essentials-*.test.mjs'
+      - 'tests/customer-quotation-private-worker.test.mjs'
+      - 'scripts/customer-quotation-private-readiness.mjs'
+      - 'deploy/customer-quotation-private-staging/wrangler.jsonc'
       - 'tests/essentials_d1_schema_sqlite.py'
       - 'tests/essentials_accepted_quotation_sqlite.py'
       - 'tests/essentials_private_consent_authority_sqlite.py'
@@ -64,6 +67,8 @@ jobs:
       - name: Run Essentials unit tests and existing job-cost regression
         run: |
           node --test tests/essentials-*.test.mjs tests/project-job-costing-preview.test.mjs
+      - name: Verify C4 customer quotation private Worker and fail-closed activation gates
+        run: node --test tests/customer-quotation-private-worker.test.mjs
       - name: Qualify additive draft D1 schema using SQLite
         run: |
           python3 tests/essentials_d1_schema_sqlite.py
