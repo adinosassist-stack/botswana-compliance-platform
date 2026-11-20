@@ -1,10 +1,7 @@
 name: Thebe Desk Production Deploy
-run-name: Production deploy ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.expected_sha }}
+run-name: Production deploy ${{ inputs.expected_sha }}
 
 on:
-  workflow_run:
-    workflows: ["BF-07 Supply-Chain Seal"]
-    types: [completed]
   workflow_dispatch:
     inputs:
       expected_sha:
@@ -24,15 +21,15 @@ jobs:
   deploy:
     name: Deploy exact qualified SHA to Cloudflare
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'main')
+      github.event_name == 'workflow_dispatch' &&
+      github.actor == 'adinosassist-stack' &&
+      github.triggering_actor == 'adinosassist-stack' &&
+      github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: production
     env:
-      TARGET_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.expected_sha }}
+      TARGET_SHA: ${{ inputs.expected_sha }}
       CI: 'true'
       THEBE_QUOTATION_PREVIEW_TENANT_ID: ${{ vars.THEBE_QUOTATION_PREVIEW_TENANT_ID }}
       D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
@@ -56,10 +53,18 @@ jobs:
       THEBE_BANK_SWIFT_CODE: ${{ vars.THEBE_BANK_SWIFT_CODE }}
 
     steps:
+      - name: Require owner-only manual production dispatch
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]] || { echo 'production deployment requires manual dispatch' >&2; exit 1; }
+          [[ "$GITHUB_ACTOR" == 'adinosassist-stack' && "$GITHUB_TRIGGERING_ACTOR" == 'adinosassist-stack' ]] || { echo 'production deployment requires owner initiation and owner rerun authority' >&2; exit 1; }
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo 'production deployment requires main' >&2; exit 1; }
+
       - name: Checkout exact candidate revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.expected_sha }}
+          ref: ${{ inputs.expected_sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -107,59 +112,41 @@ jobs:
         run: |
           set -euo pipefail
           node <<'NODE'
-          const {appendFileSync, readFileSync} = await import('node:fs');
+          const {appendFileSync} = await import('node:fs');
           const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
           const sha = process.env.TARGET_SHA;
           const token = process.env.GH_TOKEN;
-          const eventName = process.env.GITHUB_EVENT_NAME;
           const headers = {
             accept: 'application/vnd.github+json',
             authorization: `Bearer ${token}`,
             'x-github-api-version': '2022-11-28'
           };
-          const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-          async function successful(workflow, label, {wait = false, requiredEvent = null} = {}) {
-            const attempts = wait ? 37 : 1;
-            for (let attempt = 1; attempt <= attempts; attempt += 1) {
-              const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflow}/runs?branch=main&per_page=100`;
-              const response = await fetch(url, {headers});
-              if (!response.ok) throw new Error(`${label} lookup failed: HTTP ${response.status}`);
-              const body = await response.json();
-              const exactRuns = (body.workflow_runs || []).filter(r =>
-                r.head_sha === sha &&
-                r.head_branch === 'main' &&
-                (!requiredEvent || r.event === requiredEvent)
-              );
-              const passed = exactRuns.find(r => r.status === 'completed' && r.conclusion === 'success');
-              if (passed) {
-                console.log(`${label} qualified exact SHA ${sha} with run ${passed.id}`);
-                return passed;
-              }
-              const failed = exactRuns.find(r => r.status === 'completed' && r.conclusion && r.conclusion !== 'success');
-              if (failed) throw new Error(`${label} completed as ${failed.conclusion} for exact SHA ${sha} (run ${failed.id})`);
-              if (!wait || attempt === attempts) break;
-              console.log(`${label} for exact SHA ${sha} is not complete yet; bounded wait ${attempt}/${attempts - 1}`);
-              await sleep(10_000);
+          async function successful(workflow, label, {requiredEvent = null} = {}) {
+            const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflow}/runs?branch=main&per_page=100`;
+            const response = await fetch(url, {headers});
+            if (!response.ok) throw new Error(`${label} lookup failed: HTTP ${response.status}`);
+            const body = await response.json();
+            const exactRuns = (body.workflow_runs || []).filter(r =>
+              r.head_sha === sha &&
+              r.head_branch === 'main' &&
+              (!requiredEvent || r.event === requiredEvent)
+            );
+            const passed = exactRuns.find(r => r.status === 'completed' && r.conclusion === 'success');
+            if (passed) {
+              console.log(`${label} qualified exact SHA ${sha} with run ${passed.id}`);
+              return passed;
             }
+            const failed = exactRuns.find(r => r.status === 'completed' && r.conclusion && r.conclusion !== 'success');
+            if (failed) throw new Error(`${label} completed as ${failed.conclusion} for exact SHA ${sha} (run ${failed.id})`);
             throw new Error(`${label} has no successful completed run for exact SHA ${sha}`);
           }
           await successful('main-governance-guard.yml', 'Main Governance Guard', {
-            wait: eventName === 'workflow_run',
             requiredEvent: 'push'
           });
-          await successful('recovery-ci.yml', 'Recovery CI', {wait: eventName === 'workflow_run'});
-          let bf07Run;
-          if (eventName === 'workflow_dispatch') {
-            bf07Run = await successful('bf07-seal.yml', 'BF-07 Supply-Chain Seal');
-          } else {
-            const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
-            const run = event.workflow_run || {};
-            if (run.head_sha !== sha || run.head_branch !== 'main' || run.conclusion !== 'success') {
-              throw new Error('triggering BF-07 run does not bind to the exact current main SHA');
-            }
-            bf07Run = run;
-            console.log(`Triggering BF-07 run ${bf07Run.id} qualified exact SHA ${sha}`);
-          }
+          await successful('recovery-ci.yml', 'Recovery CI');
+          const bf07Run = await successful('bf07-seal.yml', 'BF-07 Supply-Chain Seal', {
+            requiredEvent: 'push'
+          });
           if (!/^\d+$/.test(String(bf07Run?.id || '')) || !/^\d+$/.test(String(bf07Run?.run_attempt || ''))) {
             throw new Error('BF-07 qualification did not resolve a valid workflow run identity');
           }

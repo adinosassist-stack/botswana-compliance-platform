@@ -6,6 +6,25 @@ import { isAbsolute } from 'node:path';
 const bf07 = readFileSync('.github/workflows/bf07-seal.yml', 'utf8');
 const deploy = readFileSync('.github/workflows/deploy-production.yml', 'utf8');
 const renderer = readFileSync('cloudflare/render-production-config.sh', 'utf8');
+// Production may only be explicitly initiated by the repository owner.
+// BF-07 sealing is independent and must never auto-dispatch production.
+assert.match(deploy, /^on:\n  workflow_dispatch:/m, 'production dispatch must be manual-only');
+assert.doesNotMatch(deploy, /^  (?:workflow_run|push|pull_request|schedule):/m, 'production must not auto-trigger');
+for (const requirement of [
+  "github.event_name == 'workflow_dispatch'",
+  "github.actor == 'adinosassist-stack'",
+  "github.triggering_actor == 'adinosassist-stack'",
+  "github.ref == 'refs/heads/main'",
+  'TARGET_SHA: ${{ inputs.expected_sha }}',
+  'ref: ${{ inputs.expected_sha }}',
+  '- name: Require owner-only manual production dispatch',
+  '[[ "$GITHUB_ACTOR" == \'adinosassist-stack\' && "$GITHUB_TRIGGERING_ACTOR" == \'adinosassist-stack\' ]]',
+  "await successful('bf07-seal.yml', 'BF-07 Supply-Chain Seal'"
+])assert.ok(deploy.includes(requirement), `production owner-only policy missing: ${requirement}`);
+assert.ok(deploy.indexOf('- name: Require owner-only manual production dispatch') <
+  deploy.indexOf('- name: Checkout exact candidate revision'),
+  'owner gate must execute before checkout and other privileged production steps');
+
 
 function qualifiedGovernanceRun(runs, sha) {
   const exact = runs.filter(run =>
