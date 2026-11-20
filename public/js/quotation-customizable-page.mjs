@@ -221,7 +221,8 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
  });
  sizeField.addEventListener("input",()=>{logoWidth=Number(sizeField.value);refresh()});
  offsetField.addEventListener("input",()=>{logoX=Number(offsetField.value);refresh()});
- sidebar.append(basic.element,itemsSection.element,copySection.element,termsSection.element,logoSection.element,actions,status);
+ // Keep primary mobile print actions visible before the long editable document.
+ sidebar.append(actions,status,basic.element,itemsSection.element,copySection.element,termsSection.element,logoSection.element);
  shell.append(sidebar,stage);
  root.replaceChildren(style,shell);
  function masthead(page,heading){
@@ -332,6 +333,8 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
     status.textContent="Printing is unavailable in this browser. Open the quotation in Safari or Chrome and use Share / Print.";
     return;
    }
+   // Mobile webviews may ignore print(); never claim a PDF was generated.
+   status.textContent="Opening your browser print dialog. Choose Save as PDF. If no dialog appears, open this quotation in Safari or Chrome and use Share / Print.";
    window.print();
   }catch(error){status.textContent="Cannot print: "+String(error?.message||"invalid draft");}
  });
