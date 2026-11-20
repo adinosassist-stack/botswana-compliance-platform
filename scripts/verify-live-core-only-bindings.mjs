@@ -46,7 +46,13 @@ async function getMetadataJson(url,token,fetchImpl) {
   const res=await fetchImpl(url,{method:'GET',redirect:'error',
     headers:{Authorization:'Bearer '+token,Accept:'application/json'},
     signal:AbortSignal.timeout(12000)});
-  if(!res?.ok)throw Error('live_core_bindings_read_failed');
+  if(!res?.ok){
+    const status=Number(res?.status);
+    if(status===401||status===403)throw Error('live_core_bindings_permission_denied');
+    if([404,409,429].includes(status)||(status>=500&&status<=599))
+      throw Error('live_core_bindings_read_retryable');
+    throw Error('live_core_bindings_read_failed');
+  }
   const body=await res.text();
   if(typeof body!=='string'||body.length>524288)throw Error('live_core_bindings_response_oversize');
   try{return JSON.parse(body)}catch{throw Error('live_core_bindings_invalid_json')}
@@ -70,16 +76,48 @@ export async function readAndVerifyLiveCoreOnlyBindings({accountId,token,fetchIm
     evidence:'immutable_active_worker_version'});
 }
 
+// The Workers deployment API can lag briefly behind a successful Wrangler deploy.
+// Retry only bounded read/consistency failures; never relax binding requirements.
+export async function readAndVerifyLiveCoreOnlyBindingsWithRetry({
+  attempts=5,delayMs=1500,sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms)),
+  ...options
+}={}) {
+  if(!Number.isInteger(attempts)||attempts<1||attempts>8||
+      !Number.isInteger(delayMs)||delayMs<0||delayMs>10000||typeof sleep!=='function')
+    throw Error('live_core_retry_configuration_invalid');
+  for(let i=1;i<=attempts;i++){
+    try{return await readAndVerifyLiveCoreOnlyBindings(options)}
+    catch(error){
+      const code=error instanceof Error?error.message:'';
+      const retryable=code==='live_core_bindings_read_retryable'||
+        code==='live_core_deployment_unqualified'||
+        code==='live_core_deployment_changed'||
+        code==='live_core_bindings_unavailable'||
+        Object.keys(REQUIRED).some(name=>code==='live_core_bindings_mismatch_'+name);
+      if(!retryable||i===attempts)throw error;
+      await sleep(delayMs);
+    }
+  }
+}
+
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   try{
-    const result=await readAndVerifyLiveCoreOnlyBindings({
+    const result=await readAndVerifyLiveCoreOnlyBindingsWithRetry({
       accountId:process.env.CLOUDFLARE_ACCOUNT_ID,
       token:process.env.CLOUDFLARE_API_TOKEN
     });
     process.stdout.write(JSON.stringify(result)+'\n');
-  }catch{
-    // Deliberately avoid exposing token-bearing errors, response bodies or URLs.
-    console.error('live_core_bindings_hold');
+  }catch(error){
+    // Never print tokens, URLs, response bodies or exception messages from the API.
+    const code=error instanceof Error?error.message:'';
+    const allow=['live_core_bindings_permission_denied','live_core_bindings_read_retryable',
+      'live_core_bindings_read_failed','live_core_bindings_invalid_json',
+      'live_core_bindings_response_oversize','live_core_bindings_unavailable',
+      'live_core_deployment_unqualified','live_core_deployment_changed',
+      'live_core_version_identity_mismatch','live_core_bindings_credentials_missing'];
+    const diagnostic=allow.includes(code)||Object.keys(REQUIRED).some(name=>
+      code==='live_core_bindings_mismatch_'+name)?code:'unexpected';
+    console.error('live_core_bindings_hold:'+diagnostic);
     process.exitCode=1;
   }
 }
