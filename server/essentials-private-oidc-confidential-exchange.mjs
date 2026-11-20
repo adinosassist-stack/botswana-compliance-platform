@@ -1,3 +1,4 @@
+import {customerOidcEndpointsAllowed} from "./essentials-private-customer-oidc-provider-policy.mjs";
 /**
  * UNMOUNTED SOURCE ONLY: confidential OIDC code exchange transport candidate.
  * Call ONLY after a trusted host atomically consumes a session-bound state
@@ -58,18 +59,19 @@ async function boundedJson(response){
  return data.id_token;
 }
 export function createEssentialsPrivateOidcConfidentialExchange({
- enabled=false,environment,issuer,clientId,tokenEndpoint,redirectUri,
+ enabled=false,environment,providerProfile="same-origin",issuer,clientId,tokenEndpoint,redirectUri,
  getConfidentialClientSecret,fetchToken
 }={}){
  if(enabled!==true||environment!=="essentials-private-staging")
   throw Error("private_oidc_exchange_disabled");
- let idp,endpoint;
  try{
-  idp=httpsUrl(issuer,{issuer:true});
-  endpoint=httpsUrl(tokenEndpoint);
+  httpsUrl(issuer,{issuer:true});
+  httpsUrl(tokenEndpoint);
   httpsUrl(redirectUri);
  }catch{throw Error("private_oidc_exchange_unconfigured")}
- if(!CLIENT(clientId)||endpoint.origin!==idp.origin||
+ if(!CLIENT(clientId)||!customerOidcEndpointsAllowed({
+      providerProfile,issuer,tokenEndpoint
+     })||
     typeof getConfidentialClientSecret!=="function"||
     typeof fetchToken!=="function"||typeof Request!=="function")
   throw Error("private_oidc_exchange_unconfigured");

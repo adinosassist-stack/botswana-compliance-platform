@@ -1,3 +1,4 @@
+import {customerOidcEndpointsAllowed} from "./essentials-private-customer-oidc-provider-policy.mjs";
 /**
  * SOURCE-ONLY, UNMOUNTED external-customer invitation + OIDC Authorization
  * Code/PKCE journey. Not the employee OIDC flow. No routes, IdP registration,
@@ -218,7 +219,7 @@ function checkLaunchRow(row,id,state,at){
  };
 }
 export function createEssentialsPrivateCustomerInviteOidcJourney({
- enabled=false,environment,db,issuer,clientId,authorizationEndpoint,
+ enabled=false,environment,providerProfile="same-origin",db,issuer,clientId,authorizationEndpoint,
  tokenEndpoint,redirectUri,expectedOrigin,nonceEncryptionKey,
  verifierEncryptionKey,cryptoSubtle=globalThis.crypto?.subtle,
  randomBytes,now=()=>Date.now(),authorizeCustomerInvitation,
@@ -228,16 +229,17 @@ export function createEssentialsPrivateCustomerInviteOidcJourney({
 }={}){
  if(enabled!==true||environment!=="essentials-private-staging")
   throw Error("private_customer_invite_oidc_disabled");
- let auth,redir,token,iss,origin;
+ let redir,origin;
  try{
-  auth=validUrl(authorizationEndpoint);
+  validUrl(authorizationEndpoint);
   redir=validUrl(redirectUri);
-  token=validUrl(tokenEndpoint);
-  iss=validUrl(issuer);
+  validUrl(tokenEndpoint);
+  validUrl(issuer);
   origin=validUrl(expectedOrigin);
  }catch{throw Error("private_customer_invite_oidc_unconfigured")}
- if(iss.origin!==auth.origin||iss.origin!==token.origin||
-   redir.origin!==origin.origin||
+ if(!customerOidcEndpointsAllowed({
+    providerProfile,issuer,authorizationEndpoint,tokenEndpoint
+   })||redir.origin!==origin.origin||
    expectedOrigin!==origin.origin||
    !/^[A-Za-z0-9._~:-]{1,128}$/.test(clientId||"")||
    ![nonceEncryptionKey,verifierEncryptionKey].every(k=>

@@ -24,7 +24,9 @@ const verifierEncryptionKey=await subtle.generateKey(
 const sha=async x=>[...new Uint8Array(await subtle.digest("SHA-256",
  new TextEncoder().encode(x)))].map(n=>n.toString(16).padStart(2,"0")).join("");
 function harness({authority=true,owned=true,validQuote=true,
- failBatch=false}={}){
+ failBatch=false,providerProfile="same-origin",providerIssuer=issuer,
+ providerAuthorizationEndpoint=authorizationEndpoint,
+ providerTokenEndpoint=tokenEndpoint}={}){
  let n=0;
  const state={invite:null,launch:null,attempt:null,batches:[],
   exchanges:[],sessions:[],readNonce:[],failBatch};
@@ -90,8 +92,10 @@ function harness({authority=true,owned=true,validQuote=true,
   termsSha256:"b".repeat(64),acceptanceVersion:2,totalMinor:10000};
  const journey=create({
   enabled:true,environment:"essentials-private-staging",
-  db,issuer,clientId:"thebe_customer_client",authorizationEndpoint,
-  tokenEndpoint,redirectUri,expectedOrigin:origin,
+  db,issuer:providerIssuer,providerProfile,
+  clientId:"thebe_customer_client",
+  authorizationEndpoint:providerAuthorizationEndpoint,
+  tokenEndpoint:providerTokenEndpoint,redirectUri,expectedOrigin:origin,
   nonceEncryptionKey,verifierEncryptionKey,
   cryptoSubtle:subtle,now:()=>at,
   randomBytes:size=>new Uint8Array(size).fill(++n),
@@ -223,4 +227,34 @@ test("tampered encrypted nonce, failed SQL transaction and missing customer auth
  assert.equal(h.state.batches.length,1);
  const o=harness({failBatch:true});await reject(()=>o.issue());
  assert.equal(o.state.invite,null);
+});
+
+test("Google OIDC endpoints require explicit exact provider profile; default remains same-origin",async()=>{
+ const google={
+  providerProfile:"google-oidc",providerIssuer:"https://accounts.google.com",
+  providerAuthorizationEndpoint:"https://accounts.google.com/o/oauth2/v2/auth",
+  providerTokenEndpoint:"https://oauth2.googleapis.com/token"
+ };
+ const h=harness(google);
+ const issued=await h.issue();
+ const begun=await h.start(issued.invitationId,issued.ticket);
+ assert.equal(new URL(begun.authorizationUrl).origin,"https://accounts.google.com");
+ assert.equal(new URL(begun.authorizationUrl).pathname,"/o/oauth2/v2/auth");
+ assert.equal(new URL(begun.authorizationUrl).searchParams.get("code_challenge_method"),"S256");
+ assert.equal(h.state.exchanges.length,0);
+ for(const bad of [
+  {providerProfile:"same-origin"},
+  {providerProfile:"google"},
+  {providerIssuer:"https://accounts.google.com.attacker.example"},
+  {providerAuthorizationEndpoint:"https://evil.example/oauth2/v2/auth"},
+  {providerAuthorizationEndpoint:"https://accounts.google.com/o/oauth2/v2/auth?redirect=https://evil.example"},
+  {providerTokenEndpoint:"https://oauth2.googleapis.com.evil.example/token"},
+  {providerTokenEndpoint:"https://oauth2.googleapis.com/token?extra=1"},
+  {providerTokenEndpoint:"https://accounts.google.com/token"},
+  {providerIssuer:"https://accounts.google.com/"},
+  {providerProfile:"unknown-provider"}
+ ]){
+  assert.throws(()=>harness({...google,...bad}),
+   /private_customer_invite_oidc_unconfigured/);
+ }
 });
