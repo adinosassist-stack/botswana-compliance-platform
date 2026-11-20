@@ -22,7 +22,8 @@ function fixture(){
  const bundleDir=join(root,"compiled");
  mkdirSync(bundleDir);
  writeFileSync(join(bundleDir,"worker.js"),
-  "export default {fetch(){return new Response('Not Found',{status:404})}}\n");
+  "export default {fetch(){return new Response('Not Found',{status:404})}}\n"+
+   "// synthetic offline fixture input, not a deployed Worker. ".repeat(4));
  return {root,bundleDir,
   clean(){rmSync(root,{recursive:true,force:true})},
   writeFile(p,transform){
@@ -50,7 +51,7 @@ test("C4 offline receipt pins source and compiled bytes but never authorizes dep
   assert.equal(r.evidenceScope,"OFFLINE_COMPILED_DEFAULT_DENY_ONLY");
   assert.deepEqual(receipt({root:f.root,bundleDir:f.bundleDir,
    checkoutSha:source,eventName:"pull_request"}),r);
-  writeFileSync(join(f.bundleDir,"worker.js"),"changed compiled output");
+  writeFileSync(join(f.bundleDir,"worker.js"),"changed compiled output ".repeat(9));
   assert.notEqual(receipt({root:f.root,bundleDir:f.bundleDir,
    checkoutSha:source,eventName:"pull_request"}).receiptSha256,r.receiptSha256);
  }finally{f.clean()}
