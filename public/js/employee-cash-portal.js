@@ -77,7 +77,8 @@
     await api("/public/employee/cash/expenses",{method:"POST",csrf:true,body:{amountMinor,category:category.value,purpose:purpose.value.trim(),
       receiptReference:receipt.value.trim(),jobReference:job.value.trim(),occurredOn:on.value,requestKey:expenseKey}});
     expense.reset();on.value=today();expenseKey=null;
-    status.textContent="Cash expense submitted for manager review.";await refresh();
+    status.textContent="Cash expense submitted for manager review.";
+    try{await refresh()}catch{status.textContent="Expense submitted, but activity could not reload. Refresh before submitting again."}
    }catch(e){status.textContent=String(e?.message||"Could not save expense. Retry with the same details.")}
    finally{saveExpense.disabled=false}
   });
@@ -87,7 +88,9 @@
    saveCount.disabled=true;status.textContent="";
    try{
     await api("/public/employee/cash/counts",{method:"POST",csrf:true,body:{countedMinor,reportDate:countDate.value,note:countNote.value}});
-    status.textContent="Cash count submitted. It is now locked for manager review.";await refresh();
+    countForm.reset();countDate.value=today();
+    status.textContent="Cash count submitted. It is now locked for manager review.";
+    try{await refresh()}catch{status.textContent="Cash count submitted, but activity could not reload. Refresh before submitting another count."}
    }catch(e){status.textContent=String(e?.message||"Cash count could not be submitted.")}
    finally{saveCount.disabled=false}
   });
