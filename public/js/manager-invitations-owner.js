@@ -20,6 +20,7 @@ export function mountManagerInvites({container,request,ownerConfirmed=false}={})
     event.preventDefault();submit.disabled=true;status.textContent='Preparing invitation…';
     try{
       const address=normalizeManagerEmail(email.value);
+      if(!MANAGER_INVITE_BRANCHES.includes(select.value))throw new Error('invalid_branch');
       // The real authenticated request must supply CSRF token from the host API client.
       // The host request must fail closed until the protected route exists.
       const result=await request({email:address,branch:select.value});
