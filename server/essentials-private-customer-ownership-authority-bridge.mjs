@@ -111,6 +111,7 @@ async function verifySignedProof({
   claims.nonce!==nonce||
   claims.ownership!=="current"||
   claims.quotation_state!=="accepted")return false;
+ if(!Number.isSafeInteger(now)||now<1000)return false;
  const nowSec=Math.floor(now/1000);
  if(!Number.isSafeInteger(claims.iat)||!Number.isSafeInteger(claims.exp)||
     claims.iat>nowSec+2||claims.iat<nowSec-15||
