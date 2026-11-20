@@ -126,7 +126,7 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
   elt("p","qcp-hint",customerReady?
    "Customer-ready print mode. Verify the customer, amounts, account and full terms before sharing. Printing does not send or save a quotation.":
    "PRIVATE PREVIEW ONLY. All wording can be edited. This is not a customer quotation or the approved two-page contract."));
- const status=elt("div","qcp-status",""),actions=elt("div","qcp-actions");
+ const status=elt("div","qcp-status",""),actions=elt("div","qcp-actions");status.id="qcp-print-status";status.setAttribute("role","status");
  const print=elt("button","",customerReady?"Print customer quotation / Save PDF":"Print / Save PDF");print.type="button";print.dataset.primary="";
  const reset=elt("button","","Reset sample");reset.type="button";
  const download=elt("button","","Export draft JSON");download.type="button";
@@ -302,7 +302,9 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
    checked=validateQuotationCustomPage(state);
    renderPreview();download.disabled=false;
    const blocker=customerReady?customerReadyBlocker(checked):"";
-   print.disabled=Boolean(blocker);
+   // Keep the action operable so mobile users can see why printing is blocked.
+   print.disabled=false;
+   print.setAttribute("aria-describedby","qcp-print-status");
    status.textContent=customerReady?
     (blocker?"Customer quotation not ready: "+blocker:
     "Customer-ready two-page print. Check all details before sharing; no quotation has been sent or saved."):
@@ -310,17 +312,27 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
     "Valid two-page private preview. No data has been saved or issued.":
     "Preview only: terms have not been loaded; not suitable for customer issue.");
   }catch(error){
-   print.disabled=true;download.disabled=true;
+   print.disabled=false;download.disabled=true;
    status.textContent="Fix the fields: "+String(error?.message||"invalid draft");
   }
  }
  print.addEventListener("click",()=>{
-  if(disposed||print.disabled)return;
-  // Check geometry before invoking print; do not silently hide contract text.
-  if([...stage.querySelectorAll(".qcp-page")].some(page=>page.scrollHeight>page.clientHeight+2)){
-   status.textContent="Page content overflows. Shorten wording before printing.";return;
-  }
-  window.print();
+  if(disposed)return;
+  try{
+   checked=validateQuotationCustomPage(state);
+   const blocker=customerReady?customerReadyBlocker(checked):"";
+   if(blocker){status.textContent="Cannot print yet: "+blocker;status.scrollIntoView({block:"nearest"});return;}
+   // Screen-width overflow is not A4 overflow. Narrow mobile previews must not block printing.
+   if(window.matchMedia("(min-width: 901px)").matches &&
+      [...stage.querySelectorAll(".qcp-page")].some(page=>page.scrollHeight>page.clientHeight+2)){
+    status.textContent="Page content overflows. Shorten wording before printing.";return;
+   }
+   if(typeof window.print!=="function"){
+    status.textContent="Printing is unavailable in this browser. Open the quotation in Safari or Chrome and use Share / Print.";
+    return;
+   }
+   window.print();
+  }catch(error){status.textContent="Cannot print: "+String(error?.message||"invalid draft");}
  });
  importButton.addEventListener("click",()=>{if(!disposed)importInput.click()});
  importInput.addEventListener("change",async()=>{
