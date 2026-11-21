@@ -28,8 +28,10 @@ const css=[
  ".qcp-shell button:disabled{opacity:.5;cursor:not-allowed}",
  ".qcp-actions{display:flex;flex-wrap:wrap;gap:7px}",
  ".qcp-hint{font-size:12px;color:#66717e}",
- ".qcp-status{font-size:12px;color:#3f5c75;min-height:22px}",
+ ".qcp-status{font-size:12px;color:#3f5c75;min-height:22px;overflow-wrap:anywhere}",
+ ".qcp-status:focus{outline:2px solid #245887;outline-offset:3px}",
  ".qcp-stage{display:grid;justify-items:center;align-content:start;gap:18px;min-width:0;overflow:auto}",
+ "@media(max-width:900px){.qcp-actions button{min-height:44px;flex:1 1 155px;touch-action:manipulation}.qcp-status{font-size:13px}}",
  ".qcp-page{width:min(100%,794px);min-height:1055px;background:#fff;position:relative;box-shadow:0 3px 15px #17233220;padding:35px 35px 66px;display:flex;flex-direction:column;gap:16px;color:#1b1b1b}",
  ".qcp-watermark{position:absolute;top:8px;left:35px;color:#9a1318;font-size:10px;letter-spacing:.6px;font-weight:750}",
  ".qcp-masthead{display:flex;justify-content:space-between;align-items:center;gap:20px;border-bottom:2px solid #d20c15;padding-bottom:12px;min-height:116px}",
@@ -128,6 +130,8 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
    "PRIVATE PREVIEW ONLY. All wording can be edited. This is not a customer quotation or the approved two-page contract."));
  const status=elt("div","qcp-status",""),actions=elt("div","qcp-actions");status.id="qcp-print-status";status.setAttribute("aria-live","polite");
  const print=elt("button","",customerReady?"Print customer quotation / Save PDF":"Print / Save PDF");print.type="button";print.dataset.primary="";
+ const printHelp=details("How to save as PDF on your phone");
+ printHelp.content.append(elt("p","qcp-hint","Android Chrome: tap Print / Save PDF, then select Save as PDF in the destination menu. iPhone Safari: tap Print / Save PDF and use the Share / Print options. Some in-app browsers cannot open print dialogs: open this page in Chrome or Safari first. Printing does not save or send a quote to Thebe Desk."));
  const reset=elt("button","","Reset sample");reset.type="button";
  const download=elt("button","","Export draft JSON");download.type="button";
  const importButton=elt("button","","Import draft JSON");importButton.type="button";
@@ -222,7 +226,7 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
  sizeField.addEventListener("input",()=>{logoWidth=Number(sizeField.value);refresh()});
  offsetField.addEventListener("input",()=>{logoX=Number(offsetField.value);refresh()});
  // Keep primary mobile print actions visible before the long editable document.
- sidebar.append(actions,status,basic.element,itemsSection.element,copySection.element,termsSection.element,logoSection.element);
+ sidebar.append(actions,status,printHelp.element,basic.element,itemsSection.element,copySection.element,termsSection.element,logoSection.element);
  shell.append(sidebar,stage);
  root.replaceChildren(style,shell);
  function masthead(page,heading){
@@ -336,12 +340,15 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
    }
    if(typeof window.print!=="function"){
     status.textContent="Printing is unavailable in this browser. Open the quotation in Safari or Chrome and use Share / Print.";
+    printHelp.element.open=true;
+    status.focus({preventScroll:true});
     return;
    }
    // Mobile webviews may ignore print(); never claim a PDF was generated.
    status.textContent="Opening your browser print dialog. Choose Save as PDF. If no dialog appears, open this quotation in Safari or Chrome and use Share / Print.";
+   // Keep the browser call in the direct click gesture; no async rendering or fake PDF success.
    window.print();
-  }catch(error){status.textContent="Cannot print: "+String(error?.message||"invalid draft");}
+  }catch(error){status.textContent="Cannot print: "+String(error?.message||"invalid draft");status.focus({preventScroll:true});}
  });
  importButton.addEventListener("click",()=>{if(!disposed)importInput.click()});
  importInput.addEventListener("change",async()=>{

@@ -213,3 +213,39 @@ test("logo chooser accepts a browser PNG preview, rejects corrupt image and neve
   assert.equal(await page.locator(".qcp-brand img").count(),0,"Reset clears local object URL");
  }finally{await context.close()}
 });
+
+
+test("mobile print remains tappable across 320/375/414/430 widths without claiming PDF generation",async()=>{
+ for(const width of [320,375,414,430]){
+  const {context,page}=await open({width,height:800});
+  try{
+   await page.evaluate(()=>{
+    window.quotationPrintCalls=0;
+    window.print=()=>{window.quotationPrintCalls++};
+   });
+   const button=page.getByRole("button",{name:"Print / Save PDF"});
+   const bounds=await button.boundingBox();
+   assert.ok(bounds&&bounds.height>=44,`Mobile print tap target too small at ${width}`);
+   assert.ok(bounds.x>=0&&bounds.x+bounds.width<=width+1,`Mobile print button clipped at ${width}`);
+   await button.click();
+   assert.equal(await page.evaluate(()=>window.quotationPrintCalls),1,
+    `print() should be invoked directly by tap at ${width}`);
+   assert.match(await page.locator("#qcp-print-status").innerText(),/If no dialog appears/);
+   assert.doesNotMatch(await page.locator("#qcp-print-status").innerText(),/PDF generated|PDF downloaded/);
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+  }finally{await context.close()}
+ }
+});
+test("missing browser print API opens accessible phone instructions without false success",async()=>{
+ const {context,page}=await open({width:375,height:812});
+ try{
+  await page.evaluate(()=>{window.print=undefined});
+  await page.getByRole("button",{name:"Print / Save PDF"}).click();
+  assert.match(await page.locator("#qcp-print-status").innerText(),/Printing is unavailable/);
+  assert.equal(await page.locator("#qcp-print-status").evaluate(e=>document.activeElement===e),true);
+  const help=page.locator("details").filter({has:page.getByText("How to save as PDF on your phone")});
+  assert.equal(await help.evaluate(e=>e.open),true);
+  assert.match(await help.innerText(),/Android Chrome/);
+  assert.match(await help.innerText(),/iPhone Safari/);
+ }finally{await context.close()}
+});
