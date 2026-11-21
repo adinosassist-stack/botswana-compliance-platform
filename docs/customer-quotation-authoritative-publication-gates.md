@@ -73,3 +73,42 @@ At a minimum, reject: employee actor or cross-tenant owner, unauthenticated
 session, missing CSRF, stale/archived Finance customer, unpublished or
 revoked quote, tampered quote/terms bytes, wrong version/amount, failed
 independent approval recheck, failed atomic freeze and inconsistent receipt.
+
+## Isolated approved-publication registry proposed for the existing quotation D1
+
+The live isolated `bw-quotation-staging` D1 (UUID
+`aec227e9-b0f2-4b00-8de0-105465c4e2d6`) was read-only inspected:
+its existing application tables are `quotation_drafts`,
+`quotation_logo_assets` and `quotation_logo_settings`. There is **no
+approved-quotation publication registry**. The source-only SQL candidate
+`docs/sql/c4-quotation-approved-publications-STAGING-CANDIDATE.sql`
+proposes an additive, append-only synthetic review registry. **It has not
+been executed; no D1 migration is authorized by this PR.**
+
+Its proposed records store the exact tenant/customer/quotation identities,
+original immutable quote and full terms bytes, both SHA-256s, approval actor,
+version, BWP minor-unit amount and evidence ID. A separate mandatory
+assertion binds these fields, and permanent revocation tombstones prevent
+further source reads of revoked records. The SQL constraints deliberately
+reject changed/deleted publication, assertion or revocation rows. A dedicated
+Python SQLite test exercises actual schema execution **only in-memory**,
+including atomic assertion rollback, unique references, missing approvals,
+revocation immutability and wrong-tenant/customer read denial.
+
+`server/essentials-private-approved-quotation-staging-read-adapter.mjs`
+implements a **read-only** D1 SELECT with tenant/customer/quote scoping,
+mandatory matched assertion, revocation exclusion and SHA-256 re-verification
+of both immutable byte buffers. It also requires separately supplied callbacks
+to confirm the isolated D1 binding and independently verify the live business
+approval before returning a record. It composes with the existing guarded
+business-publication bridge. This source adapter does **not** connect Finance,
+perform a publication INSERT, or make records authoritative by itself.
+
+**Do not treat a staging registry row as a real issued customer quotation.**
+A separately approved protected business issuer and genuinely authoritative
+source must sign off the exact customer/quote/terms proof. Isolated staging
+records are synthetic-only. Before any migration, reverify current main and
+immutable SQL blob/checksum, confirm current database schema and backup
+recovery, obtain **new distinct owner and thusico exact SQL execution
+approvals**, and rehearse on an isolated disposable database. Never run the
+SQL against production D1 or reapply an already installed migration.
