@@ -48,7 +48,7 @@ const get=(change={})=>new Request(
   ...change.headers}
 });
 function harness({liveSession=true,liveQuote=true,allowPost=true,
- presentation=true,now=()=>at}={}){
+ presentation=true,offerPatch={},now=()=>at}={}){
  const calls={sessions:[],quotes:[],offers:[],loads:[],authorizations:[]};
  let current={...session},frozen={...baseQuote},proof=null;
  const service=create({
@@ -64,7 +64,7 @@ function harness({liveSession=true,liveQuote=true,allowPost=true,
   recordCustomerReviewOffered:async p=>{
    calls.offers.push(p);
    if(!presentation)return null;
-   proof={...p,state:"offered",presentationId:"offerA"};
+   proof={...p,state:"offered",presentationId:"offerA",...offerPatch};
    return proof;
   },
   loadCustomerReviewOffered:async p=>{
@@ -217,4 +217,25 @@ test("rejected independent acceptance authorization and oversized body deny",asy
  await rejects(()=>h.service.validateExplicitCustomerAcceptance({
   request:post({body:tooBig}),quotationId
  }));
+});
+
+test("customer GET denies stale, future and inconsistent persisted offer issue times",async()=>{
+ for(const offerPatch of [
+  {issuedAtMs:at-1},
+  {issuedAtMs:at+1},
+  {issuedAtMs:undefined},
+  {issuedAtMs:at-600000,expiresAtMs:at+60000},
+  {issuedAtMs:at,expiresAtMs:at+300001}
+ ]){
+  const h=harness({offerPatch});
+  await rejects(()=>h.service.prepareCustomerReview({
+   request:get(),quotationId
+  }));
+  assert.equal(h.calls.authorizations.length,0);
+ }
+ const h=harness();
+ const review=await h.service.prepareCustomerReview({
+  request:get(),quotationId
+ });
+ assert.equal(review.expiresAtMs,at+120000);
 });
