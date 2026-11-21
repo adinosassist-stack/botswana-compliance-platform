@@ -5,6 +5,11 @@ import {
  createC4AuthoritativeQuotationPublicationBridge as createBridge,
  C4_QUOTATION_PUBLICATION_CONTRACT as contract
 } from "../server/essentials-private-business-quotation-publication-bridge.mjs";
+import {createEssentialsPrivateFrozenTermsReviewStore,
+ ESSENTIALS_PRIVATE_FREEZE_QUOTE_WITH_TERMS_SQL as FREEZE,
+ ESSENTIALS_PRIVATE_BIND_IMMUTABLE_TERMS_SQL as TERMS,
+ ESSENTIALS_PRIVATE_ASSERT_FROZEN_TERMS_SQL as AUDIT
+} from "../server/essentials-private-frozen-terms-review-store.mjs";
 const te=new TextEncoder(),subtle=webcrypto.subtle;
 const quoteBytes=te.encode("Approved issued quotation Q-202 BWP 1250.00");
 const termsBytes=te.encode("Complete binding terms including refunds, cancellation and exclusions");
@@ -159,4 +164,53 @@ test("no ownership claims, invitation token, email or employee session are publi
   ["tenantId","customerId","quotationId","quotationReference",
    "acceptanceVersion","totalMinor","frozenByActorUserId",
    "immutableQuotationBytes","immutableTermsBytes"].sort());
+});
+
+test("integrates with REAL existing frozen-terms store and performs one exact guarded three-statement batch",async()=>{
+ const f=await setup();
+ const batches=[],authorities=[];
+ const db={
+  prepare(sql){return{bind(...args){return{sql,args}}}},
+  async batch(statements){
+   batches.push(statements);
+   return statements.map(()=>({success:true,meta:{changes:1}}));
+  }
+ };
+ const freeze=createEssentialsPrivateFrozenTermsReviewStore({
+  enabled:true,environment:"essentials-private-staging",
+  db,now:()=>Date.parse("2026-11-20T19:00:00Z"),
+  randomBytes:n=>new Uint8Array(n).fill(7),
+  cryptoSubtle:subtle,
+  authorizeAuthoritativeFreeze:async source=>{
+   authorities.push(source);
+   return source.tenantId==="tenantA"&&
+    source.customerId==="customerA"&&
+    source.quotationId==="quoteA"&&
+    source.quotationSha256===f.hashes.quotationSha256&&
+    source.termsSha256===f.hashes.termsSha256;
+  },
+  loadActiveCustomerSession:async()=>null,
+  authorizeCustomerReviewOffer:async()=>false
+ });
+ const gate=createBridge({
+  enabled:true,environment:"essentials-private-staging",
+  cryptoSubtle:subtle,
+  loadActiveBusinessCustomer:async()=>({
+   tenantId:"tenantA",customerId:"customerA",state:"active",
+   revoked:false,deleted:false,authoritativeSource:true
+  }),
+  loadApprovedBusinessQuotation:async()=>f.baseQuote,
+  authorizeBusinessPublication:async()=>true,
+  verifyCurrentApprovalAtFreeze:async()=>true,
+  frozenTermsStore:freeze
+ });
+ const result=await gate.publishApprovedQuotation({...ids,principal});
+ assert.equal(result.state,"frozen-with-terms");
+ assert.equal(authorities.length,1);
+ assert.equal(batches.length,1);
+ assert.deepEqual(batches[0].map(x=>x.sql),[FREEZE,TERMS,AUDIT]);
+ assert.deepEqual(batches[0].map(x=>x.args.slice(0,2)),[
+  ["tenantA","quoteA"],[f.hashes.termsSha256,Array.from(termsBytes)],
+  ["tenantA","quoteA"]
+ ]);
 });
