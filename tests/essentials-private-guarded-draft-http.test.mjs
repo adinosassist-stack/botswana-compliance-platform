@@ -9,7 +9,7 @@ const session={authenticated:true,userId:"userA",tenantId:"tenantA",
  permissions:["invoice:draft:create"]};
 const member={active:true,userId:"userA",tenantId:"tenantA"};
 function fixture({actor=session,membership=member,mutation=true,
- create=async()=>({replayed:false,invoice:{id:"draftA",status:"draft",invoiceReference:"ED-1"}})}={}){
+ create=async()=>({replayed:false,invoice:{id:"draftA",tenantId:"tenantA",sourceQuotationId:"quoteA",status:"draft",invoiceReference:"ED-1"}})}={}){
  let writes=0,call=null;
  const handler=createEssentialsPrivateGuardedDraftHandler({
   enabled:true,environment:"essentials-private-staging",
@@ -55,7 +55,7 @@ test("successful private request forwards server session identity only, returns 
 });
 test("replay preserves original server-generated invoice reference",async()=>{
  const f=fixture({create:async()=>({replayed:true,invoice:{
-  id:"original",status:"draft",invoiceReference:"ED-original"
+  id:"original",tenantId:"tenantA",sourceQuotationId:"quoteA",status:"draft",invoiceReference:"ED-original"
  }})});
  const res=await f.handler.handle(request());
  assert.equal(res.status,200);assert.equal((await res.json()).invoice.reference,"ED-original");
@@ -111,5 +111,30 @@ test("malformed service result does not return invoice or success",async()=>{
   const f=fixture({create:async()=>result});
   const res=await f.handler.handle(request());
   assert.equal(res.status,503);assert.equal((await res.json()).ok,false);
+ }
+});
+
+test("guarded draft cannot claim success for wrong-tenant or wrong-quote repository result",async()=>{
+ const results=[
+  {id:"draftA",tenantId:"tenantB",sourceQuotationId:"quoteA",status:"draft",invoiceReference:"ED-1"},
+  {id:"draftA",tenantId:"tenantA",sourceQuotationId:"quoteB",status:"draft",invoiceReference:"ED-1"},
+  {id:"draftA",tenantId:"tenantA",sourceQuotationId:"quoteA",status:"issued",invoiceReference:"ED-1"},
+  {id:"draftA",tenantId:"tenantA",sourceQuotationId:"quoteA",status:"draft",invoiceReference:"ED 1"},
+  {id:null,tenantId:"tenantA",sourceQuotationId:"quoteA",status:"draft",invoiceReference:"ED-1"}
+ ];
+ for(const invoice of results){
+  const f=fixture({create:async()=>({replayed:false,invoice})});
+  const res=await f.handler.handle(request());
+  assert.equal(res.status,503);
+  assert.deepEqual(await res.json(),{ok:false,error:"draft_creation_unavailable"});
+  assert.equal(f.stats().writes,1);
+ }
+});
+test("guarded idempotent replay also rejects a mismatched tenant or quote",async()=>{
+ for(const patch of [{tenantId:"tenantB"},{sourceQuotationId:"quoteB"}]){
+  const invoice={id:"old",tenantId:"tenantA",sourceQuotationId:"quoteA",
+   status:"draft",invoiceReference:"ED-original",...patch};
+  const f=fixture({create:async()=>({replayed:true,invoice})});
+  assert.equal((await f.handler.handle(request())).status,503);
  }
 });
