@@ -15,7 +15,7 @@ const make=({session=principal,member={active:true,userId:"owner-1",tenantId:"te
    reference:"Q-1",status:quoteStatus,items:[{description:"Stone",quantity:1,unitMinor:10000,lineMinor:10000}],
    discountMinor:0,totalMinor:10000}),
   reserveInvoiceReference:async()=> "INV-1",
-  insertDraftInvoice:async()=>(inserted??{id:"draft-1",tenantId:"tenant-a",sourceQuotationId:"quote-1",status:"draft",invoiceReference:"INV-1"})
+  insertDraftInvoice:async()=>(inserted??{id:"draft-1",tenantId:"tenant-a",sourceQuotationId:"quote-1",customerId:"customer-1",createdByUserId:"owner-1",status:"draft",invoiceReference:"INV-1"})
  })}};
  return createEssentialsPrivateInvoiceDraftHandler({enabled:true,environment:"essentials-private-staging",
   allowedPrivateOrigin:origin,readVerifiedSession:async()=>session,
@@ -63,7 +63,7 @@ test("denies unsupported types, malformed JSON and oversized bodies",async()=>{
 test("accepted-state and idempotency replay errors never issue invoices",async()=>{
  const pending=make({quoteStatus:"draft"});
  assert.equal((await pending.handle(req())).status,409);
- const replay=make({existing:{id:"existing",tenantId:"tenant-a",sourceQuotationId:"quote-1",status:"draft",invoiceReference:"INV-1"}});
+ const replay=make({existing:{id:"existing",tenantId:"tenant-a",sourceQuotationId:"quote-1",customerId:"customer-1",createdByUserId:"owner-1",status:"draft",invoiceReference:"INV-1"}});
  const res=await replay.handle(req());assert.equal(res.status,200);
  assert.equal((await res.json()).replayed,true);
  const wrong=make({existing:{tenantId:"tenant-b",sourceQuotationId:"quote-1",status:"draft"}});
@@ -96,4 +96,12 @@ test("malformed repository success fails closed without claiming an invoice draf
   assert.deepEqual(await response.json(),{ok:false,error:"draft_creation_unavailable"});
   assert.equal(transactionCalls,1);
  }
+});
+
+test("HTTP draft replay rejects cross-user idempotency reuse without success",async()=>{
+ const existing={id:"draft-1",tenantId:"tenant-a",sourceQuotationId:"quote-1",
+  customerId:"customer-1",createdByUserId:"other-user",status:"draft",invoiceReference:"INV-1"};
+ const res=await make({existing}).handle(req());
+ assert.equal(res.status,409);
+ assert.deepEqual(await res.json(),{ok:false,error:"idempotency_conflict"});
 });
