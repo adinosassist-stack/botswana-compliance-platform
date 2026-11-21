@@ -10,7 +10,13 @@ export function buildDocumentShare({kind,reference,customerName,amountBwp}={}) {
 }
 /** Caller must supply an already authorized PDF Blob; never use a public URL. */
 export async function shareDocumentPdf({navigatorApi,blob,filename,message}={}) {
-  if(!(blob instanceof Blob)||blob.type!=="application/pdf"||blob.size===0)throw new TypeError("invalid_pdf");
+  if(!(blob instanceof Blob)||blob.type!=="application/pdf"||blob.size<8||blob.size>20*1024*1024)
+    throw new TypeError("invalid_pdf");
+  // MIME type/extension can be forged. Refuse obviously non-PDF payloads
+  // before offering an attachment to native sharing (no network or upload).
+  const header=new Uint8Array(await blob.slice(0,5).arrayBuffer());
+  if(header.length!==5||header.some((byte,i)=>byte!==[37,80,68,70,45][i]))
+    throw new TypeError("invalid_pdf");
   if(typeof filename!=="string"||!/^[a-zA-Z0-9_-]{1,80}\.pdf$/.test(filename))throw new TypeError("invalid_filename");
   if(!message||typeof message.title!=="string"||typeof message.text!=="string")throw new TypeError("invalid_message");
   if(typeof File==="undefined")return Object.freeze({shared:false,reason:"file_api_unavailable"});
