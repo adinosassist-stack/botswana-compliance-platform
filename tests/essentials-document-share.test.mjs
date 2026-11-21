@@ -13,7 +13,7 @@ test("reject invalid amounts and control characters",()=>{
 });
 test("reject non-PDF blobs and invalid filenames",async()=>{
  await assert.rejects(shareDocumentPdf({blob:new Blob(["x"],{type:"text/plain"}),filename:"quote.pdf",message:{title:"A",text:"B"}}),/invalid_pdf/);
- await assert.rejects(shareDocumentPdf({blob:new Blob(["x"],{type:"application/pdf"}),filename:"../quote.pdf",message:{title:"A",text:"B"}}),/invalid_filename/);
+ await assert.rejects(shareDocumentPdf({blob:new Blob(["%PDF-1.7\\n"],{type:"application/pdf"}),filename:"../quote.pdf",message:{title:"A",text:"B"}}),/invalid_filename/);
 });
 test("no native share leaves document unsent",async()=>{
  const result=await shareDocumentPdf({navigatorApi:{},blob:new Blob(["%PDF-1.7\\n"],{type:"application/pdf"}),filename:"quote.pdf",message:{title:"A",text:"B"}});
