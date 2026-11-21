@@ -164,9 +164,13 @@ export function createEssentialsPrivateCustomerQuotationReviewBoundary({
       proof.termsSha256!==q.termsSha256||
       proof.acceptanceVersion!==q.acceptanceVersion||
       proof.totalMinor!==q.totalMinor||
+      // The persisted offer must be the *new* presentation produced for this
+      // exact review, not an old yet-unexpired offer or a future-dated row.
+      proof.issuedAtMs!==at||
       !Number.isSafeInteger(proof.expiresAtMs)||
       proof.expiresAtMs<=at||proof.expiresAtMs>active.expiresAtMs||
-      proof.expiresAtMs>at+MAX_PRESENTATION_MS)deny();
+      proof.expiresAtMs>at+MAX_PRESENTATION_MS||
+      proof.expiresAtMs-proof.issuedAtMs>MAX_PRESENTATION_MS)deny();
    // Sensitive bytes MUST go only to the authenticated customer's
    // private, no-store render response; never to an employee session.
    return Object.freeze({
