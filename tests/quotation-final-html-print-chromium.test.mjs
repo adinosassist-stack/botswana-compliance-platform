@@ -142,7 +142,7 @@ test("sanitized private PNG logo is visible twice in the actual A4 PDF preview D
 test("signed-in preview loads the editor and prints two A4 pages without Browser Run",async()=>{
  const origin="https://quotation-preview.test";
  const path="/app/quotations/preview/";
- const response=await quotationBrowserPreview(new Request(origin+path),{
+ const response=await quotationBrowserPreview(new Request(origin+path,{headers:{cookie:"session=synthetic-owner"}}),{
    THEBE_QUOTATION_PREVIEW_TENANT_ID:"synthetic-lovely"
  },async()=>Response.json({user:{
    id:"synthetic-owner",tenantId:"synthetic-lovely",role:"owner",onboardingComplete:true
@@ -176,7 +176,7 @@ test("signed-in preview loads the editor and prints two A4 pages without Browser
 
 test("customer-ready browser print requires real fields and produces exactly two watermark-free A4 pages",async()=>{
  const origin="https://quotation-customer.test",path="/app/quotations/customer-ready/";
- const response=await quotationBrowserPreview(new Request(origin+path),{
+ const response=await quotationBrowserPreview(new Request(origin+path,{headers:{cookie:"session=synthetic-owner"}}),{
    THEBE_QUOTATION_PREVIEW_TENANT_ID:"synthetic-lovely"
  },async()=>Response.json({user:{
    id:"synthetic-owner",tenantId:"synthetic-lovely",role:"owner",onboardingComplete:true
@@ -197,7 +197,13 @@ test("customer-ready browser print requires real fields and produces exactly two
   assert.equal(await page.locator(".qcp-page").count(),2);
   assert.equal(await page.locator(".qcp-watermark").count(),0);
   const print=page.getByRole("button",{name:"Print customer quotation / Save PDF"});
-  assert.equal(await print.isDisabled(),true,"Synthetic draft must not print as customer-ready");
+  // The mobile-friendly control stays clickable so it can explain why the
+  // draft cannot print; verify the server-independent print action is denied.
+  assert.equal(await print.isEnabled(),true);
+  assert.match(await page.locator("#qcp-print-status").innerText(),/Customer quotation not ready:/);
+  await print.click();
+  assert.equal(await page.evaluate(()=>window.printCalls),0,"Sample draft must not invoke print");
+  assert.match(await page.locator("#qcp-print-status").innerText(),/Cannot print yet:/);
   await page.getByLabel("Quote number",{exact:true}).fill("Q-2026-1001");
   await page.getByLabel("Customer name",{exact:true}).fill("Synthetic buyer");
   await page.getByLabel("Customer number",{exact:true}).fill("+267 72 111 222");

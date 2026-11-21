@@ -15,6 +15,30 @@ test("preview skips other routes and requires explicit tenant configuration",asy
   assert.equal((await quotationBrowserPreview(request(undefined,"POST"),config,unused)).status,404);
 });
 
+test("preview and customer-ready deny cookie-less guests before calling a permissive resolver",async()=>{
+ for(const path of ["/app/quotations/preview/","/app/quotations/preview",
+                    "/app/quotations/customer-ready/","/app/quotations/customer-ready"]){
+  let calls=0;
+  const req=new Request(new URL(path,"https://example.test"),{method:"GET"});
+  const res=await quotationBrowserPreview(req,config,async()=>{
+   calls++;return Response.json({user:owner});
+  });
+  assert.equal(res.status,404,path);
+  assert.equal(res.headers.get("cache-control"),"no-store",path);
+  assert.equal(calls,0,path+" must not query downstream session without cookie");
+  assert.doesNotMatch(await res.text(),/quotation-customizable-page|canPrepareCustomerQuotation/);
+ }
+});
+
+test("session cookie alone cannot grant quotation access",async()=>{
+ for(const path of ["/app/quotations/preview/","/app/quotations/customer-ready/"]){
+  const req=new Request(new URL(path,"https://example.test"),{
+   headers:{cookie:"session=synthetic-but-not-authorized"}});
+  const res=await quotationBrowserPreview(req,config,async()=>new Response("",{status:401}));
+  assert.equal(res.status,404);
+ }
+});
+
 test("preview mounts the editor for the configured owner without exposing session data",async()=>{
   const navigation=request();
   navigation.headers.set("sec-fetch-site","cross-site");

@@ -11,6 +11,9 @@ export async function quotationBrowserPreview(request,env,fetchSession){
   };
   if(request.method!=="GET")return unavailable("method");
   if(!tenant)return unavailable("tenant_binding_missing");
+  // A browser quotation document must never succeed anonymously, even when a
+  // downstream auth/me adapter is mistakenly stubbed or is temporarily permissive.
+  if(!request.headers.get("cookie")?.trim())return unavailable("session_cookie_missing");
 
   const sessionUrl=new URL("/__thebe_api/auth/me",request.url);
   // This read-only, in-process lookup needs the cookie and any explicit Origin.
