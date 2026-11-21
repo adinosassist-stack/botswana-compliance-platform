@@ -1,0 +1,91 @@
+name: Manager Private - Protected No-Ingress Deployment
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/manager-private-no-ingress-deploy.py'
+      - 'tests/test_manager_private_no_ingress_deploy.py'
+      - '.github/workflows/manager-private-no-ingress-deploy.yml'
+      - 'docs/manager-private-no-ingress-execution-gates.md'
+  workflow_dispatch:
+    inputs:
+      authorization:
+        required: true
+        type: string
+        description: 'APPROVE_MANAGER_PRIVATE_DEPLOY_NO_INGRESS'
+      no_ingress_ack:
+        required: true
+        type: string
+        description: 'NO_DNS_OR_ROUTE_CHANGES'
+      candidate_version:
+        required: true
+        type: string
+        description: 'Exact reviewed existing undeployed Worker candidate version ID'
+      exact_main_sha:
+        required: true
+        type: string
+        description: 'Newly owner + thusico approved protected main SHA'
+      owner_comment_id:
+        required: true
+        type: string
+        description: 'New owner deploy-only comment ID on issue 2599'
+      reviewer_comment_id:
+        required: true
+        type: string
+        description: 'New independently authored thusico deploy-only comment ID'
+
+permissions:
+  contents: read
+  issues: read
+  actions: read
+
+concurrency:
+  group: manager-private-no-ingress-deploy-one-shot
+  cancel-in-progress: false
+
+jobs:
+  offline-validation:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Exercise fail-closed no-ingress boundaries with simulated Cloudflare API
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_manager_private_no_ingress_deploy.py' -v
+          python3 -m py_compile scripts/manager-private-no-ingress-deploy.py
+          printf '%s\n' 'OFFLINE TESTS ONLY: NO WORKER DEPLOYMENT'
+
+  protected-deploy:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: manager-private-deploy-no-ingress-protected
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Execute separately approved pinned candidate, no DNS or route writes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MANAGER_NO_INGRESS_DEPLOY_CLOUDFLARE_TOKEN: ${{ secrets.MANAGER_NO_INGRESS_DEPLOY_CLOUDFLARE_TOKEN }}
+          APPROVAL_MARKER: ${{ inputs.authorization }}
+          INGRESS_ACK: ${{ inputs.no_ingress_ack }}
+          PINNED_VERSION: ${{ inputs.candidate_version }}
+          EXACT_SHA: ${{ inputs.exact_main_sha }}
+          OWNER_COMMENT: ${{ inputs.owner_comment_id }}
+          REVIEWER_COMMENT: ${{ inputs.reviewer_comment_id }}
+        run: |
+          set -euo pipefail
+          python3 scripts/manager-private-no-ingress-deploy.py \
+            --execute-pinned-candidate \
+            --authorization "$APPROVAL_MARKER" \
+            --no-ingress-ack "$INGRESS_ACK" \
+            --candidate-version "$PINNED_VERSION" \
+            --exact-main-sha "$EXACT_SHA" \
+            --owner-comment-id "$OWNER_COMMENT" \
+            --reviewer-comment-id "$REVIEWER_COMMENT"
