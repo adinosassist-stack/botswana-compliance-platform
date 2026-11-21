@@ -18,13 +18,19 @@ export async function createEssentialsInvoiceDraft({principal,tenantId,quotation
   if(quotation.status!=="accepted")throw new Error("quotation_not_accepted");
   const existing=await tx.getDraftByIdempotencyKey({tenantId,idempotencyKey});
   if(existing){
-   if(existing.tenantId!==tenantId||existing.sourceQuotationId!==quotationId||existing.status!=="draft")throw new Error("idempotency_conflict");
+   if(existing.tenantId!==tenantId||existing.sourceQuotationId!==quotationId||
+      existing.customerId!==quotation.customerId||
+      existing.createdByUserId!==principal.userId||
+      existing.status!=="draft")throw new Error("idempotency_conflict");
    return Object.freeze({invoice:existing,replayed:true});
   }
   const invoiceReference=await tx.reserveInvoiceReference({tenantId});
   const prepared=prepareAuthorizedInvoiceDraft({principal,tenantId,quotation,invoiceReference,createdAt});
   const invoice=await tx.insertDraftInvoice({tenantId,sourceQuotationId:quotationId,idempotencyKey,draft:prepared.draft});
-  if(!invoice||invoice.tenantId!==tenantId||invoice.sourceQuotationId!==quotationId||invoice.status!=="draft")throw new Error("invalid_insert_result");
+  if(!invoice||invoice.tenantId!==tenantId||invoice.sourceQuotationId!==quotationId||
+     invoice.customerId!==quotation.customerId||
+     invoice.createdByUserId!==principal.userId||
+     invoice.status!=="draft")throw new Error("invalid_insert_result");
   return Object.freeze({invoice,replayed:false});
  });
 }
