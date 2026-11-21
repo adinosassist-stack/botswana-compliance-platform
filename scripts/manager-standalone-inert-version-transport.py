@@ -238,7 +238,7 @@ def bootstrap_inert_record_and_version(client, prepared_artifacts, approved_mani
         raise FirstVersionGateError("asset upload session invalid")
     completion = token if not buckets else None
     seen = set()
-    for bucket in buckets:
+    for index, bucket in enumerate(buckets):
         if not isinstance(bucket, list) or any(d in seen for d in bucket):
             raise FirstVersionGateError("duplicated/invalid asset bucket")
         seen.update(bucket)
@@ -248,10 +248,13 @@ def bootstrap_inert_record_and_version(client, prepared_artifacts, approved_mani
             content_type="multipart/form-data; boundary=" + ASSET_MULTIPART_BOUNDARY,
         )
         next_jwt = _expect_record(response, "asset completion").get("jwt")
+        if next_jwt is None and index < len(buckets) - 1:
+            continue
         if not isinstance(next_jwt, str) or not next_jwt:
             raise FirstVersionGateError("asset upload did not return completion token")
-        token = next_jwt
-        completion = token
+        if index != len(buckets) - 1:
+            raise FirstVersionGateError("asset completion token returned before final bucket")
+        completion = next_jwt
     if not completion:
         raise FirstVersionGateError("incomplete assets; version creation forbidden")
 
