@@ -10,13 +10,13 @@ test("uses transactional tenant-scoped quotation and inserts a draft",async()=>{
   getDraftByIdempotencyKey:async()=>null,
   getQuotationForTenant:async ({tenantId})=>{calls.push(tenantId);return quotation;},
   reserveInvoiceReference:async()=> "INV-1",
-  insertDraftInvoice:async ({tenantId,sourceQuotationId,draft})=>({tenantId,sourceQuotationId,status:"draft",totalMinor:draft.totalMinor})
+  insertDraftInvoice:async ({tenantId,sourceQuotationId,draft})=>({tenantId,sourceQuotationId,customerId:"customer-1",createdByUserId:"owner-1",status:"draft",totalMinor:draft.totalMinor})
  })};
  const x=await createEssentialsInvoiceDraft({...args,repository});
  assert.equal(x.invoice.totalMinor,10000);assert.equal(x.replayed,false);assert.deepEqual(calls,["tenant-a"]);
 });
 test("replays matching idempotency key without creating another invoice",async()=>{
- const existing={tenantId:"tenant-a",sourceQuotationId:"quote-1",status:"draft"};
+ const existing={tenantId:"tenant-a",sourceQuotationId:"quote-1",customerId:"customer-1",createdByUserId:"owner-1",status:"draft"};
  const repository={transaction:async fn=>fn({getDraftByIdempotencyKey:async()=>existing,getQuotationForTenant:async()=>quotation,reserveInvoiceReference:async()=>{throw Error("unexpected_reserve");},insertDraftInvoice:async()=>{throw Error("unexpected_insert");}})};
  assert.equal((await createEssentialsInvoiceDraft({...args,repository})).replayed,true);
 });
@@ -81,4 +81,32 @@ test("accepted current quote permits replay without allocating a new invoice ref
  assert.equal(result.replayed,true);
  assert.equal(result.invoice,existing);
  assert.equal(reads,1);
+});
+
+test("idempotent reuse by another user in the same tenant fails closed",async()=>{
+ const existing={tenantId:"tenant-a",sourceQuotationId:"quote-1",customerId:"customer-1",createdByUserId:"other-user",status:"draft"};
+ const repository={transaction:async fn=>fn({
+  getQuotationForTenant:async()=>quotation,
+  getDraftByIdempotencyKey:async()=>existing,
+  reserveInvoiceReference:async()=>{throw Error("unexpected_reserve")},
+  insertDraftInvoice:async()=>{throw Error("unexpected_insert")}
+ })};
+ await assert.rejects(createEssentialsInvoiceDraft({...args,repository}),/idempotency_conflict/);
+});
+test("idempotency reuse for a different customer and mismatched inserted identity fails closed",async()=>{
+ const transaction=tx=>({transaction:async fn=>fn({
+  getQuotationForTenant:async()=>quotation,
+  getDraftByIdempotencyKey:async()=>tx.existing??null,
+  reserveInvoiceReference:async()=> "INV-1",
+  insertDraftInvoice:async()=>tx.inserted
+ })});
+ const existing={tenantId:"tenant-a",sourceQuotationId:"quote-1",customerId:"customer-other",
+  createdByUserId:"owner-1",status:"draft"};
+ await assert.rejects(createEssentialsInvoiceDraft({...args,repository:transaction({existing})}),/idempotency_conflict/);
+ for(const inserted of [
+  {tenantId:"tenant-a",sourceQuotationId:"quote-1",customerId:"other-customer",createdByUserId:"owner-1",status:"draft"},
+  {tenantId:"tenant-a",sourceQuotationId:"quote-1",customerId:"customer-1",createdByUserId:"other-user",status:"draft"}
+ ]){
+  await assert.rejects(createEssentialsInvoiceDraft({...args,repository:transaction({inserted})}),/invalid_insert_result/);
+ }
 });
