@@ -23,11 +23,12 @@ const validRow=async()=>({
  quotation_sha256:await sha(quote),terms_sha256:await sha(terms),
  immutable_quotation_bytes:[...quote],immutable_terms_bytes:[...terms]
 });
-async function setup({row=await validRow(),bound=true,approved=true,queryError=false}={}){
+async function setup({row,bound=true,approved=true,queryError=false}={}){
+ const effectiveRow=row===undefined?await validRow():row;
  const state={checks:[],bindingChecks:0,authorityChecks:0};
  const db={prepare(sql){assert.equal(sql,SQL);return{bind(...args){
   state.checks.push(args);
-  return{async first(){if(queryError)throw Error("D1 down");return row}};
+  return{async first(){if(queryError)throw Error("D1 down");return effectiveRow}};
  }}}};
  const reader=create({
   enabled:true,environment:"essentials-private-staging",db,
