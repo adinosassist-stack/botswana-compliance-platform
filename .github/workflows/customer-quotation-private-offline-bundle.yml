@@ -7,6 +7,7 @@ on:
       - 'server/essentials-private-customer-ownership-authority-bridge.mjs'
       - 'server/essentials-private-customer-ownership-source-issuer.mjs'
       - 'server/essentials-private-business-quotation-publication-bridge.mjs'
+      - 'server/essentials-private-approved-quotation-staging-read-adapter.mjs'
       - 'deploy/customer-quotation-private-staging/**'
       - 'scripts/customer-quotation-private-offline-bundle-receipt.mjs'
       - 'tests/customer-quotation-private-offline-bundle-receipt.test.mjs'
@@ -14,6 +15,9 @@ on:
       - 'tests/customer-quotation-private-ownership-authority-bridge.test.mjs'
       - 'tests/customer-quotation-private-ownership-source-issuer.test.mjs'
       - 'tests/customer-quotation-authoritative-publication-bridge.test.mjs'
+      - 'tests/customer-quotation-approved-staging-read-adapter.test.mjs'
+      - 'tests/c4-approved-quotation-staging-schema.test.py'
+      - 'docs/sql/c4-quotation-approved-publications-STAGING-CANDIDATE.sql'
       - '.github/workflows/customer-quotation-private-offline-bundle.yml'
   push:
     branches: [main]
@@ -23,6 +27,7 @@ on:
       - 'server/essentials-private-customer-ownership-authority-bridge.mjs'
       - 'server/essentials-private-customer-ownership-source-issuer.mjs'
       - 'server/essentials-private-business-quotation-publication-bridge.mjs'
+      - 'server/essentials-private-approved-quotation-staging-read-adapter.mjs'
       - 'deploy/customer-quotation-private-staging/**'
       - 'scripts/customer-quotation-private-offline-bundle-receipt.mjs'
       - 'tests/customer-quotation-private-offline-bundle-receipt.test.mjs'
@@ -30,6 +35,9 @@ on:
       - 'tests/customer-quotation-private-ownership-authority-bridge.test.mjs'
       - 'tests/customer-quotation-private-ownership-source-issuer.test.mjs'
       - 'tests/customer-quotation-authoritative-publication-bridge.test.mjs'
+      - 'tests/customer-quotation-approved-staging-read-adapter.test.mjs'
+      - 'tests/c4-approved-quotation-staging-schema.test.py'
+      - 'docs/sql/c4-quotation-approved-publications-STAGING-CANDIDATE.sql'
       - '.github/workflows/customer-quotation-private-offline-bundle.yml'
   workflow_dispatch:
 permissions:
@@ -56,8 +64,10 @@ jobs:
           node --check server/essentials-private-customer-ownership-authority-bridge.mjs
           node --check server/essentials-private-customer-ownership-source-issuer.mjs
           node --check server/essentials-private-business-quotation-publication-bridge.mjs
+          node --check server/essentials-private-approved-quotation-staging-read-adapter.mjs
           node --check scripts/customer-quotation-private-offline-bundle-receipt.mjs
-          node --test tests/customer-quotation-private-worker.test.mjs tests/customer-quotation-private-offline-bundle-receipt.test.mjs tests/customer-quotation-private-ownership-authority-bridge.test.mjs tests/customer-quotation-private-ownership-source-issuer.test.mjs tests/customer-quotation-authoritative-publication-bridge.test.mjs
+          node --test tests/customer-quotation-private-worker.test.mjs tests/customer-quotation-private-offline-bundle-receipt.test.mjs tests/customer-quotation-private-ownership-authority-bridge.test.mjs tests/customer-quotation-private-ownership-source-issuer.test.mjs tests/customer-quotation-authoritative-publication-bridge.test.mjs tests/customer-quotation-approved-staging-read-adapter.test.mjs
+          python3 tests/c4-approved-quotation-staging-schema.test.py
       - name: Offline build only — no Cloudflare upload or deployment
         shell: bash
         run: |
