@@ -112,11 +112,13 @@ export function createEssentialsPrivateGuardedDraftHandler({
     });
     if(!result||typeof result.replayed!=="boolean"||
        !result.invoice||result.invoice.status!=="draft"||
-       !validId(result.invoice.id)||!validId(result.invoice.invoiceReference))
+       !validId(result.invoice.id)||!validId(result.invoice.invoiceReference)||
+       result.invoice.tenantId!==principal.tenantId||
+       result.invoice.sourceQuotationId!==body.quotationId)
      throw Error("invalid_draft_result");
     return respond(result.replayed?200:201,{ok:true,replayed:result.replayed,
-     invoice:{id:result.invoice.id??null,status:"draft",
-      reference:result.invoice.invoiceReference??null}});
+     invoice:{id:result.invoice.id,status:"draft",
+      reference:result.invoice.invoiceReference}});
    }catch(e){
     const code=String(e?.message??"");
     if(code==="quotation_not_found")return reject(404,code);
