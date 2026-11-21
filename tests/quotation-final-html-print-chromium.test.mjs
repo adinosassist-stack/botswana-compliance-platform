@@ -142,7 +142,7 @@ test("sanitized private PNG logo is visible twice in the actual A4 PDF preview D
 test("signed-in preview loads the editor and prints two A4 pages without Browser Run",async()=>{
  const origin="https://quotation-preview.test";
  const path="/app/quotations/preview/";
- const response=await quotationBrowserPreview(new Request(origin+path),{
+ const response=await quotationBrowserPreview(new Request(origin+path,{headers:{cookie:"session=synthetic-owner"}}),{
    THEBE_QUOTATION_PREVIEW_TENANT_ID:"synthetic-lovely"
  },async()=>Response.json({user:{
    id:"synthetic-owner",tenantId:"synthetic-lovely",role:"owner",onboardingComplete:true
@@ -176,7 +176,7 @@ test("signed-in preview loads the editor and prints two A4 pages without Browser
 
 test("customer-ready browser print requires real fields and produces exactly two watermark-free A4 pages",async()=>{
  const origin="https://quotation-customer.test",path="/app/quotations/customer-ready/";
- const response=await quotationBrowserPreview(new Request(origin+path),{
+ const response=await quotationBrowserPreview(new Request(origin+path,{headers:{cookie:"session=synthetic-owner"}}),{
    THEBE_QUOTATION_PREVIEW_TENANT_ID:"synthetic-lovely"
  },async()=>Response.json({user:{
    id:"synthetic-owner",tenantId:"synthetic-lovely",role:"owner",onboardingComplete:true

@@ -1,0 +1,43 @@
+name: Quotations Production Candidate - Offline Access And Asset Proof
+
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/src/quotation-browser-preview.js'
+      - 'tests/quotation-browser-preview.test.mjs'
+      - 'tests/quotation-final-html-print-chromium.test.mjs'
+      - 'scripts/quotation-production-release-proof.mjs'
+      - 'tests/quotation-production-release-proof.test.mjs'
+      - '.github/workflows/quotation-release-readonly-acceptance.yml'
+      - '.github/workflows/postdeploy-smoke.yml'
+      - 'docs/quotation-protected-release-candidate-20261121.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quotation-offline-boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Test no-cookie and role/tenant denials plus postrelease source proof
+        run: |
+          set -euo pipefail
+          node --test tests/quotation-browser-preview.test.mjs tests/quotation-production-release-proof.test.mjs
+          node --check scripts/quotation-production-release-proof.mjs
+          node --check cloudflare/src/quotation-browser-preview.js
+      - name: Ensure merged mobile print guidance and immutable sample watermark remain
+        run: |
+          set -euo pipefail
+          grep -Fq 'How to save as PDF on your phone' public/js/quotation-customizable-page.mjs
+          grep -Fq 'SAMPLE PREVIEW — NOT FOR CUSTOMER ISSUE' public/js/quotation-customizable-page.mjs
+          grep -Fq 'session_cookie_missing' cloudflare/src/quotation-browser-preview.js
+          printf '%s\n' 'OFFLINE_QUOTATION_SECURITY_AND_ASSET_GATE_PASS_NO_DEPLOYMENT'
