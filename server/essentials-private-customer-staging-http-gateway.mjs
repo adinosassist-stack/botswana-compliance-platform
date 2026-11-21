@@ -7,6 +7,27 @@ const ID=x=>typeof x==="string"&&/^[A-Za-z0-9_-]{1,100}$/.test(x);
 const safe=x=>String(x).replace(/&/g,"&amp;").replace(/</g,"&lt;")
  .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 const td=new TextDecoder("utf-8",{fatal:true});
+const TOKEN=/^[A-Za-z0-9_-]{43}$/;
+function trustedAuthorizationUrl(value){
+ if(typeof value!=="string"||value.length>4096)deny();
+ let url;try{url=new URL(value)}catch{deny()}
+ if(url.protocol!=="https:"||!url.hostname||url.username||url.password||
+    url.hash||!url.search||!url.searchParams.get("state"))deny();
+ return url.href;
+}
+function trustedCustomerCookie(value,kind){
+ if(typeof value!=="string"||value.length>512||/[\r\n]/.test(value))deny();
+ const patterns={
+  oauth:/^__Host-thebe-customer-oauth=([A-Za-z0-9_-]{43}); Secure; HttpOnly; SameSite=Lax; Path=\/; Max-Age=([1-9][0-9]*)$/,
+  customer:/^__Host-thebe-customer=([A-Za-z0-9_-]{43}); Secure; HttpOnly; SameSite=Lax; Path=\/; Max-Age=([1-9][0-9]*)$/,
+  csrf:/^__Host-thebe-customer-csrf=([A-Za-z0-9_-]{43}); Secure; SameSite=Strict; Path=\/; Max-Age=([1-9][0-9]*)$/,
+  clear:/^__Host-thebe-customer-oauth=; Secure; HttpOnly; SameSite=Lax; Path=\/; Max-Age=0$/
+ };
+ const match=patterns[kind]?.exec(value);
+ if(!match||(kind!=="clear"&&(!TOKEN.test(match[1])||
+    !Number.isSafeInteger(Number(match[2]))||Number(match[2])>86400)))deny();
+ return value;
+}
 const css=":root{--blue:#1762bd;--navy:#12263e}*{box-sizing:border-box}body{margin:0;background:#f4f6f9;color:var(--navy);font:16px system-ui,Arial}header{background:#17283c;color:white;padding:20px}main{max-width:900px;margin:24px auto;padding:0 16px 48px}article{background:#fff;border:1px solid #d6e0e9;border-radius:14px;padding:24px;margin:18px 0}h1{font-size:clamp(24px,4vw,34px)}h2{font-size:21px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.6}.muted{color:#5c6876}.amount{font-weight:750;font-size:24px}.choice{display:flex;gap:12px;align-items:flex-start;line-height:1.6}input{min-height:20px;min-width:20px;margin-top:5px}button{font:inherit;font-weight:650;border-radius:10px;min-height:48px;padding:12px 22px;border:1px solid #b5c3d2;background:white;cursor:pointer}button.primary{background:var(--blue);color:white;border-color:var(--blue)}button:disabled{opacity:.5;cursor:not-allowed}.actions{display:flex;flex-wrap:wrap;gap:12px;margin:20px 0}#feedback{min-height:28px;font-weight:600}@media(max-width:560px){article{padding:16px}.actions button{width:100%}}";
 const invitationClientScript="(()=>{const status=document.getElementById(\"invite-status\"),button=document.getElementById(\"continue\");const parts=new URLSearchParams(location.hash.startsWith(\"#\")?location.hash.slice(1):\"\");const values=parts.getAll(\"ticket\");const ticket=values.length===1?values[0]:\"\";history.replaceState(null,\"\",location.pathname);if(!/^[A-Za-z0-9_-]{43}$/.test(ticket)){status.textContent=\"This invitation link is incomplete or has expired.\";return;}button.disabled=false;button.addEventListener(\"click\",async()=>{button.disabled=true;status.textContent=\"Opening secure sign-in…\";try{const response=await fetch(location.pathname+\"/start\",{method:\"POST\",credentials:\"same-origin\",redirect:\"error\",cache:\"no-store\",referrerPolicy:\"no-referrer\",headers:{\"content-type\":\"application/json\"},body:JSON.stringify({ticket})});if(!response.ok)throw Error(\"invalid ticket\");const result=await response.json();const url=new URL(result.authorizationUrl);if(url.protocol!==\"https:\"||!url.hostname)throw Error(\"unsafe redirect\");location.assign(url.href);}catch{status.textContent=\"Sign-in could not be started. Request a new invitation.\";}})})();";
 const clientScript="(()=>{const form=document.getElementById(\"accept-form\"),box=document.getElementById(\"agree\"),button=document.getElementById(\"confirm\"),feedback=document.getElementById(\"feedback\"),reject=document.getElementById(\"decline\"),intent=JSON.parse(document.getElementById(\"intent\").textContent);box.addEventListener(\"change\",()=>{button.disabled=!box.checked});reject.addEventListener(\"click\",()=>{form.hidden=true;feedback.textContent=\"No acceptance recorded.\"});form.addEventListener(\"submit\",async e=>{e.preventDefault();if(!box.checked)return;const cookies=document.cookie.split(\";\").map(x=>x.trim()).filter(x=>x.startsWith(\"__Host-thebe-customer-csrf=\"));if(cookies.length!==1){feedback.textContent=\"Session expired.\";return;}const csrf=cookies[0].slice(\"__Host-thebe-customer-csrf=\".length);if(!/^[A-Za-z0-9_-]{43}$/.test(csrf)){feedback.textContent=\"Session expired.\";return;}button.disabled=true;feedback.textContent=\"Submitting…\";try{const response=await fetch(form.dataset.endpoint,{method:\"POST\",credentials:\"same-origin\",redirect:\"error\",cache:\"no-store\",referrerPolicy:\"no-referrer\",headers:{\"content-type\":\"application/json\",\"x-csrf-token\":csrf},body:JSON.stringify(intent)});if(!response.ok)throw Error(\"denied\");const receipt=await response.json();if(receipt.state!==\"recorded\")throw Error(\"denied\");form.hidden=true;feedback.textContent=\"Acceptance recorded. Reference: \"+receipt.quotationId;}catch{feedback.textContent=\"Acceptance not confirmed. Check your status before retrying.\";}})})();";
@@ -169,9 +190,10 @@ export function createEssentialsPrivateCustomerStagingHttpGateway({
      const h=new Headers(noStore({
       "content-type":"application/json; charset=utf-8"
      }));
-     h.append("set-cookie",a.setCookie);
+     const authorizationUrl=trustedAuthorizationUrl(a?.authorizationUrl);
+     h.append("set-cookie",trustedCustomerCookie(a?.setCookie,"oauth"));
      return new Response(JSON.stringify({
-      authorizationUrl:a.authorizationUrl
+      authorizationUrl
      }),{status:200,headers:h});
     }
     if(kind==="callback"){
@@ -179,9 +201,9 @@ export function createEssentialsPrivateCustomerStagingHttpGateway({
      if(!ID(r.quotationId))deny();
      const h=new Headers(noStore({location:"/private/customer/quotations/"+
       encodeURIComponent(r.quotationId)+"/review"}));
-     h.append("set-cookie",r.customerSetCookie);
-     h.append("set-cookie",r.csrfSetCookie);
-     h.append("set-cookie",r.oauthClearCookie);
+     h.append("set-cookie",trustedCustomerCookie(r.customerSetCookie,"customer"));
+     h.append("set-cookie",trustedCustomerCookie(r.csrfSetCookie,"csrf"));
+     h.append("set-cookie",trustedCustomerCookie(r.oauthClearCookie,"clear"));
      return new Response(null,{status:303,headers:h});
     }
     if(kind==="review"){
