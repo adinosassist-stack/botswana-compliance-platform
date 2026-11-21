@@ -51,9 +51,10 @@ export function createEssentialsPrivateInvoiceDraftHandler({
  let origin;
  try{
   const u=new URL(allowedPrivateOrigin);
-  if(u.protocol!=="https:"||u.username||u.password||u.pathname!=="/"||u.search||u.hash||
-     u.hostname==="thebedesk.com"||u.hostname==="www.thebedesk.com"||
-     u.hostname.endsWith(".workers.dev")||u.hostname==="localhost")
+  if(u.protocol!=="https:"||u.username||u.password||u.port||
+     u.pathname!=="/"||u.search||u.hash||
+     !u.hostname.endsWith(".thebedesk.com")||
+     ["thebedesk.com","www.thebedesk.com","app.thebedesk.com"].includes(u.hostname))
    throw Error("private_origin_required");
   origin=u.origin;
  }catch{throw Error("private_origin_required")}
@@ -97,14 +98,22 @@ export function createEssentialsPrivateInvoiceDraftHandler({
      principal,tenantId:principal.tenantId,quotationId:body.quotationId,
      idempotencyKey:body.idempotencyKey,createdAt,repository
     });
+    // Never present an untrusted or incomplete repository result as a saved draft.
+    // An actual invoice may only be issued by a separately reviewed workflow.
+    if(!result||typeof result.replayed!=="boolean"||
+       !result.invoice||result.invoice.status!=="draft"||
+       !validId(result.invoice.id)||!validId(result.invoice.invoiceReference)||
+       result.invoice.tenantId!==principal.tenantId||
+       result.invoice.sourceQuotationId!==body.quotationId)
+     return reject(503,"draft_creation_unavailable");
     return respond(result.replayed?200:201,{ok:true,replayed:result.replayed,
-      invoice:{id:result.invoice.id??null,status:"draft",reference:result.invoice.invoiceReference??null}});
+      invoice:{id:result.invoice.id,status:"draft",reference:result.invoice.invoiceReference}});
    }catch(e){
     const code=String(e?.message||"");
     if(code==="quotation_not_found")return reject(404,code);
     if(code==="quotation_not_accepted"||code==="idempotency_conflict")return reject(409,code);
     if(code==="permission_denied"||code==="tenant_access_denied")return reject(403,"permission_denied");
-    return reject(500,"draft_creation_failed");
+    return reject(503,"draft_creation_unavailable");
    }
   }
  });

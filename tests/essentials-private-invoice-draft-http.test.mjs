@@ -7,7 +7,7 @@ const endpoint=origin+"/api/essentials/invoice-drafts";
 const principal={authenticated:true,userId:"owner-1",tenantId:"tenant-a",permissions:["invoice:draft:create"]};
 let transactionCalls=0;
 const make=({session=principal,member={active:true,userId:"owner-1",tenantId:"tenant-a"},
- mutation=true,quoteStatus="accepted",existing=null}={})=>{
+ mutation=true,quoteStatus="accepted",existing=null,inserted=null}={})=>{
  transactionCalls=0;
  const repository={transaction:async callback=>{transactionCalls++;return callback({
   getDraftByIdempotencyKey:async()=>existing,
@@ -15,7 +15,7 @@ const make=({session=principal,member={active:true,userId:"owner-1",tenantId:"te
    reference:"Q-1",status:quoteStatus,items:[{description:"Stone",quantity:1,unitMinor:10000,lineMinor:10000}],
    discountMinor:0,totalMinor:10000}),
   reserveInvoiceReference:async()=> "INV-1",
-  insertDraftInvoice:async()=>({id:"draft-1",tenantId:"tenant-a",sourceQuotationId:"quote-1",status:"draft",invoiceReference:"INV-1"})
+  insertDraftInvoice:async()=>(inserted??{id:"draft-1",tenantId:"tenant-a",sourceQuotationId:"quote-1",status:"draft",invoiceReference:"INV-1"})
  })}};
  return createEssentialsPrivateInvoiceDraftHandler({enabled:true,environment:"essentials-private-staging",
   allowedPrivateOrigin:origin,readVerifiedSession:async()=>session,
@@ -68,4 +68,32 @@ test("accepted-state and idempotency replay errors never issue invoices",async()
  assert.equal((await res.json()).replayed,true);
  const wrong=make({existing:{tenantId:"tenant-b",sourceQuotationId:"quote-1",status:"draft"}});
  assert.equal((await wrong.handle(req())).status,409);
+});
+
+test("private origin rejects unrelated HTTPS hosts, ports and public application hosts",()=>{
+ const opts={enabled:true,environment:"essentials-private-staging",
+  readVerifiedSession:async()=>principal,verifyActiveMembership:async()=>({active:true,userId:"owner-1",tenantId:"tenant-a"}),
+  verifyMutation:async()=>true,repository:{transaction:async()=>{}}};
+ for(const host of [
+  "https://attacker.example","https://evilthebedesk.com",
+  "https://app.thebedesk.com","https://www.thebedesk.com",
+  "https://essentials-staging.thebedesk.com:8443","http://essentials-staging.thebedesk.com",
+  "https://essentials-staging.thebedesk.com/path","https://essentials-staging.thebedesk.com?token=x"
+ ])assert.throws(()=>createEssentialsPrivateInvoiceDraftHandler({...opts,allowedPrivateOrigin:host}),/private_origin_required/);
+ assert.doesNotThrow(()=>createEssentialsPrivateInvoiceDraftHandler({...opts,allowedPrivateOrigin:origin}));
+});
+test("malformed repository success fails closed without claiming an invoice draft",async()=>{
+ const invalid=[
+  {id:"draft-1",tenantId:"tenant-b",sourceQuotationId:"quote-1",status:"draft",invoiceReference:"INV-1"},
+  {id:"draft-1",tenantId:"tenant-a",sourceQuotationId:"other-quote",status:"draft",invoiceReference:"INV-1"},
+  {id:"draft-1",tenantId:"tenant-a",sourceQuotationId:"quote-1",status:"issued",invoiceReference:"INV-1"},
+  {id:"draft-1",tenantId:"tenant-a",sourceQuotationId:"quote-1",status:"draft",invoiceReference:"INV 1"},
+  {id:null,tenantId:"tenant-a",sourceQuotationId:"quote-1",status:"draft",invoiceReference:"INV-1"}
+ ];
+ for(const inserted of invalid){
+  const response=await make({inserted}).handle(req());
+  assert.equal(response.status,503);
+  assert.deepEqual(await response.json(),{ok:false,error:"draft_creation_unavailable"});
+  assert.equal(transactionCalls,1);
+ }
 });
