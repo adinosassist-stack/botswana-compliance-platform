@@ -113,7 +113,7 @@ export function createEssentialsPrivateInvoiceDraftHandler({
     if(code==="quotation_not_found")return reject(404,code);
     if(code==="quotation_not_accepted"||code==="idempotency_conflict")return reject(409,code);
     if(code==="permission_denied"||code==="tenant_access_denied")return reject(403,"permission_denied");
-    return reject(500,"draft_creation_failed");
+    return reject(503,"draft_creation_unavailable");
    }
   }
  });
