@@ -6,12 +6,14 @@ on:
       - 'server/essentials-private-customer-staging-http-gateway.mjs'
       - 'server/essentials-private-customer-ownership-authority-bridge.mjs'
       - 'server/essentials-private-customer-ownership-source-issuer.mjs'
+      - 'server/essentials-private-business-quotation-publication-bridge.mjs'
       - 'deploy/customer-quotation-private-staging/**'
       - 'scripts/customer-quotation-private-offline-bundle-receipt.mjs'
       - 'tests/customer-quotation-private-offline-bundle-receipt.test.mjs'
       - 'tests/customer-quotation-private-worker.test.mjs'
       - 'tests/customer-quotation-private-ownership-authority-bridge.test.mjs'
       - 'tests/customer-quotation-private-ownership-source-issuer.test.mjs'
+      - 'tests/customer-quotation-authoritative-publication-bridge.test.mjs'
       - '.github/workflows/customer-quotation-private-offline-bundle.yml'
   push:
     branches: [main]
@@ -20,12 +22,14 @@ on:
       - 'server/essentials-private-customer-staging-http-gateway.mjs'
       - 'server/essentials-private-customer-ownership-authority-bridge.mjs'
       - 'server/essentials-private-customer-ownership-source-issuer.mjs'
+      - 'server/essentials-private-business-quotation-publication-bridge.mjs'
       - 'deploy/customer-quotation-private-staging/**'
       - 'scripts/customer-quotation-private-offline-bundle-receipt.mjs'
       - 'tests/customer-quotation-private-offline-bundle-receipt.test.mjs'
       - 'tests/customer-quotation-private-worker.test.mjs'
       - 'tests/customer-quotation-private-ownership-authority-bridge.test.mjs'
       - 'tests/customer-quotation-private-ownership-source-issuer.test.mjs'
+      - 'tests/customer-quotation-authoritative-publication-bridge.test.mjs'
       - '.github/workflows/customer-quotation-private-offline-bundle.yml'
   workflow_dispatch:
 permissions:
@@ -51,8 +55,9 @@ jobs:
           node --check server/essentials-private-customer-worker-candidate.mjs
           node --check server/essentials-private-customer-ownership-authority-bridge.mjs
           node --check server/essentials-private-customer-ownership-source-issuer.mjs
+          node --check server/essentials-private-business-quotation-publication-bridge.mjs
           node --check scripts/customer-quotation-private-offline-bundle-receipt.mjs
-          node --test tests/customer-quotation-private-worker.test.mjs tests/customer-quotation-private-offline-bundle-receipt.test.mjs tests/customer-quotation-private-ownership-authority-bridge.test.mjs tests/customer-quotation-private-ownership-source-issuer.test.mjs
+          node --test tests/customer-quotation-private-worker.test.mjs tests/customer-quotation-private-offline-bundle-receipt.test.mjs tests/customer-quotation-private-ownership-authority-bridge.test.mjs tests/customer-quotation-private-ownership-source-issuer.test.mjs tests/customer-quotation-authoritative-publication-bridge.test.mjs
       - name: Offline build only — no Cloudflare upload or deployment
         shell: bash
         run: |
