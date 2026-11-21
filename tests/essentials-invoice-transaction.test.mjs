@@ -49,7 +49,7 @@ test("rejects replay of a non-draft invoice",async()=>{
 });
 
 test("idempotent retries fail closed if the current quotation is missing, revoked or foreign",async()=>{
- const existing={id:"draft-1",tenantId:"tenant-a",sourceQuotationId:"quote-1",status:"draft"};
+ const existing={id:"draft-1",tenantId:"tenant-a",sourceQuotationId:"quote-1",customerId:"customer-1",createdByUserId:"owner-1",status:"draft"};
  for(const [current,error] of [
   [null,/quotation_not_found/],
   [{...quotation,status:"revoked"},/quotation_not_accepted/],
