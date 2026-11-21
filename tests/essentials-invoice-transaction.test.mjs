@@ -17,7 +17,7 @@ test("uses transactional tenant-scoped quotation and inserts a draft",async()=>{
 });
 test("replays matching idempotency key without creating another invoice",async()=>{
  const existing={tenantId:"tenant-a",sourceQuotationId:"quote-1",status:"draft"};
- const repository={transaction:async fn=>fn({getDraftByIdempotencyKey:async()=>existing,getQuotationForTenant:async()=>{throw Error("unexpected_read");},reserveInvoiceReference:async()=>{throw Error("unexpected_reserve");},insertDraftInvoice:async()=>{throw Error("unexpected_insert");}})};
+ const repository={transaction:async fn=>fn({getDraftByIdempotencyKey:async()=>existing,getQuotationForTenant:async()=>quotation,reserveInvoiceReference:async()=>{throw Error("unexpected_reserve");},insertDraftInvoice:async()=>{throw Error("unexpected_insert");}})};
  assert.equal((await createEssentialsInvoiceDraft({...args,repository})).replayed,true);
 });
 test("rejects cross-tenant access before opening a transaction",async()=>{
@@ -32,7 +32,7 @@ test("rejects unaccepted quotations and mismatched idempotency reuse",async()=>{
 test("rejects a replay record from another tenant even with matching quote ID",async()=>{
  const repository={transaction:async fn=>fn({
   getDraftByIdempotencyKey:async()=>({tenantId:"tenant-b",sourceQuotationId:"quote-1",status:"draft"}),
-  getQuotationForTenant:async()=>{throw Error("unexpected_read");},
+  getQuotationForTenant:async()=>quotation,
   reserveInvoiceReference:async()=>{throw Error("unexpected_reserve");},
   insertDraftInvoice:async()=>{throw Error("unexpected_insert");}
  })};
@@ -41,9 +41,44 @@ test("rejects a replay record from another tenant even with matching quote ID",a
 test("rejects replay of a non-draft invoice",async()=>{
  const repository={transaction:async fn=>fn({
   getDraftByIdempotencyKey:async()=>({tenantId:"tenant-a",sourceQuotationId:"quote-1",status:"issued"}),
-  getQuotationForTenant:async()=>{throw Error("unexpected_read");},
+  getQuotationForTenant:async()=>quotation,
   reserveInvoiceReference:async()=>{throw Error("unexpected_reserve");},
   insertDraftInvoice:async()=>{throw Error("unexpected_insert");}
  })};
  await assert.rejects(createEssentialsInvoiceDraft({...args,repository}),/idempotency_conflict/);
+});
+
+test("idempotent retries fail closed if the current quotation is missing, revoked or foreign",async()=>{
+ const existing={id:"draft-1",tenantId:"tenant-a",sourceQuotationId:"quote-1",status:"draft"};
+ for(const [current,error] of [
+  [null,/quotation_not_found/],
+  [{...quotation,status:"revoked"},/quotation_not_accepted/],
+  [{...quotation,status:"draft"},/quotation_not_accepted/],
+  [{...quotation,companyId:"tenant-b"},/tenant_access_denied/],
+  [{...quotation,id:"quote-other"},/tenant_access_denied/]
+ ]){
+  let replayReads=0;
+  const repository={transaction:async fn=>fn({
+   getQuotationForTenant:async()=>current,
+   getDraftByIdempotencyKey:async()=>{replayReads++;return existing},
+   reserveInvoiceReference:async()=>{throw Error("unexpected_reserve")},
+   insertDraftInvoice:async()=>{throw Error("unexpected_insert")}
+  })};
+  await assert.rejects(createEssentialsInvoiceDraft({...args,repository}),error);
+  assert.equal(replayReads,0,"ineligible quotation must be denied before replay lookup");
+ }
+});
+test("accepted current quote permits replay without allocating a new invoice reference",async()=>{
+ const existing={id:"draft-1",tenantId:"tenant-a",sourceQuotationId:"quote-1",status:"draft"};
+ let reads=0;
+ const repository={transaction:async fn=>fn({
+  getQuotationForTenant:async()=>{reads++;return quotation},
+  getDraftByIdempotencyKey:async()=>existing,
+  reserveInvoiceReference:async()=>{throw Error("unexpected_reserve")},
+  insertDraftInvoice:async()=>{throw Error("unexpected_insert")}
+ })};
+ const result=await createEssentialsInvoiceDraft({...args,repository});
+ assert.equal(result.replayed,true);
+ assert.equal(result.invoice,existing);
+ assert.equal(reads,1);
 });
