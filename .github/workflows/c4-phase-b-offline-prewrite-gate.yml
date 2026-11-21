@@ -1,0 +1,33 @@
+name: C4 Phase B prewrite evidence gate - offline only
+on:
+  pull_request:
+    paths:
+      - 'scripts/c4-phase-b-prewrite-gate.mjs'
+      - 'tests/c4-phase-b-prewrite-gate.test.mjs'
+      - '.github/workflows/c4-phase-b-offline-prewrite-gate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/c4-phase-b-prewrite-gate.mjs'
+      - 'tests/c4-phase-b-prewrite-gate.test.mjs'
+      - '.github/workflows/c4-phase-b-offline-prewrite-gate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  c4-phase-b-source-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax verification
+        run: |
+          node --check scripts/c4-phase-b-prewrite-gate.mjs
+          node --check tests/c4-phase-b-prewrite-gate.test.mjs
+      - name: Run C4 gate fail-closed regressions (no Cloudflare or secret access)
+        run: node --test tests/c4-phase-b-prewrite-gate.test.mjs
