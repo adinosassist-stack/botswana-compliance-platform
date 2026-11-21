@@ -1,0 +1,42 @@
+name: Manager Private Activation — Read-only Qualification (No Deployment)
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/manager-private-activation-qualification.py'
+      - 'tests/test_manager_private_activation_qualification.py'
+      - 'tests/fixtures/manager-private-activation-inventory.json'
+      - 'docs/manager-private-activation-protected-gates.md'
+      - '.github/workflows/manager-private-activation-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: manager-private-activation-readonly-qualification
+  cancel-in-progress: false
+
+jobs:
+  activation-offline-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Reject stale or unsafe pinned Manager activation inventory
+        run: |
+          set -euo pipefail
+          python3 scripts/manager-private-activation-qualification.py \
+            --snapshot tests/fixtures/manager-private-activation-inventory.json \
+            --current-main 96645f46d670c46e05dbad3af1ae846172d32cc1
+      - name: Test fail-closed boundaries and separate owner/reviewer scopes
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_manager_private_activation_qualification.py' -v
+          python3 -m py_compile scripts/manager-private-activation-qualification.py
+      - name: Explicit non-execution receipt
+        run: |
+          printf '%s\n' 'READ_ONLY_QUALIFICATION_NO_CLOUDFLARE_WRITES'
+          printf '%s\n' 'NO_DEPLOYMENT_DNS_ROUTE_OR_CUSTOMER_ACTIVATION'

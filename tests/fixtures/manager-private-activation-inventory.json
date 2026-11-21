@@ -1,0 +1,160 @@
+{
+  "evidence_type": "historical_readonly_inventory_not_an_execution_authority",
+  "account_id": "f585813fa376f7c71c7d4a79254168fa",
+  "zone": {
+    "id": "5cf26ad83f8d5a5fb6ef97ce516b932b",
+    "name": "thebedesk-test.win",
+    "status": "active"
+  },
+  "worker": {
+    "id": "a83242df903d4fb7b4ad5ea9e5a1a509",
+    "name": "bw-manager-invitations-functional-private-staging",
+    "versions": [
+      {
+        "id": "b4c61970-0a0b-4c63-bc37-1b067e215a6d",
+        "deployed_on": null
+      },
+      {
+        "id": "cc509d3c-75d4-450a-acb1-e2ecdcb245d7",
+        "deployed_on": null
+      }
+    ],
+    "deployments": [],
+    "workers_dev": false,
+    "preview_urls": false,
+    "custom_domains": []
+  },
+  "ingress": {
+    "dns": [],
+    "routes": []
+  },
+  "access": {
+    "deny_unmatched_requests": true,
+    "app": {
+      "id": "fa020bbc-0407-40f0-873e-e79537dcf021",
+      "domain": "manager-staging.thebedesk-test.win",
+      "destinations": [
+        {
+          "type": "public",
+          "uri": "manager-staging.thebedesk-test.win"
+        }
+      ],
+      "allowed_idps": [
+        "a8fac234-02d0-4f3e-a821-471cf4eee7f8"
+      ],
+      "policy_ids": [
+        "6fc750df-7e40-492f-845d-47e6e5deab0b"
+      ]
+    },
+    "policies": [
+      {
+        "id": "6fc750df-7e40-492f-845d-47e6e5deab0b",
+        "decision": "allow",
+        "include": [
+          {
+            "email": {
+              "email": "banabothem@yahoo.com"
+            }
+          }
+        ],
+        "exclude": [],
+        "require": []
+      }
+    ]
+  },
+  "d1": {
+    "uuid": "1a2fc702-2592-491c-9f55-80e032a56dd8",
+    "name": "bw-manager-invitations-synthetic-staging",
+    "num_tables": 13
+  },
+  "candidate": {
+    "id": "b4c61970-0a0b-4c63-bc37-1b067e215a6d",
+    "deployed_on": null,
+    "urls": [],
+    "bindings": [
+      {
+        "type": "plain_text",
+        "name": "APP_ENV",
+        "text": "staging"
+      },
+      {
+        "type": "assets",
+        "name": "ASSETS"
+      },
+      {
+        "type": "d1",
+        "name": "DB",
+        "database_id": "1a2fc702-2592-491c-9f55-80e032a56dd8"
+      },
+      {
+        "type": "plain_text",
+        "name": "EVIDENCE_UPLOADS_ENABLED",
+        "text": "false"
+      },
+      {
+        "type": "plain_text",
+        "name": "MANAGER_ACCESS_PROVISIONING_ENABLED",
+        "text": "false"
+      },
+      {
+        "type": "plain_text",
+        "name": "MANAGER_ACCESS_REQUESTS_ENABLED",
+        "text": "true"
+      },
+      {
+        "type": "plain_text",
+        "name": "MANAGER_INVITATIONS_ACCESS_READY",
+        "text": "true"
+      },
+      {
+        "type": "plain_text",
+        "name": "MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED",
+        "text": "true"
+      },
+      {
+        "type": "plain_text",
+        "name": "MANAGER_INVITATIONS_SCHEMA_READY",
+        "text": "true"
+      },
+      {
+        "type": "plain_text",
+        "name": "PAYMENT_PROVIDER",
+        "text": "none"
+      },
+      {
+        "type": "plain_text",
+        "name": "POP_UPLOAD_STAGING_ENABLED",
+        "text": "false"
+      },
+      {
+        "type": "plain_text",
+        "name": "PUBLIC_APP_URL",
+        "text": "https://manager-staging.thebedesk-test.win"
+      },
+      {
+        "type": "plain_text",
+        "name": "PUBLIC_ORIGIN",
+        "text": "https://manager-staging.thebedesk-test.win"
+      },
+      {
+        "type": "plain_text",
+        "name": "REGISTRATION_MODE",
+        "text": "hold"
+      },
+      {
+        "type": "secret_text",
+        "name": "SESSION_SECRET"
+      },
+      {
+        "type": "plain_text",
+        "name": "THEBE_AI_EXPORTS_ENABLED",
+        "text": "false"
+      },
+      {
+        "type": "plain_text",
+        "name": "THEBE_GENERAL_AI_ENABLED",
+        "text": "false"
+      }
+    ]
+  }
+}
