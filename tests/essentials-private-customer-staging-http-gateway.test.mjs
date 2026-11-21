@@ -14,13 +14,13 @@ const review={
  immutableQuotationBytes:quote,immutableTermsBytes:terms
 };
 const nonce="N".repeat(32),oauthCookie="__Host-thebe-customer-oauth="+"Z".repeat(43);
-function make({allow=true,withinLimit=true,denyReview=false,denyConsent=false}={}){
+function make({allow=true,withinLimit=true,denyReview=false,denyConsent=false,loginPatch={},callbackPatch={}}={}){
  const called={host:[],rate:[],login:[],callback:[],review:[],accept:[]};
  const journey={
   async beginCustomerLogin(x){
    called.login.push(x);
    return {authorizationUrl:"https://idp.private.test/authorize?state=test",
-    setCookie:oauthCookie+"; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=300"};
+    setCookie:oauthCookie+"; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=300",...loginPatch};
   },
   async completeCustomerLogin(x){
    called.callback.push(x);
@@ -31,7 +31,7 @@ function make({allow=true,withinLimit=true,denyReview=false,denyConsent=false}={
     csrfSetCookie:"__Host-thebe-customer-csrf="+"S".repeat(43)+
       "; Secure; SameSite=Strict; Path=/; Max-Age=100",
     oauthClearCookie:"__Host-thebe-customer-oauth=; Secure; "+
-      "HttpOnly; SameSite=Lax; Path=/; Max-Age=0"
+      "HttpOnly; SameSite=Lax; Path=/; Max-Age=0",...callbackPatch
    };
   }
  };
@@ -177,5 +177,40 @@ test("invalid renderable quote bytes and missing full terms are denied, not sile
  ]){
   assert.throws(()=>renderCustomerQuotation({review:q,nonce}),
    /private_customer_staging_gateway_unverified/);
+ }
+});
+
+test("login adapter cannot inject unsafe authorization destinations or cookies",async()=>{
+ const base=origin+"/private/customer/invitations/inviteA/start";
+ const request=()=>new Request(base,{method:"POST",headers:{
+  "content-type":"application/json","origin":origin,"sec-fetch-site":"same-origin"
+ },body:'{"ticket":"valid"}'});
+ for(const loginPatch of [
+  {authorizationUrl:"javascript:alert(1)"},
+  {authorizationUrl:"https://attacker.test/authorize"},
+  {authorizationUrl:"https://username:secret@idp.private.test/authorize?state=x"},
+  {authorizationUrl:"https://idp.private.test/authorize?state=x#fragment"},
+  {setCookie:"__Host-thebe-customer-oauth=evil; Path=/"},
+  {setCookie:oauthCookie+"; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=300\r\nSet-Cookie: another=1"},
+  {setCookie:oauthCookie+"; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=0"}
+ ]){
+  const h=make({loginPatch});
+  const res=await h.gateway.handleRequest(request());
+  assert.equal(res.status,403);
+  assert.equal(res.headers.get("set-cookie"),null);
+ }
+});
+test("callback cannot issue malformed or cross-purpose customer cookies",async()=>{
+ const request=()=>new Request(origin+"/private/customer/oidc/callback?code=c&state=s&iss=i");
+ for(const callbackPatch of [
+  {customerSetCookie:"__Host-thebe-consent=malicious; Secure; HttpOnly; Path=/"},
+  {csrfSetCookie:"__Host-thebe-customer-csrf=bad; Secure; SameSite=Lax; Path=/"},
+  {oauthClearCookie:"__Host-thebe-customer-oauth=; Secure; Path=/; Max-Age=0"},
+  {customerSetCookie:"__Host-thebe-customer="+"C".repeat(43)+"; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=0"}
+ ]){
+  const h=make({callbackPatch});
+  const res=await h.gateway.handleRequest(request());
+  assert.equal(res.status,403);
+  assert.equal(res.headers.get("set-cookie"),null);
  }
 });
