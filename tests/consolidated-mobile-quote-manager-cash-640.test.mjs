@@ -47,3 +47,11 @@ test("employee cash submissions cannot be represented as failed writes solely be
  assert.match(source,/countForm\.reset\(\);countDate\.value=today\(\)/);
  assert.match(source,/Cash count submitted\. It is now locked for manager review/);
 });
+
+test("mobile quotation print does not require matchMedia support in embedded browsers",()=>{
+ const source=read("../public/js/quotation-customizable-page.mjs");
+ assert.match(source,/typeof window\.matchMedia==="function"/);
+ assert.match(source,/typeof window\.innerWidth==="number"/);
+ assert.match(source,/if\(wideScreen &&/);
+ assert.match(source,/window\.print\(\)/);
+});
