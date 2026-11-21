@@ -69,7 +69,7 @@ test("idempotent retries fail closed if the current quotation is missing, revoke
  }
 });
 test("accepted current quote permits replay without allocating a new invoice reference",async()=>{
- const existing={id:"draft-1",tenantId:"tenant-a",sourceQuotationId:"quote-1",status:"draft"};
+ const existing={id:"draft-1",tenantId:"tenant-a",sourceQuotationId:"quote-1",customerId:"customer-1",createdByUserId:"owner-1",status:"draft"};
  let reads=0;
  const repository={transaction:async fn=>fn({
   getQuotationForTenant:async()=>{reads++;return quotation},
