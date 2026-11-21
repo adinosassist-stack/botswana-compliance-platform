@@ -28,9 +28,11 @@ jobs:
       - name: Reject stale or unsafe pinned Manager activation inventory
         run: |
           set -euo pipefail
+          CURRENT_MAIN_SHA="$(git ls-remote https://github.com/adinosassist-stack/botswana-compliance-platform.git refs/heads/main | cut -f1)"
+          test -n "$CURRENT_MAIN_SHA"
           python3 scripts/manager-private-activation-qualification.py \
             --snapshot tests/fixtures/manager-private-activation-inventory.json \
-            --current-main 96645f46d670c46e05dbad3af1ae846172d32cc1
+            --current-main "$CURRENT_MAIN_SHA"
       - name: Test fail-closed boundaries and separate owner/reviewer scopes
         run: |
           set -euo pipefail
