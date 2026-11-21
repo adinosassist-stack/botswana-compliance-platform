@@ -1,0 +1,39 @@
+# Private Manager browser-test candidate for independent review.
+# Requires verified isolated schema, staging SESSION_SECRET and Access enforcement.
+# Keep this separate from the inert first-version config.
+name = "bw-manager-invitations-functional-private-staging"
+account_id = "f585813fa376f7c71c7d4a79254168fa"
+main = "src/worker.js"
+compatibility_date = "2026-09-03"
+workers_dev = false
+preview_urls = false
+keep_vars = false
+
+[vars]
+APP_ENV = "staging"
+REGISTRATION_MODE = "hold"
+MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED = "true"
+MANAGER_INVITATIONS_SCHEMA_READY = "true"
+MANAGER_INVITATIONS_ACCESS_READY = "true"
+MANAGER_ACCESS_REQUESTS_ENABLED = "true"
+MANAGER_ACCESS_PROVISIONING_ENABLED = "false"
+PAYMENT_PROVIDER = "none"
+EVIDENCE_UPLOADS_ENABLED = "false"
+THEBE_GENERAL_AI_ENABLED = "false"
+THEBE_AI_EXPORTS_ENABLED = "false"
+POP_UPLOAD_STAGING_ENABLED = "false"
+PUBLIC_ORIGIN = "https://manager-staging.thebedesk-test.win"
+PUBLIC_APP_URL = "https://manager-staging.thebedesk-test.win"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bw-manager-invitations-synthetic-staging"
+database_id = "1a2fc702-2592-491c-9f55-80e032a56dd8"
+
+[assets]
+directory = "../public"
+binding = "ASSETS"
+not_found_handling = "404-page"
+html_handling = "auto-trailing-slash"
+run_worker_first = ["/auth", "/auth/*", "/api/*", "/manager-invite/*"]
+
