@@ -325,7 +325,12 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
    const blocker=customerReady?customerReadyBlocker(checked):"";
    if(blocker){status.textContent="Cannot print yet: "+blocker;status.scrollIntoView({block:"nearest"});status.focus({preventScroll:true});return;}
    // Screen-width overflow is not A4 overflow. Narrow mobile previews must not block printing.
-   if(window.matchMedia("(min-width: 901px)").matches &&
+   // Some Android embedded browsers omit matchMedia. Do not let that
+   // optional layout API prevent the user-triggered print control from working.
+   const wideScreen=typeof window.matchMedia==="function"?
+     window.matchMedia("(min-width: 901px)").matches:
+     (typeof window.innerWidth==="number"&&window.innerWidth>=901);
+   if(wideScreen &&
       [...stage.querySelectorAll(".qcp-page")].some(page=>page.scrollHeight>page.clientHeight+2)){
     status.textContent="Page content overflows. Shorten wording before printing.";return;
    }
