@@ -14,14 +14,69 @@ function label(item){
   const time=item.daysUntil<0?`Overdue ${Math.abs(item.daysUntil)} day${item.daysUntil===-1?"":"s"}`:item.daysUntil===0?"Today":item.daysUntil===1?"Tomorrow":`In ${item.daysUntil} days`;
   return `${item.jobType==="installation"?"Installation":"Delivery"} · ${time}`;
 }
-function createReminder(item){
-  const row=document.createElement("div");row.className="thebe-delivery-reminder";
-  row.dataset.urgent=String(item.daysUntil<=1);
-  const content=document.createElement("div");
-  const title=document.createElement("strong");title.textContent=label(item);
-  const detail=document.createElement("small");
-  detail.textContent=`${item.jobReference} · ${item.scheduledDate} · ${item.locationName||"Location"} · ${item.employeeName||"Reporter"}`;
-  content.append(title,detail);row.append(content);return row;
+
+const readReminders=new Set();
+function reminderKey(item){
+ return [item.sourceReportId||"",item.locationId||"",item.employeeId||"",item.jobType||"",item.jobReference||"",item.scheduledDate||""].join("|");
+}
+function updateReminderCounts(){
+ const unread=reminders.filter(item=>!readReminders.has(reminderKey(item))).length;
+ const toggle=byId("thebeDeliveryManagerBell");
+ if(toggle){toggle.dataset.count=String(unread>99?"99+":unread);
+  toggle.setAttribute("aria-label","Notifications: "+unread+" unread delivery and installation reminders. Open notifications")}
+ const summary=byId("thebeDeliverySummary");
+ if(summary)summary.textContent=unread+" unread · "+reminders.length+" scheduled reminder"+(reminders.length===1?"":"s");
+}
+function openReminderTask(item){
+ const status=byId("thebeDeliveryActionStatus");
+ if(typeof window.showView!=="function"||!byId("dailyreports")){
+  if(status)status.textContent="Daily Reports is unavailable in this workspace. No changes were made.";
+  return;
+ }
+ try{
+  window.showView("dailyreports");
+  setPopupOpen(false,false);
+  let attempts=0;
+  const focusTask=()=>{
+   const rows=byId("thebeDeliveryWorkspace")?.querySelectorAll(".thebe-delivery-reminder")||[];
+   const target=Array.from(rows).find(row=>row.dataset.reminderKey===reminderKey(item));
+   if(target){target.tabIndex=-1;target.focus({preventScroll:true});target.scrollIntoView?.({block:"center"});}
+   else if(attempts++<5)setTimeout(focusTask,80);
+   else byId("dailyreports")?.focus?.({preventScroll:true});
+  };
+  requestAnimationFrame(focusTask);
+ }catch{
+  if(status)status.textContent="Daily Reports could not be opened. No changes were made.";
+ }
+}
+function createReminder(item,withActions=false){
+ const row=document.createElement("article");row.className="thebe-delivery-reminder";
+ row.dataset.urgent=String(item.daysUntil<=1);
+ row.dataset.read=String(readReminders.has(reminderKey(item)));
+ row.dataset.reminderKey=reminderKey(item);
+ const copy=document.createElement("div");copy.className="thebe-delivery-reminder-copy";
+ const title=document.createElement("strong");title.textContent=label(item);
+ const detail=document.createElement("small");
+ detail.textContent="Job "+(item.jobReference||"Unspecified")+" · "+(item.scheduledDate||"Date unavailable")+" · "+(item.locationName||"Location unavailable")+" · "+(item.employeeName||"Reporter unavailable");
+ copy.append(title,detail);row.append(copy);
+ if(withActions){
+  const actions=document.createElement("div");actions.className="thebe-delivery-reminder-actions";
+  const view=document.createElement("button");view.type="button";view.className="thebe-delivery-view-task";
+  view.textContent="View Task";
+  view.setAttribute("aria-label","View "+(item.jobType==="installation"?"installation":"delivery")+" "+(item.jobReference||"job")+" in Daily Reports");
+  view.addEventListener("click",()=>openReminderTask(item));
+  const read=document.createElement("button");read.type="button";read.className="thebe-delivery-mark-read";
+  const alreadyRead=readReminders.has(reminderKey(item));
+  read.textContent=alreadyRead?"Read":"Mark as Read";read.setAttribute("aria-pressed",String(alreadyRead));
+  read.addEventListener("click",()=>{
+   readReminders.add(reminderKey(item));row.dataset.read="true";
+   read.textContent="Read";read.setAttribute("aria-pressed","true");updateReminderCounts();
+   const state=byId("thebeDeliveryActionStatus");
+   if(state)state.textContent="Marked as read for this visit. This does not complete the delivery or installation.";
+  });
+  actions.append(view,read);row.append(actions);
+ }
+ return row;
 }
 function popup(){
   let panel=byId("thebeDeliveryManagerPopup");
