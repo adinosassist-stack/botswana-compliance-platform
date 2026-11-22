@@ -39,6 +39,14 @@
 .thebe-delivery-reminder .thebe-reminder-update+button{margin-left:0}
 @media(max-width:420px){.thebe-delivery-reminder{flex-wrap:wrap}.thebe-delivery-reminder>div:first-child{flex:1 1 100%}}
 
+/* The mobile dock runtime sets this on body at <=1023px, not the desktop-only
+   thebe-ai-expanded class. Keep high-z-index reminders from covering the open
+   dock on both mobile and tablet viewports. */
+body.thebe-ai-mobile-open .thebe-delivery-manager-bell,
+body.thebe-ai-mobile-open .thebe-delivery-manager-popup{
+  display:none!important;
+}
+
 /* #2715: keep notification control away from mobile navigation and AI dock. */
 @media(max-width:620px){
  .thebe-delivery-manager-bell{
