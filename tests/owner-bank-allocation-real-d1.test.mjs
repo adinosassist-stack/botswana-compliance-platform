@@ -22,8 +22,13 @@ const reviewer={authenticated:true,role:'owner',tenantId:record.tenantId,actorId
 const evidence={
  invoiceId:invoice.id,tenantId:invoice.tenantId,source:'trusted_bank_reconciliation',
  status:'settled',bankTransactionId:record.bankTransactionId,
- amountMinor:invoice.amountMinor,currency:'BWP'
+ amountMinor:invoice.amountMinor,currency:'BWP',
+ accountKey:'company-bank-synthetic',finality:'confirmed',
+ reversed:false,chargeback:false,reversalPending:false,
+ settledAt:'2026-11-10T08:50:00Z',observedAt:'2026-11-10T09:00:00Z'
 };
+const companyAccount={accountKey:'company-bank-synthetic',currency:'BWP',ownerVerified:true};
+const asOf='2026-11-10T09:10:00Z';
 
 async function fixture(){
  const mf=new Miniflare(convertV4MiniflareOptions({
@@ -113,19 +118,23 @@ test('reconciliation evidence must be settled, independent and unused before D1 
    {...evidence,status:'chargeback'},
    {...evidence,amountMinor:149999},
    {...evidence,currency:'USD'},
-   {...evidence,tenantId:'tenant-b'}
+   {...evidence,tenantId:'tenant-b'},
+   {...evidence,chargeback:true},
+   {...evidence,reversed:true},
+   {...evidence,accountKey:'foreign-company-account'},
+   {...evidence,finality:'unconfirmed'}
   ];
   for(const bankEvidence of denyCases){
    const result=evaluateOwnerPaymentEvidence({
     tenantId:invoice.tenantId,invoice,reviewer,
-    bankEvidence,priorBankAllocations:[]
+    bankEvidence,companyAccount,asOf,priorBankAllocations:[]
    });
    assert.notEqual(result.decision,PAYMENT_DECISIONS.VERIFIED);
   }
   assert.equal(await count(f.db),0,'unverified evidence never writes');
   const settled=evaluateOwnerPaymentEvidence({
    tenantId:invoice.tenantId,invoice,reviewer,
-   bankEvidence:evidence,priorBankAllocations:[]
+   bankEvidence:evidence,companyAccount,asOf,priorBankAllocations:[]
   });
   assert.equal(settled.decision,PAYMENT_DECISIONS.VERIFIED);
   assert.deepEqual(await allocate(f.adapter,settled),{status:'allocated'});
@@ -134,7 +143,7 @@ test('reconciliation evidence must be settled, independent and unused before D1 
   ).all();
   const replay=evaluateOwnerPaymentEvidence({
    tenantId:invoice.tenantId,invoice,reviewer,
-   bankEvidence:evidence,priorBankAllocations:history.results
+   bankEvidence:evidence,companyAccount,asOf,priorBankAllocations:history.results
   });
   assert.notEqual(replay.decision,PAYMENT_DECISIONS.VERIFIED);
   assert.equal(await count(f.db),1);
