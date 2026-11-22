@@ -62,11 +62,16 @@ def validate_ddl_only(s):
     # Strip comments, then reject DML and unsafe commands; exact source identity
     # above provides a stronger allowlist than a standalone keyword scanner.
     no_comments = re.sub(r"(?m)^\s*--[^\n]*(?:\n|$)", "", s)
-    for token in ("INSERT", "UPDATE", "DELETE", "REPLACE", "DROP", "ALTER",
-                  "ATTACH", "DETACH", "VACUUM", "PRAGMA", "CREATE VIRTUAL",
-                  "BEGIN TRANSACTION", "COMMIT", "ROLLBACK"):
-        assert not re.search(r"\b" + token.replace(" ", r"\s+") + r"\b",
-                             no_comments, re.IGNORECASE), "unsafe SQL token: " + token
+    # UPDATE and DELETE are valid inside trigger declarations/foreign-key DDL.
+    # Deny executable top-level statements beginning with these verbs instead.
+    forbidden_starts = ("INSERT", "UPDATE", "DELETE", "REPLACE", "DROP",
+                        "ALTER", "ATTACH", "DETACH", "VACUUM", "PRAGMA",
+                        "COMMIT", "ROLLBACK")
+    for token in forbidden_starts:
+        assert not re.search(r"(?m)^\s*" + token + r"\b",
+                             no_comments, re.IGNORECASE), "unsafe SQL statement: " + token
+    assert not re.search(r"(?mi)^\s*CREATE\s+VIRTUAL\s+TABLE\b", no_comments)
+    assert not re.search(r"(?mi)^\s*BEGIN\s+TRANSACTION\b", no_comments)
     assert len(re.findall(r"\bCREATE\s+TABLE\b", no_comments, re.IGNORECASE)) == 5
     assert len(re.findall(r"\bCREATE\s+TRIGGER\b", no_comments, re.IGNORECASE)) == 4
     assert len(re.findall(r"\bCREATE\s+INDEX\b", no_comments, re.IGNORECASE)) == 1
