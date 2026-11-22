@@ -265,21 +265,40 @@ function updateWorkspace(items){
   for(const item of items.slice(0,12))box.append(createReminder(item));
 }
 function render(items){
-  reminders=items;
-  const toggle=bell(),panel=popup();
-  toggle.hidden=items.length===0;
-  syncBellLayout();
-  toggle.textContent=`🔔 Deliveries & installations (${items.length})`;
-  toggle.dataset.count=String(items.length>99?"99+":items.length);
-  toggle.setAttribute("aria-label",`Delivery and installation reminders: ${items.length}. Open reminders`);
-  if(!items.length)panel.hidden=true;
-  toggle.setAttribute("aria-expanded",String(!panel.hidden));
-  panel.replaceChildren();
-  const close=document.createElement("button");close.type="button";close.className="thebe-delivery-dismiss";close.textContent="×";close.setAttribute("aria-label","Close reminders");close.addEventListener("click",()=>setPopupOpen(false,true));
-  const title=document.createElement("h2");title.textContent="Upcoming delivery & installation";
-  panel.append(close,title);
-  for(const item of items.slice(0,12))panel.append(createReminder(item));
-  updateWorkspace(items);
+ reminders=items;
+ const toggle=bell(),panel=popup();
+ toggle.hidden=items.length===0;
+ toggle.textContent="🔔 Notifications";
+ if(!items.length)panel.hidden=true;
+ toggle.setAttribute("aria-expanded",String(!panel.hidden));
+ panel.replaceChildren();
+ const header=document.createElement("header");header.className="thebe-delivery-sheet-header";
+ const headText=document.createElement("div");headText.className="thebe-delivery-sheet-heading";
+ const eyebrow=document.createElement("span");eyebrow.className="thebe-delivery-eyebrow";
+ eyebrow.textContent="NOTIFICATIONS";
+ const title=document.createElement("h2");title.id="thebeDeliveryTitle";
+ title.textContent="Upcoming delivery & installation";
+ const summary=document.createElement("p");summary.id="thebeDeliverySummary";summary.className="thebe-delivery-summary";
+ headText.append(eyebrow,title,summary);
+ const close=document.createElement("button");close.type="button";close.className="thebe-delivery-dismiss";
+ close.textContent="×";close.setAttribute("aria-label","Close reminders");
+ close.addEventListener("click",()=>setPopupOpen(false,true));
+ header.append(headText,close);
+ const list=document.createElement("div");list.className="thebe-delivery-sheet-list";
+ for(const item of items.slice(0,12))list.append(createReminder(item,true));
+ const footer=document.createElement("footer");footer.className="thebe-delivery-sheet-footer";
+ const note=document.createElement("span");
+ note.textContent=(items.length>12?"Showing the first 12 of "+items.length+" reminders. ":"")+
+   "Read status lasts for this visit; job status changes only in Daily Reports.";
+ const status=document.createElement("span");status.id="thebeDeliveryActionStatus";
+ status.setAttribute("role","status");status.setAttribute("aria-live","polite");
+ footer.append(note,status);
+ panel.setAttribute("aria-labelledby","thebeDeliveryTitle");
+ panel.append(header,list,footer);
+ updateReminderCounts();
+ updateWorkspace(items);
+ syncBellLayout();
+ syncReminderViewport();
 }
 async function load(){
   if(loading||document.hidden)return;
@@ -290,7 +309,7 @@ async function load(){
     const today=localDate();
     const data=await client.request(`/api/daily-reporting/dashboard?date=${encodeURIComponent(today)}`,{method:"GET",cache:"no-store"});
     const items=Array.isArray(data.deliveryReminders)?data.deliveryReminders:[];
-    if(dayShown!==today){seen.clear();dayShown=today}
+    if(dayShown!==today){seen.clear();readReminders.clear();dayShown=today}
     const newDue=items.filter(x=>!seen.has([x.locationId,x.employeeId,x.jobType,x.jobReference,today].join("|")));
     for(const x of newDue)seen.add([x.locationId,x.employeeId,x.jobType,x.jobReference,today].join("|"));
     render(items);
