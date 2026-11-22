@@ -61,7 +61,7 @@ test("delivery reminders yield to the actual mobile Thebe Dock runtime state",()
  assert.ok(css.indexOf(guard[0])<css.indexOf("/* #2715: keep notification control"),"tablet coverage must precede the narrower mobile layout rule");
 });
 
-test("agreed notification design has visible bell, readable action sheet and real action controls (#2778)",()=>{
+test("agreed notification design has movable bell, independent readable action sheet and real action controls (#2778)",()=>{
  const css=read("../public/assets/delivery-reminder-notifications.css");
  const js=read("../public/js/delivery-reminders-manager.js");
  const section=css.slice(css.indexOf("/* #2715 / #2778: Agreed"));
@@ -72,9 +72,9 @@ test("agreed notification design has visible bell, readable action sheet and rea
  assert.ok(section.includes("thebe-delivery-reminder-actions"),"action row must be styled");
  assert.ok(section.includes("min-height:44px"),"mobile actions must be reachable");
  assert.ok(section.includes("overflow-y:auto"),"notification card body must scroll");
- assert.ok(section.includes("visibility:visible"),"bell remains visible when sheet opens");
- for(const token of ["--thebe-sheet-top","--thebe-sheet-bottom","--thebe-sheet-left","--thebe-sheet-width"]){
-  assert.ok(css.includes(token)&&js.includes(token),"bell-attached panel must use "+token);
+ assert.ok(section.includes("visibility:hidden"),"bell yields to the fixed reading sheet and returns on close");
+ for(const token of ["--thebe-vv-top","--thebe-vv-bottom","--thebe-vv-left","--thebe-vv-right"]){
+  assert.ok(css.includes(token)&&js.includes(token),"viewport-fixed sheet must use "+token);
  }
  assert.ok(js.includes('view.textContent="View Task"'),"View Task opens existing Daily Reports");
  assert.ok(js.includes('read.textContent=alreadyRead?"Read":"Mark as Read"'),"Mark as Read is a real control");
@@ -93,13 +93,13 @@ test("notification bell and dismiss keep keyboard navigation and accessible stat
  assert.ok(js.includes('if(!items.length)panel.hidden=true'));
 });
 
-test("movable Android bell and attached sheet keep viewport, rail and keyboard controls (#2715)",()=>{
+test("movable Android bell and independent sheet keep viewport, rail and keyboard controls (#2715)",()=>{
  const css=read("../public/assets/delivery-reminder-notifications.css");
  const js=read("../public/js/delivery-reminders-manager.js");
  for(const key of ["--thebe-vv-top","--thebe-vv-bottom","--thebe-vv-left","--thebe-vv-right"]){
    assert.ok(js.includes(key),"runtime must compute visual viewport "+key);
  }
- assert.match(css,/thebe-delivery-manager-bell\[aria-expanded="true"\]\{visibility:visible\}/);
+ assert.match(css,/thebe-delivery-manager-bell\[aria-expanded="true"\]\{visibility:hidden\}/);
  assert.match(js,/function positionBell\(button,x,y\)/);
  assert.match(js,/window\.visualViewport\?\.addEventListener\("resize",sync\)/);
  assert.match(js,/button\.setPointerCapture\?\.\(event\.pointerId\)/);
