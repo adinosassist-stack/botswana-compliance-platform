@@ -31,8 +31,8 @@ test("quotation sidebar entry has fallback when Money Hub is absent and remains 
 
 test("mobile delivery reminder does not auto-open over workspace navigation",()=>{
  const js=read("../public/js/delivery-reminders-manager.js");
- assert.match(js,/if\(newDue\.length && !window\.matchMedia\("\(max-width: 1000px\)"\)\.matches\)popup\(\)\.hidden=false/);
- assert.match(js,/button\.addEventListener\("click",\(\)=>\{const panel=popup\(\);panel\.hidden=!panel\.hidden\}\)/);
+ assert.match(js,/if\(newDue\.length && !window\.matchMedia\("\(max-width: 1000px\)"\)\.matches\)setPopupOpen\(true\)/);
+ assert.match(js,/button\.addEventListener\("click",\(\)=>setPopupOpen\(popup\(\)\.hidden,true\)\)/);
 });
 
 test("mobile reminder panel reserves the bottom nav lane on portrait and landscape",()=>{
@@ -59,4 +59,45 @@ test("delivery reminders yield to the actual mobile Thebe Dock runtime state",()
  const guard=css.match(/body\.thebe-ai-mobile-open \.thebe-delivery-manager-bell,\s*body\.thebe-ai-mobile-open \.thebe-delivery-manager-popup\s*\{\s*display:none!important;\s*\}/);
  assert.ok(guard,"actual mobile dock-open state must suppress both bell and popup");
  assert.ok(css.indexOf(guard[0])<css.indexOf("/* #2715: keep notification control"),"tablet coverage must precede the narrower mobile layout rule");
+});
+
+test("mobile delivery popup keeps accessible bell and bottom rail on zoom (#2778)",()=>{
+ const css=read("../public/assets/delivery-reminder-notifications.css");
+ const section=css.slice(css.indexOf("/* #2778:"));
+ assert.ok(section.includes("100dvh - 478px"),"bell and panel adapt to dynamic viewport");
+ assert.ok(section.includes("100vh - 478px"),"legacy viewport fallback remains");
+ assert.ok(section.includes("bottom:calc(104px + env(safe-area-inset-bottom, 0px))"),"bottom navigation clearance");
+ assert.ok(section.includes("overflow-y:auto")&&section.includes("-webkit-overflow-scrolling:touch"));
+ assert.ok(section.includes("position:sticky;top:0"),"heading and close stay visible");
+ assert.ok(section.includes("font-size:14px;line-height:1.5"),"readable message details");
+ assert.ok(section.includes("min-width:44px;min-height:44px"),"touch accessible close");
+ assert.ok(section.includes("overflow-wrap:anywhere"),"long job references wrap");
+ // Model CSS clamp geometry. Bell and sheet rise as a pair so the bell stays
+ // independently clickable while the sheet remains above the bottom rail.
+ for(const viewport of [
+  {width:320,height:640},{width:320,height:568},{width:375,height:667},
+  {width:414,height:896},{width:430,height:932},{width:768,height:1024},
+  {width:667,height:375},{width:932,height:430},{width:768,height:375},
+  {width:375,height:320}
+ ]){
+  const bellTop=Math.max(8,Math.min(viewport.height-478,162));
+  const panelTop=bellTop+48;
+  const panelBottom=viewport.height-104;
+  assert.ok(panelTop>=bellTop+47,
+    `bell must stay accessible at ${viewport.width}x${viewport.height}`);
+  assert.ok(panelBottom<=viewport.height-94,
+    `sheet must clear the nav lane at ${viewport.width}x${viewport.height}`);
+  assert.ok(panelBottom-panelTop>=120,
+    `sheet must remain usable at ${viewport.width}x${viewport.height}`);
+ }
+});
+
+test("notification bell and dismiss keep keyboard navigation and accessible state",()=>{
+ const js=read("../public/js/delivery-reminders-manager.js");
+ assert.ok(js.includes('button.setAttribute("aria-controls","thebeDeliveryManagerPopup")'));
+ assert.ok(js.includes('button.setAttribute("aria-expanded","false")'));
+ assert.ok(js.includes('toggle.setAttribute("aria-expanded",String(!panel.hidden))'));
+ assert.ok(js.includes('if(event.key==="Escape"&&!panel.hidden)'));
+ assert.ok(js.includes('target.focus({preventScroll:true})'));
+ assert.ok(js.includes('if(!items.length)panel.hidden=true'));
 });

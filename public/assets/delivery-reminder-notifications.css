@@ -121,3 +121,49 @@ body.thebe-voice-active .thebe-delivery-manager-popup{
   min-height:0;overflow:auto;
  }
 }
+
+/* #2778: Tie the notification sheet to the bell. The pair moves up together
+   as the visual viewport shrinks, preserving a clickable 44px bell, a 4px gap,
+   and 104px for the bottom navigation and safe-area on Android. */
+@media(max-width:1000px){
+ .thebe-delivery-manager-bell{
+  top:clamp(calc(env(safe-area-inset-top, 0px) + 8px),
+            calc(100vh - 478px),
+            calc(env(safe-area-inset-top, 0px) + 162px));
+  top:clamp(calc(env(safe-area-inset-top, 0px) + 8px),
+            calc(100dvh - 478px),
+            calc(env(safe-area-inset-top, 0px) + 162px));
+ }
+ .thebe-delivery-manager-popup{
+  top:calc(clamp(calc(env(safe-area-inset-top, 0px) + 8px),
+                 calc(100vh - 478px),
+                 calc(env(safe-area-inset-top, 0px) + 162px)) + 48px);
+  top:calc(clamp(calc(env(safe-area-inset-top, 0px) + 8px),
+                 calc(100dvh - 478px),
+                 calc(env(safe-area-inset-top, 0px) + 162px)) + 48px);
+  bottom:calc(104px + env(safe-area-inset-bottom, 0px));
+  left:10px;right:10px;width:auto;
+  max-height:none;min-height:0;overflow-y:auto;
+  box-sizing:border-box;padding:16px;
+  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+ }
+ .thebe-delivery-manager-popup h2{
+  position:sticky;top:0;z-index:1;
+  background:#fff;padding:8px 44px 12px 0;
+  margin:0 0 8px;font-size:18px;line-height:1.35;
+  overflow-wrap:anywhere;
+ }
+ .thebe-delivery-manager-popup .thebe-delivery-reminder{
+  min-width:0;overflow-wrap:anywhere;line-height:1.5;
+ }
+ .thebe-delivery-manager-popup .thebe-delivery-reminder>div{
+  min-width:0;overflow-wrap:anywhere;
+ }
+ .thebe-delivery-manager-popup .thebe-delivery-reminder small{
+  font-size:14px;line-height:1.5;
+ }
+ .thebe-delivery-manager-popup button.thebe-delivery-dismiss{
+  position:sticky;top:0;float:right;z-index:2;
+  min-width:44px;min-height:44px;
+ }
+}

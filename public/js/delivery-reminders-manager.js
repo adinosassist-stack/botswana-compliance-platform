@@ -29,14 +29,29 @@ function popup(){
   panel=document.createElement("aside");panel.id="thebeDeliveryManagerPopup";
   panel.className="thebe-delivery-manager-popup";panel.hidden=true;panel.setAttribute("role","dialog");
   panel.setAttribute("aria-label","Upcoming delivery and installation reminders");
-  const dismiss=document.createElement("button");dismiss.type="button";dismiss.className="thebe-delivery-dismiss";dismiss.textContent="×";dismiss.setAttribute("aria-label","Close delivery reminders");dismiss.addEventListener("click",()=>panel.hidden=true);
+  const dismiss=document.createElement("button");dismiss.type="button";dismiss.className="thebe-delivery-dismiss";dismiss.textContent="×";dismiss.setAttribute("aria-label","Close delivery reminders");dismiss.addEventListener("click",()=>setPopupOpen(false,true));
+  panel.addEventListener("keydown",event=>{
+    if(event.key==="Escape"&&!panel.hidden){event.stopPropagation();setPopupOpen(false,true)}
+  });
   panel.append(dismiss);document.body.append(panel);return panel;
+}
+function setPopupOpen(open,focusChange=false){
+  const panel=popup();
+  panel.hidden=!open;
+  const toggle=byId("thebeDeliveryManagerBell");
+  if(toggle)toggle.setAttribute("aria-expanded",String(open));
+  if(focusChange){
+    const target=open?panel.querySelector(".thebe-delivery-dismiss"):toggle;
+    if(target&&!target.hidden)target.focus({preventScroll:true});
+  }
 }
 function bell(){
   let button=byId("thebeDeliveryManagerBell");
   if(button)return button;
   button=document.createElement("button");button.id="thebeDeliveryManagerBell";button.type="button";button.className="thebe-delivery-manager-bell";button.hidden=true;
-  button.addEventListener("click",()=>{const panel=popup();panel.hidden=!panel.hidden});
+  button.setAttribute("aria-controls","thebeDeliveryManagerPopup");
+  button.setAttribute("aria-expanded","false");
+  button.addEventListener("click",()=>setPopupOpen(popup().hidden,true));
   document.body.append(button);return button;
 }
 function updateWorkspace(items){
@@ -58,8 +73,10 @@ function render(items){
   toggle.textContent=`🔔 Deliveries & installations (${items.length})`;
   toggle.dataset.count=String(items.length>99?"99+":items.length);
   toggle.setAttribute("aria-label",`Delivery and installation reminders: ${items.length}. Open reminders`);
+  if(!items.length)panel.hidden=true;
+  toggle.setAttribute("aria-expanded",String(!panel.hidden));
   panel.replaceChildren();
-  const close=document.createElement("button");close.type="button";close.className="thebe-delivery-dismiss";close.textContent="×";close.setAttribute("aria-label","Close reminders");close.addEventListener("click",()=>panel.hidden=true);
+  const close=document.createElement("button");close.type="button";close.className="thebe-delivery-dismiss";close.textContent="×";close.setAttribute("aria-label","Close reminders");close.addEventListener("click",()=>setPopupOpen(false,true));
   const title=document.createElement("h2");title.textContent="Upcoming delivery & installation";
   panel.append(close,title);
   for(const item of items.slice(0,12))panel.append(createReminder(item));
@@ -78,7 +95,7 @@ async function load(){
     const newDue=items.filter(x=>!seen.has([x.locationId,x.employeeId,x.jobType,x.jobReference,today].join("|")));
     for(const x of newDue)seen.add([x.locationId,x.employeeId,x.jobType,x.jobReference,today].join("|"));
     render(items);
-    if(newDue.length && !window.matchMedia("(max-width: 1000px)").matches)popup().hidden=false;
+    if(newDue.length && !window.matchMedia("(max-width: 1000px)").matches)setPopupOpen(true);
   }catch{
     // Unauthorized visitors and transient failures must not reveal company data.
   }finally{loading=false}
