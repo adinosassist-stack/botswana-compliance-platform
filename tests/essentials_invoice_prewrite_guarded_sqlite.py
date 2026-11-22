@@ -18,10 +18,15 @@ assert plan["readyForRemoteWrite"] is False
 assert plan["requiresNewOwnerApproval"] is True
 assert plan["requiresNewIndependentThusicoApproval"] is True
 assert plan["environment"] == "essentials-invoice-staging-protected"
-assert plan["isolatedD1Id"] == "f6d35915-851a-4771-9e07-589572dc4d05"
+assert plan["cloudflareAccountId"] == "ae0dccfed66fc497259aebd81229f08d"
+assert plan["isolatedD1Name"] == "bw-essentials-invoice-rehearsal"
+assert plan["isolatedD1Id"] == "4eb6c739-9c45-4756-bfa9-8ec0a6efb3be"
+assert plan["forbiddenProductionAccountId"] == "ddd23cab31928a4bb3d4998df9b26d1d"
 assert plan["forbiddenProductionD1Id"] == "8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce"
-assert plan["isolatedD1Id"] != plan["forbiddenProductionD1Id"]
-assert plan["protectedMainAtPreparation"] == "a29a735317a34aad251724a67b4100342ec08bff"
+assert plan["forbiddenLegacyStagingD1Id"] == "f6d35915-851a-4771-9e07-589572dc4d05"
+assert plan["cloudflareAccountId"] != plan["forbiddenProductionAccountId"]
+assert len({plan["isolatedD1Id"], plan["forbiddenProductionD1Id"], plan["forbiddenLegacyStagingD1Id"]}) == 3
+assert plan["protectedMainAtPreparation"] == "c9e18c3c6d4e8ed9a3c7f51724ae9ca1360f511d"
 assert f["tenantId"] != f["otherTenantId"] and f["customerId"] != f["otherCustomerId"]
 assert type(f["totalMinor"]) is int and f["totalMinor"] > 0
 assert f["acceptanceVersion"] == 1
