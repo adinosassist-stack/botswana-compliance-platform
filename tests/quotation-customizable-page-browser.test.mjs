@@ -249,3 +249,52 @@ test("missing browser print API opens accessible phone instructions without fals
   assert.match(await help.innerText(),/iPhone Safari/);
  }finally{await context.close()}
 });
+
+
+test("first-value guide focuses each quotation editor section without changing the draft",async()=>{
+ const {context,page}=await open({width:390,height:844});
+ try{
+  const guide=page.getByRole("region",{name:"First quotation walkthrough"});
+  assert.equal(await guide.count(),1);
+  const before=await page.evaluate(()=>window.editor.getDraft());
+  await guide.getByRole("button",{name:"1. Enter customer details"}).click();
+  assert.equal(await page.evaluate(()=>document.activeElement?.closest("label")?.textContent?.trim()),"Quote number");
+  await guide.getByRole("button",{name:"2. Review items and BWP prices"}).click();
+  assert.equal(await page.evaluate(()=>document.activeElement?.getAttribute("aria-label")),"Description 1");
+  await guide.getByRole("button",{name:"3. Check quotation terms"}).click();
+  assert.equal(await page.evaluate(()=>document.activeElement?.tagName),"TEXTAREA");
+  await guide.getByRole("button",{name:"4. Review print / PDF options"}).click();
+  assert.match(await page.evaluate(()=>document.activeElement?.textContent),/Print \/ Save PDF/);
+  assert.deepEqual(await page.evaluate(()=>window.editor.getDraft()),before);
+  assert.match(await guide.innerText(),/Invoice drafting and issuance are not available/);
+ }finally{await context.close()}
+});
+
+test("first-value guide remains within mobile viewport and all four touch targets are reachable",async()=>{
+ for(const width of [320,375,414,430]){
+  const {context,page}=await open({width,height:800});
+  try{
+   const guide=page.getByRole("region",{name:"First quotation walkthrough"});
+   const buttons=guide.getByRole("button");
+   assert.equal(await buttons.count(),4);
+   for(const button of await buttons.all()){
+    const rect=await button.boundingBox();
+    assert.ok(rect&&rect.height>=44,"Guided control under 44px at "+width);
+    assert.ok(rect.x>=0&&rect.x+rect.width<=width+1,"Guided control clipped at "+width);
+   }
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+  }finally{await context.close()}
+ }
+});
+
+test("first-value guidance keeps invalid quotation status separate from server success",async()=>{
+ const {context,page}=await open({width:390,height:844});
+ try{
+  const guide=page.getByRole("region",{name:"First quotation walkthrough"});
+  assert.match(await guide.locator("#qcp-first-value-status").innerText(),/Sample preview only/);
+  await page.getByLabel("Customer name",{exact:true}).fill("");
+  assert.match(await guide.locator("#qcp-first-value-status").innerText(),/Fix the invalid fields/);
+  assert.match(await guide.innerText(),/Nothing was saved|No record was saved/);
+  assert.equal(await guide.getByRole("button",{name:"4. Review print / PDF options"}).getAttribute("aria-current"),null);
+ }finally{await context.close()}
+});
