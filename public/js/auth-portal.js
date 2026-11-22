@@ -68,8 +68,9 @@ function showWorkspaceChoices(error){
  const choices=Array.isArray(error?.data?.workspaces)?error.data.workspaces:[];
  if(!choices.length)return false;
  workspace.replaceChildren();
- for(const item of choices){const option=document.createElement("option");option.value=String(item?.tenantId||"");option.textContent=String(item?.tenantName||item?.name||item?.companyName||"Workspace")+(item?.role==="manager"?" — Manager":item?.role==="owner"?" — Owner":" — "+String(item?.role||"Member"));workspace.append(option)}
- workspaceField.hidden=false;setStatus("Choose the workspace you want to open.","good");return true;
+ for(const item of choices){const tenantId=String(item?.tenantId||"").trim();if(!tenantId)continue;const option=document.createElement("option");option.value=tenantId;option.textContent=String(item?.tenantName||item?.name||item?.companyName||"Workspace")+(item?.role==="manager"?" — Manager":item?.role==="owner"?" — Owner":" — "+String(item?.role||"Member"));workspace.append(option)}
+ if(!workspace.options.length){workspaceField.hidden=true;setStatus("No accessible workspace was returned. Contact your workspace owner.");return false}
+ workspaceField.hidden=false;setStatus("Choose the workspace you want to open.","good");workspace.focus();return true;
 }
 async function login(payload){
  const data=await api("/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
