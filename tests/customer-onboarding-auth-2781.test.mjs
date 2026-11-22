@@ -142,3 +142,32 @@ test("direct registration ignores repeat submits and clears busy state after a f
   await retry;
   assert.equal(attributes.has("aria-busy"), false);
 });
+
+test("owner with insufficient quotation history can open Sales Intelligence by keyboard", () => {
+  const script = fs.readFileSync(new URL("../public/js/executive-personalization.js", import.meta.url), "utf8");
+  const extract = (start, end) => script.slice(script.indexOf(start), script.indexOf(end));
+  const context = vm.createContext({
+    document: {},
+    global: { matchMedia: () => ({ matches: true }) },
+    centre: {},
+    isOwner: () => true,
+    signalByLabel: (_, label) => label === "Sales conversion" ? "Record enough resolved quotations" : "",
+    cardText: card => card,
+  });
+  const events = [];
+  const details = { open: false, scrollIntoView: options => events.push(options.behavior) };
+  const summary = { focus: () => events.push("focus") };
+  context.q = (selector, root) => {
+    if (selector === "#ownerSalesWorkspace" && root === context.centre) return details;
+    if (selector === "summary" && root === details) return summary;
+    return null;
+  };
+  vm.runInContext(extract("function openDetails(", "  function ensurePriorityShell(") +
+    extract("function nextOnboardingStep(", "  function renderOnboarding("), context);
+  assert.equal(vm.runInContext("nextOnboardingStep(centre).label", context), "Open Sales Intelligence");
+  vm.runInContext("nextOnboardingStep(centre).action()", context);
+  assert.equal(details.open, true);
+  assert.deepEqual(events, ["focus", "instant"]);
+  context.q = () => null;
+  assert.equal(vm.runInContext("nextOnboardingStep(centre)", context), null);
+});
