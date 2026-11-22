@@ -171,3 +171,81 @@ test("owner with insufficient quotation history can open Sales Intelligence by k
   context.q = () => null;
   assert.equal(vm.runInContext("nextOnboardingStep(centre)", context), null);
 });
+
+
+test("successful registration retries authentication rather than recreating a workspace",async()=>{
+ const start=source.indexOf("async function registerAccount(");
+ const end=source.indexOf("\nasync function loadCapabilities()",start);
+ assert.ok(start>=0&&end>start,"registration flow available");
+ let creations=0,logins=0;
+ const events=[];
+ const context={
+  registrationMode:"open",
+  LEGAL_VERSION:"2026-10-14",
+  setStatus:message=>events.push("status:"+message),
+  setMode:mode=>events.push("mode:"+mode),
+  solveRegistrationProof:async()=>"synthetic-proof",
+  api:async(path)=>{
+   assert.equal(path,"/api/auth/register");
+   creations++;
+   return {ok:true};
+  },
+  login:async()=>{
+   logins++;
+   throw new Error("Temporary network issue");
+  },
+  requestRecovery:async()=>false
+ };
+ const register=vm.runInNewContext(source.slice(start,end)+"\nregisterAccount",context);
+ await assert.rejects(register({email:"owner@example.test",password:"synthetic-only"}),/workspace was created.*Sign in to retry/);
+ assert.equal(creations,1);
+ assert.equal(logins,1);
+ assert.deepEqual(events.filter(e=>e.startsWith("mode:")),["mode:login"]);
+ const before=events.indexOf("mode:login");
+ const after=events.findIndex(e=>e.includes("Step 3 of 3"));
+ assert.ok(before>=0&&after>before,"mode changes before automated sign-in");
+});
+
+test("registration API failure does not claim the account exists",async()=>{
+ const start=source.indexOf("async function registerAccount(");
+ const end=source.indexOf("\nasync function loadCapabilities()",start);
+ const modes=[];
+ const context={
+  registrationMode:"open",
+  LEGAL_VERSION:"2026-10-14",
+  setStatus:()=>{},
+  setMode:mode=>modes.push(mode),
+  solveRegistrationProof:async()=>"synthetic-proof",
+  api:async()=>{throw new Error("Registration request failed")}
+ };
+ const register=vm.runInNewContext(source.slice(start,end)+"\nregisterAccount",context);
+ await assert.rejects(register({email:"owner@example.test"}),/Registration request failed/);
+ assert.deepEqual(modes,[]);
+});
+
+test("new owner can choose an authorized workspace after registration",async()=>{
+ const start=source.indexOf("async function registerAccount(");
+ const end=source.indexOf("\nasync function loadCapabilities()",start);
+ const calls=[];
+ const context={
+  registrationMode:"open",
+  LEGAL_VERSION:"2026-10-14",
+  setStatus:()=>{},
+  setMode:mode=>calls.push("mode:"+mode),
+  solveRegistrationProof:async()=>"synthetic-proof",
+  api:async(path)=>{calls.push(path);return {ok:true}},
+  login:async(payload)=>{
+   calls.push("login:"+String(payload.tenantId||"default"));
+   if(!payload.tenantId){
+    const error=new Error("Select workspace");
+    error.code="workspace_selection_required";
+    error.data={workspaces:[{role:"manager",tenantId:"tenant-manager"},{role:"owner",tenantId:"tenant-owner"}]};
+    throw error;
+   }
+   assert.equal(payload.tenantId,"tenant-owner");
+  }
+ };
+ const register=vm.runInNewContext(source.slice(start,end)+"\nregisterAccount",context);
+ await register({email:"owner@example.test",password:"synthetic-only"});
+ assert.deepEqual(calls,["/api/auth/register","mode:login","login:default","login:tenant-owner"]);
+});
