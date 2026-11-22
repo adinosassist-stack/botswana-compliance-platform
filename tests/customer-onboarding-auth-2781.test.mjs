@@ -89,3 +89,56 @@ test("direct registration sets and clears busy state",()=>{
   assert.match(directRegistrationSource,/form\.setAttribute\("aria-busy","true"\)/);
   assert.match(directRegistrationSource,/form\.removeAttribute\("aria-busy"\)/);
 });
+
+
+const directRegistration = fs.readFileSync(new URL("../public/js/register-direct.js", import.meta.url), "utf8");
+
+test("direct registration ignores repeat submits and clears busy state after a failure", async () => {
+  const attributes = new Map();
+  let submit;
+  let rejectChallenge;
+  let requests = 0;
+  const form = {
+    addEventListener: (_, handler) => { submit = handler; },
+    setAttribute: (name, value) => attributes.set(name, value),
+    removeAttribute: name => attributes.delete(name),
+  };
+  const button = { disabled: false };
+  const status = { setAttribute() {} };
+  const elements = {
+    registerForm: form, submitBtn: button, status,
+    companyName: { value: "Demo Business" },
+    email: { value: "owner@example.test" },
+    password: { value: "temporary-test-password" },
+  };
+  vm.runInNewContext(directRegistration, {
+    TextEncoder,
+    document: { getElementById: id => elements[id] },
+    window: { BW: { api: { createClient: () => ({
+      request(path) {
+        assert.equal(path, "/api/auth/registration-proof/challenge");
+        requests++;
+        return new Promise((_, reject) => { rejectChallenge = reject; });
+      },
+    }) } } },
+  });
+
+  const event = { preventDefault() {} };
+  const first = submit(event);
+  const rejectFirst = rejectChallenge;
+  assert.equal(attributes.get("aria-busy"), "true");
+  const duplicate = submit(event);
+  rejectFirst(new Error("Connection lost"));
+  if (requests > 1) rejectChallenge(new Error("Unexpected duplicate request"));
+  await Promise.all([first, duplicate]);
+  assert.equal(requests, 1);
+  assert.equal(button.disabled, false);
+  assert.equal(attributes.has("aria-busy"), false);
+  assert.match(status.textContent, /Connection lost/);
+
+  const retry = submit(event);
+  assert.equal(requests, 2);
+  rejectChallenge(new Error("Connection lost again"));
+  await retry;
+  assert.equal(attributes.has("aria-busy"), false);
+});
