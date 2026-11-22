@@ -8,5 +8,5 @@ export function prepareAuthorizedInvoiceDraft({principal,tenantId,quotation,invo
  assertEssentialsDraftAccess({principal,tenantId,recordTenantId:quotation?.companyId,permission:"invoice:draft:create"});
  const draft=prepareInvoiceFromQuotation({quotation,invoiceReference,createdAt});
  if(draft.tenantId!==tenantId)throw new Error("tenant_access_denied");
- return Object.freeze({draft,uniquenessKey:`${tenantId}:${invoiceReference}`,requiresAtomicInsert:true,requiresServerAssignedReference:true,previewOnly:true});
+ return Object.freeze({draft,uniquenessKey:`${draft.tenantId}:${draft.invoiceReference}`,requiresAtomicInsert:true,requiresServerAssignedReference:true,previewOnly:true});
 }
