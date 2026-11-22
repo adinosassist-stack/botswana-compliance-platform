@@ -111,13 +111,13 @@ async function detectExistingSession(){
 async function submitForm(event){
  event.preventDefault();if(busy)return;clearStatus();
  const address=String(email.value||"").trim().toLowerCase(),secret=String(password.value||"");
- if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)){setStatus("Enter a valid email address.");return}
- if(secret.length<12){setStatus("Use a password with at least 12 characters.");return}
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)){setStatus("Enter a valid email address.");email.focus();return}
+ if(secret.length<12){setStatus(mode==="register"?"Create a password with at least 12 characters.":"Enter your password to sign in.");password.focus();return}
  if(mode==="register"&&(!legalConsent||!legalConsent.checked)){setStatus("Agree to the Terms of Service and acknowledge the Privacy Notice to create a workspace.");legalConsent?.focus();return}
  busy=true;submit.disabled=true;const original=submit.textContent;submit.textContent=mode==="register"?"Securing registration…":"Signing in…";
  try{
   if(mode==="register"){
-   const companyName=String(company.value||"").trim();if(companyName.length<2)throw new Error("Enter a business name with at least 2 characters.");
+   const companyName=String(company.value||"").trim();if(companyName.length<2){company.focus();throw new Error("Enter a business name with at least 2 characters.")}
    await registerAccount({companyName,email:address,password:secret,plan:selectedPlan()});
   }else{
    const payload={email:address,password:secret};if(!workspaceField.hidden&&workspace.value)payload.tenantId=workspace.value;
