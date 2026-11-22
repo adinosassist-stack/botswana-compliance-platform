@@ -61,11 +61,20 @@ try{
    assert(!g.horizontalOverflow,'No horizontal overflow '+label);
    assert(g.b.left>=-1&&g.b.right<=width+1&&g.b.top>=-1&&g.b.bottom<=height+1,'Bell inside viewport '+label);
    assert(g.p.left>=-1&&g.p.right<=width+1&&g.p.top>=-1&&g.p.bottom<=height+1,'Panel inside viewport '+label);
-   assert(g.hitBell||g.mobile,'Bell or notification sheet is accessible '+label);
    if(g.mobile){
+    assert.equal(await bell.isVisible(),false,'Open sheet must not obscure an active bell '+label);
     assert(g.p.top>=-1,'Phone popup starts inside viewport '+label);
     assert(g.p.bottom<=g.rail.top-8,'Phone popup clears bottom rail '+label);
+    const close=panel.getByRole('button',{name:'Close reminders'});
+    assert(await close.isVisible(),'Sticky close remains reachable '+label);
+    const closeBox=await close.boundingBox();
+    assert(closeBox&&closeBox.y>=g.p.top-1&&closeBox.y+closeBox.height<=g.p.bottom+1,
+      'Close remains inside sheet bounds '+label);
+    assert(await panel.locator('h2').isVisible(),'Notification title visible '+label);
+    await panel.evaluate(node=>node.scrollTop=node.scrollHeight);
+    assert(await close.isVisible(),'Close remains visible after panel scroll '+label);
    }else{
+    assert(g.hitBell,'Desktop bell remains clickable '+label);
     assert(g.p.bottom+8<=g.b.top,'Tablet/desktop popup clears bell '+label);
    }
    for(const state of ['mobile-nav-open','thebe-voice-active','thebe-ai-mobile-open']){
@@ -77,7 +86,53 @@ try{
    assert(await bell.isVisible(),'Bell restores after overlay '+label);
    await panel.getByRole('button',{name:'Close reminders'}).click();
    assert(await panel.isHidden(),'Dismiss works '+label);
+   assert(await bell.isVisible(),'Bell reappears after notification close '+label);
+   const bellHit=await bell.evaluate(node=>{
+     const b=node.getBoundingClientRect();
+     return !!document.elementFromPoint(b.left+b.width/2,b.top+b.height/2)?.closest('#thebeDeliveryManagerBell');
+   });
+   assert(bellHit,'Bell is a reachable tap target after close '+label);
+   if(g.mobile){
+     // Real pointer events: four corners, no drag-triggered popup, badge retained.
+     for(const [targetX,targetY] of [
+       [16,16],[width-16,16],[16,height-130],[width-16,height-130]
+     ]){
+       const before=await bell.boundingBox();
+       await page.mouse.move(before.x+before.width/2,before.y+before.height/2);
+       await page.mouse.down();
+       await page.mouse.move(targetX,targetY,{steps:5});
+       await page.mouse.up();
+       assert(await panel.isHidden(),'Dragging cannot open reminders '+label);
+       const moved=await bell.boundingBox();
+       assert(moved.x>=7&&moved.x+moved.width<=width-7,'Dragged bell stays horizontal '+label);
+       assert(moved.y>=7&&moved.y+moved.height<=height-103,'Dragged bell stays above nav '+label);
+       assert.equal(await bell.getAttribute('data-count'),'12');
+     }
+     const saved=await bell.boundingBox();
+     assert(await page.evaluate(()=>!!localStorage.getItem('thebe.delivery.bell.position.v2')));
+     await page.reload({waitUntil:'load'});
+     await page.waitForFunction(()=>document.getElementById('thebeDeliveryManagerBell')?.dataset.count==='12');
+     const restored=await bell.boundingBox();
+     assert(Math.abs(restored.x-saved.x)<=2&&Math.abs(restored.y-saved.y)<=2,
+       'Bell position persists after reload '+label);
+     await bell.focus();
+     await page.keyboard.down('Alt');
+     await page.keyboard.press('ArrowLeft');
+     await page.keyboard.up('Alt');
+     const keyboardMoved=await bell.boundingBox();
+     assert(keyboardMoved.x<=restored.x-20,'Alt+Left repositions bell '+label);
+     await page.keyboard.down('Alt');
+     await page.keyboard.press('Home');
+     await page.keyboard.up('Alt');
+     assert(await page.evaluate(()=>!localStorage.getItem('thebe.delivery.bell.position.v2')),
+       'Alt+Home resets local position '+label);
+     await bell.click();
+     assert(await panel.isVisible(),'Bell tap still opens after drag/reset '+label);
+     await page.keyboard.press('Escape');
+     assert(await panel.isHidden(),'Escape closes notification sheet '+label);
+     assert(await bell.evaluate(node=>document.activeElement===node),'Focus returns to bell '+label);
+   }
   }finally{await page.close()}
  }
- console.log('PASS #2715 reminder UI: 10 Chromium portrait/landscape geometries, 12 synthetic records, drawer/Dock/voice occlusion, scroll lane and accessible bell');
+ console.log('PASS #2715: 10 real-Chromium geometries; 12 synthetic reminders; sheet clearance, focus, pointer drag four corners, reload persistence, keyboard reset, Dock/voice/nav occlusion');
 }finally{await browser.close()}
