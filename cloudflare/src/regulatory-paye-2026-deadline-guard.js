@@ -22,10 +22,12 @@ export function paye2026PromotionGuard(row,action){
   const a=actionFor(row,action);
   if(!isPayeRemittanceRule(row,a))return {ok:true};
   const to=canonicalDate(row?.effective_to);
+  const from=canonicalDate(row?.effective_from);
+  // Neither an inverted range nor a missing start date may qualify as historical.
+  if(to&&(!from||from>to))return {ok:false,error:"paye_2026_effective_period_review_required"};
   // A documented pre-commencement rule can be kept for historical records.
   // Malformed/missing dates must never be interpreted as a historical exemption.
   if(to&&to<PAYE_2026_COMMENCEMENT)return {ok:true,historicalOnly:true};
-  const from=canonicalDate(row?.effective_from);
   if(!from||from<PAYE_2026_COMMENCEMENT||(row?.effective_to!=null&&!to)||(to!==null&&from>to))
     return {ok:false,error:"paye_2026_effective_period_review_required"};
   if(a.operationalization!=="monthly_end_plus_days"||a.dueDaysAfterPeriodEnd!==14)
