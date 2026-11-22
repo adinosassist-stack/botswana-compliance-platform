@@ -18,7 +18,7 @@ const css=fs.readFileSync('public/assets/delivery-reminder-notifications.css','u
 const runtime=fs.readFileSync('public/js/delivery-reminders-manager.js','utf8');
 const html='<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">'+
  '<style>*{box-sizing:border-box}body{margin:0}#mobileRail{display:none}' +
- '@media(max-width:620px){#mobileRail{display:block;position:fixed;bottom:0;left:0;right:0;height:86px;background:#eee}}</style>' +
+ '@media(max-width:1000px){#mobileRail{display:block;position:fixed;bottom:0;left:0;right:0;height:86px;background:#eee}}</style>' +
  '<style>'+css+'</style></head><body><main id="dailyreports"></main><nav id="mobileRail"></nav>'+
  '<script>'+runtime+'</script></body></html>';
 const viewports=[[320,640],[375,667],[414,896],[430,932],[768,1024],
@@ -53,7 +53,7 @@ try{
     const rail=document.getElementById('mobileRail').getBoundingClientRect();
     const hit=document.elementFromPoint(b.left+b.width/2,b.top+b.height/2);
     return {b:b.toJSON(),p:p.toJSON(),rail:rail.toJSON(),
-     mobile:matchMedia('(max-width:620px)').matches,
+     mobile:matchMedia('(max-width:1000px)').matches,
      hitBell:!!hit?.closest('#thebeDeliveryManagerBell'),
      horizontalOverflow:document.documentElement.scrollWidth>innerWidth+1};
    });
