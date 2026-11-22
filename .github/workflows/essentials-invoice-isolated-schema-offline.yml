@@ -1,0 +1,37 @@
+name: Essentials Invoice Isolated Schema Plan (Offline Only)
+
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/migrations/essentials_invoice_rehearsal_NEW_ACCOUNT_STAGING_ONLY.sql'
+      - 'tests/fixtures/essentials_invoice_isolated_schema_plan_v1.json'
+      - 'tests/essentials_invoice_isolated_schema_plan.py'
+      - 'tests/fixtures/essentials_d1_synthetic_dependencies_STAGING_ONLY.sql'
+      - 'cloudflare/migrations/essentials_invoice_drafts_STAGING_ONLY.sql'
+      - 'cloudflare/migrations/essentials_accepted_quotation_snapshots_STAGING_CANDIDATE.sql'
+      - '.github/workflows/essentials-invoice-isolated-schema-offline.yml'
+      - 'docs/essentials-invoice-isolated-schema-gates-v1.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-staging-schema-offline-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Verify immutable DDL digest, source parity, zero-data schema, no replay
+        run: |
+          set -euo pipefail
+          python3 -B tests/essentials_invoice_isolated_schema_plan.py
+      - name: Verify guarded quote-to-draft source still passes in-memory
+        run: |
+          set -euo pipefail
+          python3 -B tests/essentials_invoice_prewrite_guarded_sqlite.py
+      - name: Affirm no remote D1 requests or production actions
+        run: |
+          printf '%s\n' 'ESSENTIALS_SCHEMA_OFFLINE_ONLY_NO_REMOTE_SQL_NO_TOKENS_NO_DEPLOY'
