@@ -26,6 +26,13 @@ const css=[
  ".qcp-shell button{cursor:pointer;padding:8px 10px;border-radius:7px;background:#fff;border:1px solid #afbdc9;color:#182735;font:inherit}",
  ".qcp-shell button[data-primary]{background:#bd1116;border-color:#bd1116;color:#fff;font-weight:700}",
  ".qcp-shell button:disabled{opacity:.5;cursor:not-allowed}",
+ ".qcp-first-value-guide{border:1px solid #d0dce9;border-radius:10px;padding:12px;background:#f8fafc;display:grid;gap:8px;min-width:0}",
+ ".qcp-first-value-guide h3{font-size:15px;margin:0;color:#17314d}",
+ ".qcp-guide-list{margin:0;padding:0;list-style:none;display:grid;gap:6px}",
+ ".qcp-first-value-guide .qcp-guide-button{min-height:44px;width:100%;text-align:left;white-space:normal;overflow-wrap:anywhere}",
+ ".qcp-first-value-guide .qcp-guide-button[aria-current=step]{border:2px solid #245887;font-weight:750}",
+ ".qcp-guide-feedback{margin:0;overflow-wrap:anywhere;color:#23476a}",
+ ".qcp-guide-invoice{margin:0;padding-top:8px;border-top:1px solid #d0dce9;color:#405367;overflow-wrap:anywhere}",
  ".qcp-actions{display:flex;flex-wrap:wrap;gap:7px}",
  ".qcp-hint{font-size:12px;color:#66717e}",
  ".qcp-status{font-size:12px;color:#3f5c75;min-height:22px;overflow-wrap:anywhere}",
@@ -89,6 +96,73 @@ const details=(heading,open=false)=>{
  const content=elt("div","qcp-editor-grid");element.append(content);
  return {element,content};
 };
+/**
+ * First-value guidance for the existing quotation print editor.
+ * This guide deliberately has no API, storage, issuance or completion authority.
+ * It must never turn a local PDF/JSON export into a server-saved business record.
+ */
+function mountFirstValueGuide(sidebar,actions,{basic,itemsSection,termsSection,print,customerReady}){
+ const guide=elt("section","qcp-first-value-guide");
+ guide.id="qcp-first-value-guide";
+ guide.setAttribute("role","region");
+ guide.setAttribute("aria-label","First quotation walkthrough");
+ const title=elt("h3","","Your first quotation — guided steps");
+ const intro=elt("p","qcp-hint",
+  "Follow these steps to prepare and review a quotation. Progress here is local guidance, not a saved Thebe Desk record.");
+ const list=elt("ol","qcp-guide-list");
+ const feedback=elt("p","qcp-guide-feedback","");
+ feedback.id="qcp-first-value-status";
+ // Keep the existing quotation-draft save status as the sole role=status region.
+ feedback.setAttribute("aria-live","polite");
+ feedback.setAttribute("aria-atomic","true");
+ let step=0;
+ const focusArea=(section,selector)=>{
+  section.element.open=true;
+  const target=section.content.querySelector(selector)||section.element.querySelector("summary");
+  target?.focus({preventScroll:true});
+  const reduced=typeof window.matchMedia==="function"&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  target?.scrollIntoView?.({block:"nearest",behavior:reduced?"instant":"smooth"});
+ };
+ const steps=[
+  {label:"1. Enter customer details",action:()=>focusArea(basic,"input")},
+  {label:"2. Review items and BWP prices",action:()=>focusArea(itemsSection,"input")},
+  {label:"3. Check quotation terms",action:()=>focusArea(termsSection,"textarea")},
+  {label:"4. Review print / PDF options",action:()=>print.focus({preventScroll:true})}
+ ];
+ const buttons=steps.map((entry,index)=>{
+  const li=elt("li"),button=elt("button","qcp-guide-button",entry.label);
+  button.type="button";
+  button.addEventListener("click",()=>{
+   step=index;
+   buttons.forEach((node,i)=>{
+    if(i===index)node.setAttribute("aria-current","step");
+    else node.removeAttribute("aria-current");
+   });
+   entry.action();
+   feedback.textContent="Step "+(index+1)+" of 4 selected. "+
+    (index===3?"A browser PDF or local JSON export is not a saved or issued quotation.":
+     "Complete the highlighted section and review the document.");
+  });
+  li.append(button);list.append(li);return button;
+ });
+ buttons[0].setAttribute("aria-current","step");
+ const invoice=elt("p","qcp-guide-invoice",
+  "Next: invoice. Invoice drafting and issuance are not available from this editor. A quotation PDF does not create an invoice. Use only a separately authorized, server-confirmed invoice workflow.");
+ guide.append(title,intro,list,feedback,invoice);
+ sidebar.insertBefore(guide,actions);
+ return Object.freeze({
+  update({validated=false,blocker="",error=false}={}){
+   const message=error?"Fix the invalid fields before printing. No record was saved.":
+    !validated?"Complete the quotation fields; no record was saved.":
+    customerReady&&blocker?"Customer-ready print is blocked: "+blocker+" No record was saved.":
+    customerReady?"Ready for local print review only. Nothing was saved, sent or issued.":
+    "Sample preview only. Nothing was saved, sent or issued.";
+   // Announce input-validation changes without changing focus or selecting steps.
+   if(feedback.textContent!==message)feedback.textContent=message;
+  }
+ });
+}
+
 /** Customer-ready printing never uses the untouched sample or an unentered account. */
 function customerReadyBlocker(q){
  if(!q.termsText.trim())return "Enter the full contract terms.";
@@ -227,6 +301,7 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
  offsetField.addEventListener("input",()=>{logoX=Number(offsetField.value);refresh()});
  // Keep primary mobile print actions visible before the long editable document.
  sidebar.append(actions,status,printHelp.element,basic.element,itemsSection.element,copySection.element,termsSection.element,logoSection.element);
+ const firstValueGuide=mountFirstValueGuide(sidebar,actions,{basic,itemsSection,termsSection,print,customerReady});
  shell.append(sidebar,stage);
  root.replaceChildren(style,shell);
  function masthead(page,heading){
@@ -320,7 +395,10 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
   }catch(error){
    print.disabled=false;download.disabled=true;
    status.textContent="Fix the fields: "+String(error?.message||"invalid draft");
+   firstValueGuide.update({error:true});
+   return;
   }
+  firstValueGuide.update({validated:true,blocker:customerReady?customerReadyBlocker(checked):""});
  }
  print.addEventListener("click",()=>{
   if(disposed)return;
