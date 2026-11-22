@@ -31,8 +31,8 @@ test("quotation sidebar entry has fallback when Money Hub is absent and remains 
 
 test("mobile delivery reminder does not auto-open over workspace navigation",()=>{
  const js=read("../public/js/delivery-reminders-manager.js");
- assert.match(js,/if\(newDue\.length && !window\.matchMedia\("\(max-width: 1000px\)"\)\.matches\)popup\(\)\.hidden=false/);
- assert.match(js,/button\.addEventListener\("click",\(\)=>\{const panel=popup\(\);panel\.hidden=!panel\.hidden\}\)/);
+ assert.match(js,/if\(newDue\.length && !window\.matchMedia\("\(max-width: 1000px\)"\)\.matches\)setPopupOpen\(true\)/);
+ assert.match(js,/button\.addEventListener\("click",\(\)=>setPopupOpen\(popup\(\)\.hidden,true\)\)/);
 });
 
 test("mobile reminder panel reserves the bottom nav lane on portrait and landscape",()=>{
@@ -61,13 +61,39 @@ test("delivery reminders yield to the actual mobile Thebe Dock runtime state",()
  assert.ok(css.indexOf(guard[0])<css.indexOf("/* #2715: keep notification control"),"tablet coverage must precede the narrower mobile layout rule");
 });
 
-test("mobile delivery popup preserves bell clearance and readable scrolling (#2778)",()=>{
+test("mobile delivery popup stays usable at short height, zoom and safe area (#2778)",()=>{
  const css=read("../public/assets/delivery-reminder-notifications.css");
  const section=css.slice(css.indexOf("/* #2778:"));
- assert.ok(section.includes("top:calc(env(safe-area-inset-top, 0px) + 210px)"));
- assert.ok(section.includes("top:calc(env(safe-area-inset-top, 0px) + 110px)"));
- assert.ok(section.includes("overflow-y:auto"));
- assert.ok(section.includes("-webkit-overflow-scrolling:touch"));
- assert.ok(section.includes("font-size:14px;line-height:1.5"));
- assert.ok(section.includes("min-width:44px;min-height:44px"));
+ assert.ok(section.includes("100dvh - 390px"),"portrait viewport must be dynamic");
+ assert.ok(section.includes("100dvh - 280px"),"landscape viewport must be dynamic");
+ assert.ok(section.includes("max-height:360px"),"extreme zoom must allow a higher sheet");
+ assert.ok(section.includes("bottom:calc(88px + env(safe-area-inset-bottom, 0px))"),"leave portrait nav lane clear");
+ assert.ok(section.includes("bottom:calc(56px + env(safe-area-inset-bottom, 0px))"),"leave compact nav lane clear");
+ assert.ok(section.includes("overflow-y:auto")&&section.includes("-webkit-overflow-scrolling:touch"));
+ assert.ok(section.includes("position:sticky;top:0"),"heading and dismiss remain visible");
+ assert.ok(section.includes("font-size:14px;line-height:1.5"),"message text is readable");
+ assert.ok(section.includes("min-width:44px;min-height:44px"),"close target is touch accessible");
+ assert.ok(section.includes("overflow-wrap:anywhere"),"long job references should wrap");
+ // Model the specified clamp bounds at portrait, landscape, 200%-zoom, and
+ // keyboard-shortened sizes. The browser visual acceptance remains separate.
+ const height=h=>h<=360?8:h<=500?Math.max(8,Math.min(h-280,110)):Math.max(8,Math.min(h-390,210));
+ for(const viewport of [
+  {width:320,height:568},{width:375,height:667},{width:414,height:896},
+  {width:430,height:932},{width:768,height:420},{width:375,height:320},
+  {width:320,height:240}
+ ]){
+  const bottom=viewport.height<=500?56:88;
+  assert.ok(viewport.height-height(viewport.height)-bottom>=120,
+    `panel would be too short at ${viewport.width}x${viewport.height}`);
+ }
+});
+
+test("notification bell and dismiss keep keyboard navigation and accessible state",()=>{
+ const js=read("../public/js/delivery-reminders-manager.js");
+ assert.ok(js.includes('button.setAttribute("aria-controls","thebeDeliveryManagerPopup")'));
+ assert.ok(js.includes('button.setAttribute("aria-expanded","false")'));
+ assert.ok(js.includes('toggle.setAttribute("aria-expanded",String(!panel.hidden))'));
+ assert.ok(js.includes('if(event.key==="Escape"&&!panel.hidden)'));
+ assert.ok(js.includes('target.focus({preventScroll:true})'));
+ assert.ok(js.includes('if(!items.length)panel.hidden=true'));
 });
