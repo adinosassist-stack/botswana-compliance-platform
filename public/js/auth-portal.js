@@ -119,7 +119,7 @@ async function submitForm(event){
  if((mode==="register"&&secret.length<12)||(mode==="login"&&!secret)){setStatus(mode==="register"?"Create a password with at least 12 characters.":"Enter your password to sign in.");password.focus();return}
  if(mode==="register"&&String(company.value||"").trim().length<2){setStatus("Enter a business name with at least 2 characters.");company.focus();return}
  if(mode==="register"&&(!legalConsent||!legalConsent.checked)){setStatus("Agree to the Terms of Service and acknowledge the Privacy Notice to create a workspace.");legalConsent?.focus();return}
- busy=true;submit.disabled=true;const original=submit.textContent;submit.textContent=mode==="register"?"Securing registration…":"Signing in…";
+ busy=true;submit.disabled=true;form.setAttribute("aria-busy","true");const original=submit.textContent;submit.textContent=mode==="register"?"Securing registration…":"Signing in…";
  try{
   if(mode==="register"){
    const companyName=String(company.value||"").trim();if(companyName.length<2){company.focus();throw new Error("Enter a business name with at least 2 characters.")}
@@ -129,7 +129,7 @@ async function submitForm(event){
    try{await login(payload)}catch(error){if(error?.code==="workspace_selection_required"&&showWorkspaceChoices(error))return;throw error}
   }
  }catch(error){setStatus(error?.message||"Authentication could not complete. Try again.")}
- finally{busy=false;submit.disabled=false;submit.textContent=mode==="register"?"Create account & workspace":"Sign in";if(original&&mode==="login"&&workspaceField.hidden)submit.textContent="Sign in"}
+ finally{busy=false;submit.disabled=false;form.removeAttribute("aria-busy");submit.textContent=mode==="register"?"Create account & workspace":"Sign in";if(original&&mode==="login"&&workspaceField.hidden)submit.textContent="Sign in"}
 }
 function oauth(provider){if(!["google","facebook"].includes(provider))return;location.assign(`/api/auth/oauth/${provider}/start?next=${encodeURIComponent(next)}`)}
 const passwordToggle=$("authPasswordToggle");passwordToggle?.addEventListener("click",()=>{const showing=password.type==="text";password.type=showing?"password":"text";passwordToggle.textContent=showing?"Show":"Hide";passwordToggle.setAttribute("aria-pressed",String(!showing))});
