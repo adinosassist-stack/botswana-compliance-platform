@@ -1717,6 +1717,7 @@ function animateNumber(el,to,suffix=""){
   }
   active.frame=requestAnimationFrame(step);
 }
+
 function startOAuth(provider){if(!["google","facebook"].includes(provider))return;if(STANDALONE_PREVIEW||location.protocol==="file:"){notifyUser("Social sign-in requires the deployed OAuth backend. Use email sign-in or Preview workspace in the standalone HTML.");return}const next=encodeURIComponent(window.location.pathname+window.location.search);window.location.assign(`/api/auth/oauth/${provider}/start?next=${next}`)}
 const RUNTIME_MODE=(document.querySelector('meta[name="bw-runtime-mode"]')?.content||"production").toLowerCase();
 const STANDALONE_PREVIEW=RUNTIME_MODE==="preview";
