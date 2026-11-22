@@ -13,3 +13,13 @@ test("rejects invalid dates and lines",()=>{
  assert.throws(()=>prepareInvoiceFromQuotation({quotation,invoiceReference:"INV-1",createdAt:"2026-02-30"}),/invalid_date/);
  assert.throws(()=>prepareInvoiceFromQuotation({quotation:{...quotation,items:[{description:"Stone",quantity:2,unitMinor:50000,lineMinor:1}]},invoiceReference:"INV-1",createdAt:"2026-11-18"}),/invalid_line/);
 });
+
+test("does not silently convert a source quotation with an explicit foreign or unknown currency into BWP",()=>{
+ const input={quotation,invoiceReference:"INV-1",createdAt:"2026-11-18"};
+ for(const currency of ["USD","ZAR","bwp",null]){
+  assert.throws(()=>prepareInvoiceFromQuotation({...input,quotation:{...quotation,currency}}),/invalid_currency/);
+ }
+ assert.equal(prepareInvoiceFromQuotation({...input,quotation:{...quotation,currency:"BWP"}}).currency,"BWP");
+ // Existing implicit BWP snapshots remain supported without forced migration.
+ assert.equal(prepareInvoiceFromQuotation(input).currency,"BWP");
+});
