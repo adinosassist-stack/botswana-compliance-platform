@@ -17,7 +17,10 @@ export function previewInvoicePayments({invoiceTotalMinor,depositDueMinor=0,inst
  const txSeen=new Set();
  const paid=settledAllocations.reduce((n,r)=>{
   if(!r||!id(r.bankTransactionId)||txSeen.has(r.bankTransactionId)||r.settlementVerified!==true)throw new TypeError("invalid_settlement");
-  txSeen.add(r.bankTransactionId);const next=n+amount(r.amountMinor,"allocation");if(!Number.isSafeInteger(next))throw new TypeError("amount_overflow");return next;
+  txSeen.add(r.bankTransactionId);
+  const credit=amount(r.amountMinor,"allocation");
+  if(credit===0)throw new TypeError("invalid_zero_settlement");
+  const next=n+credit;if(!Number.isSafeInteger(next))throw new TypeError("amount_overflow");return next;
  },0);
  if(paid>total)throw new TypeError("overpayment");
  return Object.freeze({currency:"BWP",invoiceTotalMinor:total,depositDueMinor:deposit,scheduledMinor:scheduled,unscheduledMinor:total-scheduled,settledMinor:paid,outstandingMinor:total-paid,instalments:Object.freeze(schedule),previewOnly:true});

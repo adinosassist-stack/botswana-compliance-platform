@@ -3,9 +3,12 @@ import assert from "node:assert/strict";
 import {evaluateOwnerPaymentEvidence as evaluate, PAYMENT_DECISIONS as D} from "../server/payments/owner-payment-evidence-policy.mjs";
 
 const invoice={id:"inv-1",tenantId:"tenant-a",amountMinor:150000,currency:"BWP"};
-const bankEvidence={invoiceId:"inv-1",tenantId:"tenant-a",source:"trusted_bank_reconciliation",status:"settled",bankTransactionId:"bank-123",amountMinor:150000,currency:"BWP"};
+const bankEvidence={invoiceId:"inv-1",tenantId:"tenant-a",source:"trusted_bank_reconciliation",status:"settled",bankTransactionId:"bank-123",amountMinor:150000,currency:"BWP",
+ finality:"confirmed",reversed:false,chargeback:false,reversalPending:false,settledAt:"2026-11-21T10:00:00Z",observedAt:"2026-11-21T10:10:00Z",accountKey:"thebe-bank-account-1"};
 const reviewer={authenticated:true,role:"owner",tenantId:"tenant-a",actorId:"owner-1"};
-const input=(patch={})=>({tenantId:"tenant-a",invoice,bankEvidence,reviewer,priorBankAllocations:[],...patch});
+const companyAccount={accountKey:"thebe-bank-account-1",currency:"BWP",ownerVerified:true};
+const asOf="2026-11-21T10:20:00Z";
+const input=(patch={})=>({tenantId:"tenant-a",invoice,bankEvidence,reviewer,companyAccount,asOf,priorBankAllocations:[],...patch});
 
 test("trusted settled funds with authenticated tenant owner can be marked verified",()=>{
   assert.equal(evaluate(input()).decision,D.VERIFIED);
@@ -201,4 +204,31 @@ test("invoice reallocation cannot succeed through unauthenticated reviewer",()=>
   const priorBankAllocations=[{bankTransactionId:"bank-old",invoiceId:"inv-1",tenantId:"tenant-a"}];
   const outcome=evaluate(input({bankEvidence:{...bankEvidence,bankTransactionId:"bank-fresh"},reviewer:{...reviewer,authenticated:false},priorBankAllocations}));
   assert.notEqual(outcome.decision,D.VERIFIED);
+});
+
+test("reversed, charged back, pending reversal and unconfirmed finality never qualify",()=>{
+ for(const patch of [{reversed:true},{reversed:undefined},{chargeback:true},
+                     {chargeback:undefined},{reversalPending:true},
+                     {reversalPending:undefined},{finality:"pending"},{finality:undefined}]){
+  const out=evaluate(input({bankEvidence:{...bankEvidence,...patch}}));
+  assert.equal(out.decision,D.REVIEW_REQUIRED);
+  assert.equal(out.reason,"bank_settlement_not_final");
+ }
+});
+test("credit must be settled before observation and cannot be future dated",()=>{
+ for(const patch of [{settledAt:"2026-11-21T10:15:00Z",observedAt:"2026-11-21T10:10:00Z"},
+                     {settledAt:"2026-11-21T10:30:00Z",observedAt:"2026-11-21T10:40:00Z"},
+                     {observedAt:"bad"},{settledAt:undefined},{observedAt:undefined}]){
+  assert.equal(evaluate(input({bankEvidence:{...bankEvidence,...patch}})).decision,D.REVIEW_REQUIRED);
+ }
+ assert.equal(evaluate(input({asOf:"2026-11-21T10:01:00Z"})).decision,D.REVIEW_REQUIRED);
+});
+test("funds from a different or unauthorised business bank account do not qualify",()=>{
+ for(const patch of [{accountKey:"other-account"},{accountKey:undefined}]){
+  assert.equal(evaluate(input({bankEvidence:{...bankEvidence,...patch}})).reason,"company_bank_account_unverified");
+ }
+ for(const badCompanyAccount of [{...companyAccount,ownerVerified:false},
+                               {...companyAccount,currency:"USD"},undefined]){
+  assert.equal(evaluate(input({companyAccount:badCompanyAccount})).decision,D.REVIEW_REQUIRED);
+ }
 });

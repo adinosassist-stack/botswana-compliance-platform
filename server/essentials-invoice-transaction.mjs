@@ -21,7 +21,12 @@ export async function createEssentialsInvoiceDraft({principal,tenantId,quotation
    if(existing.tenantId!==tenantId||existing.sourceQuotationId!==quotationId||
       existing.customerId!==quotation.customerId||
       existing.createdByUserId!==principal.userId||
-      existing.status!=="draft")throw new Error("idempotency_conflict");
+      existing.status!=="draft"||
+      (existing.totalMinor!==undefined&&existing.totalMinor!==quotation.totalMinor)||
+      (existing.currency!==undefined&&existing.currency!=="BWP")||
+      (existing.sourceQuotationReference!==undefined&&
+       existing.sourceQuotationReference!==quotation.reference))
+      throw new Error("idempotency_conflict");
    return Object.freeze({invoice:existing,replayed:true});
   }
   const invoiceReference=await tx.reserveInvoiceReference({tenantId});
@@ -30,7 +35,10 @@ export async function createEssentialsInvoiceDraft({principal,tenantId,quotation
   if(!invoice||invoice.tenantId!==tenantId||invoice.sourceQuotationId!==quotationId||
      invoice.customerId!==quotation.customerId||
      invoice.createdByUserId!==principal.userId||
-     invoice.status!=="draft")throw new Error("invalid_insert_result");
+     invoice.status!=="draft"||
+     (invoice.totalMinor!==undefined&&invoice.totalMinor!==prepared.draft.totalMinor)||
+     (invoice.currency!==undefined&&invoice.currency!=="BWP"))
+     throw new Error("invalid_insert_result");
   return Object.freeze({invoice,replayed:false});
  });
 }
