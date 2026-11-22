@@ -26,6 +26,7 @@ function ensureLegalUi(){
  }
 }
 ensureLegalUi();
+if(status){status.setAttribute("role","status");status.setAttribute("aria-live","polite");status.setAttribute("aria-atomic","true")}
 const encoder=new TextEncoder();
 const client=window.BW?.api?.createClient?.({getCsrfToken:()=>"",onUnauthorized:()=>{},onError:()=>{}});
 const params=new URLSearchParams(location.search);
@@ -33,7 +34,7 @@ const allowedPlans=new Set(["starter","business","pro","network","partner"]);
 let mode=params.get("mode")==="register"?"register":"login";
 let registrationMode="invalid";
 let busy=false;
-function safeNext(){const raw=String(params.get("next")||"/app/").trim();return raw.startsWith("/")&&!raw.startsWith("//")?raw:"/app/"}
+function safeNext(){const raw=String(params.get("next")||"/app/").trim();if(!raw.startsWith("/")||raw.startsWith("//")||/[\\\\\u0000-\u001f\u007f]/.test(raw))return "/app/";try{const parsed=new URL(raw,location.origin);return parsed.origin===location.origin&&parsed.pathname.startsWith("/")?parsed.pathname+parsed.search+parsed.hash:"/app/"}catch{return "/app/"}}
 const next=safeNext();
 function selectedPlan(){const plan=String(params.get("plan")||"business");return allowedPlans.has(plan)?plan:"business"}
 function setStatus(message,type="bad"){status.textContent=String(message||"");status.className=`status show${type==="good"?" good":""}`}
