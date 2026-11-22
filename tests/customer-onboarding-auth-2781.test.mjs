@@ -56,3 +56,10 @@ test("business name validation precedes registration proof and network submissio
   assert.ok(validation>=0&&busy>validation);
   assert.match(source,/setStatus\("Enter a business name with at least 2 characters\."\);company\.focus\(\);return/);
 });
+
+
+test("workspace selection excludes missing tenant IDs and focuses valid choices",()=>{
+  assert.match(source,/if\(!tenantId\)continue/);
+  assert.match(source,/if\(!workspace\.options\.length\)/);
+  assert.match(source,/workspaceField\.hidden=false;setStatus\("Choose the workspace you want to open\.","good"\);workspace\.focus\(\)/);
+});
