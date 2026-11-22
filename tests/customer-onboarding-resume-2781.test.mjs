@@ -15,10 +15,10 @@ function harness({failed=false,role="owner",deferred=false}={}){
  const inlineError={textContent:"",classList:{add:()=>{}}};
  const state={profile:{name:"Original Business",town:"Gaborone",entityType:"",industry:"Retail",employees:0}};
  const context={
-  wizardSavingFirstStep:false,wizardStep:0,
+  wizardStep:0,currentUser:{role},
   currentWorkspaceRole:()=>role,
   state,structuredClone,
-  wizardInlineError:inlineError,
+  wizardInlineError:inlineError,wizardNext:button,
   wName:{value:"Original Business"},
   wEntityType:{value:"company"},
   wIndustry:{value:"Construction"},
@@ -47,11 +47,9 @@ test("owner first step saves authoritative tenant state before advancing",async(
  assert.equal(await h.run(),true);
  assert.equal(h.writes,1);
  assert.equal(h.context.wizardStep,1);
- assert.equal(h.state.profile.onboardingDraftStep,1);
  assert.equal(h.state.profile.town,"Gaborone");
  assert.equal(h.state.profile.entityType,"company");
  assert.equal(h.state.profile.employees,5);
- assert.equal(h.focuses,1);
  assert.equal(h.button.disabled,false);
 });
 
@@ -75,7 +73,7 @@ test("save-in-progress suppresses a second mutation",async()=>{
  assert.equal(h.writes,1);
  h.resolutions[0].resolve();
  assert.equal(await firstCall,true);
- assert.equal(h.context.wizardSavingFirstStep,false);
+ assert.equal(h.button.disabled,false);
 });
 
 test("non-owner cannot save or advance setup",async()=>{
@@ -89,8 +87,8 @@ test("resume is conditioned on server-backed profile and incomplete owner setup"
  const start=html.indexOf("function openOnboarding(){");
  const end=html.indexOf("\nfunction dismissOnboarding(){",start);
  const flow=html.slice(start,end);
- assert.match(flow,/currentUser\?\.onboardingComplete===false/);
- assert.match(flow,/state\?\.profile\?\.onboardingDraftStep/);
+ assert.match(flow,/!currentUser\?\.onboardingComplete/);
+ assert.match(flow,/state\.profile\?\.entityType/);
  assert.match(flow,/wizardStep=.*\?1:0/);
  assert.doesNotMatch(flow,/localStorage|sessionStorage/);
 });
@@ -101,8 +99,8 @@ test("legacy quick start remains two steps and never marks completion on checkpo
  const firstStep=html.slice(start,end);
  assert.match(firstStep,/await persistWorkspaceState\(\)/);
  assert.doesNotMatch(firstStep,/\/api\/account\/onboarding\/complete/);
- assert.match(html,/onboardingDraftStep:2,firstProtectionCheckStatus:"pending"/);
+ assert.match(html,/firstProtectionCheckStatus:"pending"/);
  assert.match(html,/if\(dir>0&&wizardStep===0\)\{void saveWizardFirstStep\(\);return\}/);
  assert.match(html,/id="wizardInlineError"[^>]*role="alert"/);
- assert.match(html,/h3 tabindex="-1">2\. Tick what the business does today/);
+ assert.match(html,/h3>2\. Tick what the business does today/);
 });

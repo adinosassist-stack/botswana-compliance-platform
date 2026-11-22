@@ -3620,7 +3620,6 @@ let lastWorkspaceView="dashboard";
 function showView(id,options={}){if(!roleCanView(id)){console.warn("Role denied view",id,currentWorkspaceRole());if(!options?.silent){let sr=document.getElementById("srStatus");if(sr)sr.textContent="This area is not available for your role."}return false}const target=document.getElementById(id);if(!target){console.warn("Unknown view",id);return false}const workspaceNavigationEpoch=options?.preserveNavigationEpoch===true?workspaceViewNavigationEpoch:++workspaceViewNavigationEpoch;if(target.dataset.lazyView==="1"&&options?.lazyHydrated!==true){target.dataset.lazyNavigationEpoch=String(workspaceNavigationEpoch);activateLazyWorkspacePlaceholder(id,target);void hydrateLazyWorkspaceView(id,target,options);return true}lastWorkspaceView=id;document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));target.classList.add("active");if(id==="propertyintelligence")scheduleResidentPropertyVisibility(target);document.querySelectorAll(".nav button").forEach(b=>{let active=b.dataset.view===id;b.classList.toggle("active",active);if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});const nb=document.querySelector(`[data-view="${id}"]`),meta=(typeof COMMAND_META!=="undefined"?COMMAND_META[id]:null);document.getElementById("pageTitle").textContent=meta?.[0]||nb?.textContent?.trim()||"BW Compliance OS";updateMobileNav(id);let sr=document.getElementById("srStatus");if(sr)sr.textContent="Opened "+document.getElementById("pageTitle").textContent;window.scrollTo({top:0,behavior:prefersReducedMotion()?"auto":"smooth"});if(options?.skipDataRefresh)setTimeout(animateViewItems,20);if(!options?.skipDataRefresh&&!options?.roleRedirect)scheduleWorkspaceNavigationRender(id,target,workspaceNavigationEpoch);globalThis.dispatchEvent?.(new CustomEvent("thebe:workspace-view-change",{detail:{id}}));if(!STANDALONE_PREVIEW&&!options?.skipDataRefresh&&!options?.roleRedirect){if(id==="billing")queueMicrotask(()=>void loadBilling());if(id==="audit")queueMicrotask(()=>void hydrateWorkspaceAudit())}return true}
 
 let wizardStep=0;
-let wizardSavingFirstStep=false;
 let firstValueTopTarget="workhub";
 function scheduleOwnerOnboarding(){
  const eligible=()=>currentUser?.role==="owner"&&currentUser?.onboardingComplete===false&&safeSessionGet("bw_onboarding_dismissed")!=="1";
@@ -3640,9 +3639,9 @@ function scheduleOwnerOnboarding(){
 }
 function openOnboarding(){
  if(currentWorkspaceRole()!=="owner"){let sr=document.getElementById("srStatus");if(sr)sr.textContent="Only the account owner can complete initial business setup.";return false}
- loadWizard();wizardStep=currentUser?.onboardingComplete===false&&Number(state?.profile?.onboardingDraftStep||0)>=1&&String(wEntityType.value||"").trim()?1:0;if(wizardInlineError){wizardInlineError.textContent="";wizardInlineError.classList.remove("show")}renderWizard();openModal("onboardModal")
+ loadWizard();wizardStep=!currentUser?.onboardingComplete&&!!state.profile?.entityType?1:0;if(wizardInlineError){wizardInlineError.textContent="";wizardInlineError.classList.remove("show")}renderWizard();openModal("onboardModal")
 }
-function dismissOnboarding(){if(wizardSavingFirstStep)return false;safeSessionSet("bw_onboarding_dismissed","1");closeModal("onboardModal")}
+function dismissOnboarding(){safeSessionSet("bw_onboarding_dismissed","1");closeModal("onboardModal")}
 function loadWizard(){
  let p=state.profile||{};
  wName.value=p.name||currentUser?.tenantName||"My Business";const d=document.getElementById("wizardCompanyNameDisplay");if(d)d.textContent=wName.value;
@@ -3660,43 +3659,19 @@ function renderWizard(){
  }
 }
 async function saveWizardFirstStep(){
- if(wizardSavingFirstStep||currentWorkspaceRole()!=="owner")return false;
- wizardSavingFirstStep=true;
- const previousProfile=structuredClone(state.profile||{});
- const button=document.getElementById("wizardNext");
- if(button){button.disabled=true;button.textContent="Saving step…"}
- try{
-  const count=Number(wEmployees.value);
-  if(!Number.isSafeInteger(count)||count<0)throw Error("Enter a valid non-negative employee count.");
-  updateActiveCompany(company=>{
-   company.profile={...company.profile,name:wName.value.trim()||company.profile?.name||"My Business",
-    entityType:wEntityType.value,industry:wIndustry.value,employees:count,onboardingDraftStep:1};
-  });
-  // Only tenant-scoped server state is the resume checkpoint; not session/local storage.
-  await persistWorkspaceState();
-  wizardStep=1;renderWizard();
-  document.querySelector("#onboardModal .wizardstep.active h3")?.focus({preventScroll:true});
-  return true;
- }catch(error){
-  updateActiveCompany(company=>{company.profile=previousProfile});
-  if(wizardInlineError){
-   wizardInlineError.textContent="Step not saved. Check your connection and retry Next. "+String(error?.message||"");
-   wizardInlineError.classList.add("show");
-  }
-  return false;
- }finally{
-  wizardSavingFirstStep=false;
-  if(button){button.disabled=false;renderWizard()}
- }
+ if(wizardNext.disabled||currentUser?.role!=="owner")return false;wizardNext.disabled=true;
+ const prior=state.profile;
+ try{updateActiveCompany(c=>{c.profile={...c.profile,entityType:wEntityType.value,industry:wIndustry.value,employees:+wEmployees.value}});await persistWorkspaceState();wizardStep=1;renderWizard();return true}
+ catch{updateActiveCompany(c=>{c.profile=prior});wizardInlineError.textContent="Step not saved. Retry.";wizardInlineError.classList.add("show");return false}
+ finally{wizardNext.disabled=false}
 }
 function wizardMove(dir){
- if(wizardSavingFirstStep)return;
  if(wizardInlineError){wizardInlineError.textContent="";wizardInlineError.classList.remove("show")}
  if(dir>0&&wizardStep===0&&!wEntityType.value){if(wizardInlineError){wizardInlineError.textContent="Choose the legal entity type so BW can select entity-specific work without guessing.";wizardInlineError.classList.add("show")}return}
- if(dir>0&&wizardStep===0&&(!String(wIndustry.value||"").trim()||!Number.isSafeInteger(Number(wEmployees.value))||Number(wEmployees.value)<0)){if(wizardInlineError){wizardInlineError.textContent="Add the industry and a valid employee count.";wizardInlineError.classList.add("show")}return}
+ if(dir>0&&wizardStep===0&&(!String(wIndustry.value||"").trim()||!Number.isInteger(+wEmployees.value)||Number(wEmployees.value)<0)){if(wizardInlineError){wizardInlineError.textContent="Add the industry and a valid employee count.";wizardInlineError.classList.add("show")}return}
  if(dir>0&&wizardStep===0){void saveWizardFirstStep();return}
  if(dir>0&&wizardStep===1){saveWizard();return}
- wizardStep=Math.max(0,Math.min(1,wizardStep+dir));renderWizard();document.querySelector("#onboardModal .wizardstep.active h3")?.focus({preventScroll:true})
+ wizardStep=Math.max(0,Math.min(1,wizardStep+dir));renderWizard()
 }
 function firstValueFactRows(){
  const p=state?.profile||{},rows=[];
@@ -3731,7 +3706,7 @@ async function runFirstProtectionCheck(){
 async function saveWizard(){
  if(currentWorkspaceRole()!=="owner")return false;if(wizardInlineError){wizardInlineError.textContent="";wizardInlineError.classList.remove("show")};const btn=document.getElementById("wizardNext");if(btn){btn.disabled=true;btn.textContent="Saving…"}
  const prior=state.profile||{},payeStatus=String(wPaye.value||confirmedStatus(prior,"paye")),vatStatus=String(wVat.value||confirmedStatus(prior,"vat")),tradeStatus=String(wTrade.value||confirmedStatus(prior,"trade"));
- const profile={...prior,name:wName.value.trim()||"Unnamed Business",incorporationDate:wIncorporationDate.value||"",entityType:wEntityType.value||"",industry:wIndustry.value,town:wTown.value.trim(),employees:+wEmployees.value||0,turnover:optionalNonNegativeNumber(wTurnover),paye:statusBoolean(payeStatus),payeStatus,vat:statusBoolean(vatStatus),vatStatus,vatCategory:wVatCategory.value||"",trade:statusBoolean(tradeStatus),tradeStatus,citizenOwned:wCitizen.value==="true",premises:!!wPremises.checked,tradeAnniversary:wTradeAnniversary.value,manufacturing:!!wManufacturing.checked,mfgActivity:prior.mfgActivity||"",mfgFactory:!!prior.mfgFactory,mfgAnniversary:prior.mfgAnniversary||"",data:!!wData.checked,tender:!!wTender.checked,cipaMonth:wCipaMonth.value,cipaUin:prior.cipaUin||"",cipaStatus:prior.cipaStatus||"",registeredOffice:prior.registeredOffice||"",onboardingDraftStep:2,firstProtectionCheckStatus:"pending",firstProtectionCheckAt:null};updateActiveCompany(c=>{c.profile=profile});
+ const profile={...prior,name:wName.value.trim()||"Unnamed Business",incorporationDate:wIncorporationDate.value||"",entityType:wEntityType.value||"",industry:wIndustry.value,town:wTown.value.trim(),employees:+wEmployees.value||0,turnover:optionalNonNegativeNumber(wTurnover),paye:statusBoolean(payeStatus),payeStatus,vat:statusBoolean(vatStatus),vatStatus,vatCategory:wVatCategory.value||"",trade:statusBoolean(tradeStatus),tradeStatus,citizenOwned:wCitizen.value==="true",premises:!!wPremises.checked,tradeAnniversary:wTradeAnniversary.value,manufacturing:!!wManufacturing.checked,mfgActivity:prior.mfgActivity||"",mfgFactory:!!prior.mfgFactory,mfgAnniversary:prior.mfgAnniversary||"",data:!!wData.checked,tender:!!wTender.checked,cipaMonth:wCipaMonth.value,cipaUin:prior.cipaUin||"",cipaStatus:prior.cipaStatus||"",registeredOffice:prior.registeredOffice||"",firstProtectionCheckStatus:"pending",firstProtectionCheckAt:null};updateActiveCompany(c=>{c.profile=profile});
  try{await persistWorkspaceState();await apiJson("/api/account/onboarding/complete",{method:"POST",headers:{"content-type":"application/json"},body:"{}"});if(currentUser)currentUser.onboardingComplete=true;safeSessionSet("bw_onboarding_dismissed","0");logEvent("GUIDED_SETUP_COMPLETED",{industry:state.profile.industry,employees:state.profile.employees});closeModal("onboardModal");renderAll();showView("dashboard",{skipDataRefresh:true});await runFirstProtectionCheck()}
  catch(e){if(wizardInlineError){wizardInlineError.textContent=`Your setup was not marked complete: ${e.message||e}. Your answers remain on screen so you can retry safely.`;wizardInlineError.classList.add("show")}}
  finally{if(btn){btn.disabled=false;btn.textContent="Show my first check"}}
