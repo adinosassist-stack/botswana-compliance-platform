@@ -43,3 +43,16 @@ test("invalid onboarding inputs receive keyboard focus and helpful mode-specific
   assert.match(source,/company\.focus\(\);throw new Error/);
   assert.match(source,/mode==="register"\?"Create a password/);
 });
+
+
+test("existing users can sign in with legacy passwords while new registrations require twelve characters",()=>{
+  assert.match(source,/mode==="register"&&secret\.length<12/);
+  assert.match(source,/mode==="login"&&!secret/);
+  assert.doesNotMatch(source,/if\(secret\.length<12\)/);
+});
+test("business name validation precedes registration proof and network submission",()=>{
+  const validation=source.indexOf('if(mode==="register"&&String(company.value||"").trim().length<2)');
+  const busy=source.indexOf("busy=true;submit.disabled=true",validation);
+  assert.ok(validation>=0&&busy>validation);
+  assert.match(source,/setStatus\("Enter a business name with at least 2 characters\."\);company\.focus\(\);return/);
+});
