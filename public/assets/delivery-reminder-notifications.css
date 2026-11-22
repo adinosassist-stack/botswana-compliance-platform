@@ -167,3 +167,17 @@ body.thebe-voice-active .thebe-delivery-manager-popup{
   min-width:44px;min-height:44px;
  }
 }
+
+/* Mobile notification sheet: independent of draggable bell position. */
+@media(max-width:1000px){
+ .thebe-delivery-manager-popup{
+  position:fixed!important;
+  left:8px!important;right:8px!important;width:auto!important;
+  top:calc(env(safe-area-inset-top,0px) + 12px)!important;
+  bottom:calc(104px + env(safe-area-inset-bottom,0px))!important;
+  max-height:none!important;min-height:0!important;
+  overflow-y:auto!important;overscroll-behavior:contain;
+  z-index:9999;
+ }
+ .thebe-delivery-manager-bell{touch-action:none;user-select:none;-webkit-user-select:none}
+}
