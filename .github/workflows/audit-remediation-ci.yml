@@ -92,6 +92,7 @@ jobs:
           node --test tests/customer-onboarding-auth-2781.test.mjs
           node --test tests/customer-onboarding-resume-2781.test.mjs
           node --test tests/customer-onboarding-first-check-2781.test.mjs
+          node --test tests/customer-onboarding-journey-2781.test.mjs
           node --test tests/customer-onboarding-accessibility-2781.test.mjs
 
       - name: Signed HOLD browser lifecycle governance

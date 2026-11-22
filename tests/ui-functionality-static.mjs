@@ -10,6 +10,12 @@ const pub=path.join(root,"public");
 const html=fs.readFileSync(path.join(pub,"index.html"),"utf8");
 const domHtml=html.replace(/<script\b[\s\S]*?<\/script>/gi,"");
 const eventDelegation=fs.readFileSync(path.join(pub,"js/event-delegation.js"),"utf8");
+const ownerJourney=fs.readFileSync(path.join(pub,"js/owner-onboarding-journey-v1.js"),"utf8");
+const ownerJourneyBoundIds=new Set(["ownerJourneyRefresh","ownerJourneyBusinessAction","ownerJourneyWorkspaceAction","ownerJourneyFirstAction"]);
+for(const id of ownerJourneyBoundIds){
+  const needle=`el("${id}")?.addEventListener("click",`;
+  assert.ok(ownerJourney.includes(needle),`onboarding control ${id} must retain its click handler`);
+}
 const worker=fs.readFileSync(path.join(root,"cloudflare/src/worker.js"),"utf8");
 const lazyManifest=JSON.parse(fs.readFileSync(path.join(pub,"assets/workspace-view-fragments-20261001a.json"),"utf8"));
 const lazyHtml=Object.values(lazyManifest.views||{}).join("\n");
@@ -96,6 +102,7 @@ function buttonHasBinding(attrs){
   if(/\bdata-bw-onclick=/.test(attrs)||/\bdata-view=/.test(attrs)||/\btype="submit"/.test(attrs)||/\bdisabled\b/.test(attrs))return true;
   const id=attrs.match(/\bid="([^"]+)"/)?.[1];
   if(!id)return false;
+  if(ownerJourneyBoundIds.has(id))return ownerJourney.includes(`el("${id}")?.addEventListener("click",`);
   const safe=regexEscape(id);
   return new RegExp("closest\\?\\.\\([\"']#"+safe+"[\"']\\)").test(html)
     ||new RegExp("getElementById\\([\"']"+safe+"[\"']\\)[\\s\\S]{0,220}(?:addEventListener|onclick\\s*=)").test(html);
