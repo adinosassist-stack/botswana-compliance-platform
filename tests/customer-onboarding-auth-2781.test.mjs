@@ -77,3 +77,15 @@ test("authentication form reports busy state and always clears it",()=>{
   assert.match(source,/busy=true;submit\.disabled=true;form\.setAttribute\("aria-busy","true"\)/);
   assert.match(source,/finally\{busy=false;submit\.disabled=false;form\.removeAttribute\("aria-busy"\)/);
 });
+
+const directRegistrationSource=fs.readFileSync(new URL("../public/js/register-direct.js",import.meta.url),"utf8");
+test("direct registration announces status and focuses invalid fields",()=>{
+  assert.match(directRegistrationSource,/status\.setAttribute\("aria-live","polite"\)/);
+  for(const id of ["companyName","email","password"]){
+    assert.ok(directRegistrationSource.includes('document.getElementById("'+id+'")?.focus()'),id+" focus missing");
+  }
+});
+test("direct registration sets and clears busy state",()=>{
+  assert.match(directRegistrationSource,/form\.setAttribute\("aria-busy","true"\)/);
+  assert.match(directRegistrationSource,/form\.removeAttribute\("aria-busy"\)/);
+});
