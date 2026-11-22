@@ -122,18 +122,26 @@ body.thebe-voice-active .thebe-delivery-manager-popup{
  }
 }
 
-/* #2778: Android delivery notification sheet. Reserve the bottom nav lane,
-   but let the panel rise on short/zoomed screens instead of collapsing to a
-   sliver beneath the 210px bell. Dynamic viewport units adapt to Chrome UI. */
+/* #2778: Tie the notification sheet to the bell. The pair moves up together
+   as the visual viewport shrinks, preserving a clickable 44px bell, a 4px gap,
+   and 104px for the bottom navigation and safe-area on Android. */
 @media(max-width:1000px){
+ .thebe-delivery-manager-bell{
+  top:clamp(calc(env(safe-area-inset-top, 0px) + 8px),
+            calc(100vh - 478px),
+            calc(env(safe-area-inset-top, 0px) + 162px));
+  top:clamp(calc(env(safe-area-inset-top, 0px) + 8px),
+            calc(100dvh - 478px),
+            calc(env(safe-area-inset-top, 0px) + 162px));
+ }
  .thebe-delivery-manager-popup{
-  top:clamp(calc(env(safe-area-inset-top, 0px) + 8px),
-            calc(100vh - 390px),
-            calc(env(safe-area-inset-top, 0px) + 210px));
-  top:clamp(calc(env(safe-area-inset-top, 0px) + 8px),
-            calc(100dvh - 390px),
-            calc(env(safe-area-inset-top, 0px) + 210px));
-  bottom:calc(88px + env(safe-area-inset-bottom, 0px));
+  top:calc(clamp(calc(env(safe-area-inset-top, 0px) + 8px),
+                 calc(100vh - 478px),
+                 calc(env(safe-area-inset-top, 0px) + 162px)) + 48px);
+  top:calc(clamp(calc(env(safe-area-inset-top, 0px) + 8px),
+                 calc(100dvh - 478px),
+                 calc(env(safe-area-inset-top, 0px) + 162px)) + 48px);
+  bottom:calc(104px + env(safe-area-inset-bottom, 0px));
   left:10px;right:10px;width:auto;
   max-height:none;min-height:0;overflow-y:auto;
   box-sizing:border-box;padding:16px;
@@ -157,18 +165,5 @@ body.thebe-voice-active .thebe-delivery-manager-popup{
  .thebe-delivery-manager-popup button.thebe-delivery-dismiss{
   position:sticky;top:0;float:right;z-index:2;
   min-width:44px;min-height:44px;
- }
-}
-@media(max-width:1000px) and (max-height:500px){
- .thebe-delivery-manager-popup{
-  top:clamp(calc(env(safe-area-inset-top, 0px) + 8px),
-            calc(100dvh - 280px),
-            calc(env(safe-area-inset-top, 0px) + 110px));
-  bottom:calc(56px + env(safe-area-inset-bottom, 0px));
- }
-}
-@media(max-width:1000px) and (max-height:360px){
- .thebe-delivery-manager-popup{
-  top:calc(env(safe-area-inset-top, 0px) + 8px);
  }
 }
