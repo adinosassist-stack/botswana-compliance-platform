@@ -38,6 +38,7 @@ function popup(){
 function setPopupOpen(open,focusChange=false){
   const panel=popup();
   panel.hidden=!open;
+  syncReminderViewport();
   const toggle=byId("thebeDeliveryManagerBell");
   if(toggle)toggle.setAttribute("aria-expanded",String(open));
   if(focusChange){
@@ -45,17 +46,37 @@ function setPopupOpen(open,focusChange=false){
     if(target&&!target.hidden)target.focus({preventScroll:true});
   }
 }
-// Keep the floating control in the visible, unobstructed mobile area.
-const bellPositionKey="thebe.delivery.bell.position.v1";
+// The bell is movable on small screens. Store only device-local coordinates,
+// never reminder content, account information, or authentication details.
+const bellPositionKey="thebe.delivery.bell.position.v2";
+const mobileBell=()=>window.matchMedia("(max-width: 1000px)").matches;
+function syncReminderViewport(){
+  const panel=byId("thebeDeliveryManagerPopup");
+  if(!panel)return;
+  const vv=window.visualViewport;
+  const top=vv?.offsetTop||0,left=vv?.offsetLeft||0;
+  const right=Math.max(0,window.innerWidth-left-(vv?.width||window.innerWidth));
+  const bottom=Math.max(0,window.innerHeight-top-(vv?.height||window.innerHeight));
+  panel.style.setProperty("--thebe-vv-top",top+"px");
+  panel.style.setProperty("--thebe-vv-bottom",bottom+"px");
+  panel.style.setProperty("--thebe-vv-left",left+"px");
+  panel.style.setProperty("--thebe-vv-right",right+"px");
+}
+function clearBellCoordinates(button){
+  for(const property of ["left","top","right","bottom"])button.style.removeProperty(property);
+}
 function positionBell(button,x,y){
   const vv=window.visualViewport;
   const width=vv?.width||window.innerWidth,height=vv?.height||window.innerHeight;
   const left=vv?.offsetLeft||0,top=vv?.offsetTop||0;
   const rect=button.getBoundingClientRect();
   const w=rect.width||44,h=rect.height||44;
-  const safeBottom=104;
-  const px=Math.max(left+8,Math.min(x,left+width-w-8));
-  const py=Math.max(top+8,Math.min(y,top+height-h-safeBottom));
+  // Bottom rail, its touch targets, and Android safe-area remain protected.
+  const minX=left+8,minY=top+8;
+  const maxX=Math.max(minX,left+width-w-8);
+  const maxY=Math.max(minY,top+height-h-104);
+  const px=Math.max(minX,Math.min(x,maxX));
+  const py=Math.max(minY,Math.min(y,maxY));
   button.style.setProperty("left",px+"px","important");
   button.style.setProperty("top",py+"px","important");
   button.style.setProperty("right","auto","important");
@@ -63,21 +84,39 @@ function positionBell(button,x,y){
   return {x:px,y:py};
 }
 function enableBellDrag(button){
-  if(!window.matchMedia("(max-width: 1000px)").matches)return;
-  let saved;
-  try{saved=JSON.parse(localStorage.getItem(bellPositionKey)||"null")}catch{}
-  const restore=()=>{if(saved&&Number.isFinite(saved.x)&&Number.isFinite(saved.y))positionBell(button,saved.x,saved.y)};
-  restore();
-  window.addEventListener("resize",restore);
-  window.visualViewport?.addEventListener("resize",restore);
-  window.visualViewport?.addEventListener("scroll",restore);
-  let start=null,suppressClick=false;
-  button.style.touchAction="none";
+  let saved=null,start=null,suppressClick=false;
+  try{
+    const parsed=JSON.parse(localStorage.getItem(bellPositionKey)||"null");
+    if(parsed&&Number.isFinite(parsed.x)&&Number.isFinite(parsed.y))saved=parsed;
+  }catch{}
+  const persist=value=>{
+    saved=value;
+    try{
+      if(value)localStorage.setItem(bellPositionKey,JSON.stringify(value));
+      else localStorage.removeItem(bellPositionKey);
+    }catch{}
+  };
+  const sync=()=>{
+    syncReminderViewport();
+    if(!mobileBell()){
+      clearBellCoordinates(button);
+      return;
+    }
+    const rect=button.getBoundingClientRect();
+    const origin=saved||{x:rect.left,y:rect.top};
+    const positioned=positionBell(button,origin.x,origin.y);
+    // Retain the user's preference; re-clamp it when the viewport changes.
+    if(saved)saved=positioned;
+  };
+  window.addEventListener("resize",sync);
+  window.addEventListener("orientationchange",sync);
+  window.visualViewport?.addEventListener("resize",sync);
+  window.visualViewport?.addEventListener("scroll",sync);
   button.addEventListener("pointerdown",event=>{
-    if(event.button!==0)return;
+    if(!mobileBell()||!event.isPrimary||event.button!==0)return;
     start={id:event.pointerId,x:event.clientX,y:event.clientY,
       rect:button.getBoundingClientRect(),moved:false};
-    button.setPointerCapture(event.pointerId);
+    button.setPointerCapture?.(event.pointerId);
   });
   button.addEventListener("pointermove",event=>{
     if(!start||event.pointerId!==start.id)return;
@@ -85,29 +124,39 @@ function enableBellDrag(button){
     if(Math.hypot(dx,dy)>7)start.moved=true;
     if(start.moved)positionBell(button,start.rect.left+dx,start.rect.top+dy);
   });
-  const finish=event=>{
+  button.addEventListener("pointerup",event=>{
     if(!start||event.pointerId!==start.id)return;
     if(start.moved){
       const r=button.getBoundingClientRect();
-      saved=positionBell(button,r.left,r.top);
-      try{localStorage.setItem(bellPositionKey,JSON.stringify(saved))}catch{}
+      persist(positionBell(button,r.left,r.top));
       suppressClick=true;
     }
     start=null;
-  };
-  button.addEventListener("pointerup",finish);
-  button.addEventListener("pointercancel",finish);
+  });
+  button.addEventListener("pointercancel",event=>{
+    if(start?.id===event.pointerId){start=null;sync()}
+  });
+  // Capture precedes the ordinary open handler so dragging never opens the sheet.
   button.addEventListener("click",event=>{
-    if(suppressClick){event.preventDefault();event.stopImmediatePropagation();suppressClick=false}
+    if(suppressClick){
+      event.preventDefault();event.stopImmediatePropagation();suppressClick=false;
+    }
   },true);
   button.addEventListener("keydown",event=>{
-    if(!event.altKey||!["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(event.key))return;
+    if(!event.altKey||!mobileBell())return;
+    if(event.key==="Home"){
+      event.preventDefault();
+      persist(null);clearBellCoordinates(button);sync();
+      return;
+    }
+    if(!["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(event.key))return;
     event.preventDefault();
     const r=button.getBoundingClientRect();
-    saved=positionBell(button,r.left+(event.key==="ArrowLeft"?-24:event.key==="ArrowRight"?24:0),
-      r.top+(event.key==="ArrowUp"?-24:event.key==="ArrowDown"?24:0));
-    try{localStorage.setItem(bellPositionKey,JSON.stringify(saved))}catch{}
+    persist(positionBell(button,
+      r.left+(event.key==="ArrowLeft"?-24:event.key==="ArrowRight"?24:0),
+      r.top+(event.key==="ArrowUp"?-24:event.key==="ArrowDown"?24:0)));
   });
+  sync();
 }
 function bell(){
   let button=byId("thebeDeliveryManagerBell");
@@ -116,9 +165,11 @@ function bell(){
   button.setAttribute("aria-controls","thebeDeliveryManagerPopup");
   button.setAttribute("aria-expanded","false");
   button.addEventListener("click",()=>setPopupOpen(popup().hidden,true));
-  button.title="Drag to move; Alt + arrow keys to reposition";
+  button.title="Drag to move. Alt + arrow keys to reposition; Alt + Home to reset.";
+  button.setAttribute("aria-keyshortcuts","Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight Alt+Home");
+  document.body.append(button);
   enableBellDrag(button);
-  document.body.append(button);return button;
+  return button;
 }
 function updateWorkspace(items){
   const section=byId("dailyreports");
