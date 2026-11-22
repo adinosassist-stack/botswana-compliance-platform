@@ -71,3 +71,9 @@ test("registration announces ordered progress through accessible status",()=>{
   for(const step of steps){const position=source.indexOf(step);assert.ok(position>previous,step);previous=position}
   assert.match(source,/status\.setAttribute\("aria-live","polite"\)/);
 });
+
+
+test("authentication form reports busy state and always clears it",()=>{
+  assert.match(source,/busy=true;submit\.disabled=true;form\.setAttribute\("aria-busy","true"\)/);
+  assert.match(source,/finally\{busy=false;submit\.disabled=false;form\.removeAttribute\("aria-busy"\)/);
+});
