@@ -1170,8 +1170,7 @@ async function addEmployeeRecord(){
       }catch(controlError){notifyUser("Employee saved, but contract/asset controls need review: "+controlError.message)}
     }
     document.getElementById("eName").value="";document.getElementById("eRole").value="";document.getElementById("eStart").value="";
-    /* Mutation closure: reconcile every employee-dependent surface immediately.
-       Do not wait for a page reload to make the authoritative POST visible. */
+    /* Refresh employee surfaces after mutation. */
     await renderEmployeeRegister();
     await renderPeopleOperationsHub();
     await renderPeopleReportingSetup();
@@ -1377,7 +1376,7 @@ function save(){
  stageWorkspaceState();clearTimeout(saveTimer);saveTimer=setTimeout(()=>persistWorkspaceState().catch(err=>{console.error("Save failed",err);showSyncError(err.message)}),180)
 }
 function logEvent(type,data={}){
- /* UI activity is not authoritative audit history. Server mutation endpoints write the sealed ledger. */
+ /* Server owns the audit ledger. */
 }
 const WORKSPACE_ROLES=new Set(["owner","manager","reviewer","auditor"]);
 const MANAGER_BLOCKED=new Set(["security","payments","entitlements","billing","integrations","profile","taxprofile","datadeletion","accountdata"]);
@@ -1460,7 +1459,7 @@ function buildComplianceReportHtml(){
  let rows=controls.map(r=>`<tr><td>${escapeHtml(r.area)}</td><td>${escapeHtml(r.title)}</td><td>${escapeHtml(r.status())}</td><td>${escapeHtml(r.risk)}</td><td>${escapeHtml(r.authority)}</td></tr>`).join("");
  let ev=(state.evidence||[]).map(e=>`<tr><td>${escapeHtml(e.name)}</td><td>${escapeHtml(e.cat)}</td><td>${e.verified?"Verified":"Unverified"}</td><td>${escapeHtml(e.date||"—")}</td></tr>`).join("");
  return `<!doctype html><html><head><meta charset="utf-8"><title>Compliance Report</title><style>body{font-family:Arial,sans-serif;color:#111;margin:32px;font-size:13px}h1{font-size:24px}h2{margin-top:26px;font-size:17px}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #ccc;padding:8px;text-align:left}.scores{display:flex;gap:30px;margin:18px 0}.scorebox{border:1px solid #ccc;padding:12px;min-width:140px}.noprint{margin-bottom:20px}@media print{.noprint{display:none}}
-/* v14 UI/UX refresh — calmer Linear/Vanta-inspired operational shell */
+
 :root{--bg:#f7f8f9;--card:#ffffff;--ink:#111514;--muted:#66706c;--line:#e7eae9;--accent:#176b4f;--soft:#eef6f2;--sidebar:#121715;--sidebar2:#191f1c;--shadow:0 1px 2px rgba(16,24,20,.04),0 8px 24px rgba(16,24,20,.035)}
 body{font-size:14px;letter-spacing:-.005em;background:var(--bg)}
 .shell{grid-template-columns:232px minmax(0,1fr)}
@@ -1489,7 +1488,7 @@ input,select,textarea{border-color:#dfe4e1;border-radius:8px;padding:9px 10px;fo
 @media(max-width:650px){main{padding:14px 12px 32px}.top{margin:-14px -12px 14px;padding:10px 12px}.top>.actions{width:100%;justify-content:flex-start}.top .companyswitch{max-width:100%}.top .companyswitch select{min-width:115px}.prodchip{display:none}.hero{padding:18px}.dashboard-intro{display:block}.g4,.g3,.g2,.formgrid{grid-template-columns:1fr}.card{padding:14px}.score{font-size:29px}}
 
 
-/* v18 motion system */
+
 :root{
   --ease-out:cubic-bezier(.22,1,.36,1);
   --ease-inout:cubic-bezier(.65,0,.35,1);
@@ -1617,7 +1616,7 @@ input:focus,select:focus,textarea:focus{
 }
 
 
-/* v19 social authentication */
+
 .social-auth-stack{display:grid;gap:10px;margin:14px 0 12px}
 .social-auth-btn{
   width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
@@ -1644,7 +1643,7 @@ input:focus,select:focus,textarea:focus{
 
 
 <style id="v78-12127-proof-to-action">
-/* v78 1.21.27 — proof-to-action: close the first evidence gap from the action itself. */
+
 .proof-next-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center;margin:0 0 14px;padding:18px;border:1px solid #d7e4dd;border-radius:18px;background:#f5faf7}.proof-next-card h3{font-size:19px;margin:3px 0 5px}.proof-next-card p{margin:0;max-width:820px}.proof-next-card .actions{justify-content:flex-end}.proof-next-card[data-state="clear"]{background:#f8faf9;border-color:#e1e7e3}.proof-next-card[data-state="error"]{background:#fff7f4;border-color:#ecd5cd}
 .proof-action-progress{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0 2px}.proof-action-progress span{font-size:12px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 8px}.proof-action-progress b{margin-right:3px}
 .proof-action-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);gap:12px;margin-top:14px}.proof-action-panel{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fbfcfb;min-width:0}.proof-action-panel h3{font-size:15px;margin:2px 0 10px}.proof-requirement-list,.proof-candidate-list{display:grid;gap:8px}.proof-requirement{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid #e2e7e4;border-radius:12px;background:#fff;padding:11px;text-align:left}.proof-requirement.selected{border-color:#8ab49f;box-shadow:0 0 0 2px rgba(30,112,78,.08)}.proof-requirement b{display:block;font-size:13.5px}.proof-requirement small{display:block;color:var(--muted);margin-top:3px;line-height:1.35}.proof-requirement .btn{min-height:36px;padding:7px 10px}.proof-candidate{border:1px solid #e2e7e4;border-radius:12px;background:#fff;padding:11px}.proof-candidate .between{gap:10px}.proof-upload-box{margin-top:10px;border-top:1px solid #e6ebe8;padding-top:12px}.proof-upload-box input{margin-top:6px}.proof-flow-note{font-size:12px;line-height:1.45;color:var(--muted);margin-top:8px}.proof-action-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}.proof-action-footer .actions{justify-content:flex-end}.proof-action-status{min-height:20px;font-size:12.5px;color:var(--muted)}.proof-action-status.good{color:var(--good)}.proof-action-status.bad{color:var(--bad)}
@@ -1851,7 +1850,7 @@ async function refreshLiveDailyOperations(){
     const dashboard=await reportingAnalyticsJson(`/api/daily-reporting/dashboard?date=${encodeURIComponent(date)}${locationId?`&locationId=${encodeURIComponent(locationId)}`:""}`);
     if(epoch!==opsReportingSetupEpoch||document.visibilityState!=="visible"||!document.getElementById("dailyreports")?.classList.contains("active")||date!==(document.getElementById("opsReportDate")?.value||browserGaboroneDate())||locationId!==(document.getElementById("opsLocationFilter")?.value||""))return;
     applyOpsDashboard(dashboard);
-  }catch(_){/* Keep the last confirmed dashboard visible; manual Refresh surfaces errors. */}
+  }catch(_){}
   finally{opsLiveRefreshInFlight=false}
 }
 setInterval(()=>void refreshLiveDailyOperations(),30000);
@@ -2091,8 +2090,8 @@ async function renderOnboardingBanner(){
   try{
     const r=await apiJson("/api/account/onboarding");
     const pendingFirst=r.complete&&currentWorkspaceRole()==="owner"&&state?.profile?.firstProtectionCheckStatus==="pending";
-    if(!r.complete){el.style.display="block";el.safeHTML='<div class="between row"><div><b>Finish your 2-minute setup</b><div class="small">Add three business basics, then BW will generate your first protection check.</div></div><button class="btn soft" type="button" data-bw-onclick="openOnboarding()">Finish setup</button></div>'}
-    else if(pendingFirst){el.style.display="block";el.safeHTML='<div class="between row"><div><b>Your business facts are saved</b><div class="small">The first protection check still needs to complete. No compliance conclusion has been assumed.</div></div><button class="btn soft" type="button" data-bw-onclick="runFirstProtectionCheck()">Run first check</button></div>'}
+    if(!r.complete){el.style.display="block";el.safeHTML='<div class="between row"><div><b>Finish your 2-minute setup</b><div class="small">Add the basics for your first protection check.</div></div><button class="btn soft" type="button" data-bw-onclick="openOnboarding()">Finish setup</button></div>'}
+    else if(pendingFirst){el.style.display="block";el.safeHTML='<div class="between row"><div><b>Your business facts are saved</b><div class="small">First check pending. No compliance conclusion yet.</div></div><button class="btn soft" type="button" data-bw-onclick="runFirstProtectionCheck()">Run first check</button></div>'}
     else el.style.display="none";
   }catch{el.style.display="none"}
 }
@@ -3675,10 +3674,10 @@ function wizardMove(dir){
 }
 function firstValueFactRows(){
  const p=state?.profile||{},rows=[];
- if(confirmedStatus(p,"vat")==="unknown")rows.push(["VAT registration","Confirm the business's actual BURS VAT registration status before VAT filing actions are enabled.","taxprofile"]);
- if(Number(p.employees||0)>0&&confirmedStatus(p,"paye")==="unknown")rows.push(["PAYE registration","You have employees recorded. Confirm actual PAYE registration/status; BW will not infer it from headcount or salary thresholds.","taxprofile"]);
- if(confirmedStatus(p,"trade")==="unknown")rows.push(["Trade / business licence","Confirm whether an authority-issued licence or registration is held or needs tracking. BW will not infer legal applicability from industry alone.","licenceos"]);
- if(!p.cipaMonth&&["company","business_name"].includes(String(p.entityType||"")))rows.push(["CIPA timing","Add the authority-confirmed annual-return or renewal month when known.","corporate"]);
+ if(confirmedStatus(p,"vat")==="unknown")rows.push(["VAT registration","Confirm BURS VAT registration status before filing.","taxprofile"]);
+ if(Number(p.employees||0)>0&&confirmedStatus(p,"paye")==="unknown")rows.push(["PAYE registration","Confirm PAYE registration/status; employee count does not prove registration.","taxprofile"]);
+ if(confirmedStatus(p,"trade")==="unknown")rows.push(["Trade / business licence","Confirm authority-issued licence/registration; industry alone is not proof.","licenceos"]);
+ if(!p.cipaMonth&&["company","business_name"].includes(String(p.entityType||"")))rows.push(["CIPA timing","Add the confirmed annual-return or renewal month.","corporate"]);
  return rows;
 }
 function renderFirstValueResult(items=[],meta={}){
@@ -3708,7 +3707,7 @@ async function saveWizard(){
  const prior=state.profile||{},payeStatus=String(wPaye.value||confirmedStatus(prior,"paye")),vatStatus=String(wVat.value||confirmedStatus(prior,"vat")),tradeStatus=String(wTrade.value||confirmedStatus(prior,"trade"));
  const profile={...prior,name:wName.value.trim()||"Unnamed Business",incorporationDate:wIncorporationDate.value||"",entityType:wEntityType.value||"",industry:wIndustry.value,town:wTown.value.trim(),employees:+wEmployees.value||0,turnover:optionalNonNegativeNumber(wTurnover),paye:statusBoolean(payeStatus),payeStatus,vat:statusBoolean(vatStatus),vatStatus,vatCategory:wVatCategory.value||"",trade:statusBoolean(tradeStatus),tradeStatus,citizenOwned:wCitizen.value==="true",premises:!!wPremises.checked,tradeAnniversary:wTradeAnniversary.value,manufacturing:!!wManufacturing.checked,mfgActivity:prior.mfgActivity||"",mfgFactory:!!prior.mfgFactory,mfgAnniversary:prior.mfgAnniversary||"",data:!!wData.checked,tender:!!wTender.checked,cipaMonth:wCipaMonth.value,cipaUin:prior.cipaUin||"",cipaStatus:prior.cipaStatus||"",registeredOffice:prior.registeredOffice||"",firstProtectionCheckStatus:"pending",firstProtectionCheckAt:null};updateActiveCompany(c=>{c.profile=profile});
  try{await persistWorkspaceState();await apiJson("/api/account/onboarding/complete",{method:"POST",headers:{"content-type":"application/json"},body:"{}"});if(currentUser)currentUser.onboardingComplete=true;safeSessionSet("bw_onboarding_dismissed","0");logEvent("GUIDED_SETUP_COMPLETED",{industry:state.profile.industry,employees:state.profile.employees});closeModal("onboardModal");renderAll();showView("dashboard",{skipDataRefresh:true});await runFirstProtectionCheck()}
- catch(e){if(wizardInlineError){wizardInlineError.textContent=`Your setup was not marked complete: ${e.message||e}. Your answers remain on screen so you can retry safely.`;wizardInlineError.classList.add("show")}}
+ catch(e){if(wizardInlineError){wizardInlineError.textContent=`Your setup was not marked complete: ${e.message||e}. Retry when ready.`;wizardInlineError.classList.add("show")}}
  finally{if(btn){btn.disabled=false;btn.textContent="Show my first check"}}
 }
 
