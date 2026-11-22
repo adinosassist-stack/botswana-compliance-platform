@@ -90,6 +90,7 @@ jobs:
           set -euo pipefail
           node --check public/js/auth-portal.js
           node --test tests/customer-onboarding-auth-2781.test.mjs
+          node --test tests/customer-onboarding-resume-2781.test.mjs
 
       - name: Signed HOLD browser lifecycle governance
         shell: bash

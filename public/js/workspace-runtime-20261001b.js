@@ -59,7 +59,6 @@ let authMode="login";let selectedPublicPlan="business";let billingInfo=null;
 let serverStateVersion=1;
 let saveTimer=null;
 let cipaRegistryData=null;
-
 const rules=[
  {id:"cipa",area:"Corporate",title:"Keep CIPA annual return current",risk:"High",authority:"CIPA",effectiveFrom:"2022-06-03",review:"Annual/source change",requiresExpert:false,
   applies:p=>true,status:()=>state.completed.cipa?"Compliant":"Action required",
@@ -111,9 +110,6 @@ const rules=[
   applies:p=>p.trade && p.premises,status:()=>"Verify premises evidence",
   source:"Government of Botswana – Trade Licence Application",url:"https://www.gov.bw/trade/trade-license-application?page=0",why:"New trade applications can require proof of premises, zoning and environmental-health inspection records."}
 ];
-
-
-
 const sourceConflicts=[];
 const sourceResolutions=[
  {id:"vat_threshold",area:"Tax",topic:"Compulsory VAT registration threshold",resolved:"2026-09-28",
@@ -123,7 +119,6 @@ const sourceResolutions=[
   handling:"Resolved as a source-governance issue: legacy P2,500/P3,000 snippets are not executable salary thresholds. PAYE calculations use the current dated BURS tax table, and PAYE workflows still require confirmed PAYE status.",
   source:{label:"BURS — Tax Table 2026",url:"https://burs.org.bw/index.php/tax/tax-downloads?download=953%3Atax-table-2026"}}
 ];
-
 const sourceRegistry=[
  {authority:"CIPA",domain:"cipa.co.bw / sesigo.cipa.co.bw",coverage:"Company registration, annual returns, constitutions, beneficial ownership, corporate records and available APIs",confidence:"Primary",review:"Monthly"},
  {authority:"BURS",domain:"burs.org.bw",coverage:"PAYE, VAT, tax payments/returns and taxpayer guidance",confidence:"Primary",review:"Monthly"},
@@ -133,7 +128,6 @@ const sourceRegistry=[
  {authority:"Procurement",domain:"ppadb.co.bw / procurement portals",coverage:"Procurement registration and tender requirements",confidence:"Primary/portal-specific",review:"Per tender"},
  {authority:"Data protection",domain:"gov.bw / official legal publications",coverage:"Data Protection Act and implementation guidance",confidence:"Primary",review:"On regulator guidance"}
 ];
-
 const lawChanges=[
  {date:"2026-09-01",title:"Employment and Labour Relations Act commencement",impact:"High",text:"The latest government statement dated 19 August 2026 says the Employment and Labour Relations Act 2025 commences on 1 September 2026, with implementation regulations being finalised.",source:"DailyNews / Ministry of Labour and Home Affairs",url:"https://dailynews.gov.bw/news-detail/92813"},
  {date:"2026 transition",title:"Fixed-term contract duration control",impact:"High",text:"Government's June 2026 implementation explanation says fixed-term contracts are limited to 12 months unless objectively justified. The product now flags >12-month fixed-term metadata for review instead of assuming invalidity.",source:"DailyNews / Ministry of Labour and Home Affairs",url:"https://dailynews.gov.bw/news-detail/91734"},
@@ -149,8 +143,6 @@ const lawChanges=[
  {date:"Ongoing",title:"CIPA annual return compliance",impact:"High",text:"Maintain annual-return due-month tracking and evidence of filing/payment. The product should escalate before a company enters penalty/removal risk.",source:"CIPA",url:"https://www.cipa.co.bw/"},
  {date:"Monthly / tax period",title:"BURS PAYE and VAT deadlines",impact:"High",text:"PAYE and VAT rules create recurring high-value reminders. Production should calculate due dates from taxpayer status and period, not hard-code a universal date.",source:"BURS",url:"https://www.burs.org.bw/index.php/tax/payments"}
 ];
-
-
 const reservedManufacturing=["School uniforms","School furniture","Burglar bars","Protective clothing","Sorghum milling","Cement bricks","Bread and confectionery","Peanut butter","Bottled water","Traditional sour milk","Packaging","Floor polish","Traditional leather products","Traditional crafts","Signage","Fencing materials","Candles","Ice making","Meat processing"];
 function p_mfg_status(){
  if(!state.profile.manufacturing)return "Not applicable";
@@ -163,7 +155,6 @@ function mfgRoute(){
  if(!Number.isFinite(turnover)||turnover<=0)return "Set annual turnover to determine route";
  return turnover>5000000?"Department of Industrial Affairs":"District / Town / City Council";
 }
-
 function applicable(){return rules.filter(r=>r.applies(state.profile))}
 function riskClass(r){return r==="High"?"bad":r==="Medium"?"warn":"good"}
 function scoreData(a=applicable()){
@@ -179,8 +170,6 @@ function scoreData(a=applicable()){
  let comp=Math.max(35,100-penalties),prot=Math.max(30,90-protection);
  return {comp,prot,open:a.filter(r=>/Action required|gaps|verify|Professional review required/i.test(r.status())).length};
 }
-
-
 const securityControls=[
  {id:"auth",name:"Real authentication and secure server sessions",prototype:true,production:true},
  {id:"tenant",name:"Server-enforced tenant isolation on application data",prototype:true,production:true},
@@ -205,15 +194,11 @@ function renderSecurity(){
  q("securityScore").textContent=score;q("securityBlockers").textContent=blockers;
  q("securityControls").safeHTML=securityControls.map(c=>`<div class="securityrow"><div><b>${c.name}</b></div><span class="badge ${c.prototype?"good":"warn"}">${c.prototype?"Prototype partial":"Production required"}</span><span class="small muted">${c.production?"Required":"Optional"}</span></div>`).join("")
 }
-
-
 function renderGlobalConflict(){
  let el=document.getElementById("globalConflictBanner");if(!el)return;
  if(!sourceConflicts.length){el.style.display="none";return}
  el.style.display="block";el.safeHTML=`<div class="between row"><div><b>Source validation required</b><div class="small">${sourceConflicts.length} unresolved source conflict(s) are safely blocking affected automation.</div></div><button class="btn alt" data-bw-onclick="showView('sources')">Review sources</button></div>`;
 }
-
-
 const COMMAND_META={
   dashboard:["Home","Home","overview"],moneyhub:["Money","Money","cash finance receivables reconciliation"],propertyintelligence:["Property Intelligence","Property","property real estate rental yield mortgage cash flow investment"],workhub:["Work & deadlines","Work","actions deadlines changes"],sites:["Sites & field work","Work","sites jobs field work tasks"],obligations:["What needs action","Work","actions obligations compliance"],calendar:["Deadlines","Work","calendar due dates"],statutorycalendar:["Filing deadlines","Work","BURS CIPA statutory filing"],changes:["Rule updates","Work","law regulation changes"],
   peopleops:["People","People","employees daily work"],employees:["Employees","People","staff register"],dailyreports:["Daily reports","People","branch reports reporting coverage performance"],employer:["Employment cases","People","HR disciplinary grievance"],employmentcontrols:["Contracts & employment controls","People","labour contracts"],employershield:["Employment protection","People","contracts fixed term process"],privacy:["Privacy","People","personal data"],
@@ -314,7 +299,6 @@ async function renderManagementReviewInbox(){
 async function assignManagementReview(sourceType,sourceId,reviewerUserId){if(!reviewerUserId)return false;try{await apiJson(`/api/review-inbox/${encodeURIComponent(sourceType)}/${encodeURIComponent(sourceId)}/assign`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({reviewerUserId})});await renderManagementReviewInbox();return true}catch(e){notifyUser(e.message||String(e));await renderManagementReviewInbox();return false}}
 function openManagementReviewDecision(sourceType,sourceId,decision){const item=(managementReviewState.items||[]).find(x=>String(x.sourceType)===String(sourceType)&&String(x.sourceId)===String(sourceId));if(!item)return;pendingReviewDecision={sourceType,sourceId,decision,item};const title=document.getElementById("reviewDecisionTitle"),summary=document.getElementById("reviewDecisionSummary"),note=document.getElementById("reviewDecisionNote"),att=document.getElementById("reviewDecisionAttest"),err=document.getElementById("reviewDecisionError"),btn=document.getElementById("reviewDecisionSubmit");if(title)title.textContent=decision==="approve"?"Approve review":"Return for more work";if(summary)summary.safeHTML=`<b>${escapeHtml(item.title||"Review item")}</b><small>${escapeHtml(item.kind||"Review")} · ${escapeHtml(reviewEvidenceLabel(item.evidence))} · ${escapeHtml(reviewAgeLabel(item.ageHours))}</small>`;if(note)note.value="";if(att)att.checked=false;if(err)err.textContent="";if(btn)btn.textContent=decision==="approve"?"Approve & record":"Return & record";openModal("reviewDecisionModal")}
 async function submitManagementReviewDecision(){const p=pendingReviewDecision;if(!p)return;const note=(document.getElementById("reviewDecisionNote")?.value||"").trim(),att=!!document.getElementById("reviewDecisionAttest")?.checked,err=document.getElementById("reviewDecisionError"),btn=document.getElementById("reviewDecisionSubmit");if(note.length<10){if(err)err.textContent="Add a short decision note (at least 10 characters).";return}if(!att){if(err)err.textContent="Confirm the review attestation before recording the decision.";return}try{if(btn){btn.disabled=true;btn.textContent="Recording…"}if(STANDALONE_PREVIEW){managementReviewState.items=(managementReviewState.items||[]).filter(x=>!(x.sourceType===p.sourceType&&x.sourceId===p.sourceId));closeModal("reviewDecisionModal");const box=document.getElementById("managementReviewList");if(box)box.safeHTML='<div class="notice good"><b>Preview decision recorded locally.</b><div class="small">Production records reviewer identity, note, attestation and source-state change in the audit trail.</div></div>';return}await apiJson(`/api/review-inbox/${encodeURIComponent(p.sourceType)}/${encodeURIComponent(p.sourceId)}/decision`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({decision:p.decision,note,attestation:true})});closeModal("reviewDecisionModal");pendingReviewDecision=null;await Promise.allSettled([renderManagementReviewInbox(),renderManagementReviewAudit(),renderWorkHub(),renderUnifiedNextActions(),renderComplianceObligations(),renderCompanyActions(),renderHrCases(),renderHomeDecisionCenter?.()])}catch(e){if(err)err.textContent=e.message||String(e)}finally{if(btn){btn.disabled=false;btn.textContent=p?.decision==="approve"?"Approve & record":"Return & record"}}}
-
 let managementReReviewState={items:[],counts:{},policy:{}};
 function focusManagementReReview(){const el=document.getElementById("managementReReviewCard");if(el)el.scrollIntoView({behavior:"smooth",block:"start"})}
 async function claimManagementReReview(id){try{await apiJson(`/api/re-review/${encodeURIComponent(id)}/claim`,{method:"POST"});await Promise.allSettled([renderManagementReReview(),renderManagementReviewInbox()])}catch(e){notifyUser(e.message||String(e))}}
@@ -325,7 +309,6 @@ async function renderManagementReReview(){
     box.safeHTML=items.length?items.map(x=>`<div class="rereview-row ${x.overdue?"overdue":""}"><div><div class="section-eyebrow">${escapeHtml(String(x.source_type||"review").replaceAll("_"," "))}</div><h4 style="margin:2px 0 4px">Re-review required</h4><div class="small"><b>What changed:</b> ${escapeHtml(x.reason||"Approval basis changed.")}</div><div class="rereview-meta"><span>prior reviewer · ${escapeHtml(x.prior_reviewer_name||"recorded")}</span><span>response due · ${escapeHtml(x.response_due_at?new Date(x.response_due_at).toLocaleString():"unknown")}</span><span>${x.overdue?"overdue":"within response target"}</span></div></div><div class="actions"><button class="btn alt" data-bw-onclick="claimManagementReReview('${escapeHtml(x.id)}')">${x.reviewer_user_id?"Claimed":"Claim"}</button><button class="btn" data-bw-onclick="decideManagementReReview('${escapeHtml(x.id)}','approve')">Re-approve</button><button class="btn soft" data-bw-onclick="decideManagementReReview('${escapeHtml(x.id)}','return')">Return</button></div></div>`).join(""):'<div class="notice good"><b>No stale approvals are waiting for re-review.</b><div class="small">This is a queue state, not a legal all-clear. Sealed approvals are still dynamically checked against current source facts and proof.</div></div>';
   }catch(e){set("reReviewOpen","—");set("reReviewUnassigned","—");set("reReviewOverdue","—");box.safeHTML=`<div class="notice bad"><b>Re-review queue unavailable</b><div class="small">${escapeHtml(e.message||String(e))}. Do not assume stale approvals have been resolved.</div><button class="btn alt" style="margin-top:8px" data-bw-onclick="renderManagementReReview()">Retry</button></div>`}
 }
-
 let managementReviewAuditState={items:[],counts:{},policy:{}};
 function focusManagementReviewAudit(){const el=document.getElementById("managementReviewAuditCard");if(el){el.scrollIntoView({behavior:"smooth",block:"start"});setTimeout(()=>el.querySelector("button")?.focus(),250)}}
 function reviewAuditValidityLabel(v){return v==="valid"?"Current":v==="stale"?"Needs re-review":v==="returned"?"Returned":"Seal incomplete"}
@@ -337,7 +320,6 @@ async function renderManagementReviewAudit(){
     box.safeHTML=items.length?items.map(x=>{const proof=(x.evidence||[]).filter(e=>e.evidenceId),proofHtml=proof.length?`<div class="review-audit-proof">${proof.slice(0,4).map(e=>`<span>${escapeHtml(e.displayName||e.label||"Evidence")} · ${escapeHtml(String(e.contentSha256||"").slice(0,10)||"no hash")}${e.validUntil?` · valid to ${escapeHtml(new Date(e.validUntil).toLocaleDateString())}`:""}</span>`).join("")}${proof.length>4?`<span>+${proof.length-4} more proof item${proof.length-4===1?"":"s"}</span>`:""}</div>`:'<div class="muted small" style="margin-top:7px">No evidence file was sealed with this decision.</div>';const changes=(x.changes||[]).length?`<div class="notice ${x.validity==="stale"?"bad":""}" style="margin-top:8px"><b>Changed after decision</b><div class="small">${escapeHtml((x.changes||[]).join(" "))}</div></div>`:"";return `<div class="review-audit-row ${escapeHtml(x.validity||"")}"><div><div class="section-eyebrow">${escapeHtml(String(x.sourceType||"review").replaceAll("_"," "))}</div><h4>${escapeHtml(x.title||"Review decision")}</h4><small>${escapeHtml(x.decision==="approve"?"Approved":"Returned")} by ${escapeHtml(x.reviewerName||"Recorded reviewer")} · ${escapeHtml(x.attestedAt?new Date(x.attestedAt).toLocaleString():"time unavailable")}</small><div class="review-audit-meta"><span>decision · ${escapeHtml(x.decision||"")}</span><span>sealed status · ${escapeHtml(x.sealedStatus||"unknown")}</span><span>attested</span></div><div class="small" style="margin-top:7px"><b>Why:</b> ${escapeHtml(x.note||"No note recorded")}</div>${proofHtml}${changes}</div><div class="review-audit-status"><span class="badge ${x.validity==="valid"?"good":x.validity==="stale"?"warn":""}">${escapeHtml(reviewAuditValidityLabel(x.validity))}</span><div class="muted small">Decision ID<br>${escapeHtml(String(x.id||"").slice(0,14))}</div></div></div>`}).join(""):'<div class="notice"><b>No sealed review decisions yet.</b><div class="small">The audit trail will populate after an explicit approve or return decision. An empty history is not an approval or compliance conclusion.</div></div>';
   }catch(e){set("reviewAuditValid","—");set("reviewAuditStale","—");set("reviewAuditReturned","—");set("workAuditDetail","Audit status unavailable. Do not assume prior approvals are still current.");box.safeHTML=`<div class="notice bad"><b>Review audit trail unavailable</b><div class="small">${escapeHtml(e.message||String(e))}. Do not rely on a prior approval without verifying the sealed decision and current proof.</div><button class="btn alt" style="margin-top:8px" data-bw-onclick="renderManagementReviewAudit()">Retry</button></div>`}
 }
-
 let executiveExceptionState={items:[],counts:{},policy:{},accountability:{items:[],counts:{},policy:{}}},pendingExecutiveIntervention=null,pendingExecutiveInterventionProgress=null,pendingExecutiveInterventionClose=null,pendingSystemicCorrective=null,pendingSystemicCorrectiveClose=null,pendingControlPreventiveAction=null,pendingControlReplacementGovernance=null,pendingControlReplacementRetirement=null;
 function executiveExceptionAction(x){
   if(x.kind==="missed_deadline")return `<button class="btn alt" type="button" data-bw-onclick="openActionProof('regulatory','${safeId(x.id)}')">Work deadline</button>`;
@@ -466,7 +448,6 @@ async function renderExecutiveExceptions(){
     const accountabilityList=document.getElementById("executiveAccountabilityList"),patterns=accountability.items||[];if(accountabilityList)accountabilityList.safeHTML=patterns.length?patterns.map(x=>`<div class="executive-accountability-row ${escapeHtml(x.severity||'high')}"><b>${escapeHtml(x.title||'Leadership intervention')}</b><small>${escapeHtml(x.ownerName||'Recorded management owner')} · ${escapeHtml(String(x.status||'recorded').replaceAll('_',' '))} · recurring execution pattern</small><div class="pattern-tags">${(x.patterns||[]).map(p=>`<span>${escapeHtml(p.label||p.kind||'pattern')}</span>`).join("")}</div>${systemicCorrectiveSummary(x)}${systemicCorrectiveActions(x)}</div>`).join(""):'<div class="notice good"><b>No recurring intervention pattern is currently detected.</b><div class="small">This is not an employee-performance score or a legal all-clear. It only means no intervention crossed the configured repeat-pattern thresholds in the 180-day lookback.</div></div>';
   }catch(e){set("execExceptionTotal","—");set("execExceptionCritical","—");set("execExceptionReview","—");set("execExceptionInterventions","—");set("execExceptionFollowup","—");set("execExceptionReady","—");set("execAccountabilityCount","—");set("execCorrectiveRequired","—");const accountabilityList=document.getElementById("executiveAccountabilityList");if(accountabilityList)accountabilityList.safeHTML='<div class="notice bad"><b>Accountability pattern check unavailable · corrective-action / effectiveness / sustainability / relapse-prevention / preventive-effectiveness check unavailable · control-replacement governance check unavailable</b><div class="small">Do not infer that recurring execution problems are absent. Do not infer that required corrective actions, effectiveness checks, early-warning preventive actions, preventive-effectiveness checks or sustainability relapses are absent. Do not infer that required control-replacement governance is absent.</div></div>';list.safeHTML=`<div class="notice bad"><b>Leadership exception queue unavailable</b><div class="small">${escapeHtml(e.message||String(e))}. Do not assume overdue or high-risk exceptions are clear.</div><button class="btn alt" type="button" style="margin-top:8px" data-bw-onclick="renderExecutiveExceptions()">Retry</button></div>`}
 }
-
 async function renderMoneyHub(){
  if(!roleCanView("moneyhub")||!["owner","manager"].includes(currentWorkspaceRole()))return;
  if(document.getElementById("moneyWorkspaceV307")&&typeof globalThis.ThebeMoneyWorkspaceV307?.refresh==="function")return globalThis.ThebeMoneyWorkspaceV307.refresh({force:false});
@@ -559,7 +540,6 @@ async function renderSettingsHub(){
     }
   }catch(e){set("settingsActiveSessions","—");set("settingsLinkedMethods","—");set("settingsSecurityDetail","Account security summary unavailable. Open Account security to inspect the current session list.")}
 }
-
 function renderAll(){
  const dashboardMetricsNeeded=document.getElementById("dashboard")?.classList.contains("active")||(window.__THEBE_WORKSPACE_READY__!==true&&roleLandingView(currentUser?.role)==="dashboard");
  if(dashboardMetricsNeeded){
@@ -609,9 +589,6 @@ function nextAnniversary(){
 function fmtDate(d){return d?d.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}):"Not set"}
 function daysUntil(d){return d?Math.ceil((d-new Date())/86400000):null}
 function deadlineClass(d){let n=daysUntil(d);return n===null?"":n<0?"deadlineLate":n<=14?"deadlineSoon":"deadlineOk"}
-
-
-
 function monthsBetween(a,b){
  let s=new Date(a+"T00:00:00"),e=new Date(b+"T00:00:00");
  if(isNaN(s)||isNaN(e)||e<s)return 0;
@@ -637,8 +614,6 @@ function runTerminationGuard(){
  terminationGuardOutput.safeHTML=`<div class="${block?"rulebad":"verifiedsrc"}"><b>${block?"BLOCK AUTOMATED TERMINATION":"Readiness controls completed"}</b><div class="small" style="margin-top:6px">Reason: ${escapeHtml(reason)}</div>${block?`<div class="small">Missing/uncertain: ${missing.join(", ")}.</div><div class="source">The app will not generate a final dismissal instruction while these controls are unresolved.</div>`:`<div class="small">This still does not certify that termination is lawful. Final documents and calculations must match the applicable facts, contract, legislation and regulations.</div>`}</div>`;
  logEvent("TERMINATION_GUARD_RUN",{reason,blocked:block,missing})
 }
-
-
 function rulePublishState(r){
  if((r.id==="vat"||r.id==="paye") && sourceConflicts.some(c=>c.id.startsWith(r.id)))return "blocked";
  if(r.requiresExpert)return "review";
@@ -652,7 +627,6 @@ function renderPublishing(){
  q("pubBlocked").textContent=rows.filter(r=>r.publish==="blocked").length;
  q("publishingList").safeHTML=rows.map(r=>`<div class="item"><div class="between row"><div><b>${escapeHtml(r.title)}</b><div class="muted small">${escapeHtml(r.area)} · ${escapeHtml(r.authority)}</div></div><span class="publishstate ${escapeHtml(r.publish)}">${r.publish==="live"?"Executable":r.publish==="review"?"Review-gated":"Blocked"}</span></div><div class="rulemeta"><span>Effective ${escapeHtml(r.effectiveFrom)}</span><span>${escapeHtml(r.review)}</span><span>${escapeHtml(r.source)}</span></div></div>`).join("")
 }
-
 function openTaxFacts(focusId=""){
  const d=document.getElementById("taxFactDetails");if(d)d.open=true;
  if(focusId)setTimeout(()=>document.getElementById(focusId)?.focus(),40);
@@ -691,7 +665,6 @@ function saveTaxFacts(){
  updateActiveCompany(c=>{c.profile={...c.profile,vatCategory:category,annualTaxableSupplies:supplies,highestMonthlyEmployeePay:pay}});
  save();renderTaxProfile();const status=document.getElementById("taxSaveStatus");if(status)status.textContent="Confirmed tax facts saved. No threshold conclusion was inferred.";let sr=document.getElementById("srStatus");if(sr)sr.textContent="Tax facts saved without threshold inference.";return true;
 }
-
 const corpChanges={
  director:{title:"Director changed",checks:["Update company particulars through the applicable CIPA maintenance workflow.","Re-check beneficial-owner/control implications.","Update bank, licence, tender and internal authority records where affected.","Preserve board/shareholder resolutions and appointment/cessation evidence."]},
  shareholder:{title:"Shareholder changed",checks:["Update shareholder particulars with CIPA where required.","Reassess beneficial ownership and nature of interest.","Re-check citizen-reserved trade/manufacturing activities.","Update constitution/share records and tender ownership declarations."]},
@@ -716,7 +689,6 @@ function renderCorporate(){
  q("corpEvidence").safeHTML=req.map(x=>`<div class="checkline"><span class="dot ${x[1]?"good":"warn"}"></span><div><b>${x[0]}</b><div class="muted small">${x[1]?"Verified evidence found":"Add/verify evidence"}</div></div></div>`).join("");
  renderCipaRegistry()
 }
-
 const cipaFieldLabels={registration_number:"CIPA UIN / registration number",legal_name:"Registered legal name",entity_type:"Entity type",registration_status:"Registry status",registration_date:"Registration date",annual_return_month:"Annual-return month",registered_office:"Registered office"};
 function seedCipaRegistryForm(force=false){
  const panel=document.getElementById("cipaRegistryPanel");if(!panel)return;const companyChanged=panel.dataset.companyId!==String(state.id);if(companyChanged){panel.dataset.companyId=String(state.id);panel.dataset.seeded=""}
@@ -766,7 +738,6 @@ async function refreshWorkspaceStateAfterCipa(){
  const st=await apiJson("/api/state");serverStateVersion=st.version||serverStateVersion;if(st.state?.companies?.length){const next=structuredClone(st.state);next.activeRole=currentWorkspaceRole();replaceWorkspaceStore(next)}
  const panel=document.getElementById("cipaRegistryPanel");if(panel)panel.dataset.seeded="";renderAll();
 }
-
 function saveManufacturingProfile(){
  updateActiveCompany(c=>{c.profile={...c.profile,manufacturing:true,mfgActivity:mfgActivity.value,mfgFactory:mfgFactory.value==="true",mfgAnniversary:mfgAnniversary.value}});
  logEvent("MANUFACTURING_PROFILE_UPDATED",{activity:state.profile.mfgActivity,factory:state.profile.mfgFactory,turnover:state.profile.turnover});
@@ -800,7 +771,6 @@ function renderSourceRegistry(){
  const status=sourceConflicts.length?`<div class="rulewarn"><b>${sourceConflicts.length} unresolved source conflict(s) currently block affected automation.</b><div class="small">The platform prefers no automated conclusion over a potentially wrong legal or tax conclusion.</div></div>`:`<div class="notice good"><b>No unresolved source conflicts currently block affected automation.</b><div class="small">Resolved-source history remains visible below for auditability and future review.</div></div>`;
  el.safeHTML=`${status}<div style="margin-top:12px">${conflicts}${resolutions}${cards}</div>`;
 }
-
 function renderDeadlines(){
  let rows=[];
  if(state.profile.paye){let d=nextMonthlyDeadline(15);rows.push(["PAYE",fmtDate(d),"High",d])}
@@ -936,7 +906,6 @@ async function renderProofNextAction(){
  try{const r=await apiJson("/api/next-actions"),items=r.items||[],x=items.find(a=>a.source==="regulatory"&&Number(a.proofMissing||0)>0);if(x){card.dataset.state="open";title.textContent=x.title.replace(/^Compliance:\s*/,"");detail.textContent=`${Number(x.proofMissing)} mandatory proof requirement${Number(x.proofMissing)===1?"":"s"} still open. Work from the requirement instead of searching the whole document library.`;progress.safeHTML=`<span><b>${Number(x.proofTotal||0)-Number(x.proofMissing||0)}/${Number(x.proofTotal||0)}</b> verified</span><span><b>${Number(x.proofMissing||0)}</b> missing</span>`;btn.disabled=false;btn.textContent="Close this proof gap";btn.onclick=()=>openActionProof("regulatory",x.id)}else{card.dataset.state="clear";title.textContent="No missing mandatory proof is in the current action queue";detail.textContent="Keep validity and approval status under review. An empty proof queue is not a legal all-clear.";progress.safeHTML="";btn.disabled=false;btn.textContent="Review all proof";btn.onclick=()=>showView("vault")}}
  catch(e){card.dataset.state="error";title.textContent="Proof task status unavailable";detail.textContent="BW could not confirm the server action queue. Do not treat this as proof complete.";progress.safeHTML="";btn.disabled=false;btn.textContent="Retry";btn.onclick=renderProofNextAction}
 }
-
 async function renderDocumentsProofHub(){
  if(!roleCanView("evidencehub")||!state)return;syncEvidenceRoleUi();renderProofNextAction();
  renderWorkspaceInfographic("proofInfographic","",null,"Loading evidence status…");
@@ -959,7 +928,6 @@ async function renderDocumentsProofHub(){
  if(haveList)haveList.safeHTML=items.length?statuses.slice(0,4).map(({item,status})=>proofListRow(item.name,item.category||"Evidence",status.label,status.kind)).join(""):'<div class="empty"><b>No evidence yet</b><span class="muted small">Add proof as it is created instead of rebuilding packs later.</span></div>';
  if(attentionList)attentionList.safeHTML=attention.length?attention.slice(0,4).map(({item,status})=>proofListRow(item.name,status.reason,status.label,status.kind)).join(""):'<div class="notice good">No evidence currently needs scan, approval or validity attention.</div>';
 }
-
 function renderVault(){
  syncEvidenceRoleUi();
  const list=document.getElementById("vaultList");if(!list)return;const editable=canEditEvidence();
@@ -1041,13 +1009,11 @@ const businessEvents={
     ["Vendors & transfers","Review processor/vendor access and any cross-border processing before exposing customer data to a new service."]
   ]}
 };
-
 function runEvent(k){
  let ev=businessEvents[k];if(!ev)return;
  document.getElementById("eventOutput").safeHTML=`<div class="notice"><b>${ev.title}</b><div class="small" style="margin-top:7px">Re-check these areas:</div><ol>${ev.actions.map(a=>`<li><b>${a[0]}:</b> ${a[1]}</li>`).join("")}</ol><div class="source">This event workflow identifies review areas. It does not assume a filing is legally required without validating the exact business activity and facts.</div></div>`;
  logEvent("BUSINESS_EVENT_REVIEWED",{event:k});
 }
-
 async function renderPeopleOperationsHub(){
   if(!roleCanView("peopleops")||!["owner","manager"].includes(currentWorkspaceRole()))return;
   const epoch=(renderPeopleOperationsHub.epoch||0)+1;renderPeopleOperationsHub.epoch=epoch;
@@ -1088,8 +1054,6 @@ async function renderPeopleOperationsHub(){
     publish();
   }));
 }
-
-
 function renderPeopleInfographics({dash,coverage,high,openCases}){
   const mount=document.getElementById("peopleInfographicsMount");
   if(mount&&!document.getElementById("peopleReportingDonut"))mount.safeHTML=`<div class="people-infographics" aria-label="People infographics "><article class="people-info-panel"><div class="people-info-heading"><h3>Today’s reporting</h3><span>Today</span></div><div class="people-report-ring-row"><div id="peopleReportingDonut" class="people-report-ring" role="img" aria-labelledby="peopleDonutTitle"><span id="peopleDonutTitle" class="people-info-sr">Reporting coverage</span><div id="peopleDonutArc" class="people-ring-value"></div><div class="people-ring-center"><span id="peopleDonutPercent" class="people-ring-percent">—</span><span class="people-ring-caption">received</span></div></div><div class="people-info-legend"><button type="button" data-view="dailyreports"><span class="people-info-dot"></span><span>Received</span><b id="peopleInfoReceived">—</b></button><button type="button" data-view="dailyreports"><span class="people-info-dot pending"></span><span>Awaiting</span><b id="peopleInfoAwaiting">—</b></button></div></div></article><article class="people-info-panel"><div class="people-info-heading"><h3>Reporting by location</h3><span id="peopleInfoTeamTotal">— locations</span></div><div id="peopleLocationBars" class="people-location-bars"></div><p class="people-info-foot">Received / expected reports.</p></article><article class="people-info-panel"><div class="people-info-heading"><h3>Follow-up</h3><span>Review items</span></div><div class="people-followup-flow"><button type="button" class="people-followup-step" data-view="employmentcontrols"><strong id="peopleInfoContractGaps">—</strong><span>Priority control gaps</span><span aria-hidden="true">→</span></button><button type="button" class="people-followup-step" data-view="employer"><strong id="peopleInfoCases">—</strong><span>Open cases</span><span aria-hidden="true">→</span></button></div><p class="people-info-foot">Review records and evidence.</p></article></div>`;
@@ -1115,14 +1079,12 @@ function renderPeopleInfographics({dash,coverage,high,openCases}){
   }).join(""):'<p class="people-info-foot">No reporting locations configured.</p>':'<p class="people-info-foot">Location reporting unavailable. Refresh to retry.</p>';
   set("peopleInfoContractGaps",high??"—");set("peopleInfoCases",openCases??"—");
 }
-
 async function refreshPeopleWorkspace(){
   const button=document.getElementById("peopleRefreshButton");if(button?.disabled)return;
   if(button){button.disabled=true;button.textContent="Refreshing…"}
   try{await Promise.all([renderPeopleOperationsHub(),renderPeopleReportingSetup()])}
   finally{if(button){button.disabled=false;button.textContent="Refresh"}}
 }
-
 async function renderBusinessHub(){
   if(!roleCanView("businesshub")||!["owner","manager"].includes(currentWorkspaceRole()))return;
   const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value};
@@ -1149,7 +1111,6 @@ async function renderBusinessHub(){
     }catch(_){set("businessLicenceWatch","Status unavailable");set("businessLicenceDetail","Licence status could not be confirmed. Open the register and retry before treating the business as clear.")}
   }
 }
-
 function focusMarketServices(){document.getElementById("serviceCatalogList")?.scrollIntoView({behavior:"smooth",block:"start"})}
 function focusMarketOrders(){document.getElementById("serviceOrderList")?.scrollIntoView({behavior:"smooth",block:"start"})}
 async function addEmployeeRecord(){
@@ -1170,8 +1131,7 @@ async function addEmployeeRecord(){
       }catch(controlError){notifyUser("Employee saved, but contract/asset controls need review: "+controlError.message)}
     }
     document.getElementById("eName").value="";document.getElementById("eRole").value="";document.getElementById("eStart").value="";
-    /* Mutation closure: reconcile every employee-dependent surface immediately.
-       Do not wait for a page reload to make the authoritative POST visible. */
+    /* Refresh employee surfaces after mutation. */
     await renderEmployeeRegister();
     await renderPeopleOperationsHub();
     await renderPeopleReportingSetup();
@@ -1252,7 +1212,6 @@ async function renderEmployeeRegister(){
     for(const employeeId of openReportingIds){if(document.getElementById(`employeeReportingAccess_${employeeId}`))void openEmployeeReportingAccess(employeeId)}
   }catch(e){el.safeHTML=`<div class="notice bad">Employee records could not load. ${escapeHtml(e.message)}</div>`}
 }
-
 const tenderRequirements=[
  {id:"t_cipa",name:"Current CIPA annual-return evidence",patterns:["annual return","cipa"],area:"Corporate"},
  {id:"t_constitution",name:"Company constitution",patterns:["constitution"],area:"Corporate"},
@@ -1279,7 +1238,6 @@ function exportTenderPack(){
  downloadJson(payload,slug(state.profile.name)+"-tender-readiness.json");
  logEvent("TENDER_PACK_EXPORTED",{});
 }
-
 const privacyControls=[
  ["inventory","Data inventory exists","Know what personal data the business holds and where it is stored."],
  ["notice","Privacy notice / transparency information exists","Explain relevant processing to data subjects in an appropriate form."],
@@ -1306,7 +1264,6 @@ function renderPrivacy(){
  if(q("privacyChecklist"))q("privacyChecklist").safeHTML=privacyControls.map(x=>`<div class="checkline"><input type="checkbox" ${c[x[0]]?"checked":""} data-bw-onchange="togglePrivacyControl('${x[0]}')"><div><b>${x[1]}</b><div class="muted small">${x[2]}</div></div></div>`).join("");
  if(q("dataActivityList"))q("dataActivityList").safeHTML=(state.privacy.activities||[]).map(a=>`<div class="item"><div class="between row"><div><b>${escapeHtml(a.activity)}</b><div class="muted small">${escapeHtml(a.category)} · ${escapeHtml(a.purpose)}</div><div class="source">Access: ${escapeHtml(a.access||"Not specified")}</div></div><button class="btn alt" data-bw-onclick="removeDataActivity('${safeId(a.id)}')">Remove</button></div></div>`).join("")||'<div class="muted small">No processing activities recorded.</div>';
 }
-
 function renderEmployees(){
  const {element,renderList}=BW.components;document.getElementById("employeeCount").textContent=state.profile.employees;
  const gaps=Math.min(6,Math.max(0,Math.ceil(state.profile.employees*.35)));document.getElementById("employeeGaps").textContent=gaps;
@@ -1377,7 +1334,7 @@ function save(){
  stageWorkspaceState();clearTimeout(saveTimer);saveTimer=setTimeout(()=>persistWorkspaceState().catch(err=>{console.error("Save failed",err);showSyncError(err.message)}),180)
 }
 function logEvent(type,data={}){
- /* UI activity is not authoritative audit history. Server mutation endpoints write the sealed ledger. */
+ /* UI activity is not authoritative audit history. */
 }
 const WORKSPACE_ROLES=new Set(["owner","manager","reviewer","auditor"]);
 const MANAGER_BLOCKED=new Set(["security","payments","entitlements","billing","integrations","profile","taxprofile","datadeletion","accountdata"]);
@@ -1424,7 +1381,6 @@ function applyRoleUi(){
  window.refreshSimplifiedHubAccess?.();syncEvidenceRoleUi?.();
  const active=document.querySelector(".view.active")?.id;if(active&&!allowed.has(active)){const landing=roleLandingView(role);if(landing&&allowed.has(landing))showView(landing,{roleRedirect:true})}
 }
-
 function renderCompanies(){
  const sel=document.getElementById("companySelect");if(!sel)return;
  const companies=store.companies||[];
@@ -1449,18 +1405,16 @@ function renderAudit(){
  let rows=store.audit.filter(x=>!x.companyId||x.companyId===state.id).slice(0,100);
  el.safeHTML=rows.length?rows.map(x=>`<div class="item audit"><b>${escapeHtml(x.type)}</b> · ${new Date(x.at).toLocaleString()}<div class="muted">${escapeHtml(JSON.stringify(x.data))}</div></div>`).join(""):`<div class="muted">No audit events yet.</div>`
 }
-
 function slug(s){return String(s||"company").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}
 function downloadJson(payload,name){
  let blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)
 }
-
 function buildComplianceReportHtml(){
  let s=scoreData(),controls=applicable(),today=new Date().toLocaleString();
  let rows=controls.map(r=>`<tr><td>${escapeHtml(r.area)}</td><td>${escapeHtml(r.title)}</td><td>${escapeHtml(r.status())}</td><td>${escapeHtml(r.risk)}</td><td>${escapeHtml(r.authority)}</td></tr>`).join("");
  let ev=(state.evidence||[]).map(e=>`<tr><td>${escapeHtml(e.name)}</td><td>${escapeHtml(e.cat)}</td><td>${e.verified?"Verified":"Unverified"}</td><td>${escapeHtml(e.date||"—")}</td></tr>`).join("");
  return `<!doctype html><html><head><meta charset="utf-8"><title>Compliance Report</title><style>body{font-family:Arial,sans-serif;color:#111;margin:32px;font-size:13px}h1{font-size:24px}h2{margin-top:26px;font-size:17px}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #ccc;padding:8px;text-align:left}.scores{display:flex;gap:30px;margin:18px 0}.scorebox{border:1px solid #ccc;padding:12px;min-width:140px}.noprint{margin-bottom:20px}@media print{.noprint{display:none}}
-/* v14 UI/UX refresh — calmer Linear/Vanta-inspired operational shell */
+
 :root{--bg:#f7f8f9;--card:#ffffff;--ink:#111514;--muted:#66706c;--line:#e7eae9;--accent:#176b4f;--soft:#eef6f2;--sidebar:#121715;--sidebar2:#191f1c;--shadow:0 1px 2px rgba(16,24,20,.04),0 8px 24px rgba(16,24,20,.035)}
 body{font-size:14px;letter-spacing:-.005em;background:var(--bg)}
 .shell{grid-template-columns:232px minmax(0,1fr)}
@@ -1617,7 +1571,7 @@ input:focus,select:focus,textarea:focus{
 }
 
 
-/* v19 social authentication */
+
 .social-auth-stack{display:grid;gap:10px;margin:14px 0 12px}
 .social-auth-btn{
   width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
@@ -1644,7 +1598,7 @@ input:focus,select:focus,textarea:focus{
 
 
 <style id="v78-12127-proof-to-action">
-/* v78 1.21.27 — proof-to-action: close the first evidence gap from the action itself. */
+
 .proof-next-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center;margin:0 0 14px;padding:18px;border:1px solid #d7e4dd;border-radius:18px;background:#f5faf7}.proof-next-card h3{font-size:19px;margin:3px 0 5px}.proof-next-card p{margin:0;max-width:820px}.proof-next-card .actions{justify-content:flex-end}.proof-next-card[data-state="clear"]{background:#f8faf9;border-color:#e1e7e3}.proof-next-card[data-state="error"]{background:#fff7f4;border-color:#ecd5cd}
 .proof-action-progress{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0 2px}.proof-action-progress span{font-size:12px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 8px}.proof-action-progress b{margin-right:3px}
 .proof-action-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);gap:12px;margin-top:14px}.proof-action-panel{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fbfcfb;min-width:0}.proof-action-panel h3{font-size:15px;margin:2px 0 10px}.proof-requirement-list,.proof-candidate-list{display:grid;gap:8px}.proof-requirement{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid #e2e7e4;border-radius:12px;background:#fff;padding:11px;text-align:left}.proof-requirement.selected{border-color:#8ab49f;box-shadow:0 0 0 2px rgba(30,112,78,.08)}.proof-requirement b{display:block;font-size:13.5px}.proof-requirement small{display:block;color:var(--muted);margin-top:3px;line-height:1.35}.proof-requirement .btn{min-height:36px;padding:7px 10px}.proof-candidate{border:1px solid #e2e7e4;border-radius:12px;background:#fff;padding:11px}.proof-candidate .between{gap:10px}.proof-upload-box{margin-top:10px;border-top:1px solid #e6ebe8;padding-top:12px}.proof-upload-box input{margin-top:6px}.proof-flow-note{font-size:12px;line-height:1.45;color:var(--muted);margin-top:8px}.proof-action-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}.proof-action-footer .actions{justify-content:flex-end}.proof-action-status{min-height:20px;font-size:12.5px;color:var(--muted)}.proof-action-status.good{color:var(--good)}.proof-action-status.bad{color:var(--bad)}
@@ -1671,17 +1625,14 @@ input:focus,select:focus,textarea:focus{
 function exportPrintableReport(){
  let blob=new Blob([buildComplianceReportHtml()],{type:"text/html"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=slug(state.profile.name)+"-compliance-report.html";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);logEvent("PRINTABLE_COMPLIANCE_REPORT_EXPORTED",{})
 }
-
 function buildEvidencePack(){
  let s=scoreData();
  return {generatedAt:new Date().toISOString(),ruleset:"BW-2026.08.30-launch",company:state.profile,scores:{compliance:s.comp,protection:s.prot},evidence:(state.evidence||[]).map(e=>({name:e.name,category:e.cat,reviewDate:e.date,verified:!!e.verified})),openCases:(state.cases||[]).map(c=>({employeeRef:c.employee,type:c.type,risk:c.risk,status:c.status,professionalReview:c.expertReview})),applicableControls:applicable().map(r=>({id:r.id,title:r.title,area:r.area,risk:r.risk,status:r.status(),authority:r.authority,effectiveFrom:r.effectiveFrom,source:r.url})),disclaimer:"Compliance management evidence pack. It is not a legal opinion and does not prove substantive compliance without validating the underlying evidence and facts."}
 }
 function exportEvidencePack(){downloadJson(buildEvidencePack(),slug(state.profile.name)+"-compliance-evidence-pack.json");logEvent("COMPLIANCE_EVIDENCE_PACK_EXPORTED",{})}
-
 function exportAudit(){
  let blob=new Blob([JSON.stringify(store.audit,null,2)],{type:"application/json"});let a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="bw-compliance-audit.json";a.click();URL.revokeObjectURL(a.href)
 }
-
 function seedAutoReviews(){
  updateActiveCompany(c=>{const reviews=[...(c.reviews||[])],existingKeys=new Set(reviews.filter(r=>r.autoKey).map(r=>r.autoKey));
   applicable().filter(r=>r.requiresExpert&&/Action required|review|Professional review required/i.test(r.status())).forEach(rule=>{const key="rule:"+rule.id;if(existingKeys.has(key))return;existingKeys.add(key);reviews.push({id:"rv_"+Date.now()+"_"+rule.id,autoKey:key,type:rule.area,issue:rule.title,risk:rule.risk,status:"Open",note:"Automatically queued from applicable control requiring professional validation.",createdAt:new Date().toISOString()})});
@@ -1704,7 +1655,6 @@ function renderExpert(){
  if(q("ruleValidationCount"))q("ruleValidationCount").textContent=rules.filter(r=>r.requiresExpert).length;
  if(q("reviewQueue"))q("reviewQueue").safeHTML=open.length?open.map(r=>`<div class="item"><div class="between row"><div><b>${escapeHtml(r.issue)}</b><div class="muted small">${escapeHtml(r.type)} · ${new Date(r.createdAt).toLocaleDateString()}</div></div><span class="badge ${riskClass(r.risk)}">${r.risk}</span></div><div class="small" style="margin-top:7px">${escapeHtml(r.note||"")}</div><div class="actions" style="margin-top:9px"><button class="btn soft" data-bw-onclick="setReviewStatus('${safeId(r.id)}','Resolved')">Mark reviewed</button></div></div>`).join(""):'<div class="notice good">No open professional-review items.</div>';
 }
-
 function renderRuleLibrary(){
  let el=document.getElementById("ruleLibrary");if(!el)return;
  el.safeHTML=rules.map(r=>`<div class="item"><div class="between row"><div><b>${escapeHtml(r.title)}</b><div class="muted small">${escapeHtml(r.area)} · ${escapeHtml(r.authority)}</div></div><span class="badge ${riskClass(r.risk)}">${escapeHtml(r.risk)}</span></div><div class="rulemeta"><span>Effective: ${escapeHtml(r.effectiveFrom)}</span><span>Review: ${escapeHtml(r.review)}</span><span>Source linked</span>${r.requiresExpert?'<span>Expert validation required</span>':''}</div><p class="small">${escapeHtml(r.why)}</p><div class="source"><a href="${safeExternalUrl(r.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(r.source)}</a></div></div>`).join("")
@@ -1722,9 +1672,6 @@ function renderCases(){
 function escapeHtml(s){return BW.dom.escapeHtml(s)}
 function safeId(s){return BW.dom.safeId(s)}
 function safeExternalUrl(value){return BW.dom.safeExternalUrl(value)}
-
-
-
 function prefersReducedMotion(){return !!(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches)}
 function animateViewItems(){
   if(prefersReducedMotion())return;
@@ -1772,8 +1719,6 @@ function animateNumber(el,to,suffix=""){
 }
 
 function startOAuth(provider){if(!["google","facebook"].includes(provider))return;if(STANDALONE_PREVIEW||location.protocol==="file:"){notifyUser("Social sign-in requires the deployed OAuth backend. Use email sign-in or Preview workspace in the standalone HTML.");return}const next=encodeURIComponent(window.location.pathname+window.location.search);window.location.assign(`/api/auth/oauth/${provider}/start?next=${next}`)}
-
-
 const RUNTIME_MODE=(document.querySelector('meta[name="bw-runtime-mode"]')?.content||"production").toLowerCase();
 const STANDALONE_PREVIEW=RUNTIME_MODE==="preview";
 function notifyUser(message,options={}){return BW.notifications.notify(message,options)}
@@ -1823,11 +1768,9 @@ async function refreshOpsPerformanceLearning(){const date=document.getElementByI
 async function saveOpsPerformanceSettings(){const status=document.getElementById("opsPerformanceSettingsStatus"),payload={enabled:document.getElementById("opsPerfEnabled").checked,notifyDeterioration:document.getElementById("opsPerfDeterioration").checked,notifyImprovement:document.getElementById("opsPerfImprovement").checked,notifyReportingGap:document.getElementById("opsPerfCoverage").checked,notifyIncidents:document.getElementById("opsPerfIncidents").checked,notifyInApp:document.getElementById("opsPerfInApp").checked,notifyEmail:document.getElementById("opsPerfEmail").checked,notifyWhatsapp:document.getElementById("opsPerfWhatsapp").checked,coverageDropPoints:Number(document.getElementById("opsPerfCoverageDrop").value),metricDropPercent:Number(document.getElementById("opsPerfMetricDrop").value),improvementPercent:Number(document.getElementById("opsPerfImprovementPct").value),minBaselineDays:Number(document.getElementById("opsPerfMinDays").value)};try{if(!STANDALONE_PREVIEW)await apiJson("/api/daily-reporting/performance-settings",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});if(status)status.textContent="Saved. Future alerts use these thresholds."}catch(e){if(status)status.textContent=e.message}}
 async function sendOpsSummaryFeedback(rating){if(!currentOpsSummaryId)return;let note="",outcome="watch";if(rating==="not_useful"){const answer=await BW.dialog.prompt({title:"Improve the AI summary",message:"What should the AI improve next time? Avoid sensitive employee information.",multiline:true,maxLength:900,confirmLabel:"Save feedback"});if(answer===null)return;note=answer.trim();outcome="false_positive"}else{const answer=await BW.dialog.prompt({title:"Management feedback",message:"Optional: what was useful or what action did management take?",multiline:true,maxLength:900,confirmLabel:"Save feedback"});if(answer===null)return;note=answer.trim();outcome=note?"actioned":"watch"}const status=document.getElementById("opsFeedbackStatus");try{if(!STANDALONE_PREVIEW)await apiJson("/api/daily-reporting/feedback",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({summaryId:currentOpsSummaryId,rating,outcome,note})});if(status)status.textContent="Feedback saved into future AI context."}catch(e){if(status)status.textContent=e.message}}
 async function updateOpsInsightStatus(id,status){try{if(!STANDALONE_PREVIEW)await apiJson(`/api/daily-reporting/performance-insights/${encodeURIComponent(id)}/status`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({status})});await renderDailyOperations()}catch(e){notifyUser(e.message)}}
-
 function renderOpsBranches(branches){const box=document.getElementById("opsBranchPerformance");if(!box)return;if(!branches?.length){box.safeHTML='<div class="muted small">No active locations yet.</div>';return}box.safeHTML=`<div class="ops-branch ops-header"><span>Location</span><span>Coverage</span><span>Tasks</span><span>Customers/jobs</span><span>Revenue</span><span>Incidents</span><span>Attention</span></div>`+branches.map(b=>`<div class="ops-branch"><div class="ops-branch-name"><div class="mini-ring" style="--p:${Math.max(0,Math.min(100,Number(b.coverage||0)))}"><b>${Number(b.coverage||0)}%</b></div><div><b>${escapeHtml(b.name)}</b><span class="ops-trend">${Number(b.submittedExpected??b.submitted??0)}/${Number(b.expected||0)} expected${Number(b.submitted||0)>Number(b.submittedExpected??b.submitted??0)?` · ${Number(b.submitted)-Number(b.submittedExpected??b.submitted??0)} optional report`:""}${Number(b.excused||0)?` · ${Number(b.excused||0)} not expected`:""}</span></div></div><span>${Number(b.coverage||0)}%</span><span>${Number(b.tasks||0)}<small class="ops-trend">${escapeHtml(trendLabel(b.trend?.tasks||0))}</small></span><span>${Number(b.customers||0)}<small class="ops-trend">${escapeHtml(trendLabel(b.trend?.customers||0))}</small></span><span>${moneyBwp(b.revenue)}<small class="ops-trend">${escapeHtml(trendLabel(b.trend?.revenue||0,"P"))}</small></span><span>${Number(b.incidents||0)}</span><span>${Number(b.attention||0)}</span></div>`).join("")}
 function renderOpsMissing(items){const box=document.getElementById("opsMissingReports");if(!box)return;setText("opsMissingCount",items?.length||0);box.safeHTML=items?.length?items.map(x=>`<div class="item"><div class="between row"><div><b>${escapeHtml(x.fullName)}</b><div class="muted small">${escapeHtml(x.roleTitle||"Employee")} · ${escapeHtml(x.locationName)}</div></div><button class="btn soft" type="button" data-bw-onclick="markOpsReportingException('${safeId(x.employeeId)}','${safeId(x.locationId)}')">Not expected today</button></div></div>`).join(""):'<div class="notice good"><b>All expected reporting links have a report.</b><div class="small">Coverage excludes manager-approved reporting exceptions for this date.</div></div>'}
 function renderOpsExceptions(items){const wrap=document.getElementById("opsReportingExceptionsWrap"),box=document.getElementById("opsReportingExceptions");if(!wrap||!box)return;wrap.style.display=items?.length?"block":"none";const labels={leave:"Leave",rest_day:"Rest day",field_assignment:"Field assignment",training:"Training",connectivity:"Connectivity",other:"Other approved exception"};box.safeHTML=(items||[]).map(x=>`<div class="item"><div class="between row"><div><b>${escapeHtml(x.full_name)}</b><div class="muted small">${escapeHtml(x.location_name)} · ${escapeHtml(labels[x.reason_code]||x.reason_code)}${x.note?` · ${escapeHtml(x.note)}`:""}</div></div><button class="btn alt" type="button" data-bw-onclick="removeOpsReportingException('${safeId(x.id)}')">Restore expectation</button></div></div>`).join("")}
-
 function renderOpsReports(items){const box=document.getElementById("opsReportsList");if(!box)return;box.safeHTML=items?.length?items.map(r=>{const k=typeof r.kpi_json==="string"?(()=>{try{return JSON.parse(r.kpi_json)}catch{return {}}})():r.kpi_json||{};return `<div class="ops-report-card ${r.needs_attention?"ops-attention":""}"><div class="between row"><div><b>${escapeHtml(r.full_name)}</b><div class="muted small">${escapeHtml(r.location_name)} · submitted ${new Date(r.submitted_at).toLocaleString()}</div></div>${r.needs_attention?'<span class="badge warn">Needs attention</span>':''}</div><div class="small" style="margin-top:8px"><b>Work:</b> ${escapeHtml(r.work_summary||"—")}</div><div class="ops-report-grid"><div class="ops-report-field"><b>Wins</b>${escapeHtml(r.wins||"—")}</div><div class="ops-report-field"><b>Blockers</b>${escapeHtml(r.blockers||"—")}</div><div class="ops-report-field"><b>Incidents / issues</b>${escapeHtml(r.incidents||"—")}</div></div><div class="muted small" style="margin-top:9px">Tasks ${Number(k.tasksCompleted||0)} · Customers/jobs ${Number(k.customersHandled||0)} · Revenue ${moneyBwp(k.revenueBwp)} · Incidents ${Number(k.incidentsCount||0)}</div></div>`}).join(""):'<div class="muted small">No reports submitted for this filter.</div>'}
 function renderOpsLocations(items){const box=document.getElementById("opsLocationsList");if(!box)return;const rows=items||[];globalThis.__opsLocationsById=Object.fromEntries(rows.map(x=>[String(x.id),x]));const signature=JSON.stringify(rows.map(x=>[String(x.id||""),String(x.name||""),String(x.code||""),String(x.town||""),Number(x.active)===1]));if(box.dataset.opsLocationsSignature===signature)return;box.dataset.opsLocationsSignature=signature;box.safeHTML=rows.map(x=>{const active=Number(x.active)===1;return `<div class="item"><div class="between row"><div><b>${escapeHtml(x.name)}</b><div class="muted small">${escapeHtml(x.code||"No code")}${x.town?` · ${escapeHtml(x.town)}`:""} · ${active?"Active":"Removed"}</div></div><div class="actions"><button class="btn alt" data-bw-onclick="editOpsLocation('${escapeHtml(x.id)}')">Edit</button><button class="btn alt" data-bw-onclick="${active?`removeOpsLocation('${escapeHtml(x.id)}')`:`reactivateOpsLocation('${escapeHtml(x.id)}')`}">${active?"Remove":"Reactivate"}</button></div></div></div>`}).join("")||'<div class="muted small">No locations configured.</div>'}
 function renderOpsAccess(items){const box=document.getElementById("opsReporterAccessList");if(!box)return;const active=(items||[]).filter(x=>x.status==="active");box.safeHTML=active.length?active.map(x=>`<div class="item"><div class="between row"><div><b>${escapeHtml(x.full_name)}</b><div class="muted small">${escapeHtml(x.location_name)} · expires ${new Date(x.expires_at).toLocaleDateString()}${x.last_used_at?` · last used ${new Date(x.last_used_at).toLocaleDateString()}`:" · not used yet"}</div></div><button class="btn alt" data-bw-onclick="revokeOpsReporterAccess('${escapeHtml(x.id)}')">Revoke</button></div></div>`).join(""):'<div class="muted small">No active employee reporting links yet.</div>'}
@@ -1851,7 +1794,7 @@ async function refreshLiveDailyOperations(){
     const dashboard=await reportingAnalyticsJson(`/api/daily-reporting/dashboard?date=${encodeURIComponent(date)}${locationId?`&locationId=${encodeURIComponent(locationId)}`:""}`);
     if(epoch!==opsReportingSetupEpoch||document.visibilityState!=="visible"||!document.getElementById("dailyreports")?.classList.contains("active")||date!==(document.getElementById("opsReportDate")?.value||browserGaboroneDate())||locationId!==(document.getElementById("opsLocationFilter")?.value||""))return;
     applyOpsDashboard(dashboard);
-  }catch(_){/* Keep the last confirmed dashboard visible; manual Refresh surfaces errors. */}
+  }catch(_){}
   finally{opsLiveRefreshInFlight=false}
 }
 setInterval(()=>void refreshLiveDailyOperations(),30000);
@@ -1987,12 +1930,10 @@ async function markOpsReportingException(employeeId,locationId){
 async function removeOpsReportingException(id){const confirmed=await BW.dialog.confirm({title:"Remove reporting exception?",message:"Restore this employee as expected to report for the selected date?",confirmLabel:"Restore reporting"});if(!confirmed)return;try{if(!STANDALONE_PREVIEW)await apiJson(`/api/daily-reporting/exceptions/${encodeURIComponent(id)}`,{method:"DELETE"});await renderDailyOperations()}catch(e){notifyUser(e.message)}}
 async function generateOpsSummary(){const date=document.getElementById("opsReportDate").value||browserGaboroneDate(),locationId=document.getElementById("opsLocationFilter").value||null;const box=document.getElementById("opsAiSummary");if(box)box.safeHTML='<div class="muted">Generating grounded management summary…</div>';try{let r;if(STANDALONE_PREVIEW)r=(await BW.preview.request("/api/daily-reporting/summaries",{method:"GET"})).items[0];else r=await apiJson("/api/daily-reporting/ai-summary",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({date,locationId})});renderOpsNarrative(r);if(!STANDALONE_PREVIEW)await renderDailyOperations()}catch(e){if(box)box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}}
 async function saveOpsReportingSettings(){const enabled=document.getElementById("opsAutoSummary").checked,status=document.getElementById("opsAutomationStatus");try{if(!STANDALONE_PREVIEW)await apiJson("/api/daily-reporting/settings",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({autoSummaryEnabled:enabled})});status.textContent=enabled?"Automatic daily digest enabled for 18:15 Botswana time.":"Automatic daily digest disabled. Manual summaries remain available."}catch(e){status.textContent=e.message}}
-
 function updateReporterNetworkStatus(){const st=document.getElementById("reporterDraftStatus");if(!st)return;st.textContent=navigator.onLine?"Entries stay on this page until sent. Sensitive report text is not persisted in browser storage.":"Offline — keep this page open. Your entries remain here; retry when connectivity returns."}
 window.addEventListener("online",updateReporterNetworkStatus);window.addEventListener("offline",updateReporterNetworkStatus);
 async function handleDailyReporterPortal(){const hash=location.hash||"";if(!hash.startsWith("#report="))return false;const reportPath=location.pathname.replace(/\/+$/,"")||"/";if(reportPath!=="/report"){location.replace("/report/?entry=legacy-runtime&v=20260923e"+hash);return true;}dailyReporterToken=decodeURIComponent(hash.slice(8));marketingGate.classList.add("hidden");authGate.classList.add("hidden");concealWorkspaceShell();syncMobileRoleNav("");const rolePortal=document.getElementById("roleAccessPortal");if(rolePortal)rolePortal.style.display="none";const portal=document.getElementById("reporterPortal");portal.style.display="block";try{let data;if(STANDALONE_PREVIEW)data={employee:{name:"Demo Employee",roleTitle:"Operations Assistant"},location:{name:"Head Office",town:"Gaborone"},companyName:"Demo Company",reportDate:browserGaboroneDate()};else{data=await publicApiClient.request("/public/daily-reporting/access",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token:dailyReporterToken})})};setText("reporterEmployeeName",`${data.employee.name}${data.employee.roleTitle?` · ${data.employee.roleTitle}`:""}`);setText("reporterLocationName",`${data.location.name}${data.location.town?` · ${data.location.town}`:""}`);setText("reporterCompanyName",data.companyName);document.getElementById("reporterDate").value=data.reportDate||browserGaboroneDate();updateReporterNetworkStatus()}catch(e){const er=document.getElementById("reporterPortalError");er.textContent=e.message;er.style.display="block";document.getElementById("reporterDailyForm").style.display="none"}return true}
 async function submitDailyReporterForm(){const btn=document.getElementById("reporterSubmitBtn"),success=document.getElementById("reporterPortalSuccess"),error=document.getElementById("reporterPortalError");success.style.display="none";error.style.display="none";const payload={token:dailyReporterToken,reportDate:document.getElementById("reporterDate").value,workSummary:document.getElementById("reporterWorkSummary").value,wins:document.getElementById("reporterWins").value,blockers:document.getElementById("reporterBlockers").value,incidents:document.getElementById("reporterIncidents").value,nextPlan:document.getElementById("reporterNextPlan").value,needsAttention:document.getElementById("reporterNeedsAttention").checked,kpis:{tasksCompleted:document.getElementById("reporterTasks").value,customersHandled:document.getElementById("reporterCustomers").value,revenueBwp:document.getElementById("reporterRevenue").value,incidentsCount:document.getElementById("reporterIncidentCount").value,customLabel:document.getElementById("reporterCustomLabel").value,customValue:document.getElementById("reporterCustomValue").value}};if(!payload.workSummary.trim()&&!payload.wins.trim()&&!payload.blockers.trim()&&!payload.incidents.trim()&&!payload.nextPlan.trim()){error.textContent="Add at least one report note before sending.";error.style.display="block";return}btn.disabled=true;btn.textContent="Sending…";try{let data;if(STANDALONE_PREVIEW)data={message:"Preview report accepted."};else{data=await publicApiClient.request("/public/daily-reporting/submit",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)})};success.textContent=`${data.message||"Daily report submitted."} You can update the same reporting date if you need to correct something.`;success.style.display="block";updateReporterNetworkStatus();window.scrollTo({top:0,behavior:"smooth"})}catch(e){error.textContent=e.message;error.style.display="block"}finally{btn.disabled=false;btn.textContent="Send daily report"}}
-
 async function renderSocialAccounts(){
   const list=document.getElementById("socialAccountList");if(!list)return;
   try{
@@ -2033,8 +1974,6 @@ function handleOAuthResult(){
     history.replaceState({},document.title,location.pathname);
   }
 }
-
-
 let pendingResetToken=null;
 async function renderAccountSecurity(){
   const sl=document.getElementById("sessionList");if(!sl)return;
@@ -2084,15 +2023,13 @@ function handleResetLink(){
     setTimeout(()=>openModal("passwordResetModal"),30);
   }
 }
-
-
 async function renderOnboardingBanner(){
   const el=document.getElementById("welcomeSetupBanner");if(!el)return;
   try{
     const r=await apiJson("/api/account/onboarding");
     const pendingFirst=r.complete&&currentWorkspaceRole()==="owner"&&state?.profile?.firstProtectionCheckStatus==="pending";
-    if(!r.complete){el.style.display="block";el.safeHTML='<div class="between row"><div><b>Finish your 2-minute setup</b><div class="small">Add three business basics, then BW will generate your first protection check.</div></div><button class="btn soft" type="button" data-bw-onclick="openOnboarding()">Finish setup</button></div>'}
-    else if(pendingFirst){el.style.display="block";el.safeHTML='<div class="between row"><div><b>Your business facts are saved</b><div class="small">The first protection check still needs to complete. No compliance conclusion has been assumed.</div></div><button class="btn soft" type="button" data-bw-onclick="runFirstProtectionCheck()">Run first check</button></div>'}
+    if(!r.complete){el.style.display="block";el.safeHTML='<div class="between row"><div><b>Finish your 2-minute setup</b><div class="small">Add the basics for your first protection check.</div></div><button class="btn soft" type="button" data-bw-onclick="openOnboarding()">Finish setup</button></div>'}
+    else if(pendingFirst){el.style.display="block";el.safeHTML='<div class="between row"><div><b>Your business facts are saved</b><div class="small">First check pending. No compliance conclusion yet.</div></div><button class="btn soft" type="button" data-bw-onclick="runFirstProtectionCheck()">Run first check</button></div>'}
     else el.style.display="none";
   }catch{el.style.display="none"}
 }
@@ -2118,8 +2055,6 @@ async function requestAccountDeletion(){
     notifyUser(r.message||"Deletion request recorded.");
   }catch(e){notifyUser(e.message)}
 }
-
-
 async function renderDeletionStatus(){
   const box=document.getElementById("deletionStatusBox");if(!box)return;
   try{
@@ -2129,8 +2064,6 @@ async function renderDeletionStatus(){
       (latest?`<div class="item"><b>Latest deletion request</b><div class="muted small">Status: ${escapeHtml(latest.status)} · ${new Date(latest.requested_at).toLocaleString()}</div>${latest.reason?`<div class="small">${escapeHtml(latest.reason)}</div>`:""}</div>`:"");
   }catch(e){box.textContent="Could not load deletion status."}
 }
-
-
 async function createAiCreditOrder(sku){
   if(currentWorkspaceRole()!=="owner"){notifyUser("Only the account owner can buy AI credit packs.");return}
   try{
@@ -2156,7 +2089,6 @@ async function renderAiCredits(){
     if(hist)hist.safeHTML=(r.ledger||[]).slice(0,12).map(x=>`<div class="item"><b>${escapeHtml(x.entry_type)}</b><div class="muted small">${x.credits>0?"+":""}${x.credits} credits${x.feature?` · ${escapeHtml(x.feature)}`:""} · ${new Date(x.occurred_at).toLocaleString()}</div></div>`).join("")||'<div class="muted small">No activity yet.</div>';
   }catch(e){box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
-
 function setAiAdvisorPrompt(mode,question){
   const m=document.getElementById("aiAdvisorMode"),q=document.getElementById("aiAdvisorQuestion");if(m)m.value=mode;if(q){q.value=question;q.focus()}
 }
@@ -2185,8 +2117,6 @@ async function askAiAdvisor(){
   catch(e){renderAiAdvisorStatus(e.status===402?"AI credits or the configured cost cap do not allow this run.":e.message||"The grounded answer could not be generated.",true)}
   finally{if(button){button.disabled=false;button.textContent="Ask Copilot"}if(region)region.setAttribute("aria-busy","false")}
 }
-
-
 async function renderAiCostControls(){
   const el=document.getElementById("aiMonthCredits");if(!el)return;
   try{
@@ -2218,8 +2148,6 @@ async function saveAiCostControls(){
     await renderAiCostControls();notifyUser("AI cost controls saved.");
   }catch(e){notifyUser(e.message)}
 }
-
-
 async function createTender(){
   const title=(document.getElementById("newTenderTitle").value||"").trim();
   if(!title)return notifyUser("Enter a tender title.");
@@ -2285,8 +2213,6 @@ async function renderHrCases(){
     if(evidenceSelect)evidenceSelect.safeHTML=(evidence.items||[]).filter(x=>x.review_status==="approved").map(x=>`<option value="${escapeHtml(x.id)}">${escapeHtml(x.name||x.id)}</option>`).join("");
   }catch(e){list.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
-
-
 async function createCompanyAction(){
   try{
     await apiJson("/api/company-actions",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({
@@ -2396,8 +2322,6 @@ async function renderHomeDecisionSignals(){
     const e=proof.value||{},score=Number(e.healthScore),missing=Number(e.missingRequired||0),expired=Number(e.expired||0),expiring=Number(e.expiring||0),quarantined=Number(e.quarantined||0);set("homeProofHealth",Number.isFinite(score)?`${Math.max(0,Math.min(100,Math.round(score)))}%`:"Not established");const issues=missing+expired+expiring+quarantined;set("homeProofDetail",issues?`${missing} required missing · ${expired} expired · ${expiring} expiring · ${quarantined} awaiting clean approval.`:"No current evidence-health issue is returned by the server snapshot.");
   }else{set("homeProofHealth","Unavailable");set("homeProofDetail","Evidence health could not be confirmed or is not available on this plan. Open Documents & proof for the underlying records.")}
 }
-
-
 function homeMoneyMinor(value){
   const n=Number(value);if(!Number.isFinite(n))return "—";
   const amount=n/100,whole=Math.abs(amount-Math.round(amount))<0.00001;
@@ -2438,7 +2362,6 @@ function askThebeFromHome(question=""){
   if(prompt.length<3){source?.focus();const sr=document.getElementById("srStatus");if(sr)sr.textContent="Enter a question for Thebe.";return false}
   return openThebeFromHome(prompt,true);
 }
-
 async function renderDailyOperatingBrief(){
   if(!roleCanView("dashboard")||!["owner","manager"].includes(currentWorkspaceRole()))return;
   const box=document.getElementById("unifiedNextActions"),changesBox=document.getElementById("homeChangesList");if(!box||!changesBox)return;
@@ -2499,8 +2422,6 @@ async function renderDailyOperatingBrief(){
     changesBox.safeHTML='<div class="notice bad small">Recent changes could not be confirmed.</div>';set("homeOpsDetail","Daily reporting could not be confirmed. Review source reports before making an operational or employment decision.");set("homeReviewDetail","Review status could not be confirmed. Open Work & deadlines before relying on this summary.");set("homeProofDetail","Evidence health could not be confirmed. Open Documents & proof for the underlying records.");
   }
 }
-
-
 let ownerBriefRefreshInFlight=false;
 async function refreshLiveOwnerBrief(){
   if(ownerBriefRefreshInFlight||document.visibilityState!=="visible"||!window.__THEBE_WORKSPACE_READY__||!document.getElementById("dashboard")?.classList.contains("active")||!["owner","manager"].includes(currentWorkspaceRole()))return;
@@ -2511,7 +2432,6 @@ async function refreshLiveOwnerBrief(){
 setInterval(()=>void refreshLiveOwnerBrief(),60000);
 window.addEventListener("focus",()=>void refreshLiveOwnerBrief());
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")void refreshLiveOwnerBrief()});
-
 async function renderPartnerPortal(){
   const clients=document.getElementById("partnerClientList");if(!clients)return;
   try{
@@ -2578,8 +2498,6 @@ async function renderWorkflowRules(){
     list.safeHTML=items.map(x=>`<div class="item"><b>${escapeHtml(x.trigger_type)}</b><div class="muted small">→ ${escapeHtml(x.action_type)} · ${Number(x.enabled)===1?"enabled":"disabled"}</div></div>`).join("")||'<div class="muted small">No automation rules yet.</div>';
   }catch(e){}
 }
-
-
 function notificationAttentionAction(x){
   const target=String(x?.target||"workhub"),id=safeId(x?.id||"");
   if(x?.kind==="proof"&&id)return `<button class="btn" type="button" data-bw-onclick="openActionProof('regulatory','${id}')">Add proof</button>`;
@@ -2683,8 +2601,6 @@ async function renderPartnerInvites(){
     box.safeHTML=(r.items||[]).slice(0,20).map(x=>`<div class="item"><b>${escapeHtml(x.email)}</b><div class="muted small">${escapeHtml(x.status)} · expires ${new Date(x.expires_at).toLocaleDateString()}</div></div>`).join("");
   }catch(e){}
 }
-
-
 async function orderProfessionalService(sku){
   if(currentWorkspaceRole()!=="owner"){notifyUser("Owner approval is required before creating a paid professional-service order.");return}
   try{
@@ -2707,8 +2623,6 @@ async function renderProfessionalServices(){
     document.getElementById("serviceOrderList").safeHTML=oi.map(x=>`<div class="item"><b>${escapeHtml(x.name||x.sku)}</b><div class="muted small">P${x.price_bwp} · ${escapeHtml(x.status)} · ${new Date(x.created_at).toLocaleDateString()}</div></div>`).join("")||'<div class="muted small">No service orders yet.</div>';
   }catch(e){cat.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
-
-
 function syncPlatformBillingControls(){
 const allowed=currentUser?.platformBillingAdmin===true&&roleCanView("payments");
 document.querySelectorAll(".platformBillingControl").forEach(button=>{button.hidden=!allowed;button.style.display=allowed?"":"none"});
@@ -2850,8 +2764,6 @@ show("Status refresh failed. Reload before retrying.");
 }
 }finally{manualPaymentReviewsInFlight.delete(id)}
 }
-
-
 async function openHostedCheckout(paymentOrderId){
 const r=await apiJson("/api/payments/create-checkout",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({paymentOrderId})});
 if(!r.ok||!r.checkoutUrl)throw new Error(r.error||"Checkout is not configured.");
@@ -2859,8 +2771,6 @@ const checkoutDestination=BW.dom.safeHostedCheckoutUrl(r.checkoutUrl,r.provider)
 if(checkoutDestination==="#")throw new Error("The payment provider returned an invalid checkout destination.");
 window.location.assign(checkoutDestination);
 }
-
-
 async function renderPaymentProviders(){
 if(platformBillingSessionCurrent(currentUser))return;
 const box=document.getElementById("paymentProviderList");if(!box)return;
@@ -2877,8 +2787,6 @@ const r=await apiJson("/api/payments/reconciliation");
 box.safeHTML=(r.items||[]).map(x=>`<div class="item"><b>${escapeHtml(x.provider)} · ${escapeHtml(x.reconciliation_status)}</b><div class="muted small">Internal: ${escapeHtml(x.internal_status||"")} ${x.provider_status?`· Provider: ${escapeHtml(x.provider_status)}`:""} · ${new Date(x.checked_at).toLocaleString()}</div>${x.notes?`<div class="small">${escapeHtml(x.notes)}</div>`:""}</div>`).join("")||'<div class="muted small">No reconciliation events yet.</div>';
 }catch(e){}
 }
-
-
 async function renderEntitlements(){
   const box=document.getElementById("entitlementList");if(!box)return;
   try{
@@ -2892,8 +2800,6 @@ async function renderEntitlements(){
     document.getElementById("entitlementUsage").safeHTML=us.map(x=>`<div class="item"><b>${escapeHtml(x.counter_key)}</b><div class="muted small">${x.value} · ${escapeHtml(x.period_key)}</div></div>`).join("")||'<div class="muted small">No usage yet.</div>';
   }catch(e){box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
-
-
 async function renderRegulatoryIntelligence(){
   const src=document.getElementById("regulatorySourceList");if(!src)return;
   try{
@@ -2912,8 +2818,6 @@ async function renderRegulatoryIntelligence(){
     document.getElementById("regulatoryImpactList").safeHTML=ii.slice(0,20).map(x=>`<div class="item"><b>${escapeHtml(x.rule_title)}</b><div class="muted small">${escapeHtml(x.impact_level)} · ${escapeHtml(x.status)}</div><div class="small">${escapeHtml(x.explanation||"")}</div></div>`).join("")||'<div class="muted small">No current impacts.</div>';
   }catch(e){src.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
-
-
 async function runScan(){
   const out=document.getElementById("scanResults");
   const btn=document.querySelector('#scanModal button[data-bw-onclick="runScan()"]');
@@ -2940,7 +2844,6 @@ async function runScan(){
     if(btn){btn.disabled=false;btn.textContent="Run again"}
   }
 }
-
 async function renderComplianceObligations(){
   const box=document.getElementById("regObligationList");if(!box)return;
   try{
@@ -2954,9 +2857,6 @@ async function renderComplianceObligations(){
     document.getElementById("regApplicabilityList").safeHTML=apps.map(x=>`<div class="item"><b>${escapeHtml(x.title)}</b><div class="muted small">${escapeHtml(x.applicability_status)} · evaluated ${new Date(x.evaluated_at).toLocaleString()}</div></div>`).join("")||'<div class="muted small">No rule evaluations yet.</div>';
   }catch(e){box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
-
-
-
 async function acknowledgeEscalation(id){
   try{
     await apiJson(`/api/obligation-escalations/${encodeURIComponent(id)}/acknowledge`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({note:"Acknowledged from management attention queue"})});
@@ -2976,8 +2876,6 @@ async function renderInspectionReadiness(){
     if(packs[0])latestInspectionPackId=packs[0].id;
   }catch(e){scenarios.safeHTML=`<div class="notice">${escapeHtml(e.message)}</div>`}
 }
-
-
 async function renderNotificationDeadLetters(){
   const box=document.getElementById("notificationDeadLetterList");if(!box)return;
   try{
@@ -2994,8 +2892,6 @@ async function exportLatestInspectionPack(){
     const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`inspection-pack-${latestInspectionPackId}.json`;a.click();URL.revokeObjectURL(url);
   }catch(e){notifyUser(e.message)}
 }
-
-
 async function renderPartnerAccess(){
   const box=document.getElementById("partnerAccessList");if(!box)return;
   try{
@@ -3009,8 +2905,6 @@ async function revokePartnerAccess(clientTenantId){
     await renderPartnerAccess();await renderPartnerClients();
   }catch(e){notifyUser(e.message)}
 }
-
-
 async function renderPassportShares(){
   const box=document.getElementById("passportShareList");if(!box||!["owner","manager"].includes(currentWorkspaceRole()))return;
   try{
@@ -3028,8 +2922,6 @@ async function revokePassportShare(id){
     await renderPassportShares();await renderPassport();
   }catch(e){notifyUser(e.message)}
 }
-
-
 async function requestDeletion(){
   if(currentWorkspaceRole()!=="owner"){notifyUser("Only the account owner can request tenant deletion.");return}
   const confirmation=await BW.dialog.prompt({title:"Request tenant deletion",message:"Type DELETE MY ACCOUNT exactly to request tenant deletion.",required:true,exactValue:"DELETE MY ACCOUNT",maxLength:32,confirmLabel:"Request deletion",danger:true});
@@ -3051,8 +2943,6 @@ async function renderDeletion(){
     document.getElementById("legalHoldList").safeHTML=holds.map(x=>`<div class="item"><b>${escapeHtml(x.reason)}</b><div class="muted small">${escapeHtml(x.status)} · ${new Date(x.created_at).toLocaleString()}</div></div>`).join("")||'<div class="muted small">No holds.</div>';
   }catch(e){box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
-
-
 async function reviewEvidence(id,status){
   if(currentWorkspaceRole()==="auditor"){notifyUser("Auditor access is read-only for evidence review decisions.");return false}
   try{
@@ -3090,8 +2980,6 @@ async function renderEvidenceIntegrity(){
     }).join("")||'<div class="muted small">No evidence yet.</div>';
   }catch(e){box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
-
-
 function boolFromSelect(id){return document.getElementById(id)?.value==="true"}
 async function loadRiskEmployeeControls(){
   const eid=document.getElementById("riskEmployee")?.value;if(!eid)return;
@@ -3116,8 +3004,6 @@ async function renderProtectionEngine(){
     const sel=document.getElementById("riskEmployee"),old=sel.value,activeRiskEmployees=(emps.items||[]).filter(e=>String(e.status||"").trim().toLowerCase()==="active"&&!recentlyRemovedEmployeeIds.has(String(e.id)));sel.safeHTML=activeRiskEmployees.map(e=>`<option value="${e.id}">${escapeHtml(e.full_name)}</option>`).join("");if(old&&[...sel.options].some(o=>o.value===old))sel.value=old;sel.onchange=loadRiskEmployeeControls;if(sel.value)await loadRiskEmployeeControls();
   }catch(e){box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
-
-
 async function recalculateRiskEvents(){
   try{await apiJson("/api/business-risk-events/recalculate",{method:"POST",headers:{"content-type":"application/json"},body:"{}"});await renderRiskEvents();await renderProtectionEngine();await renderUnifiedNextActions()}
   catch(e){notifyUser(e.message)}
@@ -3144,8 +3030,6 @@ async function renderPortfolioRisk(){
     box.safeHTML=(r.items||[]).map(x=>`<div class="item"><div class="between row"><div><b>${escapeHtml(x.clientName)}</b><div class="muted small">Protection ${x.protectionScore??"—"}${x.grade?` (${escapeHtml(x.grade)})`:""} · ${x.openEvents} open risk event(s)</div></div><div><span class="badge ${x.criticalEvents?"bad":x.highEvents?"warn":"good"}">${x.criticalEvents} critical · ${x.highEvents} high</span></div></div></div>`).join("")||'<div class="muted small">No authorized client portfolio data yet.</div>';
   }catch(e){box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
-
-
 async function activateIndustryPack(packKey){try{await apiJson(`/api/industry/packs/${packKey}/activate`,{method:"POST",headers:{"content-type":"application/json"},body:"{}"});await renderIndustryIntelligence();await renderRegulatoryIntelligence()}catch(e){notifyUser(e.message)}}
 async function dismissIndustryPack(packKey){try{await apiJson(`/api/industry/packs/${packKey}/dismiss`,{method:"POST",headers:{"content-type":"application/json"},body:"{}"});await renderIndustryIntelligence()}catch(e){notifyUser(e.message)}}
 async function updateIndustryControl(packKey,controlKey,status){try{await apiJson(`/api/industry/controls/${packKey}/${controlKey}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({status})});await renderIndustryIntelligence()}catch(e){notifyUser(e.message)}}
@@ -3165,8 +3049,6 @@ async function renderIndustryIntelligence(){
     bb.safeHTML=b.available?`<div class="item"><b>${escapeHtml(b.industryKey)}</b><div class="muted small">${b.cohortSize} opted-in businesses · updated ${new Date(b.asOf).toLocaleString()}</div><div class="small">Average Protection Score: <b>${b.metrics?.averageProtectionScore??"—"}</b> · Median: <b>${b.metrics?.medianProtectionScore??"—"}</b></div></div>`:`<div class="muted small">Benchmark withheld until at least ${b.minCohort||10} opted-in businesses exist in this industry. Current eligible cohort: ${b.cohortSize||0}.</div>`;
   }catch(e){packBox.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
-
-
 async function recalculateControlCenter(){
   try{await apiJson("/api/control-center/recalculate",{method:"POST",headers:{"content-type":"application/json"},body:"{}"});await renderControlCenter();await renderRiskEvents();await renderProtectionEngine()}
   catch(e){notifyUser(e.message)}
@@ -3211,8 +3093,6 @@ async function renderControlCenter(){
     remBox.safeHTML=(r.items||[]).filter(x=>!["resolved","canceled"].includes(x.status)).map(x=>`<div class="item"><div class="between row"><div><b>${escapeHtml(x.title)}</b><div class="muted small">${escapeHtml(x.severity)} · ${escapeHtml(x.status)}${x.due_at?` · due ${new Date(x.due_at).toLocaleDateString()}`:""}</div><div class="small">${escapeHtml(x.recommended_action||"")}</div></div><div>${x.status==="open"?`<button class="btn alt" data-bw-onclick="advanceRemediation('${x.id}','in_progress')">Start</button>`:""}${x.requires_professional&&!x.service_order_id?`<button class="btn" data-bw-onclick="escalateRemediation('${x.id}')">Professional review</button>`:""}</div></div></div>`).join("")||'<div class="notice good">No active remediation cases.</div>';
   }catch(e){remBox.safeHTML='<div class="muted small">Advanced remediation is available on Protect and above.</div>'}
 }
-
-
 async function runAssuranceTest(){
   try{await apiJson("/api/control-assurance/test",{method:"POST",headers:{"content-type":"application/json"},body:"{}"});await renderAssuranceFreshness();await renderControlCenter()}
   catch(e){notifyUser(e.message)}
@@ -3237,8 +3117,6 @@ async function renderAssuranceFreshness(){
     box.safeHTML=items.map(x=>`<div class="item"><div class="between row"><div><b>${escapeHtml(x.name)}</b><div class="muted small">${escapeHtml(x.category)} · ${escapeHtml(x.status)} · ${escapeHtml(x.assurance_level)} · freshness ${escapeHtml(x.assurance_freshness||"unknown")}</div><div class="small">${escapeHtml(x.stale_reason||"")}</div>${x.next_review_at?`<div class="muted small">Next human review: ${new Date(x.next_review_at).toLocaleDateString()}</div>`:""}</div>${canReview?`<button class="btn alt" data-bw-onclick="reviewControlFreshness('${x.control_key}','${x.status}')">Review</button>`:'<span class="badge">Read only</span>'}</div></div>`).join("")||'<div class="muted small">No controls yet.</div>';
   }catch(e){box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
-
-
 async function verifyAuditIntegrity(){
   const box=document.getElementById("auditIntegrityDetail");if(!box)return;
   try{
@@ -3269,9 +3147,7 @@ async function loadControlLineage(){
       ${block("Assurance tests",l.assuranceTests||[],x=>`<div class="small">${escapeHtml(x.result_status||"")} · ${escapeHtml(x.freshness||"")} · ${new Date(x.tested_at).toLocaleString()}</div>`)}</div>`;
   }catch(e){box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
-
 async function renderPlatformRegulatoryGovernance(){let status=null;try{status=await apiJson("/api/platform/regulatory/status")}catch(e){platformRegulatoryAccess=false;document.querySelectorAll(".platformRegulatoryOnly").forEach(x=>x.style.display="none");document.querySelector(".nav-specialist-tools")?.setAttribute("hidden","");applyRoleUi();return}platformRegulatoryAccess=["editor","reviewer","admin"].includes(String(status?.role||""));document.querySelectorAll(".platformRegulatoryOnly").forEach(x=>x.style.display=platformRegulatoryAccess?"":"none");const specialist=document.querySelector(".nav-specialist-tools");if(specialist){if(platformRegulatoryAccess)specialist.removeAttribute("hidden");else specialist.setAttribute("hidden","")}const importBtn=document.getElementById("foundationPackImportBtn");if(importBtn)importBtn.hidden=!["editor","admin"].includes(String(status?.role||""));applyRoleUi();renderFoundationPackStatus();const box=document.getElementById("platformRegSourceList");if(!box)return;try{const [s,r,c,o,ready]=await Promise.all([apiJson("/api/platform/regulatory/sources"),apiJson("/api/platform/regulatory/rules"),apiJson("/api/platform/regulatory/conflicts"),apiJson("/api/platform/regulatory/rollouts"),apiJson("/api/platform/regulatory/readiness")]);const ss=s.items||[],rr=r.items||[],cc=c.items||[],oo=o.items||[];document.getElementById("platformRegRole").textContent=String(status.role||"—").toUpperCase();document.getElementById("platformRegPendingSources").textContent=ss.filter(x=>x.status==="pending").length;document.getElementById("platformRegReviewRules").textContent=rr.filter(x=>x.status==="review").length;document.getElementById("platformRegQueuedRollouts").textContent=oo.filter(x=>["queued","running"].includes(x.status)).length;const readiness=document.getElementById("platformRegReadiness");if(readiness){const blockers=ready.blockers||[],labels={maker_checker_principals_required:"Provision at least two distinct regulatory principals with editor/reviewer capability.",foundation_pack_not_imported:"Import the Botswana Foundation Pack as pending sources and draft rules.",no_verified_approved_sources:"Capture current source snapshots and complete independent source approval.",no_published_rules:"Move validated rules through independent review and publication.",open_source_conflicts:"Resolve or explicitly keep conflicted topics blocked before automation."};const state=ready.makerCheckerReady&&ready.foundationPack?.imported&&ready.sources?.verifiedApproved>0&&ready.rules?.published>0?"good":"warn";readiness.className=`notice ${state}`;readiness.safeHTML=`<b>Publishing readiness: ${state==="good"?"ready":"setup required"}</b><div class="small">${ready.principals?.active||0} active principal(s) · ${ready.sources?.verifiedApproved||0} verified/approved source(s) · ${ready.rules?.published||0} published rule(s) · ${ready.openConflicts||0} open conflict(s).</div>${blockers.length?`<ul class="small">${blockers.map(x=>`<li>${escapeHtml(labels[x]||x)}</li>`).join("")}</ul>`:""}`};box.safeHTML=ss.slice(0,25).map(x=>`<div class="item"><b>${escapeHtml(x.title)}</b><div class="muted small">${escapeHtml(x.authority)} · ${escapeHtml(x.status)} · snapshot ${x.latest_snapshot_version||0} · ${escapeHtml(x.verification_status||"unverified")}</div></div>`).join("")||'<div class="muted small">No sources.</div>';document.getElementById("platformRegRuleList").safeHTML=rr.slice(0,25).map(x=>`<div class="item"><b>${escapeHtml(x.title)}</b><div class="muted small">v${x.version} · ${escapeHtml(x.status)} · ${escapeHtml(x.confidence)}</div></div>`).join("")||'<div class="muted small">No rules.</div>';document.getElementById("platformRegConflictList").safeHTML=cc.filter(x=>x.status==="open").slice(0,20).map(x=>`<div class="item"><b>${escapeHtml(x.topic_key)}</b><div class="small">${escapeHtml(x.description||"")}</div></div>`).join("")||'<div class="muted small">No open conflicts.</div>';document.getElementById("platformRegRolloutList").safeHTML=oo.slice(0,20).map(x=>`<div class="item"><b>${escapeHtml(x.rule_title)}</b><div class="muted small">${escapeHtml(x.status)} · ${x.tenants_evaluated||0} evaluated · ${x.obligations_created||0} obligations · ${x.tenants_failed||0} failures</div></div>`).join("")||'<div class="muted small">No rollouts.</div>';}catch(e){box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}}
-
 async function importFoundationPack(){
   const confirmed=await BW.dialog.confirm({title:"Import Botswana Foundation Pack?",message:"Import the Botswana Foundation Pack as PENDING sources, DRAFT rules and conflict records? Nothing will be approved or published automatically.",confirmLabel:"Import draft pack"});if(!confirmed)return;
   try{
@@ -3287,10 +3163,8 @@ async function renderFoundationPackStatus(){
     el.textContent=last?`Imported v${r.pack.version} · ${new Date(last.created_at).toLocaleString()}`:`Ready to import v${r.pack.version}`;
   }catch(e){el.textContent="Unavailable"}
 }
-
 async function recalculateStatutoryCalendar(){try{await apiJson("/api/statutory-calendar/recalculate",{method:"POST",headers:{"content-type":"application/json"},body:"{}"});await renderStatutoryCalendar();await renderComplianceObligations();await renderUnifiedNextActions()}catch(e){notifyUser(e.message)}}
 async function renderStatutoryCalendar(){const list=document.getElementById("statCalendarList"),setup=document.getElementById("statCalendarSetup");if(!list||!setup)return;try{const r=await apiJson("/api/statutory-calendar"),items=r.obligations||[],schedules=r.schedules||[],now=Date.now(),active=items.filter(x=>x.due_at),within30=active.filter(x=>{const d=(new Date(x.due_at+"T23:59:59Z").getTime()-now)/86400000;return d>=0&&d<=30}),need=schedules.filter(x=>x.config_status==="needs_input");document.getElementById("statCalUpcoming").textContent=active.length;document.getElementById("statCal30").textContent=within30.length;document.getElementById("statCalNeeds").textContent=need.length;document.getElementById("statCalNext").textContent=active.length?new Date(active[0].due_at+"T00:00:00Z").toLocaleDateString():"—";list.safeHTML=active.map(x=>`<div class="item"><b>${escapeHtml(x.title)}</b><div class="muted small">${escapeHtml(x.rule_title)} · due ${new Date(x.due_at+"T00:00:00Z").toLocaleDateString()} · ${escapeHtml(x.schedule_type||"")}</div></div>`).join("")||'<div class="muted small">No recurring statutory obligations generated yet. Published rules are required.</div>';setup.safeHTML=need.map(x=>{let miss=[];try{miss=JSON.parse(x.missing_fields_json||"[]")}catch{}return `<div class="item"><b>${escapeHtml(x.rule_title)}</b><div class="small">Missing: ${escapeHtml(miss.join(", ")||"company information")}</div></div>`}).join("")||'<div class="notice good">No statutory schedule setup gaps detected.</div>'}catch(e){list.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}}
-
 let latestInspectionPackId=null;
 async function runInspectionScenario(key){
   if(currentWorkspaceRole()==="auditor"){notifyUser("Auditor access is read-only for inspection simulations.");return false}
@@ -3303,7 +3177,6 @@ async function runInspectionScenario(key){
     await renderInspectionReadiness();
   }catch(e){detail.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
-
 async function createEmploymentDefensePack(caseId){
   try{
     const r=await apiJson("/api/defense-packs/employment",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({caseId})});
@@ -3318,8 +3191,6 @@ async function renderDefensePacks(){
     box.safeHTML=(r.items||[]).map(x=>`<div class="item"><b>${escapeHtml(x.label)}</b><div class="muted small">${escapeHtml(x.status)} · ${x.evidence_count} approved evidence item(s) · ${x.gap_count} gap(s) · ${new Date(x.created_at).toLocaleString()}</div><div class="audit">${escapeHtml(String(x.content_hash||"").slice(0,24))}…</div></div>`).join("")||'<div class="muted small">No defense packs yet.</div>';
   }catch(e){box.safeHTML=`<div class="muted small">${escapeHtml(e.message)}</div>`}
 }
-
-
 async function linkDefenseEvidence(){
   const caseId=document.getElementById("defenseCaseSelect")?.value,evidenceId=document.getElementById("defenseEvidenceSelect")?.value,relationship=document.getElementById("defenseEvidenceRelationship")?.value||"supporting";
   if(!caseId||!evidenceId){notifyUser("Choose an open HR case and approved evidence.");return}
@@ -3328,8 +3199,6 @@ async function linkDefenseEvidence(){
     notifyUser("Evidence linked to HR case.");await renderDefensePacks();
   }catch(e){notifyUser(e.message)}
 }
-
-
 async function renderBusinessEvents(){
   const box=document.getElementById("businessEventList");if(!box)return;
   try{
@@ -3341,7 +3210,6 @@ async function renderBusinessEvents(){
     box.safeHTML=items.slice(0,50).map(x=>`<div class="item"><div class="between row"><div><b>${escapeHtml(x.event_type.replaceAll("_"," "))}</b><div class="muted small">${escapeHtml(x.event_category)} · ${escapeHtml(x.status)} · ${new Date(x.occurred_at).toLocaleString()}</div></div><div><button class="btn alt" data-bw-onclick="viewBusinessEvent('${x.id}')">Impact Map</button>${x.status==="failed"?`<button class="btn alt" data-bw-onclick="retryBusinessEvent('${x.id}')">Retry</button>`:""}</div></div></div>`).join("")||'<div class="muted small">No business events yet.</div>';
   }catch(e){box.safeHTML=`<div class="notice">${escapeHtml(e.message)}</div>`}
 }
-
 async function viewBusinessEvent(id){
   const box=document.getElementById("businessEventImpactDetail");if(!box)return;
   try{
@@ -3351,7 +3219,6 @@ async function viewBusinessEvent(id){
       `<div class="item"><b>Processing effects</b>${effects.map(e=>`<div class="small">${e.sequence_no}. ${escapeHtml(e.effect_type)} · ${escapeHtml(e.status)}${e.last_error?` · ${escapeHtml(e.last_error)}`:""}</div>`).join("")}</div>`;
   }catch(e){box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
-
 async function retryBusinessEvent(id){
   try{await apiJson(`/api/business-events/${id}/retry`,{method:"POST",headers:{"content-type":"application/json"},body:"{}"});await renderBusinessEvents()}catch(e){notifyUser(e.message)}
 }
@@ -3362,8 +3229,6 @@ async function reportBusinessEvent(){
     document.getElementById("manualBusinessEventReason").value="";await renderBusinessEvents();await renderRiskEvents();await renderStatutoryCalendar();
   }catch(e){notifyUser(e.message)}
 }
-
-
 async function renderPartnerActionCenter(){
   const feed=document.getElementById("partnerActionFeed");if(!feed)return;
   try{
@@ -3394,8 +3259,6 @@ async function loadPartnerClientImpact(){
       `<div class="item"><b>Recent inspection readiness</b>${(r.inspections||[]).slice(0,10).map(x=>`<div class="small">${escapeHtml(x.name)} · ${x.coverage_status==="insufficient"?"N/A":x.readiness_score} · ${escapeHtml(x.readiness_band)}</div>`).join("")||'<div class="muted small">None.</div>'}</div>`;
   }catch(e){box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
-
-
 function publicPassportHashToken(){
   const raw=String(location.hash||"");
   if(!raw.startsWith("#passport="))return null;
@@ -3420,8 +3283,6 @@ async function handlePublicPassportFragment(){
   return true;
 }
 function leavePublicPassport(){document.getElementById("publicPassportGate")?.classList.add("hidden");showMarketing()}
-
-
 const WORKSPACE_VIEW_FRAGMENT_SHARD_COUNT=12;
 const WORKSPACE_VIEW_FRAGMENT_PREFIX="/assets/workspace-view-fragments-20261001a-";
 const PROPERTY_VIEW_FRAGMENT_ASSET="/assets/workspace-view-fragments-20261001a-4.json?v=20261001-property-visibility-v226";
@@ -3551,7 +3412,6 @@ async function hydrateLazyWorkspaceView(id,target,options={}){
     return false;
   }
 }
-
 function enforceResidentPropertyVisibility(target){
   if(!target||target.id!=="propertyintelligence")return false;
   target.removeAttribute("data-lazy-view");
@@ -3604,7 +3464,6 @@ function scheduleResidentPropertyVisibility(target){
   setTimeout(()=>enforceResidentPropertyVisibility(target),180);
   setTimeout(()=>enforceResidentPropertyVisibility(target),700);
 }
-
 let workspacePendingRenderToken=0;
 function scheduleWorkspaceNavigationRender(id,target,epoch){
   const token=++workspacePendingRenderToken;
@@ -3618,7 +3477,6 @@ function scheduleWorkspaceNavigationRender(id,target,epoch){
 }
 let lastWorkspaceView="dashboard";
 function showView(id,options={}){if(!roleCanView(id)){console.warn("Role denied view",id,currentWorkspaceRole());if(!options?.silent){let sr=document.getElementById("srStatus");if(sr)sr.textContent="This area is not available for your role."}return false}const target=document.getElementById(id);if(!target){console.warn("Unknown view",id);return false}const workspaceNavigationEpoch=options?.preserveNavigationEpoch===true?workspaceViewNavigationEpoch:++workspaceViewNavigationEpoch;if(target.dataset.lazyView==="1"&&options?.lazyHydrated!==true){target.dataset.lazyNavigationEpoch=String(workspaceNavigationEpoch);activateLazyWorkspacePlaceholder(id,target);void hydrateLazyWorkspaceView(id,target,options);return true}lastWorkspaceView=id;document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));target.classList.add("active");if(id==="propertyintelligence")scheduleResidentPropertyVisibility(target);document.querySelectorAll(".nav button").forEach(b=>{let active=b.dataset.view===id;b.classList.toggle("active",active);if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});const nb=document.querySelector(`[data-view="${id}"]`),meta=(typeof COMMAND_META!=="undefined"?COMMAND_META[id]:null);document.getElementById("pageTitle").textContent=meta?.[0]||nb?.textContent?.trim()||"BW Compliance OS";updateMobileNav(id);let sr=document.getElementById("srStatus");if(sr)sr.textContent="Opened "+document.getElementById("pageTitle").textContent;window.scrollTo({top:0,behavior:prefersReducedMotion()?"auto":"smooth"});if(options?.skipDataRefresh)setTimeout(animateViewItems,20);if(!options?.skipDataRefresh&&!options?.roleRedirect)scheduleWorkspaceNavigationRender(id,target,workspaceNavigationEpoch);globalThis.dispatchEvent?.(new CustomEvent("thebe:workspace-view-change",{detail:{id}}));if(!STANDALONE_PREVIEW&&!options?.skipDataRefresh&&!options?.roleRedirect){if(id==="billing")queueMicrotask(()=>void loadBilling());if(id==="audit")queueMicrotask(()=>void hydrateWorkspaceAudit())}return true}
-
 let wizardStep=0;
 let firstValueTopTarget="workhub";
 function scheduleOwnerOnboarding(){
@@ -3639,7 +3497,7 @@ function scheduleOwnerOnboarding(){
 }
 function openOnboarding(){
  if(currentWorkspaceRole()!=="owner"){let sr=document.getElementById("srStatus");if(sr)sr.textContent="Only the account owner can complete initial business setup.";return false}
- wizardStep=0;loadWizard();if(wizardInlineError){wizardInlineError.textContent="";wizardInlineError.classList.remove("show")}renderWizard();openModal("onboardModal")
+ loadWizard();wizardStep=!currentUser?.onboardingComplete&&!!state.profile?.entityType?1:0;if(wizardInlineError){wizardInlineError.textContent="";wizardInlineError.classList.remove("show")}renderWizard();openModal("onboardModal")
 }
 function dismissOnboarding(){safeSessionSet("bw_onboarding_dismissed","1");closeModal("onboardModal")}
 function loadWizard(){
@@ -3658,19 +3516,27 @@ function renderWizard(){
   wizardReview.safeHTML=`<b>Ready for your first protection check</b><div class="small">${escapeHtml(wName.value||"Your business")} · ${escapeHtml(wIndustry.value||"Industry not set")} · ${Number(wEmployees.value||0)} employee(s)${facts.length?` · ${escapeHtml(facts.join(", "))}`:""}. VAT, PAYE and trade/licence status will remain “Not confirmed” until you explicitly confirm them.</div>`;
  }
 }
+async function saveWizardFirstStep(){
+ if(wizardNext.disabled||currentUser?.role!=="owner")return false;wizardNext.disabled=true;
+ const prior=state.profile;
+ try{updateActiveCompany(c=>{c.profile={...c.profile,entityType:wEntityType.value,industry:wIndustry.value,employees:+wEmployees.value}});await persistWorkspaceState();wizardStep=1;renderWizard();return true}
+ catch{updateActiveCompany(c=>{c.profile=prior});wizardInlineError.textContent="Step not saved. Retry.";wizardInlineError.classList.add("show");return false}
+ finally{wizardNext.disabled=false}
+}
 function wizardMove(dir){
  if(wizardInlineError){wizardInlineError.textContent="";wizardInlineError.classList.remove("show")}
  if(dir>0&&wizardStep===0&&!wEntityType.value){if(wizardInlineError){wizardInlineError.textContent="Choose the legal entity type so BW can select entity-specific work without guessing.";wizardInlineError.classList.add("show")}return}
- if(dir>0&&wizardStep===0&&(!String(wIndustry.value||"").trim()||Number(wEmployees.value)<0)){if(wizardInlineError){wizardInlineError.textContent="Add the industry and a valid employee count.";wizardInlineError.classList.add("show")}return}
+ if(dir>0&&wizardStep===0&&(!String(wIndustry.value||"").trim()||!Number.isInteger(+wEmployees.value)||Number(wEmployees.value)<0)){if(wizardInlineError){wizardInlineError.textContent="Add the industry and a valid employee count.";wizardInlineError.classList.add("show")}return}
+ if(dir>0&&wizardStep===0){void saveWizardFirstStep();return}
  if(dir>0&&wizardStep===1){saveWizard();return}
  wizardStep=Math.max(0,Math.min(1,wizardStep+dir));renderWizard()
 }
 function firstValueFactRows(){
  const p=state?.profile||{},rows=[];
- if(confirmedStatus(p,"vat")==="unknown")rows.push(["VAT registration","Confirm the business's actual BURS VAT registration status before VAT filing actions are enabled.","taxprofile"]);
+ if(confirmedStatus(p,"vat")==="unknown")rows.push(["VAT registration","Confirm BURS VAT registration status before filing.","taxprofile"]);
  if(Number(p.employees||0)>0&&confirmedStatus(p,"paye")==="unknown")rows.push(["PAYE registration","You have employees recorded. Confirm actual PAYE registration/status; BW will not infer it from headcount or salary thresholds.","taxprofile"]);
  if(confirmedStatus(p,"trade")==="unknown")rows.push(["Trade / business licence","Confirm whether an authority-issued licence or registration is held or needs tracking. BW will not infer legal applicability from industry alone.","licenceos"]);
- if(!p.cipaMonth&&["company","business_name"].includes(String(p.entityType||"")))rows.push(["CIPA timing","Add the authority-confirmed annual-return or renewal month when known.","corporate"]);
+ if(!p.cipaMonth&&["company","business_name"].includes(String(p.entityType||"")))rows.push(["CIPA timing","Add the confirmed annual-return or renewal month.","corporate"]);
  return rows;
 }
 function renderFirstValueResult(items=[],meta={}){
@@ -3700,14 +3566,11 @@ async function saveWizard(){
  const prior=state.profile||{},payeStatus=String(wPaye.value||confirmedStatus(prior,"paye")),vatStatus=String(wVat.value||confirmedStatus(prior,"vat")),tradeStatus=String(wTrade.value||confirmedStatus(prior,"trade"));
  const profile={...prior,name:wName.value.trim()||"Unnamed Business",incorporationDate:wIncorporationDate.value||"",entityType:wEntityType.value||"",industry:wIndustry.value,town:wTown.value.trim(),employees:+wEmployees.value||0,turnover:optionalNonNegativeNumber(wTurnover),paye:statusBoolean(payeStatus),payeStatus,vat:statusBoolean(vatStatus),vatStatus,vatCategory:wVatCategory.value||"",trade:statusBoolean(tradeStatus),tradeStatus,citizenOwned:wCitizen.value==="true",premises:!!wPremises.checked,tradeAnniversary:wTradeAnniversary.value,manufacturing:!!wManufacturing.checked,mfgActivity:prior.mfgActivity||"",mfgFactory:!!prior.mfgFactory,mfgAnniversary:prior.mfgAnniversary||"",data:!!wData.checked,tender:!!wTender.checked,cipaMonth:wCipaMonth.value,cipaUin:prior.cipaUin||"",cipaStatus:prior.cipaStatus||"",registeredOffice:prior.registeredOffice||"",firstProtectionCheckStatus:"pending",firstProtectionCheckAt:null};updateActiveCompany(c=>{c.profile=profile});
  try{await persistWorkspaceState();await apiJson("/api/account/onboarding/complete",{method:"POST",headers:{"content-type":"application/json"},body:"{}"});if(currentUser)currentUser.onboardingComplete=true;safeSessionSet("bw_onboarding_dismissed","0");logEvent("GUIDED_SETUP_COMPLETED",{industry:state.profile.industry,employees:state.profile.employees});closeModal("onboardModal");renderAll();showView("dashboard",{skipDataRefresh:true});await runFirstProtectionCheck()}
- catch(e){if(wizardInlineError){wizardInlineError.textContent=`Your setup was not marked complete: ${e.message||e}. Your answers remain on screen so you can retry safely.`;wizardInlineError.classList.add("show")}}
+ catch(e){if(wizardInlineError){wizardInlineError.textContent=`Your setup was not marked complete: ${e.message||e}. Retry when ready.`;wizardInlineError.classList.add("show")}}
  finally{if(btn){btn.disabled=false;btn.textContent="Show my first check"}}
 }
-
-
 function showSyncError(msg){let el=document.getElementById("globalConflictBanner");if(el){el.style.display="block";el.safeHTML=`<b>Sync problem</b><div class="small">${escapeHtml(msg)}. Changes remain in memory until this page is closed; retry after connectivity returns.</div>`}}
 async function apiFetch(url,opts={}){return apiJson(url,opts)}
-
 function syncMarketingSessionActions(){
  const canResume=isWorkspaceRole(currentUser?.role);
  document.querySelectorAll('#marketingGate [data-guest-action]').forEach(el=>{el.hidden=canResume});
@@ -3801,7 +3664,6 @@ async function requestPlan(plan){
      <div id="manualBankSubmitResult" style="margin-top:10px" role="status" aria-live="polite"></div></div>`;
  }catch(e){if(upgradeResult)upgradeResult.safeHTML=`<div class="autherror show">${escapeHtml(e.message)}</div>`}
 }
-
 let turnstileWidgetId=null,turnstileToken="",turnstileConfig=null,turnstileLoadPromise=null,turnstileExecutionResolve=null,turnstileExecutionReject=null;
 function loadTurnstileScript(){if(window.turnstile)return Promise.resolve(window.turnstile);if(turnstileLoadPromise)return turnstileLoadPromise;turnstileLoadPromise=new Promise((resolve,reject)=>{const s=document.createElement("script");s.src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";s.async=true;s.defer=true;s.onload=()=>resolve(window.turnstile);s.onerror=()=>reject(new Error("Human verification could not load."));document.head.appendChild(s)});return turnstileLoadPromise}
 function settleTurnstileExecution(token,error=null){
@@ -3937,7 +3799,6 @@ async function loadServerState(){
  if(currentUser.role==="owner"&&currentUser.onboardingComplete===false)scheduleOwnerOnboarding();
  if(currentUser.role==="owner"&&currentUser.onboardingComplete===true&&state?.profile?.firstProtectionCheckStatus==="pending")setTimeout(()=>{document.getElementById("firstValuePanel")?.classList.add("show");renderFirstValueFailure("The previous first protection check did not finish. Run it again to generate server-backed actions.")},220);
 }
-
 let lastModalFocus=null;
 function modalFocusable(modal){return [...modal.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el=>!el.hidden&&el.offsetParent!==null)}
 function openModal(id){const modal=document.getElementById(id);if(!modal)return;lastModalFocus=document.activeElement;modal.classList.add("open");modal.setAttribute("aria-hidden","false");requestAnimationFrame(()=>modalFocusable(modal)[0]?.focus())}
@@ -3966,7 +3827,6 @@ async function bootstrap(){marketingGate.classList.add("hidden");authGate.classL
 document.getElementById("authPassword").addEventListener("keydown",e=>{if(e.key==="Enter")submitAuth()});
 document.getElementById("authEmail").addEventListener("input",clearWorkspaceChoice);
 document.getElementById("authPassword").addEventListener("input",clearWorkspaceChoice);
-
 function syncMetricRing(ring){
  const target=document.getElementById(ring.dataset.ringTarget||"");if(!target)return;
  const raw=(target.textContent||"").replace(/[^0-9.]/g,"");const value=raw===""?0:Math.max(0,Math.min(100,Number(raw)||0));
