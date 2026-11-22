@@ -1,0 +1,43 @@
+name: Essentials Paid-Core Contract Gate (Offline)
+on:
+  pull_request:
+    paths:
+      - 'server/payments/owner-payment-evidence-policy.mjs'
+      - 'server/essentials-payment-schedule.mjs'
+      - 'server/essentials-invoice-transaction.mjs'
+      - 'tests/owner-payment-evidence-policy.test.mjs'
+      - 'tests/owner-bank-allocation-real-d1.test.mjs'
+      - 'tests/essentials-payment-schedule.test.mjs'
+      - 'tests/essentials-invoice-transaction.test.mjs'
+      - '.github/workflows/essentials-paid-core-contract.yml'
+      - 'docs/essentials-paid-core-next-implementation-batch.md'
+permissions:
+  contents: read
+jobs:
+  payment-invoice-offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Check changed source and test syntax
+        run: |
+          set -euo pipefail
+          for file in server/payments/owner-payment-evidence-policy.mjs server/essentials-payment-schedule.mjs server/essentials-invoice-transaction.mjs tests/owner-payment-evidence-policy.test.mjs tests/owner-bank-allocation-real-d1.test.mjs tests/essentials-payment-schedule.test.mjs tests/essentials-invoice-transaction.test.mjs; do node --check "$file"; done
+      - name: Fail-closed payment, invoice and instalment regression
+        run: |
+          set -euo pipefail
+          node --test tests/owner-payment-evidence-policy.test.mjs tests/essentials-payment-schedule.test.mjs tests/essentials-invoice-transaction.test.mjs
+      - name: Qualify synthetic D1 allocation uniqueness locally
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          node --test tests/owner-bank-allocation-real-d1.test.mjs
+      - name: Offline-only acceptance receipt
+        run: |
+          printf '%s\n' 'ESSENTIALS_PAID_CORE_OFFLINE_PASS_NO_BANK_VERIFICATION_NO_ACTIVATION_NO_DEPLOY'

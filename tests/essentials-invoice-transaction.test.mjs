@@ -110,3 +110,33 @@ test("idempotency reuse for a different customer and mismatched inserted identit
   await assert.rejects(createEssentialsInvoiceDraft({...args,repository:transaction({inserted})}),/invalid_insert_result/);
  }
 });
+
+test("a changed accepted quote total or source reference blocks idempotent replay",async()=>{
+ for(const existing of [
+  {totalMinor:9999},
+  {currency:"USD"},
+  {sourceQuotationReference:"Q-OLD"}
+ ]){
+  const repository={transaction:async fn=>fn({
+   getQuotationForTenant:async()=>quotation,
+   getDraftByIdempotencyKey:async()=>({
+    tenantId:"tenant-a",sourceQuotationId:"quote-1",customerId:"customer-1",
+    createdByUserId:"owner-1",status:"draft",...existing}),
+   reserveInvoiceReference:async()=>{throw Error("unexpected reserve")},
+   insertDraftInvoice:async()=>{throw Error("unexpected insert")}
+  })};
+  await assert.rejects(createEssentialsInvoiceDraft({...args,repository}),/idempotency_conflict/);
+ }
+});
+test("invoice database adapter cannot report a different amount as a successful draft",async()=>{
+ const repository={transaction:async fn=>fn({
+  getQuotationForTenant:async()=>quotation,
+  getDraftByIdempotencyKey:async()=>null,
+  reserveInvoiceReference:async()=>"INV-1",
+  insertDraftInvoice:async({tenantId,sourceQuotationId,draft})=>({
+   tenantId,sourceQuotationId,customerId:"customer-1",
+   createdByUserId:"owner-1",status:"draft",totalMinor:draft.totalMinor+1
+  })
+ })};
+ await assert.rejects(createEssentialsInvoiceDraft({...args,repository}),/invalid_insert_result/);
+});
