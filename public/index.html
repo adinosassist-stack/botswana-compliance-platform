@@ -4721,10 +4721,10 @@ body.thebe-ai-dock-open .property-valuation-service-card .formgrid{grid-template
         <h3>2. Tick what the business does today</h3>
         <p class="muted small onboarding-explain">Tick only factual activities you know apply. VAT, PAYE and licence registration status will start as <b>Not confirmed</b> unless already confirmed in your workspace.</p>
         <div class="onboarding-facts">
-          <label class="onboarding-fact"><input id="wPremises" type="checkbox"><span><b>Uses business premises</b><small>Shop, office, branch, workshop, site or other operating premises.</small></span></label>
-          <label class="onboarding-fact"><input id="wManufacturing" type="checkbox"><span><b>Manufactures or processes goods</b><small>Used to surface industrial/manufacturing checks.</small></span></label>
-          <label class="onboarding-fact"><input id="wData" type="checkbox"><span><b>Handles customer personal information</b><small>Names, phone numbers, IDs, addresses or similar customer data.</small></span></label>
-          <label class="onboarding-fact"><input id="wTender" type="checkbox"><span><b>Submits tenders or bids</b><small>Government, corporate or other formal tender submissions.</small></span></label>
+          <label class="onboarding-fact"><input id="wPremises" type="checkbox" aria-labelledby="wPremisesLabel" aria-describedby="wPremisesHelp"><span><b id="wPremisesLabel">Uses business premises</b><small id="wPremisesHelp">Shop, office, branch, workshop, site or other operating premises.</small></span></label>
+          <label class="onboarding-fact"><input id="wManufacturing" type="checkbox" aria-labelledby="wManufacturingLabel" aria-describedby="wManufacturingHelp"><span><b id="wManufacturingLabel">Manufactures or processes goods</b><small id="wManufacturingHelp">Used to surface industrial/manufacturing checks.</small></span></label>
+          <label class="onboarding-fact"><input id="wData" type="checkbox" aria-labelledby="wDataLabel" aria-describedby="wDataHelp"><span><b id="wDataLabel">Handles customer personal information</b><small id="wDataHelp">Names, phone numbers, IDs, addresses or similar customer data.</small></span></label>
+          <label class="onboarding-fact"><input id="wTender" type="checkbox" aria-labelledby="wTenderLabel" aria-describedby="wTenderHelp"><span><b id="wTenderLabel">Submits tenders or bids</b><small id="wTenderHelp">Government, corporate or other formal tender submissions.</small></span></label>
         </div>
         <input id="wPaye" type="hidden" value="unknown"><input id="wVat" type="hidden" value="unknown"><input id="wTrade" type="hidden" value="unknown">
         <details class="onboarding-optional" style="margin-top:14px"><summary>Add optional details</summary>

@@ -22,7 +22,7 @@ const facts=[
 ];
 for(const [id,name,help] of facts){
  test(id+" uses its visible label, not an abbreviated override",()=>{
-  const row=modal.match(new RegExp('<label class="onboarding-fact"><input id="'+id+'" type="checkbox"[^>]*><span><b>([^<]+)</b><small>([^<]+)</small></span></label>'));
+  const row=modal.match(new RegExp('<label class="onboarding-fact"><input id="'+id+'" type="checkbox" aria-labelledby="'+id+'Label" aria-describedby="'+id+'Help"><span><b id="'+id+'Label">([^<]+)</b><small id="'+id+'Help">([^<]+)</small></span></label>'));
   assert.ok(row,"checkbox must remain inside an explanatory wrapping label");
   assert.equal(row[1],name);
   assert.ok(row[2].includes(help),"visible hint must remain");
