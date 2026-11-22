@@ -33,3 +33,8 @@ jobs:
           set -euo pipefail
           node tests/mobile-startup-cache-recovery-adversarial.mjs
           node --check public/js/recover-runtime.js
+      - name: Verify consolidated mobile UI, notifications and logo truthfulness
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/consolidated-ui-truthfulness-2735.test.mjs tests/daily-reports-mobile-layout-2715.test.mjs
