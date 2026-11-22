@@ -18,20 +18,51 @@
   if(typeof module!=="undefined"&&module.exports){module.exports={deriveOwnerJourney};return}
   const doc=global.document;
   if(!doc||!global.BW?.api?.createClient)return;
+  // Build trusted, fixed UI with DOM APIs; never parse HTML strings.
+  function make(tag,{id="",className="",text="",style="",attrs={}}={}){
+    const node=doc.createElement(tag);
+    if(id)node.id=id;
+    if(className)node.className=className;
+    if(text)node.textContent=text;
+    if(style)node.style.cssText=style;
+    for(const [name,value] of Object.entries(attrs))node.setAttribute(name,value);
+    return node;
+  }
   const anchor=doc.getElementById("welcomeSetupBanner");
-  if(anchor&&!doc.getElementById("ownerJourney"))anchor.insertAdjacentHTML("beforebegin",`<section id="ownerJourney" class="card" hidden style="display:none;max-width:100%;margin:0 0 18px" aria-labelledby="ownerJourneyTitle">
-      <div class="between row" style="align-items:flex-start;gap:12px;flex-wrap:wrap">
-        <div style="min-width:0"><div class="section-eyebrow">Getting started</div><h2 id="ownerJourneyTitle">Your four setup milestones</h2><p class="muted small">Confirmed from your signed-in workspace. A saved check is not a legal compliance conclusion.</p></div>
-        <button id="ownerJourneyRefresh" type="button" class="btn soft" style="min-height:44px">Refresh progress</button>
-      </div>
-      <p id="ownerJourneySummary" role="status" aria-live="polite">Checking your saved progress…</p>
-      <ol id="ownerJourneySteps" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px;padding:0;margin:12px 0 0;list-style:none">
-        <li data-onboarding-milestone="account" style="min-width:0;padding:12px;border:1px solid var(--line);border-radius:12px"><b>1. Account access</b><div id="ownerJourneyAccount" class="small">Not checked</div><p class="muted small">Signed-in access is confirmed separately from email verification.</p></li>
-        <li data-onboarding-milestone="business" style="min-width:0;padding:12px;border:1px solid var(--line);border-radius:12px"><b>2. Business details</b><div id="ownerJourneyBusiness" class="small">Not checked</div><p class="muted small">Your legal entity, industry and employee count must be saved.</p><button id="ownerJourneyBusinessAction" class="btn soft" type="button" hidden style="display:none;min-height:44px">Complete basics</button></li>
-        <li data-onboarding-milestone="workspace" style="min-width:0;padding:12px;border:1px solid var(--line);border-radius:12px"><b>3. Workspace selection</b><div id="ownerJourneyWorkspace" class="small">Not checked</div><p class="muted small">Select a company in your authenticated workspace.</p><button id="ownerJourneyWorkspaceAction" class="btn soft" type="button" hidden style="display:none;min-height:44px">Choose company</button></li>
-        <li data-onboarding-milestone="first" style="min-width:0;padding:12px;border:1px solid var(--line);border-radius:12px"><b>4. First saved check</b><div id="ownerJourneyFirst" class="small">Not checked</div><p class="muted small">Ready only after the server confirms the saved result.</p><button id="ownerJourneyFirstAction" class="btn soft" type="button" hidden style="display:none;min-height:44px">Run first check</button></li>
-      </ol>
-    </section>`);
+  if(anchor&&!doc.getElementById("ownerJourney")){
+    const panel=make("section",{id:"ownerJourney",className:"card",style:"display:none;max-width:100%;margin:0 0 18px",attrs:{"aria-labelledby":"ownerJourneyTitle"}});
+    panel.hidden=true;
+    const header=make("div",{className:"between row",style:"align-items:flex-start;gap:12px;flex-wrap:wrap"});
+    const copy=make("div",{style:"min-width:0"});
+    copy.append(make("div",{className:"section-eyebrow",text:"Getting started"}),
+      make("h2",{id:"ownerJourneyTitle",text:"Your four setup milestones"}),
+      make("p",{className:"muted small",text:"Confirmed from your signed-in workspace. A saved check is not a legal compliance conclusion."}));
+    header.append(copy);
+    const refresh=make("button",{id:"ownerJourneyRefresh",className:"btn soft",text:"Refresh progress",style:"min-height:44px"});
+    refresh.type="button";
+    header.append(refresh);
+    panel.append(header,make("p",{id:"ownerJourneySummary",text:"Checking your saved progress…",attrs:{role:"status","aria-live":"polite"}}));
+    const list=make("ol",{id:"ownerJourneySteps",style:"display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px;padding:0;margin:12px 0 0;list-style:none"});
+    const milestones=[
+      ["account","1. Account access","ownerJourneyAccount","Signed-in access is confirmed separately from email verification.",null,null],
+      ["business","2. Business details","ownerJourneyBusiness","Your legal entity, industry and employee count must be saved.","ownerJourneyBusinessAction","Complete basics"],
+      ["workspace","3. Workspace selection","ownerJourneyWorkspace","Select a company in your authenticated workspace.","ownerJourneyWorkspaceAction","Choose company"],
+      ["first","4. First saved check","ownerJourneyFirst","Ready only after the server confirms the saved result.","ownerJourneyFirstAction","Run first check"]
+    ];
+    for(const [key,title,statusId,description,actionId,actionText] of milestones){
+      const item=make("li",{style:"min-width:0;padding:12px;border:1px solid var(--line);border-radius:12px",attrs:{"data-onboarding-milestone":key}});
+      item.append(make("b",{text:title}),make("div",{id:statusId,className:"small",text:"Not checked"}),make("p",{className:"muted small",text:description}));
+      if(actionId){
+        const action=make("button",{id:actionId,className:"btn soft",text:actionText,style:"display:none;min-height:44px"});
+        action.type="button";
+        action.hidden=true;
+        item.append(action);
+      }
+      list.append(item);
+    }
+    panel.append(list);
+    anchor.parentNode.insertBefore(panel,anchor);
+  }
   const panel=doc.getElementById("ownerJourney");
   if(!panel)return;
   const client=global.BW.api.createClient({retries:0});
