@@ -232,3 +232,42 @@ test("funds from a different or unauthorised business bank account do not qualif
   assert.equal(evaluate(input({companyAccount:badCompanyAccount})).decision,D.REVIEW_REQUIRED);
  }
 });
+
+// Canonical audit IDs must not allow invisible identity spoofing. This policy is
+// prepare-only; passing the policy is never independent proof of a bank credit.
+test("rejects invisible or noncanonical tenant and invoice identity keys",()=>{
+ for(const invalid of ["tenant-\u202e1","tenant-\u200b1"," tenant-a ","tenant-\u00001","tenant-cafe\u0301"]){
+  assert.equal(evaluate(input({tenantId:invalid,invoice:{...invoice,tenantId:invalid}})).decision,D.REJECTED);
+ }
+ for(const invalid of ["inv-\u202e1","inv-\u20601"," inv-1","inv-1 ","inv-cafe\u0301"]){
+  assert.equal(evaluate(input({invoice:{...invoice,id:invalid},
+   bankEvidence:{...bankEvidence,invoiceId:invalid}})).decision,D.REJECTED);
+ }
+});
+
+test("rejects spoofed reviewer audit identifiers and malformed allocation record IDs",()=>{
+ for(const invalid of ["owner-\u202e1","owner-\u200b1"," owner-1","owner-1 ","owner-cafe\u0301"]){
+  const result=evaluate(input({reviewer:{...reviewer,actorId:invalid}}));
+  assert.equal(result.decision,D.REVIEW_REQUIRED);
+  assert.equal(result.reason,"owner_review_required");
+ }
+ for(const invalid of ["inv-\u202e1","tenant-\u20601"," old ","cafe\u0301"]){
+  for(const field of ["invoiceId","tenantId"]){
+   const allocation={bankTransactionId:"bank-old",invoiceId:"inv-old",tenantId:"tenant-a",[field]:invalid};
+   const result=evaluate(input({priorBankAllocations:[allocation]}));
+   assert.equal(result.decision,D.REVIEW_REQUIRED);
+   assert.equal(result.reason,"invalid_bank_allocation_record");
+  }
+ }
+});
+
+test("canonical visible Unicode identity keys remain compatible with approved bank evidence",()=>{
+ const unicodeTenant="tenant-caf\u00e9",unicodeInvoice="inv-caf\u00e9",unicodeReviewer="owner-caf\u00e9";
+ const result=evaluate(input({
+  tenantId:unicodeTenant,
+  invoice:{...invoice,tenantId:unicodeTenant,id:unicodeInvoice},
+  bankEvidence:{...bankEvidence,tenantId:unicodeTenant,invoiceId:unicodeInvoice},
+  reviewer:{...reviewer,tenantId:unicodeTenant,actorId:unicodeReviewer}
+ }));
+ assert.equal(result.decision,D.VERIFIED);
+});
