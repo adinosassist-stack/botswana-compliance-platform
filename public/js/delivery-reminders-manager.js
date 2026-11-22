@@ -50,6 +50,7 @@ function setPopupOpen(open,focusChange=false){
 // never reminder content, account information, or authentication details.
 const bellPositionKey="thebe.delivery.bell.position.v2";
 const mobileBell=()=>window.matchMedia("(max-width: 1000px)").matches;
+let syncBellLayout=()=>{};
 function syncReminderViewport(){
   const panel=byId("thebeDeliveryManagerPopup");
   if(!panel)return;
@@ -98,6 +99,7 @@ function enableBellDrag(button){
   };
   const sync=()=>{
     syncReminderViewport();
+    if(button.hidden)return;
     if(!mobileBell()){
       clearBellCoordinates(button);
       return;
@@ -156,7 +158,8 @@ function enableBellDrag(button){
       r.left+(event.key==="ArrowLeft"?-24:event.key==="ArrowRight"?24:0),
       r.top+(event.key==="ArrowUp"?-24:event.key==="ArrowDown"?24:0)));
   });
-  sync();
+  syncBellLayout=sync;
+  if(!button.hidden)sync();
 }
 function bell(){
   let button=byId("thebeDeliveryManagerBell");
@@ -187,6 +190,7 @@ function render(items){
   reminders=items;
   const toggle=bell(),panel=popup();
   toggle.hidden=items.length===0;
+  syncBellLayout();
   toggle.textContent=`🔔 Deliveries & installations (${items.length})`;
   toggle.dataset.count=String(items.length>99?"99+":items.length);
   toggle.setAttribute("aria-label",`Delivery and installation reminders: ${items.length}. Open reminders`);
