@@ -1,4 +1,4 @@
-import {validAllocationTimestamp} from "./bank-allocation-input-validation.mjs";
+import {canonicalAllocationId,validAllocationTimestamp} from "./bank-allocation-input-validation.mjs";
 // Pure owner-side payment verification policy. No provider calls or activation side effects.
 export const PAYMENT_DECISIONS = Object.freeze({
   AWAITING_FUNDS: "awaiting_funds",
@@ -7,13 +7,10 @@ export const PAYMENT_DECISIONS = Object.freeze({
   REJECTED: "rejected"
 });
 
-const validId = value => typeof value === "string" && value.trim().length > 0 && value.length <= 128;
-// Bank identifiers are equality keys across invoices and tenants. Reject invisible
-// characters, control codes and noncanonical Unicode before allocation checks.
-const validBankTransactionId = value => validId(value) &&
-  value === value.trim() &&
-  value.normalize("NFC") === value &&
-  !/[\p{Cc}\p{Cf}]/u.test(value);
+// Bank, tenant, invoice and reviewer IDs are audit/equality keys and must
+// share one visible, NFC-canonical, control-free input validation policy.
+const validId = canonicalAllocationId;
+const validBankTransactionId = canonicalAllocationId;
 const validMoney = value => Number.isSafeInteger(value) && value > 0;
 const validCurrency = value => typeof value === "string" && /^[A-Z]{3}$/.test(value);
 
