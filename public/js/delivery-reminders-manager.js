@@ -116,24 +116,9 @@ function syncReminderViewport(){
  panel.style.setProperty("--thebe-vv-bottom",Math.max(0,window.innerHeight-top-height)+"px");
  panel.style.setProperty("--thebe-vv-left",left+"px");
  panel.style.setProperty("--thebe-vv-right",Math.max(0,window.innerWidth-left-width)+"px");
- if(!mobileBell())return;
- const bell=byId("thebeDeliveryManagerBell");
- if(!bell||bell.hidden)return;
- const b=bell.getBoundingClientRect();
- const safeTop=top+8,railTop=top+height-104;
- // Pair the notification sheet with the movable bell, switching to above
- // the bell if opening below would leave too little readable space.
- const belowTop=b.bottom+8,aboveBottom=b.top-8;
- const belowRoom=railTop-belowTop,aboveRoom=aboveBottom-safeTop;
- const above=belowRoom<200&&aboveRoom>belowRoom;
- const sheetTop=above?safeTop:Math.min(belowTop,railTop-80);
- const sheetBottom=above?Math.max(sheetTop+80,aboveBottom):railTop;
- const sheetWidth=Math.max(100,Math.min(420,width-16));
- const sheetLeft=Math.max(left+8,Math.min(b.left,left+width-sheetWidth-8));
- panel.style.setProperty("--thebe-sheet-top",sheetTop+"px");
- panel.style.setProperty("--thebe-sheet-bottom",Math.max(0,window.innerHeight-sheetBottom)+"px");
- panel.style.setProperty("--thebe-sheet-left",sheetLeft+"px");
- panel.style.setProperty("--thebe-sheet-width",sheetWidth+"px");
+ // The agreed mobile sheet is viewport-anchored and independent of where
+ // the owner drags the bell. This prevents bell placement from shrinking
+ // the readable notification area on short screens or at 200% zoom.
 }
 function clearBellCoordinates(button){
   for(const property of ["left","top","right","bottom"])button.style.removeProperty(property);
