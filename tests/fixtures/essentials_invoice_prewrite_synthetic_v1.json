@@ -1,0 +1,29 @@
+{
+  "kind": "thebe-essentials-invoice-prewrite-synthetic-v1",
+  "mode": "offline-only-unapproved-remote-execution",
+  "purpose": "qualify existing guarded quote-to-draft SQL using only disposable local SQLite",
+  "environment": "essentials-invoice-staging-protected",
+  "cloudflareAccountId": "ddd23cab31928a4bb3d4998df9b26d1d",
+  "isolatedD1Name": "bw-essentials-invoice-drafts-isolated-staging",
+  "isolatedD1Id": "f6d35915-851a-4771-9e07-589572dc4d05",
+  "forbiddenProductionD1Id": "8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce",
+  "protectedMainAtPreparation": "a29a735317a34aad251724a67b4100342ec08bff",
+  "readyForRemoteWrite": false,
+  "requiresNewOwnerApproval": true,
+  "requiresNewIndependentThusicoApproval": true,
+  "fixture": {
+    "tenantId": "synthetic-tenant-a",
+    "otherTenantId": "synthetic-tenant-b",
+    "customerId": "synthetic-customer-a",
+    "otherCustomerId": "synthetic-customer-b",
+    "actorId": "synthetic-owner-a",
+    "quotationId": "essentials-prewrite-20261122",
+    "quotationReference": "ESS-PREWRITE-Q-20261122",
+    "acceptanceVersion": 1,
+    "totalMinor": 10000,
+    "acceptedAt": "2026-11-22T01:00:00Z",
+    "draftId": "essentials-prewrite-draft-20261122",
+    "invoiceNumber": "ESS-PREWRITE-INV-20261122",
+    "idempotencyKey": "essentials-prewrite-idem-20261122"
+  }
+}
