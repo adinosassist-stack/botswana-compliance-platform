@@ -44,10 +44,12 @@ test("first value needs completed owner setup, saved status and a valid timestam
  assert.equal(derive({...owner,onboardingComplete:true},payload(complete)).first,true);
 });
 test("four distinct responsive milestones appear on the owner dashboard",()=>{
- const s=html.indexOf('id="ownerJourney"');
- const e=html.indexOf('id="welcomeSetupBanner"',s);
- const part=html.slice(s,e);
+ const s=source.indexOf('id="ownerJourney"');
+ const e=source.indexOf('const panel=doc.getElementById("ownerJourney")',s);
+ const part=source.slice(s,e);
  assert.ok(s>0&&e>s);
+ assert.match(source,/insertAdjacentHTML\("beforebegin"/);
+ assert.doesNotMatch(html,/id="ownerJourney"/);
  assert.equal((part.match(/data-onboarding-milestone="/g)||[]).length,4);
  assert.match(part,/grid-template-columns:repeat\(auto-fit,minmax\(min\(100%,220px\),1fr\)\)/);
  assert.match(part,/id="ownerJourneySummary" role="status" aria-live="polite"/);
