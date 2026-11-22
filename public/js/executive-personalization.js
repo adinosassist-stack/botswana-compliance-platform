@@ -43,11 +43,13 @@
     try{if(typeof global.showView==="function")global.showView(view)}catch{}
   }
 
-  function openDetails(selector){
-    const details=q(selector);
+  function openDetails(selector,root=document){
+    const details=q(selector,root);
     if(!details)return;
     details.open=true;
-    details.scrollIntoView({behavior:"smooth",block:"center"});
+    q("summary",details)?.focus({preventScroll:true});
+    const reduceMotion=global.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    details.scrollIntoView({behavior:reduceMotion?"instant":"smooth",block:"center"});
   }
 
   function ensurePriorityShell(centre){
@@ -280,6 +282,15 @@
     const cashText=cardText(cash);
     const labourText=cardText(labour);
 
+    if(isOwner()&&salesText.includes("Record enough resolved quotations")&&q("#ownerSalesWorkspace",centre)){
+      return {
+        title:"Start tracking quotations",
+        detail:"Open Sales Intelligence to see where to record customer quotation outcomes. Your conversion rate will appear once you have enough won or lost quotations.",
+        label:"Open Sales Intelligence",
+        action:()=>openDetails("#ownerSalesWorkspace",centre)
+      };
+    }
+
     if(revenueText.includes("needs more reporting history")){
       return {
         title:"Build a reliable operating baseline",
@@ -307,7 +318,7 @@
       };
     }
 
-    if(sales&&salesText.includes("Record enough resolved quotations")){
+    if(!isOwner()&&sales&&salesText.includes("Record enough resolved quotations")){
       return {
         title:"Teach Thebe your sales conversion",
         detail:"Record won/lost quotations so Thebe can compare conversion by location and detect commercial deterioration from real outcomes.",
@@ -344,7 +355,7 @@
       const copy=document.createElement("div");
       copy.className="owner-onboarding-copy";
       copy.append(
-        text("div","Make tomorrow's brief smarter","section-eyebrow"),
+        text("div","Suggested next step","section-eyebrow"),
         text("h4",step.title),
         text("p",step.detail,"muted")
       );

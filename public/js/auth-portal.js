@@ -26,6 +26,7 @@ function ensureLegalUi(){
  }
 }
 ensureLegalUi();
+if(status){status.setAttribute("role","status");status.setAttribute("aria-live","polite");status.setAttribute("aria-atomic","true")}
 const encoder=new TextEncoder();
 const client=window.BW?.api?.createClient?.({getCsrfToken:()=>"",onUnauthorized:()=>{},onError:()=>{}});
 const params=new URLSearchParams(location.search);
@@ -33,7 +34,7 @@ const allowedPlans=new Set(["starter","business","pro","network","partner"]);
 let mode=params.get("mode")==="register"?"register":"login";
 let registrationMode="invalid";
 let busy=false;
-function safeNext(){const raw=String(params.get("next")||"/app/").trim();return raw.startsWith("/")&&!raw.startsWith("//")?raw:"/app/"}
+function safeNext(){const raw=String(params.get("next")||"/app/").trim();if(!raw.startsWith("/")||raw.startsWith("//")||/[\\\\\u0000-\u001f\u007f]/.test(raw))return "/app/";try{const parsed=new URL(raw,location.origin);return parsed.origin===location.origin&&parsed.pathname.startsWith("/")?parsed.pathname+parsed.search+parsed.hash:"/app/"}catch{return "/app/"}}
 const next=safeNext();
 function selectedPlan(){const plan=String(params.get("plan")||"business");return allowedPlans.has(plan)?plan:"business"}
 function setStatus(message,type="bad"){status.textContent=String(message||"");status.className=`status show${type==="good"?" good":""}`}
@@ -67,8 +68,9 @@ function showWorkspaceChoices(error){
  const choices=Array.isArray(error?.data?.workspaces)?error.data.workspaces:[];
  if(!choices.length)return false;
  workspace.replaceChildren();
- for(const item of choices){const option=document.createElement("option");option.value=String(item?.tenantId||"");option.textContent=String(item?.tenantName||item?.name||item?.companyName||"Workspace")+(item?.role==="manager"?" — Manager":item?.role==="owner"?" — Owner":" — "+String(item?.role||"Member"));workspace.append(option)}
- workspaceField.hidden=false;setStatus("Choose the workspace you want to open.","good");return true;
+ for(const item of choices){const tenantId=String(item?.tenantId||"").trim();if(!tenantId)continue;const option=document.createElement("option");option.value=tenantId;option.textContent=String(item?.tenantName||item?.name||item?.companyName||"Workspace")+(item?.role==="manager"?" — Manager":item?.role==="owner"?" — Owner":" — "+String(item?.role||"Member"));workspace.append(option)}
+ if(!workspace.options.length){workspaceField.hidden=true;setStatus("No accessible workspace was returned. Contact your workspace owner.");return false}
+ workspaceField.hidden=false;setStatus("Choose the workspace you want to open.","good");workspace.focus();return true;
 }
 async function login(payload){
  const data=await api("/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
@@ -79,8 +81,11 @@ async function login(payload){
 async function requestRecovery(address){try{await api("/api/auth/password-reset/request",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email:address})});return true}catch{return false}}
 async function registerAccount(payload){
  if(registrationMode!=="open"&&registrationMode!=="cohort")throw new Error("Registration is currently unavailable.");
+ setStatus("Step 1 of 3: Checking registration security…","good");
  const proof=await solveRegistrationProof();
+ setStatus("Step 2 of 3: Creating your workspace…","good");
  await api("/api/auth/register",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...payload,turnstileToken:proof,legalAcceptance:{version:LEGAL_VERSION,accepted:true}})});
+ setStatus("Step 3 of 3: Opening your workspace…","good");
  try{await login({email:payload.email,password:payload.password})}
  catch(error){
   if(error?.code==="workspace_selection_required"){
@@ -110,20 +115,21 @@ async function detectExistingSession(){
 async function submitForm(event){
  event.preventDefault();if(busy)return;clearStatus();
  const address=String(email.value||"").trim().toLowerCase(),secret=String(password.value||"");
- if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)){setStatus("Enter a valid email address.");return}
- if(secret.length<12){setStatus("Use a password with at least 12 characters.");return}
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)){setStatus("Enter a valid email address.");email.focus();return}
+ if((mode==="register"&&secret.length<12)||(mode==="login"&&!secret)){setStatus(mode==="register"?"Create a password with at least 12 characters.":"Enter your password to sign in.");password.focus();return}
+ if(mode==="register"&&String(company.value||"").trim().length<2){setStatus("Enter a business name with at least 2 characters.");company.focus();return}
  if(mode==="register"&&(!legalConsent||!legalConsent.checked)){setStatus("Agree to the Terms of Service and acknowledge the Privacy Notice to create a workspace.");legalConsent?.focus();return}
- busy=true;submit.disabled=true;const original=submit.textContent;submit.textContent=mode==="register"?"Securing registration…":"Signing in…";
+ busy=true;submit.disabled=true;form.setAttribute("aria-busy","true");const original=submit.textContent;submit.textContent=mode==="register"?"Securing registration…":"Signing in…";
  try{
   if(mode==="register"){
-   const companyName=String(company.value||"").trim();if(companyName.length<2)throw new Error("Enter a business name with at least 2 characters.");
+   const companyName=String(company.value||"").trim();if(companyName.length<2){company.focus();throw new Error("Enter a business name with at least 2 characters.")}
    await registerAccount({companyName,email:address,password:secret,plan:selectedPlan()});
   }else{
    const payload={email:address,password:secret};if(!workspaceField.hidden&&workspace.value)payload.tenantId=workspace.value;
    try{await login(payload)}catch(error){if(error?.code==="workspace_selection_required"&&showWorkspaceChoices(error))return;throw error}
   }
  }catch(error){setStatus(error?.message||"Authentication could not complete. Try again.")}
- finally{busy=false;submit.disabled=false;submit.textContent=mode==="register"?"Create account & workspace":"Sign in";if(original&&mode==="login"&&workspaceField.hidden)submit.textContent="Sign in"}
+ finally{busy=false;submit.disabled=false;form.removeAttribute("aria-busy");submit.textContent=mode==="register"?"Create account & workspace":"Sign in";if(original&&mode==="login"&&workspaceField.hidden)submit.textContent="Sign in"}
 }
 function oauth(provider){if(!["google","facebook"].includes(provider))return;location.assign(`/api/auth/oauth/${provider}/start?next=${encodeURIComponent(next)}`)}
 const passwordToggle=$("authPasswordToggle");passwordToggle?.addEventListener("click",()=>{const showing=password.type==="text";password.type=showing?"password":"text";passwordToggle.textContent=showing?"Show":"Hide";passwordToggle.setAttribute("aria-pressed",String(!showing))});
