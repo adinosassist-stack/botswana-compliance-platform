@@ -8496,10 +8496,10 @@ async function runFirstProtectionCheck(){
   const rulesResponse=await apiJson("/api/regulatory/rules"),published=(rulesResponse.items||[]).filter(x=>x.status==="published").slice(0,200);let failed=0;
   for(let i=0;i<published.length;i+=4){const results=await Promise.allSettled(published.slice(i,i+4).map(r=>apiJson(`/api/regulatory/rules/${encodeURIComponent(r.id)}/evaluate`,{method:"POST",headers:{"content-type":"application/json"},body:"{}"})));failed+=results.filter(x=>x.status==="rejected").length}
   try{await apiJson("/api/statutory-calendar/recalculate",{method:"POST",headers:{"content-type":"application/json"},body:"{}"})}catch(_){failed++}
-  const next=await apiJson("/api/next-actions"),items=next.items||[];renderFirstValueResult(items,{failed});const now=new Date().toISOString();updateActiveCompany(c=>{c.profile={...c.profile,firstProtectionCheckStatus:failed?"pending":"complete",firstProtectionCheckAt:failed?null:now}});
-  try{await persistWorkspaceState()}catch(e){console.warn("First check metadata save failed",e)}
+  const next=await apiJson("/api/next-actions"),items=next.items||[];const now=new Date().toISOString();updateActiveCompany(c=>{c.profile={...c.profile,firstProtectionCheckStatus:failed?"pending":"complete",firstProtectionCheckAt:failed?null:now}});
+  await persistWorkspaceState();failed?renderFirstValueFailure("Some checks could not finish."):renderFirstValueResult(items);
   await Promise.allSettled([renderUnifiedNextActions(),renderHomeDecisionSignals(),renderWorkHub(),renderOnboardingBanner()]);return failed===0
- }catch(e){updateActiveCompany(c=>{c.profile={...c.profile,firstProtectionCheckStatus:"pending"}});renderFirstValueFailure(e.message||String(e));renderOnboardingBanner();return false}
+ }catch(e){updateActiveCompany(c=>{c.profile={...c.profile,firstProtectionCheckStatus:"pending",firstProtectionCheckAt:null}});renderFirstValueFailure(e.message||String(e));renderOnboardingBanner();return false}
 }
 async function saveWizard(){
  if(currentWorkspaceRole()!=="owner")return false;if(wizardInlineError){wizardInlineError.textContent="";wizardInlineError.classList.remove("show")};const btn=document.getElementById("wizardNext");if(btn){btn.disabled=true;btn.textContent="Saving…"}
