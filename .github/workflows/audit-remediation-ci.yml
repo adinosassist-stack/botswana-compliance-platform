@@ -84,6 +84,13 @@ jobs:
           node tests/v84-registration-entry-chain-runtime.mjs
           node --test tests/signup-conversion-staging.test.mjs
 
+      - name: Customer onboarding focused regressions (#2781)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check public/js/auth-portal.js
+          node --test tests/customer-onboarding-auth-2781.test.mjs
+
       - name: Signed HOLD browser lifecycle governance
         shell: bash
         run: |
