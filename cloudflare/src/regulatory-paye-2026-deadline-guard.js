@@ -26,7 +26,7 @@ export function paye2026PromotionGuard(row,action){
   // Malformed/missing dates must never be interpreted as a historical exemption.
   if(to&&to<PAYE_2026_COMMENCEMENT)return {ok:true,historicalOnly:true};
   const from=canonicalDate(row?.effective_from);
-  if(!from||from<PAYE_2026_COMMENCEMENT||from>to&&to!==null)
+  if(!from||from<PAYE_2026_COMMENCEMENT||(row?.effective_to!=null&&!to)||(to!==null&&from>to))
     return {ok:false,error:"paye_2026_effective_period_review_required"};
   if(a.operationalization!=="monthly_end_plus_days"||a.dueDaysAfterPeriodEnd!==14)
     return {ok:false,error:"paye_2026_legacy_deadline_blocked"};
