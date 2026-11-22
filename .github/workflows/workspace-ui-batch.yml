@@ -12,6 +12,14 @@ on:
       - 'tests/v314-workspace-mobile-readability-browser.mjs'
       - 'tests/dock-composer-browser.mjs'
       - 'tests/v292-dock-visual-contract-browser.mjs'
+      - 'public/assets/workspace-view-fragments-20261001a-6.json'
+      - 'public/assets/delivery-reminder-notifications.css'
+      - 'public/js/delivery-reminders-manager.js'
+      - 'public/js/thebe-assets-register.js'
+      - 'public/js/quotation-logo-editor.mjs'
+      - 'public/js/components.js'
+      - 'tests/consolidated-ui-truthfulness-2735.test.mjs'
+      - 'tests/daily-reports-mobile-layout-2715.test.mjs'
       - '.github/workflows/workspace-ui-batch.yml'
   workflow_dispatch:
 permissions:
@@ -28,6 +36,11 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           package-manager-cache: false
+      - name: Verify mobile Daily Reports, Assets, quotation logo and notification truthfulness
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/consolidated-ui-truthfulness-2735.test.mjs tests/daily-reports-mobile-layout-2715.test.mjs
       - name: Verify navigation and Property contracts
         run: |
           node --check public/js/thebe-live-voice.js
