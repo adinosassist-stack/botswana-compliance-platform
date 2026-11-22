@@ -167,3 +167,26 @@ body.thebe-voice-active .thebe-delivery-manager-popup{
   min-width:44px;min-height:44px;
  }
 }
+
+/* Mobile notification sheet: independent of draggable bell position. */
+@media(max-width:1000px){
+ .thebe-delivery-manager-popup{
+  position:fixed!important;
+  /* VisualViewport offsets handle Android chrome, zoom and the soft keyboard. */
+  left:calc(var(--thebe-vv-left, 0px) + 8px)!important;
+  right:calc(var(--thebe-vv-right, 0px) + 8px)!important;
+  width:auto!important;
+  top:calc(var(--thebe-vv-top, 0px) + env(safe-area-inset-top, 0px) + 12px)!important;
+  bottom:calc(var(--thebe-vv-bottom, 0px) + 104px + env(safe-area-inset-bottom, 0px))!important;
+  max-height:none!important;min-height:0!important;
+  overflow-y:auto!important;overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  z-index:9999;
+ }
+ .thebe-delivery-manager-bell{
+  touch-action:none;user-select:none;-webkit-user-select:none
+ }
+ /* The sheet takes precedence over a dragged bell. It remains closable and
+    returns focus to the bell instead of leaving two overlapping controls. */
+ .thebe-delivery-manager-bell[aria-expanded="true"]{visibility:hidden}
+}
