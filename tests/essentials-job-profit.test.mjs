@@ -8,3 +8,12 @@ test("compares estimated and actual job profitability",()=>{
 test("rejects invalid costs",()=>{
  assert.throws(()=>previewEssentialsJobProfit({tenantId:"tenant-a",projectId:"job-1",quotedRevenueThebe:100,actualRevenueThebe:100,actualCosts:{materials:-1}}),/invalid_cost/);
 });
+
+test("rejects profit variance outside safe integer thebe range",()=>{
+ const max=Number.MAX_SAFE_INTEGER;
+ assert.throws(()=>previewEssentialsJobProfit({
+  tenantId:"tenant-a",projectId:"job-1",
+  quotedRevenueThebe:0,actualRevenueThebe:max,
+  estimatedCosts:{materials:max},actualCosts:{materials:0}
+ }),/amount_overflow/);
+});

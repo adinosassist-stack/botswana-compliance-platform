@@ -6,6 +6,9 @@ const required=(v,max=150)=>{if(typeof v!=="string"||!v.trim()||v.length>max||/[
 const minor=v=>{if(!Number.isSafeInteger(v)||v<0)throw new TypeError("invalid_amount");return v;};
 export function prepareInvoiceFromQuotation({quotation,invoiceReference,createdAt}={}){
  if(!quotation||typeof quotation!=="object"||Array.isArray(quotation))throw new TypeError("invalid_quotation");
+ // Legacy BWP-only quotation snapshots have no currency field. An explicitly
+ // supplied foreign/unknown currency must never be silently relabelled BWP.
+ if(quotation.currency!==undefined&&quotation.currency!=="BWP")throw new TypeError("invalid_currency");
  const tenantId=required(quotation.companyId,100),customerId=required(quotation.customerId,100);
  const sourceReference=required(quotation.reference,80),reference=required(invoiceReference,80);
  const date=required(createdAt,40);
