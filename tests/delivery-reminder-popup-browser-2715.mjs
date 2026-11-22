@@ -62,7 +62,10 @@ try{
    assert(g.b.left>=-1&&g.b.right<=width+1&&g.b.top>=-1&&g.b.bottom<=height+1,'Bell inside viewport '+label);
    assert(g.p.left>=-1&&g.p.right<=width+1&&g.p.top>=-1&&g.p.bottom<=height+1,'Panel inside viewport '+label);
    if(g.mobile){
-    assert.equal(await bell.isVisible(),false,'Open sheet must not obscure an active bell '+label);
+    assert(await bell.isVisible(),'The movable bell must stay accessible next to the open sheet '+label);
+    assert(g.hitBell,'Bell keeps its tap target while sheet is open '+label);
+    assert(g.p.bottom<=g.b.top-7||g.p.top>=g.b.bottom+7,
+      'Sheet must be attached above or below bell without covering it '+label);
     assert(g.p.top>=-1,'Phone popup starts inside viewport '+label);
     assert(g.p.bottom<=g.rail.top-8,'Phone popup clears bottom rail '+label);
     const close=panel.getByRole('button',{name:'Close reminders'});
@@ -71,7 +74,7 @@ try{
     assert(closeBox&&closeBox.y>=g.p.top-1&&closeBox.y+closeBox.height<=g.p.bottom+1,
       'Close remains inside sheet bounds '+label);
     assert(await panel.locator('h2').isVisible(),'Notification title visible '+label);
-    await panel.evaluate(node=>node.scrollTop=node.scrollHeight);
+    await panel.locator('.thebe-delivery-sheet-list').evaluate(node=>node.scrollTop=node.scrollHeight);
     assert(await close.isVisible(),'Close remains visible after panel scroll '+label);
    }else{
     assert(g.hitBell,'Desktop bell remains clickable '+label);
@@ -84,8 +87,28 @@ try{
     await page.evaluate(name=>document.body.classList.remove(name),state);
    }
    assert(await panel.isVisible(),'Notification sheet restores after overlay '+label);
-   assert.equal(await bell.isVisible(),!g.mobile,
-     'On phones the active sheet takes priority over the bell '+label);
+   assert(await bell.isVisible(),
+     'Bell remains visible when sheet is open and yields only to Dock/voice/drawer '+label);
+   assert.equal(await panel.locator('.thebe-delivery-view-task').count(),12,
+     'Each synthetic reminder has a View Task action '+label);
+   assert.equal(await panel.locator('.thebe-delivery-mark-read').count(),12,
+     'Each synthetic reminder has a Mark as Read action '+label);
+   const firstRead=panel.locator('.thebe-delivery-mark-read').first();
+   await firstRead.click();
+   assert.equal(await firstRead.textContent(),'Read','Reading a notification updates its actual UI state '+label);
+   assert.equal(await bell.getAttribute('data-count'),'11','Unread badge decreases without changing delivery status '+label);
+   assert.match(await panel.locator('#thebeDeliveryActionStatus').textContent(),/does not complete/,
+     'Reading a reminder cannot falsely complete the job '+label);
+   await page.evaluate(()=>{window.showView=id=>{
+     window.__lastOpenedView=id;
+     document.getElementById(id)?.classList.add('active');
+   }});
+   await panel.locator('.thebe-delivery-view-task').first().click();
+   assert.equal(await page.evaluate(()=>window.__lastOpenedView),'dailyreports',
+     'View Task opens the existing Daily Reports workspace '+label);
+   assert(await panel.isHidden(),'View Task closes the sheet to reveal its destination '+label);
+   await bell.click();
+   assert(await panel.isVisible(),'Bell reopens sheet after viewing a task '+label);
    await panel.getByRole('button',{name:'Close reminders'}).click();
    assert(await panel.isHidden(),'Dismiss works '+label);
    assert(await bell.isVisible(),'Bell reappears after notification close '+label);
