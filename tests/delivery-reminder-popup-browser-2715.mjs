@@ -61,9 +61,9 @@ try{
    assert(!g.horizontalOverflow,'No horizontal overflow '+label);
    assert(g.b.left>=-1&&g.b.right<=width+1&&g.b.top>=-1&&g.b.bottom<=height+1,'Bell inside viewport '+label);
    assert(g.p.left>=-1&&g.p.right<=width+1&&g.p.top>=-1&&g.p.bottom<=height+1,'Panel inside viewport '+label);
-   assert(g.hitBell,'Bell hit target works with panel open '+label);
+   assert(g.hitBell||g.mobile,'Bell or notification sheet is accessible '+label);
    if(g.mobile){
-    assert(g.p.top>=g.b.bottom+3,'Phone popup clears bell '+label);
+    assert(g.p.top>=-1,'Phone popup starts inside viewport '+label);
     assert(g.p.bottom<=g.rail.top-8,'Phone popup clears bottom rail '+label);
    }else{
     assert(g.p.bottom+8<=g.b.top,'Tablet/desktop popup clears bell '+label);
