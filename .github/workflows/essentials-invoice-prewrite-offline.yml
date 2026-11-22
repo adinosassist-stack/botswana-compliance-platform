@@ -1,0 +1,33 @@
+name: Essentials Invoice Synthetic Prewrite (Offline Only)
+
+on:
+  pull_request:
+    paths:
+      - 'tests/essentials_invoice_prewrite_guarded_sqlite.py'
+      - 'tests/fixtures/essentials_invoice_prewrite_synthetic_v1.json'
+      - 'cloudflare/migrations/essentials_invoice_drafts_STAGING_ONLY.sql'
+      - 'cloudflare/migrations/essentials_accepted_quotation_snapshots_STAGING_CANDIDATE.sql'
+      - 'server/essentials-accepted-quotation-guard.mjs'
+      - 'server/essentials-guarded-idempotent-replay.mjs'
+      - '.github/workflows/essentials-invoice-prewrite-offline.yml'
+      - 'docs/essentials-invoice-synthetic-prewrite-v1.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-sqlite-rehearsal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Verify synthetic fixture and source actual D1 guarded SQL
+        run: |
+          set -euo pipefail
+          python3 -B tests/essentials_invoice_prewrite_guarded_sqlite.py
+      - name: Offline-only acceptance receipt
+        run: |
+          printf '%s\n' 'ESSENTIALS_PREWRITE_OFFLINE_PASS_NO_D1_WRITE_NO_REMOTE_WORKER_NO_DEPLOY'
