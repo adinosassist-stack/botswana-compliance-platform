@@ -65,3 +65,19 @@ test("progress uses authenticated same-origin reads and never invents an issuanc
  assert.match(source,/Email verification is not inferred/);
  assert.match(source,/no step is marked complete/);
 });
+
+test("first-document walkthrough is owner gated, read-only, and explicitly non-issuing",()=>{
+ assert.match(source,/id:"ownerFirstDocumentGuide"/);
+ assert.match(source,/guide\.hidden=!\(model\.account&&model\.business&&model\.workspace\)/);
+ assert.match(source,/if\(!visible\)guide\.hidden=true/);
+ assert.match(source,/function unknown\(\)\{\s*guide\.hidden=true/);
+ assert.match(source,/id:"ownerGuideQuotation"/);
+ assert.match(source,/id:"ownerGuideInvoice"/);
+ assert.match(source,/guideCopy=Object\.freeze/);
+ assert.match(source,/aria-pressed/);
+ assert.match(source,/guideSteps\.replaceChildren\(\)/);
+ assert.match(source,/No record, payment or PDF is created here/);
+ assert.match(source,/no draft was saved, preview generated or document issued/);
+ assert.doesNotMatch(source,/insertAdjacentHTML|\.innerHTML\s*=|\.outerHTML\s*=/);
+ assert.doesNotMatch(source,/\/api\/quotation\/drafts|\/api\/invoice\/issue/);
+});
