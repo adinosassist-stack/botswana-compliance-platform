@@ -85,3 +85,17 @@ body.thebe-ai-mobile-open .thebe-delivery-manager-popup{
  .thebe-delivery-manager-bell{top:calc(env(safe-area-inset-top, 0px) + 58px)}
  .thebe-delivery-manager-popup{top:calc(env(safe-area-inset-top, 0px) + 110px)}
 }
+
+/* #2735: preserve keyboard discoverability and a scrollable panel at 200% zoom. */
+.thebe-delivery-manager-bell:focus-visible,
+.thebe-delivery-manager-popup button:focus-visible{
+ outline:3px solid #74b2ff;outline-offset:3px;
+}
+@media(max-width:620px) and (max-height:360px){
+ .thebe-delivery-manager-bell{top:calc(env(safe-area-inset-top, 0px) + 8px)}
+ .thebe-delivery-manager-popup{
+  top:calc(env(safe-area-inset-top, 0px) + 58px);
+  bottom:calc(104px + env(safe-area-inset-bottom, 0px));
+  min-height:0;overflow:auto;
+ }
+}

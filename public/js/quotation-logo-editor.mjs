@@ -61,7 +61,7 @@ export function mountQuotationLogoEditor(root,options={}) {
  const logo=el('div',null,{class:'qle-logo',tabindex:'0','aria-label':'Move logo with arrow keys; use width slider to resize'});
  const image=el('img',null,{alt:'Company logo preview'});
  const handle=el('span',null,{class:'qle-handle','aria-label':'Resize logo'});logo.append(image,handle);preview.append(logo);
- const note=el('div','Page 1 · Drag the logo to move it. Arrow keys move by 1%. Both width and height are capped; the original proportions are preserved.',{class:'qle-note'});
+ const note=el('div','Preview only until the authenticated Save company logo operation succeeds. Page 1 · Drag the logo to move it. Arrow keys move by 1%. Both width and height are capped; the original proportions are preserved.',{class:'qle-note'});
  const status=el('div','Choose a logo to start.',{class:'qle-status',role:'status','aria-live':'polite'});
  area.append(controls,preview,note,status);root.replaceChildren(style,area);
  let disposed=false,objectUrl=null,file=null,assetId=options.logoAssetId||null,ratio=options.initialAspectRatio||2;
@@ -79,7 +79,7 @@ export function mountQuotationLogoEditor(root,options={}) {
   save.disabled=saving||!(dirty&&typeof options.onSave==='function'&&(assetId||(!file?false:typeof options.onUpload==='function')));
   previewPdf.disabled=dirty||saving||previewing||!assetId||typeof options.onPreviewPdf!=='function';
  }
- function markChanged(){editRevision++;dirty=true;paint();setStatus('Unsaved changes.');}
+ function markChanged(){editRevision++;dirty=true;paint();setStatus('Preview only — changes are not saved.');}
  async function changeFile(){
   const selected=input.files?.[0];if(!selected)return;
   try {
@@ -149,7 +149,7 @@ export function mountQuotationLogoEditor(root,options={}) {
    link.href=url;link.download='quotation-logo-preview.pdf';
    link.hidden=true;area.append(link);
    try{link.click()}finally{link.remove()}
-   setStatus('PDF preview prepared.');
+   setStatus('PDF download requested. Check your browser downloads; saving the PDF does not save logo settings.');
   }catch(e){setStatus('PDF preview unavailable: '+(e?.message||'unknown error'))}
   finally{
    if(url)URL.revokeObjectURL(url);
@@ -175,7 +175,7 @@ export function mountQuotationLogoEditor(root,options={}) {
    // A newer change must never be declared saved, nor may an older uploaded
    // asset replace the current selection. The user can save the latest state.
    if(editRevision===revision){
-    assetId=persistedId;file=null;dirty=false;setStatus('Logo settings saved.');
+    assetId=persistedId;file=null;dirty=false;setStatus('Authenticated logo settings save completed. Reload to verify persistence.');
    }else{
     dirty=true;setStatus('Newer logo changes are not saved. Save again.');
    }
