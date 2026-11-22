@@ -25,7 +25,7 @@ test('quotation logo preview communicates unsaved status and honest download out
 test('mobile reminder control stays keyboard accessible and short viewport scrollable',()=>{
  const css=read('../public/assets/delivery-reminder-notifications.css');
  assert.match(css,/\.thebe-delivery-manager-bell:focus-visible/);
- assert.match(css,/@media\(max-width:620px\) and \(max-height:360px\)/);
+ assert.match(css,/@media\(max-width:1000px\) and \(max-height:360px\)/);
  assert.match(css,/bottom:calc\(104px \+ env\(safe-area-inset-bottom, 0px\)\)/);
  assert.match(css,/min-height:0;overflow:auto/);
  assert.match(css,/body\.thebe-ai-mobile-open \.thebe-delivery-manager-bell/);

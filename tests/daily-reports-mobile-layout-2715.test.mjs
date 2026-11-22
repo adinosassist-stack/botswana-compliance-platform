@@ -31,15 +31,16 @@ test("quotation sidebar entry has fallback when Money Hub is absent and remains 
 
 test("mobile delivery reminder does not auto-open over workspace navigation",()=>{
  const js=read("../public/js/delivery-reminders-manager.js");
- assert.match(js,/if\(newDue\.length && !window\.matchMedia\("\(max-width: 620px\)"\)\.matches\)popup\(\)\.hidden=false/);
+ assert.match(js,/if\(newDue\.length && !window\.matchMedia\("\(max-width: 1000px\)"\)\.matches\)popup\(\)\.hidden=false/);
  assert.match(js,/button\.addEventListener\("click",\(\)=>\{const panel=popup\(\);panel\.hidden=!panel\.hidden\}\)/);
 });
 
 test("mobile reminder panel reserves the bottom nav lane on portrait and landscape",()=>{
  const css=read("../public/assets/delivery-reminder-notifications.css");
+ assert.match(css, /@media\(max-width:1000px\)\{\s*\.thebe-delivery-manager-bell\{\s*top:calc\(env\(safe-area-inset-top/);
  assert.ok(css.includes("bottom:calc(104px + env(safe-area-inset-bottom, 0px))"));
  assert.ok(css.includes("max-height:none"));
- assert.ok(css.includes("@media(max-width:620px) and (max-height:500px)"));
+ assert.ok(css.includes("@media(max-width:1000px) and (max-height:500px)"));
  assert.ok(css.includes(".thebe-delivery-manager-popup{top:calc(env(safe-area-inset-top, 0px) + 110px)}"));
  for(const state of ["mobile-nav-open","thebe-ai-expanded","thebe-voice-active"]){
    assert.ok(css.includes(`body.${state} .thebe-delivery-manager-popup`),`popup must yield to ${state}`);
@@ -53,7 +54,7 @@ test("delivery reminders yield to the actual mobile Thebe Dock runtime state",()
  // The real mobile opening state is *not* the desktop-only expanded state.
  assert.match(dock,/document\.body\.classList\.toggle\("thebe-ai-mobile-open",mobile&&visible&&!isCollapsed\)/);
  assert.match(dock,/document\.body\.classList\.toggle\("thebe-ai-expanded",visible&&!mobile&&dock\.dataset\.expanded==="true"\)/);
- // A top-level rule, not limited to <=620px, must cover mobile/tablet
+ // A top-level rule must cover the full mobile dock breakpoint
  // where the dock is open and the reminder has a much higher z-index.
  const guard=css.match(/body\.thebe-ai-mobile-open \.thebe-delivery-manager-bell,\s*body\.thebe-ai-mobile-open \.thebe-delivery-manager-popup\s*\{\s*display:none!important;\s*\}/);
  assert.ok(guard,"actual mobile dock-open state must suppress both bell and popup");

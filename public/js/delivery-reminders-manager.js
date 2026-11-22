@@ -78,7 +78,7 @@ async function load(){
     const newDue=items.filter(x=>!seen.has([x.locationId,x.employeeId,x.jobType,x.jobReference,today].join("|")));
     for(const x of newDue)seen.add([x.locationId,x.employeeId,x.jobType,x.jobReference,today].join("|"));
     render(items);
-    if(newDue.length && !window.matchMedia("(max-width: 620px)").matches)popup().hidden=false;
+    if(newDue.length && !window.matchMedia("(max-width: 1000px)").matches)popup().hidden=false;
   }catch{
     // Unauthorized visitors and transient failures must not reveal company data.
   }finally{loading=false}
