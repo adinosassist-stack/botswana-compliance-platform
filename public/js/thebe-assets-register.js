@@ -8,7 +8,7 @@
   root.setAttribute('aria-label','Asset register');
   const title=document.createElement('h3');title.textContent='Asset register';
   const refresh=document.createElement('button');refresh.type='button';refresh.textContent='Refresh';
-  const status=document.createElement('p');status.setAttribute('role','status');
+  const status=document.createElement('p');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
   const table=document.createElement('table');
   const caption=document.createElement('caption');caption.textContent='Company assets';table.append(caption);
   const head=document.createElement('thead');const tr=document.createElement('tr');
@@ -18,7 +18,7 @@
   let busy=false;
   const currency=new Intl.NumberFormat('en-BW',{style:'currency',currency:'BWP'});
   async function reload(){
-   if(busy)return;busy=true;refresh.disabled=true;status.textContent='Loading assets…';
+   if(busy)return;busy=true;refresh.disabled=true;status.textContent='Loading assets… No records have been changed.';
    try{
     const result=await loadAssets();
     if(!result||!Array.isArray(result.assets)||result.assets.length>100)throw new Error('invalid_assets');
@@ -38,7 +38,7 @@
     }
     body.replaceChildren(fragment);
     status.textContent=result.assets.length===0?'No assets recorded':result.assets.length+' assets shown';
-   }catch{body.replaceChildren();status.textContent='Asset register unavailable';}
+   }catch(error){body.replaceChildren();status.textContent=error?.message==='assets_unavailable'?'Asset register service is unavailable. No records were loaded or changed. Select Refresh to retry.':'Could not load the asset register. No records were changed. Select Refresh to retry.';}
    finally{busy=false;refresh.disabled=false}
   }
   refresh.addEventListener('click',reload);void reload();return root;
