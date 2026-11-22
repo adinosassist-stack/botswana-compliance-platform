@@ -45,6 +45,70 @@ function setPopupOpen(open,focusChange=false){
     if(target&&!target.hidden)target.focus({preventScroll:true});
   }
 }
+// Keep the floating control in the visible, unobstructed mobile area.
+const bellPositionKey="thebe.delivery.bell.position.v1";
+function positionBell(button,x,y){
+  const vv=window.visualViewport;
+  const width=vv?.width||window.innerWidth,height=vv?.height||window.innerHeight;
+  const left=vv?.offsetLeft||0,top=vv?.offsetTop||0;
+  const rect=button.getBoundingClientRect();
+  const w=rect.width||44,h=rect.height||44;
+  const safeBottom=104;
+  const px=Math.max(left+8,Math.min(x,left+width-w-8));
+  const py=Math.max(top+8,Math.min(y,top+height-h-safeBottom));
+  button.style.setProperty("left",px+"px","important");
+  button.style.setProperty("top",py+"px","important");
+  button.style.setProperty("right","auto","important");
+  button.style.setProperty("bottom","auto","important");
+  return {x:px,y:py};
+}
+function enableBellDrag(button){
+  if(!window.matchMedia("(max-width: 1000px)").matches)return;
+  let saved;
+  try{saved=JSON.parse(localStorage.getItem(bellPositionKey)||"null")}catch{}
+  const restore=()=>{if(saved&&Number.isFinite(saved.x)&&Number.isFinite(saved.y))positionBell(button,saved.x,saved.y)};
+  restore();
+  window.addEventListener("resize",restore);
+  window.visualViewport?.addEventListener("resize",restore);
+  window.visualViewport?.addEventListener("scroll",restore);
+  let start=null,suppressClick=false;
+  button.style.touchAction="none";
+  button.addEventListener("pointerdown",event=>{
+    if(event.button!==0)return;
+    start={id:event.pointerId,x:event.clientX,y:event.clientY,
+      rect:button.getBoundingClientRect(),moved:false};
+    button.setPointerCapture(event.pointerId);
+  });
+  button.addEventListener("pointermove",event=>{
+    if(!start||event.pointerId!==start.id)return;
+    const dx=event.clientX-start.x,dy=event.clientY-start.y;
+    if(Math.hypot(dx,dy)>7)start.moved=true;
+    if(start.moved)positionBell(button,start.rect.left+dx,start.rect.top+dy);
+  });
+  const finish=event=>{
+    if(!start||event.pointerId!==start.id)return;
+    if(start.moved){
+      const r=button.getBoundingClientRect();
+      saved=positionBell(button,r.left,r.top);
+      try{localStorage.setItem(bellPositionKey,JSON.stringify(saved))}catch{}
+      suppressClick=true;
+    }
+    start=null;
+  };
+  button.addEventListener("pointerup",finish);
+  button.addEventListener("pointercancel",finish);
+  button.addEventListener("click",event=>{
+    if(suppressClick){event.preventDefault();event.stopImmediatePropagation();suppressClick=false}
+  },true);
+  button.addEventListener("keydown",event=>{
+    if(!event.altKey||!["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(event.key))return;
+    event.preventDefault();
+    const r=button.getBoundingClientRect();
+    saved=positionBell(button,r.left+(event.key==="ArrowLeft"?-24:event.key==="ArrowRight"?24:0),
+      r.top+(event.key==="ArrowUp"?-24:event.key==="ArrowDown"?24:0));
+    try{localStorage.setItem(bellPositionKey,JSON.stringify(saved))}catch{}
+  });
+}
 function bell(){
   let button=byId("thebeDeliveryManagerBell");
   if(button)return button;
@@ -52,6 +116,8 @@ function bell(){
   button.setAttribute("aria-controls","thebeDeliveryManagerPopup");
   button.setAttribute("aria-expanded","false");
   button.addEventListener("click",()=>setPopupOpen(popup().hidden,true));
+  button.title="Drag to move; Alt + arrow keys to reposition";
+  enableBellDrag(button);
   document.body.append(button);return button;
 }
 function updateWorkspace(items){
