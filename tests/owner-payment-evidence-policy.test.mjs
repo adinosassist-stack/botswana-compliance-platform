@@ -227,8 +227,8 @@ test("funds from a different or unauthorised business bank account do not qualif
  for(const patch of [{accountKey:"other-account"},{accountKey:undefined}]){
   assert.equal(evaluate(input({bankEvidence:{...bankEvidence,...patch}})).reason,"company_bank_account_unverified");
  }
- for(const companyAccount of [{...companyAccount,ownerVerified:false},
-                              {...companyAccount,currency:"USD"},undefined]){
-  assert.equal(evaluate(input({companyAccount})).decision,D.REVIEW_REQUIRED);
+ for(const badCompanyAccount of [{...companyAccount,ownerVerified:false},
+                               {...companyAccount,currency:"USD"},undefined]){
+  assert.equal(evaluate(input({companyAccount:badCompanyAccount})).decision,D.REVIEW_REQUIRED);
  }
 });
