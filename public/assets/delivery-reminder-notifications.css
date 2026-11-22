@@ -47,6 +47,27 @@ body.thebe-ai-mobile-open .thebe-delivery-manager-popup{
   display:none!important;
 }
 
+/* Preserve the explicitly tested AI Dock guard above; extend priority
+   suppression to tablet-sized drawers and immersive voice screens. */
+body.mobile-nav-open .thebe-delivery-manager-bell,
+body.mobile-nav-open .thebe-delivery-manager-popup,
+body.thebe-voice-active .thebe-delivery-manager-bell,
+body.thebe-voice-active .thebe-delivery-manager-popup{
+  display:none!important;
+}
+
+/* #2715: give the desktop-style bottom bell room on short landscape/tablet
+   viewports even when the notification list reaches its full scroll height. */
+@media(min-width:621px) and (max-height:500px){
+ .thebe-delivery-manager-popup{
+   top:12px;
+   bottom:72px;
+   max-height:none;
+   min-height:0;
+   overflow:auto;
+ }
+}
+
 /* #2715: keep notification control away from mobile navigation and AI dock. */
 @media(max-width:1000px){
  .thebe-delivery-manager-bell{

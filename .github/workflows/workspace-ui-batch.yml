@@ -12,6 +12,9 @@ on:
       - 'tests/v314-workspace-mobile-readability-browser.mjs'
       - 'tests/dock-composer-browser.mjs'
       - 'tests/v292-dock-visual-contract-browser.mjs'
+      - 'public/assets/delivery-reminder-notifications.css'
+      - 'public/js/delivery-reminders-manager.js'
+      - 'tests/delivery-reminder-popup-browser-2715.mjs'
       - '.github/workflows/workspace-ui-batch.yml'
   workflow_dispatch:
 permissions:
@@ -42,3 +45,4 @@ jobs:
           node tests/v292-dock-visual-contract-browser.mjs
           node tests/v309-workspace-infographics-browser.mjs
           node tests/v314-workspace-mobile-readability-browser.mjs
+          node tests/delivery-reminder-popup-browser-2715.mjs
