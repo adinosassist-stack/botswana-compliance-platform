@@ -93,12 +93,11 @@ test("notification bell and dismiss keep keyboard navigation and accessible stat
  assert.ok(js.includes('if(!items.length)panel.hidden=true'));
 });
 
-test("movable Android bell and independent sheet keep viewport, rail and keyboard controls (#2715)",()=>{
+test("movable Android bell and attached sheet keep viewport, rail and keyboard controls (#2715)",()=>{
  const css=read("../public/assets/delivery-reminder-notifications.css");
  const js=read("../public/js/delivery-reminders-manager.js");
  for(const key of ["--thebe-vv-top","--thebe-vv-bottom","--thebe-vv-left","--thebe-vv-right"]){
-   assert.ok(css.includes(key),"notification sheet must use "+key);
-   assert.ok(js.includes(key),"runtime must update "+key);
+   assert.ok(js.includes(key),"runtime must compute visual viewport "+key);
  }
  assert.match(css,/thebe-delivery-manager-bell\[aria-expanded="true"\]\{visibility:visible\}/);
  assert.match(js,/function positionBell\(button,x,y\)/);
