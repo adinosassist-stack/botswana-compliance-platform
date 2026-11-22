@@ -13,6 +13,7 @@ class Element {
   this.disabled=false;this.hidden=false;
  }
  setAttribute(key,value){this.attributes[key]=String(value)}
+ removeAttribute(key){delete this.attributes[key]}
  append(...nodes){for(const node of nodes){node.parent=this;this.children.push(node)}}
  replaceChildren(...nodes){for(const child of this.children)child.parent=null;this.children=[];this.append(...nodes)}
  remove(){if(!this.parent)return;const parent=this.parent;
@@ -132,7 +133,7 @@ test("form submission makes one CSRF-protected nonissuing POST and provides a PD
   assert.equal(seen[0].init.method,"POST");
   assert.equal(seen[0].init.credentials,"same-origin");
   assert.equal(seen[0].init.headers["x-csrf-token"],"verified-session-token");
-  assert.ok(getAll(root,n=>String(n.textContent).startsWith("PDF downloaded.")).length>0);
+  assert.ok(getAll(root,n=>String(n.textContent).startsWith("PDF prepared.")).length>0);
  }finally{restore()}
 });
 test("invalid entered Pula amount prevents submission and makes no requests",async()=>{

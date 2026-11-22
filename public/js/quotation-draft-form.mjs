@@ -19,6 +19,9 @@ const css=[
  ".thebe-qdf button{font:inherit;cursor:pointer;background:white;color:#245074;border:1px solid #93abc0;border-radius:9px;padding:8px 12px;min-height:40px}",
  ".thebe-qdf button[data-primary]{background:#056bc6;color:#fff;border-color:#056bc6;font-weight:700}",
  ".thebe-qdf button:disabled{opacity:.5;cursor:not-allowed}",
+ ".thebe-qdf .qdf-download-link{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 12px;border:1px solid #93abc0;border-radius:9px;color:#245074;background:#fff;text-decoration:none;font-weight:650}",
+ ".thebe-qdf .qdf-download-link[hidden]{display:none}",
+ ".thebe-qdf .qdf-download-link:focus-visible{outline:3px solid #8fc1f5;outline-offset:2px}",
  ".thebe-qdf button:focus-visible,.thebe-qdf input:focus-visible{outline:3px solid #8fc1f5;outline-offset:2px}",
  ".thebe-qdf .qdf-tools,.thebe-qdf .qdf-footer{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}",
  ".thebe-qdf .qdf-totals{display:grid;gap:6px;max-width:330px;margin-left:auto;width:100%}",
@@ -83,10 +86,17 @@ export function mountQuotationDraftForm(root,{capability,fetchImpl,csrfToken,ini
  });
  const submit=el("button","Download PDF preview",{type:"submit","data-primary":""});
  const footer=el("div",null,{class:"qdf-footer"});
- footer.append(el("span","Preview only · No customer notification",{class:"qdf-muted"}),submit);
+ const save=el("a","Save PDF",{class:"qdf-download-link",download:"quotation-draft-preview.pdf",hidden:""});
+ const open=el("a","Open PDF",{class:"qdf-download-link",target:"_blank",rel:"noopener",hidden:""});
+ footer.append(el("span","Preview only · No customer notification",{class:"qdf-muted"}),submit,save,open);
  form.append(fieldsGrid,itemsRoot,itemTools,extra,totals,status,footer);
  section.append(title,form);root.replaceChildren(style,section);
- const items=[];let disposed=false,busy=false;
+ const items=[];let disposed=false,busy=false,preparedPdfUrl=null,draftRevision=0;
+ function clearPreparedPdf(){
+  if(preparedPdfUrl)URL.revokeObjectURL(preparedPdfUrl);
+  preparedPdfUrl=null;
+  for(const link of [save,open]){link.hidden=true;link.removeAttribute("href")}
+ }
  const values=()=>({
   quoteNumber:fields.quoteNumber.value,issueDate:fields.issueDate.value,
   customerName:fields.customerName.value,customerContact:fields.customerContact.value,
@@ -129,7 +139,7 @@ export function mountQuotationDraftForm(root,{capability,fetchImpl,csrfToken,ini
   remove.addEventListener("click",()=>{
    if(busy||items.length<=1)return;
    const index=items.indexOf(entry);if(index<0)return;
-   items.splice(index,1);row.remove();refresh();
+   items.splice(index,1);row.remove();draftRevision++;clearPreparedPdf();refresh();
   });
   function refreshLine(){
    try{
@@ -148,34 +158,40 @@ export function mountQuotationDraftForm(root,{capability,fetchImpl,csrfToken,ini
  for(const item of start.length?start:[{}])
   addItem({description:item.description??"",quantity:item.quantity??"1",
    unitPrice:item.unitPrice??moneyString(item.unitPriceCents)});
- add.addEventListener("click",()=>{if(busy)return;addItem();refresh()});
- form.addEventListener("input",refresh);
+ add.addEventListener("click",()=>{if(busy)return;addItem();draftRevision++;clearPreparedPdf();refresh()});
+ form.addEventListener("input",()=>{draftRevision++;clearPreparedPdf();refresh()});
  form.addEventListener("submit",async event=>{
   event.preventDefault();
   if(busy||disposed)return;
   let draft;
   try{draft=prepareQuotationFormDraft(values()).draft}
   catch{refresh();return}
+  const requestedRevision=draftRevision;
+  clearPreparedPdf();
   busy=true;refresh();status.textContent="Preparing private PDF preview…";
-  let url=null;
   try{
    const blob=await api.previewPdf(draft);
    if(disposed)return;
    if(!(blob instanceof Blob)||blob.type!=="application/pdf")
     throw Error("invalid_pdf_preview");
-   url=URL.createObjectURL(blob);
-   const link=el("a",null,{href:url,download:"quotation-draft-preview.pdf"});
-   link.hidden=true;section.append(link);
-   try{link.click()}finally{link.remove()}
-   status.textContent="PDF downloaded. Nothing was issued or saved.";
+   if(requestedRevision!==draftRevision){
+    status.textContent="Draft changed while preparing the PDF. Tap Download PDF preview again.";
+    return;
+   }
+   preparedPdfUrl=URL.createObjectURL(blob);
+   save.href=preparedPdfUrl;open.href=preparedPdfUrl;
+   save.hidden=false;open.hidden=false;
+   // Asynchronous PDF requests can lose browser user activation on mobile.
+   // Keep explicit, user-tappable links and the object URL until invalidated.
+   try{save.click()}catch{}
+   status.textContent="PDF prepared. If no download appeared, tap Save PDF or Open PDF. Nothing was issued or saved.";
   }catch(err){
    if(!disposed)status.textContent="Preview failed: "+(err?.message||"Unavailable")+".";
   }finally{
-   if(url)URL.revokeObjectURL(url);
    busy=false;
    if(!disposed){
     const note=status.textContent;refresh();
-    if(note.startsWith("PDF downloaded")||note.startsWith("Preview failed"))status.textContent=note;
+    if(note.startsWith("PDF prepared")||note.startsWith("Preview failed")||note.startsWith("Draft changed"))status.textContent=note;
    }
   }
  });
@@ -209,6 +225,7 @@ export function mountQuotationDraftForm(root,{capability,fetchImpl,csrfToken,ini
      checked.items.some((item,i)=>item.unitPriceCents!==candidate.items[i].unitPriceCents||
       item.quantity!==candidate.items[i].quantity))
    throw Error("invalid_quotation_stored_draft");
+  draftRevision++;clearPreparedPdf();
   for(const key of ["quoteNumber","issueDate","customerName","customerContact"])
    fields[key].value=prepared[key];
   paymentField.input.value=prepared.paymentMethod;
@@ -221,6 +238,6 @@ export function mountQuotationDraftForm(root,{capability,fetchImpl,csrfToken,ini
  return Object.freeze({
   getDraft:()=>prepareQuotationFormDraft(values()).draft,
   applyDraft,
-  destroy(){disposed=true;root.replaceChildren()}
+  destroy(){clearPreparedPdf();disposed=true;root.replaceChildren()}
  });
 }
