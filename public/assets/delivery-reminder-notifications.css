@@ -122,71 +122,123 @@ body.thebe-voice-active .thebe-delivery-manager-popup{
  }
 }
 
-/* #2778: Tie the notification sheet to the bell. The pair moves up together
-   as the visual viewport shrinks, preserving a clickable 44px bell, a 4px gap,
-   and 104px for the bottom navigation and safe-area on Android. */
+
+/* #2715 / #2778: Agreed mobile notification visual design.
+   Neutral white/blue/charcoal, no gradient; real action buttons, readable
+   inner scroller, separate header and footer and a movable bell/sheet pair. */
+.thebe-delivery-manager-popup{
+ display:flex;flex-direction:column;overflow:hidden;padding:0;
+ background:#fff;color:#192b40;border:1px solid #c6d8ec;
+ border-radius:16px;box-shadow:0 12px 35px #10253c26
+}
+.thebe-delivery-manager-popup[hidden],
+.thebe-delivery-manager-bell[hidden]{display:none!important}
+.thebe-delivery-sheet-header{
+ display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
+ flex:0 0 auto;background:#fff;border-bottom:1px solid #dae6f4;
+ padding:14px 14px 11px;min-width:0
+}
+.thebe-delivery-sheet-heading{min-width:0;flex:1}
+.thebe-delivery-eyebrow{
+ display:block;font-size:10px;letter-spacing:.12em;font-weight:800;
+ color:#2867b6;margin-bottom:4px
+}
+.thebe-delivery-manager-popup .thebe-delivery-sheet-header h2{
+ display:block;position:static;margin:0;padding:0;background:none;
+ font-size:17px;line-height:1.3;font-weight:800;color:#172b44;
+ overflow-wrap:anywhere
+}
+.thebe-delivery-summary{margin:5px 0 0;font-size:12px;line-height:1.4;color:#58708b}
+.thebe-delivery-manager-popup button.thebe-delivery-dismiss{
+ position:static;float:none;flex:0 0 44px;width:44px;height:44px;
+ min-width:44px;min-height:44px;border:1px solid #d5e1f0;
+ border-radius:11px;background:#f3f7fc;color:#24476b;
+ font-size:25px;line-height:1;cursor:pointer
+}
+.thebe-delivery-sheet-list{
+ flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+ -webkit-overflow-scrolling:touch;background:#f6f9fd;
+ padding:12px 12px 14px
+}
+.thebe-delivery-manager-popup .thebe-delivery-reminder{
+ display:flex;flex-direction:column;align-items:stretch;
+ margin:0 0 10px;background:#fff;border:1px solid #d8e5f3;
+ border-left:4px solid #2368b4;border-radius:12px;
+ padding:12px;box-shadow:none;color:#203650;overflow-wrap:anywhere
+}
+.thebe-delivery-manager-popup .thebe-delivery-reminder[data-urgent="true"]{
+ background:#fff;border-color:#d8e5f3;border-left-color:#d77b35;color:#203650
+}
+.thebe-delivery-reminder-copy{min-width:0;width:100%}
+.thebe-delivery-manager-popup .thebe-delivery-reminder strong{
+ display:block;color:#172f49;font-size:14px;line-height:1.4;overflow-wrap:anywhere
+}
+.thebe-delivery-manager-popup .thebe-delivery-reminder small{
+ display:block;color:#556a80;font-size:13px;line-height:1.55;
+ margin-top:5px;overflow-wrap:anywhere;white-space:normal
+}
+.thebe-delivery-reminder-actions{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;
+ width:100%;margin-top:12px
+}
+.thebe-delivery-manager-popup .thebe-delivery-reminder-actions button{
+ width:100%;min-width:0;min-height:44px;margin:0;padding:8px 9px;
+ border-radius:9px;font-size:13px;line-height:1.25;font-weight:750;
+ white-space:normal;cursor:pointer
+}
+.thebe-delivery-manager-popup .thebe-delivery-view-task{
+ background:#17599d;border:1px solid #17599d;color:#fff
+}
+.thebe-delivery-manager-popup .thebe-delivery-mark-read{
+ background:#fff;border:1px solid #a9c5e5;color:#17518d
+}
+.thebe-delivery-manager-popup .thebe-delivery-mark-read[aria-pressed="true"]{
+ background:#eef4fb;border-color:#d4e1f1;color:#475e77
+}
+.thebe-delivery-manager-popup .thebe-delivery-reminder[data-read="true"]{
+ border-left-color:#8ba2ba
+}
+.thebe-delivery-sheet-footer{
+ flex:0 0 auto;border-top:1px solid #dbe6f3;
+ padding:9px 13px 11px;background:#fff;
+ color:#61758b;font-size:11px;line-height:1.4
+}
+#thebeDeliveryActionStatus:not(:empty){display:block;margin-top:5px;color:#205b9c;font-weight:700}
+.thebe-delivery-manager-popup button:focus-visible,
+.thebe-delivery-manager-bell:focus-visible,
+.thebe-delivery-reminder:focus-visible{
+ outline:3px solid #6ba9ed;outline-offset:2px
+}
+.thebe-delivery-manager-bell[data-count="0"]::after{display:none}
 @media(max-width:1000px){
  .thebe-delivery-manager-bell{
-  top:clamp(calc(env(safe-area-inset-top, 0px) + 8px),
-            calc(100vh - 478px),
-            calc(env(safe-area-inset-top, 0px) + 162px));
-  top:clamp(calc(env(safe-area-inset-top, 0px) + 8px),
-            calc(100dvh - 478px),
-            calc(env(safe-area-inset-top, 0px) + 162px));
+  touch-action:none;user-select:none;-webkit-user-select:none;
+  position:fixed;z-index:10001
  }
- .thebe-delivery-manager-popup{
-  top:calc(clamp(calc(env(safe-area-inset-top, 0px) + 8px),
-                 calc(100vh - 478px),
-                 calc(env(safe-area-inset-top, 0px) + 162px)) + 48px);
-  top:calc(clamp(calc(env(safe-area-inset-top, 0px) + 8px),
-                 calc(100dvh - 478px),
-                 calc(env(safe-area-inset-top, 0px) + 162px)) + 48px);
-  bottom:calc(104px + env(safe-area-inset-bottom, 0px));
-  left:10px;right:10px;width:auto;
-  max-height:none;min-height:0;overflow-y:auto;
-  box-sizing:border-box;padding:16px;
-  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
- }
- .thebe-delivery-manager-popup h2{
-  position:sticky;top:0;z-index:1;
-  background:#fff;padding:8px 44px 12px 0;
-  margin:0 0 8px;font-size:18px;line-height:1.35;
-  overflow-wrap:anywhere;
- }
- .thebe-delivery-manager-popup .thebe-delivery-reminder{
-  min-width:0;overflow-wrap:anywhere;line-height:1.5;
- }
- .thebe-delivery-manager-popup .thebe-delivery-reminder>div{
-  min-width:0;overflow-wrap:anywhere;
- }
- .thebe-delivery-manager-popup .thebe-delivery-reminder small{
-  font-size:14px;line-height:1.5;
- }
- .thebe-delivery-manager-popup button.thebe-delivery-dismiss{
-  position:sticky;top:0;float:right;z-index:2;
-  min-width:44px;min-height:44px;
- }
-}
-
-/* Mobile notification sheet: independent of draggable bell position. */
-@media(max-width:1000px){
  .thebe-delivery-manager-popup{
   position:fixed!important;
-  /* VisualViewport offsets handle Android chrome, zoom and the soft keyboard. */
+  /* Fixed reading area below Android toolbar and above bottom navigation,
+     independent of the movable bell's remembered coordinates. */
+  top:calc(var(--thebe-vv-top, 0px) + env(safe-area-inset-top, 0px) + 12px)!important;
+  bottom:calc(var(--thebe-vv-bottom, 0px) + 104px + env(safe-area-inset-bottom, 0px))!important;
   left:calc(var(--thebe-vv-left, 0px) + 8px)!important;
   right:calc(var(--thebe-vv-right, 0px) + 8px)!important;
   width:auto!important;
-  top:calc(var(--thebe-vv-top, 0px) + env(safe-area-inset-top, 0px) + 12px)!important;
-  bottom:calc(var(--thebe-vv-bottom, 0px) + 104px + env(safe-area-inset-bottom, 0px))!important;
   max-height:none!important;min-height:0!important;
-  overflow-y:auto!important;overscroll-behavior:contain;
-  -webkit-overflow-scrolling:touch;
-  z-index:9999;
+  padding:0!important;overflow:hidden!important;
+  z-index:9999
  }
- .thebe-delivery-manager-bell{
-  touch-action:none;user-select:none;-webkit-user-select:none
- }
- /* The sheet takes precedence over a dragged bell. It remains closable and
-    returns focus to the bell instead of leaving two overlapping controls. */
+ /* While reading, hide the bell to prevent overlapping the sheet. Closing
+    returns focus to the bell and restores its saved drag position. */
  .thebe-delivery-manager-bell[aria-expanded="true"]{visibility:hidden}
+}
+@media(max-width:350px){
+ .thebe-delivery-reminder-actions{grid-template-columns:1fr}
+}
+@media(max-height:480px){
+ .thebe-delivery-sheet-header{padding:7px 10px}
+ .thebe-delivery-eyebrow{display:none}
+ .thebe-delivery-manager-popup .thebe-delivery-sheet-header h2{font-size:15px}
+ .thebe-delivery-sheet-footer{display:none}
+ .thebe-delivery-sheet-list{padding:7px 10px}
 }
