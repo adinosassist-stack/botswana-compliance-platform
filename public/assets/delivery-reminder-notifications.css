@@ -43,7 +43,12 @@
    thebe-ai-expanded class. Keep high-z-index reminders from covering the open
    dock on both mobile and tablet viewports. */
 body.thebe-ai-mobile-open .thebe-delivery-manager-bell,
-body.thebe-ai-mobile-open .thebe-delivery-manager-popup,
+body.thebe-ai-mobile-open .thebe-delivery-manager-popup{
+  display:none!important;
+}
+
+/* Preserve the explicitly tested AI Dock guard above; extend priority
+   suppression to tablet-sized drawers and immersive voice screens. */
 body.mobile-nav-open .thebe-delivery-manager-bell,
 body.mobile-nav-open .thebe-delivery-manager-popup,
 body.thebe-voice-active .thebe-delivery-manager-bell,
