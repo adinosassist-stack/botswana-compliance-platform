@@ -2192,3 +2192,23 @@ body.thebe-voice-active #thebeAiDock :is(button,textarea):focus-visible {
 html body dialog#thebeVoiceScreen[open] {
   z-index:10001!important;
 }
+
+/* #2789: Neutral mobile composer focus; keep a visible keyboard focus cue. */
+@media (max-width: 767px) {
+  html body #thebeAiDock .thebe-ai-compose,
+  html body #thebeAiDock .thebe-ai-compose:focus-within {
+    border-color: #454c56 !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+  html body #thebeAiDock .thebe-ai-compose textarea:focus,
+  html body #thebeAiDock .thebe-ai-compose textarea:focus-visible {
+    border: 0 !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+  html body #thebeAiDock .thebe-ai-compose:has(textarea:focus-visible) {
+    border-color: #858b94 !important;
+    box-shadow: 0 0 0 1px #858b94 !important;
+  }
+}
