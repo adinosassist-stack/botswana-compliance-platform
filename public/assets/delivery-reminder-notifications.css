@@ -122,32 +122,34 @@ body.thebe-voice-active .thebe-delivery-manager-popup{
  }
 }
 
-
-/* #2778: Android notification readability. The old 210px top offset plus
-   104px bottom reserve could leave a nearly empty sheet at short heights.
-   Keep the entire dialog within the viewport, with its own scroll area. */
+/* #2778: Android delivery notification sheet. Reserve the bottom nav lane,
+   but let the panel rise on short/zoomed screens instead of collapsing to a
+   sliver beneath the 210px bell. Dynamic viewport units adapt to Chrome UI. */
 @media(max-width:1000px){
  .thebe-delivery-manager-popup{
-  position:fixed;
-  inset-block-start:calc(env(safe-area-inset-top, 0px) + 210px);
-  inset-block-end:calc(env(safe-area-inset-bottom, 0px) + 88px);
-  top:calc(env(safe-area-inset-top, 0px) + 210px);
-  bottom:calc(env(safe-area-inset-bottom, 0px) + 88px);
+  top:clamp(calc(env(safe-area-inset-top, 0px) + 8px),
+            calc(100vh - 390px),
+            calc(env(safe-area-inset-top, 0px) + 210px));
+  top:clamp(calc(env(safe-area-inset-top, 0px) + 8px),
+            calc(100dvh - 390px),
+            calc(env(safe-area-inset-top, 0px) + 210px));
+  bottom:calc(88px + env(safe-area-inset-bottom, 0px));
   left:10px;right:10px;width:auto;
   max-height:none;min-height:0;overflow-y:auto;
-  overscroll-behavior:contain;
-  box-sizing:border-box;
-  padding:16px;
-  -webkit-overflow-scrolling:touch;
+  box-sizing:border-box;padding:16px;
+  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
  }
  .thebe-delivery-manager-popup h2{
-  position:sticky;top:-16px;z-index:1;
+  position:sticky;top:0;z-index:1;
   background:#fff;padding:8px 44px 12px 0;
   margin:0 0 8px;font-size:18px;line-height:1.35;
   overflow-wrap:anywhere;
  }
  .thebe-delivery-manager-popup .thebe-delivery-reminder{
   min-width:0;overflow-wrap:anywhere;line-height:1.5;
+ }
+ .thebe-delivery-manager-popup .thebe-delivery-reminder>div{
+  min-width:0;overflow-wrap:anywhere;
  }
  .thebe-delivery-manager-popup .thebe-delivery-reminder small{
   font-size:14px;line-height:1.5;
@@ -159,7 +161,14 @@ body.thebe-voice-active .thebe-delivery-manager-popup{
 }
 @media(max-width:1000px) and (max-height:500px){
  .thebe-delivery-manager-popup{
-  top:calc(env(safe-area-inset-top, 0px) + 110px);
-  bottom:calc(env(safe-area-inset-bottom, 0px) + 56px);
+  top:clamp(calc(env(safe-area-inset-top, 0px) + 8px),
+            calc(100dvh - 280px),
+            calc(env(safe-area-inset-top, 0px) + 110px));
+  bottom:calc(56px + env(safe-area-inset-bottom, 0px));
+ }
+}
+@media(max-width:1000px) and (max-height:360px){
+ .thebe-delivery-manager-popup{
+  top:calc(env(safe-area-inset-top, 0px) + 8px);
  }
 }
