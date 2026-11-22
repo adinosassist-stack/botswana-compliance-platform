@@ -43,8 +43,24 @@
    thebe-ai-expanded class. Keep high-z-index reminders from covering the open
    dock on both mobile and tablet viewports. */
 body.thebe-ai-mobile-open .thebe-delivery-manager-bell,
-body.thebe-ai-mobile-open .thebe-delivery-manager-popup{
+body.thebe-ai-mobile-open .thebe-delivery-manager-popup,
+body.mobile-nav-open .thebe-delivery-manager-bell,
+body.mobile-nav-open .thebe-delivery-manager-popup,
+body.thebe-voice-active .thebe-delivery-manager-bell,
+body.thebe-voice-active .thebe-delivery-manager-popup{
   display:none!important;
+}
+
+/* #2715: give the desktop-style bottom bell room on short landscape/tablet
+   viewports even when the notification list reaches its full scroll height. */
+@media(min-width:621px) and (max-height:500px){
+ .thebe-delivery-manager-popup{
+   top:12px;
+   bottom:72px;
+   max-height:none;
+   min-height:0;
+   overflow:auto;
+ }
 }
 
 /* #2715: keep notification control away from mobile navigation and AI dock. */
