@@ -5227,7 +5227,7 @@ function renderCommandResults(q=""){
   const rows=specialist.filter(x=>x[2]===commandCategory);
   commandResults.safeHTML=`<div class="commandcategories">${groups.map(g=>`<button type="button" class="${g===commandCategory?"active":""}" data-bw-onclick="setCommandCategory('${g}')">${g}</button>`).join("")}</div>${commandHeading(commandCategory,"All available tools in this area")}${rows.map(commandRow).join("")}`;
 }
-function commandGo(id){closeCommandPalette();if(id==="__add_evidence")return openAddEvidence();if(id==="__guided_setup")return openOnboarding();if(id==="__run_scan")return openModal("scanModal");if(id==="__website")return returnToPublicWebsite();if(id==="__logout")return logoutUser();recordRecentTool(id);showView(id)}
+function commandGo(id){closeCommandPalette();if(id==="__add_evidence")return openAddEvidence();if(id==="__guided_setup")return openOnboarding();if(id==="__run_scan")return openModal("scanModal");if(id==="__website")return returnToPublicWebsite();if(id==="__logout")return logoutUser();recordRecentTool(id);if(showView(id)&&document.body.classList.contains("mobile-nav-open"))window.closeMobileWorkspaceMenu?.()}
 function commandKey(e){if(e.key==="Escape")closeCommandPalette();if(e.key==="Enter"){let first=document.querySelector('#commandResults .commanditem,#commandResults .commandquick');if(first)first.click()}}
 document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();openCommandPalette()}else if(e.key==="/"&&!/input|textarea|select/i.test(document.activeElement?.tagName||"")){e.preventDefault();openCommandPalette()}else if(e.key==="Escape")closeCommandPalette()});
 function mobileGo(id){showView(id);updateMobileNav(id)}
