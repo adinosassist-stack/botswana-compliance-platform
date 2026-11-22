@@ -85,6 +85,8 @@ async function registerAccount(payload){
  const proof=await solveRegistrationProof();
  setStatus("Step 2 of 3: Creating your workspace…","good");
  await api("/api/auth/register",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...payload,turnstileToken:proof,legalAcceptance:{version:LEGAL_VERSION,accepted:true}})});
+ // Registration is already committed. Any login failure must retry sign-in, never re-create a workspace.
+ setMode("login");
  setStatus("Step 3 of 3: Opening your workspace…","good");
  try{await login({email:payload.email,password:payload.password})}
  catch(error){
@@ -97,7 +99,7 @@ async function registerAccount(payload){
    const requested=await requestRecovery(payload.email);
    throw new Error(requested?"This email may already have an account. Password recovery instructions have been requested.":"This email may already have an account. Use Forgot password, then sign in.")
   }
-  throw error;
+  throw new Error("Your workspace was created, but automatic sign-in did not finish. Choose Sign in to retry without creating another account.");
  }
 }
 async function loadCapabilities(){
