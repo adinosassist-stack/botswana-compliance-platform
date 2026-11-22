@@ -226,7 +226,7 @@ test("customer-ready browser print requires real fields and produces exactly two
 });
 
 
-test("390px Android-sized Chromium viewport keeps quotation controls usable and draft printing fail-closed",async()=>{
+test("320/375/390/414/430px touch Chromium matrix keeps customer-ready quotation controls usable and draft print denied",async()=>{
   const origin="https://quotation-mobile.test";
   const path="/app/quotations/customer-ready/";
   const response=await quotationBrowserPreview(
@@ -239,58 +239,59 @@ test("390px Android-sized Chromium viewport keeps quotation controls usable and 
   );
   assert.equal(response.status,200);
   const html=await response.text();
-  const page=await browser.newPage({
-    viewport:{width:390,height:844},deviceScaleFactor:2,
-    isMobile:true,hasTouch:true
-  });
-  try{
-    await page.addInitScript(()=>{
-      window.printCalls=0;
-      window.print=()=>{window.printCalls++};
+  const modules=new Set([
+    "/js/quotation-customizable-page.mjs",
+    "/js/quotation-customizable-page-model.mjs"
+  ]);
+  for(const width of [320,375,390,414,430]){
+    const page=await browser.newPage({
+      viewport:{width,height:844},deviceScaleFactor:2,
+      isMobile:true,hasTouch:true
     });
-    const modules=new Set([
-      "/js/quotation-customizable-page.mjs",
-      "/js/quotation-customizable-page-model.mjs"
-    ]);
-    await page.route(origin+"/**",async route=>{
-      const requestPath=new URL(route.request().url()).pathname;
-      if(requestPath===path)return route.fulfill({
-        status:200,headers:Object.fromEntries(response.headers),body:html
+    try{
+      await page.addInitScript(()=>{
+        window.printCalls=0;
+        window.print=()=>{window.printCalls++};
       });
-      if(!modules.has(requestPath))return route.abort();
-      return route.fulfill({
-        contentType:"text/javascript",
-        body:await readFile(new URL("../public"+requestPath,import.meta.url))
+      await page.route(origin+"/**",async route=>{
+        const requestPath=new URL(route.request().url()).pathname;
+        if(requestPath===path)return route.fulfill({
+          status:200,headers:Object.fromEntries(response.headers),body:html
+        });
+        if(!modules.has(requestPath))return route.abort();
+        return route.fulfill({
+          contentType:"text/javascript",
+          body:await readFile(new URL("../public"+requestPath,import.meta.url))
+        });
       });
-    });
-    await page.goto(origin+path);
-    assert.equal(await page.locator(".qcp-page").count(),2);
-    assert.equal(await page.locator(".qcp-watermark").count(),0);
-    const print=page.getByRole("button",{name:"Print customer quotation / Save PDF"});
-    await assert.doesNotReject(()=>print.waitFor({state:"visible"}));
-    assert.equal(await print.isEnabled(),true);
-    const geometry=await print.evaluate(el=>{
-      const b=el.getBoundingClientRect();
-      return {
-        width:b.width,height:b.height,left:b.left,right:b.right,
-        viewport:document.documentElement.clientWidth
-      };
-    });
-    assert.ok(geometry.height>=44,
-      "Mobile print control must have >=44px touch target: "+JSON.stringify(geometry));
-    assert.ok(geometry.width>=44,
-      "Mobile print control must have >=44px width: "+JSON.stringify(geometry));
-    assert.ok(geometry.left>=-1&&geometry.right<=geometry.viewport+1,
-      "Mobile print button must fit viewport: "+JSON.stringify(geometry));
-    assert.match(
-      await page.getByText("How to save as PDF on your phone").first().innerText(),
-      /How to save as PDF on your phone/
-    );
-    await print.tap();
-    assert.equal(await page.evaluate(()=>window.printCalls),0,
-      "Synthetic draft must NEVER invoke native printing");
-    assert.match(await page.locator("#qcp-print-status").innerText(),
-      /Cannot print yet:/);
-    assert.equal(await page.locator(".qcp-page").count(),2);
-  }finally{await page.close()}
+      await page.goto(origin+path);
+      assert.equal(await page.locator(".qcp-page").count(),2,
+        "Expected two document sections at "+width+"px");
+      assert.equal(await page.locator(".qcp-watermark").count(),0,
+        "Customer-ready document must never include SAMPLE watermark at "+width+"px");
+      const print=page.getByRole("button",{name:"Print customer quotation / Save PDF"});
+      await print.waitFor({state:"visible"});
+      assert.equal(await print.isEnabled(),true);
+      const geometry=await print.evaluate(el=>{
+        const b=el.getBoundingClientRect();
+        return {
+          width:b.width,height:b.height,left:b.left,right:b.right,
+          viewport:document.documentElement.clientWidth
+        };
+      });
+      assert.ok(geometry.height>=44&&geometry.width>=44,
+        "Mobile print touch target too small at "+width+"px: "+JSON.stringify(geometry));
+      assert.ok(geometry.left>=-1&&geometry.right<=geometry.viewport+1,
+        "Mobile print control outside "+width+"px viewport: "+JSON.stringify(geometry));
+      assert.match(
+        await page.getByText("How to save as PDF on your phone").first().innerText(),
+        /How to save as PDF on your phone/
+      );
+      await print.tap();
+      assert.equal(await page.evaluate(()=>window.printCalls),0,
+        "Sample draft must never trigger native printing at "+width+"px");
+      assert.match(await page.locator("#qcp-print-status").innerText(),
+        /Cannot print yet:/);
+    }finally{await page.close()}
+  }
 });
