@@ -5,7 +5,7 @@ import vm from "node:vm";
 
 const html=fs.readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
 const source=fs.readFileSync(new URL("../public/js/owner-onboarding-journey-v1.js",import.meta.url),"utf8");
-const sandbox={module:{exports:{}}};
+const sandbox={module:{exports:{}},window:{}};
 vm.runInNewContext(source,sandbox);
 const derive=sandbox.module.exports.deriveOwnerJourney;
 
