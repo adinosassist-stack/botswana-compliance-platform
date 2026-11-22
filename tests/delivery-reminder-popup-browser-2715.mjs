@@ -62,10 +62,8 @@ try{
    assert(g.b.left>=-1&&g.b.right<=width+1&&g.b.top>=-1&&g.b.bottom<=height+1,'Bell inside viewport '+label);
    assert(g.p.left>=-1&&g.p.right<=width+1&&g.p.top>=-1&&g.p.bottom<=height+1,'Panel inside viewport '+label);
    if(g.mobile){
-    assert(await bell.isVisible(),'The movable bell must stay accessible next to the open sheet '+label);
-    assert(g.hitBell,'Bell keeps its tap target while sheet is open '+label);
-    assert(g.p.bottom<=g.b.top-7||g.p.top>=g.b.bottom+7,
-      'Sheet must be attached above or below bell without covering it '+label);
+    assert.equal(await bell.isVisible(),false,'Bell hides while the fixed reading sheet is open '+label);
+    assert(g.p.top>=-1,'Independent sheet stays within viewport after bell positioning '+label);
     assert(g.p.top>=-1,'Phone popup starts inside viewport '+label);
     assert(g.p.bottom<=g.rail.top-8,'Phone popup clears bottom rail '+label);
     const close=panel.getByRole('button',{name:'Close reminders'});
@@ -87,8 +85,8 @@ try{
     await page.evaluate(name=>document.body.classList.remove(name),state);
    }
    assert(await panel.isVisible(),'Notification sheet restores after overlay '+label);
-   assert(await bell.isVisible(),
-     'Bell remains visible when sheet is open and yields only to Dock/voice/drawer '+label);
+   assert.equal(await bell.isVisible(),!g.mobile,
+     'Mobile reading sheet hides the bell, desktop behavior remains unchanged '+label);
    assert.equal(await panel.locator('.thebe-delivery-view-task').count(),12,
      'Each synthetic reminder has a View Task action '+label);
    assert.equal(await panel.locator('.thebe-delivery-mark-read').count(),12,
