@@ -60,3 +60,14 @@ test("delivery reminders yield to the actual mobile Thebe Dock runtime state",()
  assert.ok(guard,"actual mobile dock-open state must suppress both bell and popup");
  assert.ok(css.indexOf(guard[0])<css.indexOf("/* #2715: keep notification control"),"tablet coverage must precede the narrower mobile layout rule");
 });
+
+test("mobile delivery popup preserves bell clearance and readable scrolling (#2778)",()=>{
+ const css=read("../public/assets/delivery-reminder-notifications.css");
+ const section=css.slice(css.indexOf("/* #2778:"));
+ assert.ok(section.includes("top:calc(env(safe-area-inset-top, 0px) + 210px)"));
+ assert.ok(section.includes("top:calc(env(safe-area-inset-top, 0px) + 110px)"));
+ assert.ok(section.includes("overflow-y:auto"));
+ assert.ok(section.includes("-webkit-overflow-scrolling:touch"));
+ assert.ok(section.includes("font-size:14px;line-height:1.5"));
+ assert.ok(section.includes("min-width:44px;min-height:44px"));
+});
