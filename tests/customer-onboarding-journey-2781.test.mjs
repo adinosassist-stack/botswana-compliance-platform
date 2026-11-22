@@ -43,17 +43,16 @@ test("first value needs completed owner setup, saved status and a valid timestam
  assert.equal(derive({...owner,onboardingComplete:true},payload({...complete,firstProtectionCheckStatus:"pending"})).first,false);
  assert.equal(derive({...owner,onboardingComplete:true},payload(complete)).first,true);
 });
-test("four distinct responsive milestones appear on the owner dashboard",()=>{
- const s=source.indexOf('id="ownerJourney"');
- const e=source.indexOf('const panel=doc.getElementById("ownerJourney")',s);
- const part=source.slice(s,e);
- assert.ok(s>0&&e>s);
- assert.match(source,/insertAdjacentHTML\("beforebegin"/);
+test("four distinct responsive milestones use safe DOM construction",()=>{
+ assert.match(source,/doc\.createElement\(tag\)/);
+ assert.match(source,/anchor\.parentNode\.insertBefore\(panel,anchor\)/);
+ assert.doesNotMatch(source,/insertAdjacentHTML|\.innerHTML\s*=|\.outerHTML\s*=/);
  assert.doesNotMatch(html,/id="ownerJourney"/);
- assert.equal((part.match(/data-onboarding-milestone="/g)||[]).length,4);
- assert.match(part,/grid-template-columns:repeat\(auto-fit,minmax\(min\(100%,220px\),1fr\)\)/);
- assert.match(part,/id="ownerJourneySummary" role="status" aria-live="polite"/);
- assert.match(part,/min-height:44px/);
+ assert.equal((source.match(/\["(?:account|business|workspace|first)","[1-4]\. /g)||[]).length,4);
+ for(const id of ["ownerJourneyAccount","ownerJourneyBusiness","ownerJourneyWorkspace","ownerJourneyFirst","ownerJourneyRefresh","ownerJourneySummary"])assert.ok(source.includes(id),id);
+ assert.match(source,/grid-template-columns:repeat\(auto-fit,minmax\(min\(100%,220px\),1fr\)\)/);
+ assert.match(source,/"aria-live":"polite"/);
+ assert.match(source,/min-height:44px/);
  assert.match(html,/src="\/js\/owner-onboarding-journey-v1\.js"/);
 });
 test("progress uses authenticated same-origin reads and never invents an issuance or completed compliance",()=>{
