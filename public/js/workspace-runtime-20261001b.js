@@ -1334,7 +1334,7 @@ function save(){
  stageWorkspaceState();clearTimeout(saveTimer);saveTimer=setTimeout(()=>persistWorkspaceState().catch(err=>{console.error("Save failed",err);showSyncError(err.message)}),180)
 }
 function logEvent(type,data={}){
- /* Server owns the audit ledger. */
+ /* UI activity is not authoritative audit history. */
 }
 const WORKSPACE_ROLES=new Set(["owner","manager","reviewer","auditor"]);
 const MANAGER_BLOCKED=new Set(["security","payments","entitlements","billing","integrations","profile","taxprofile","datadeletion","accountdata"]);
