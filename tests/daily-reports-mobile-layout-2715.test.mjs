@@ -61,35 +61,26 @@ test("delivery reminders yield to the actual mobile Thebe Dock runtime state",()
  assert.ok(css.indexOf(guard[0])<css.indexOf("/* #2715: keep notification control"),"tablet coverage must precede the narrower mobile layout rule");
 });
 
-test("mobile delivery popup keeps accessible bell and bottom rail on zoom (#2778)",()=>{
+test("agreed notification design has visible bell, readable action sheet and real action controls (#2778)",()=>{
  const css=read("../public/assets/delivery-reminder-notifications.css");
- const section=css.slice(css.indexOf("/* #2778:"));
- assert.ok(section.includes("100dvh - 478px"),"bell and panel adapt to dynamic viewport");
- assert.ok(section.includes("100vh - 478px"),"legacy viewport fallback remains");
- assert.ok(section.includes("bottom:calc(104px + env(safe-area-inset-bottom, 0px))"),"bottom navigation clearance");
- assert.ok(section.includes("overflow-y:auto")&&section.includes("-webkit-overflow-scrolling:touch"));
- assert.ok(section.includes("position:sticky;top:0"),"heading and close stay visible");
- assert.ok(section.includes("font-size:14px;line-height:1.5"),"readable message details");
- assert.ok(section.includes("min-width:44px;min-height:44px"),"touch accessible close");
- assert.ok(section.includes("overflow-wrap:anywhere"),"long job references wrap");
- // Model CSS clamp geometry. Bell and sheet rise as a pair so the bell stays
- // independently clickable while the sheet remains above the bottom rail.
- for(const viewport of [
-  {width:320,height:640},{width:320,height:568},{width:375,height:667},
-  {width:414,height:896},{width:430,height:932},{width:768,height:1024},
-  {width:667,height:375},{width:932,height:430},{width:768,height:375},
-  {width:375,height:320}
- ]){
-  const bellTop=Math.max(8,Math.min(viewport.height-478,162));
-  const panelTop=bellTop+48;
-  const panelBottom=viewport.height-104;
-  assert.ok(panelTop>=bellTop+47,
-    `bell must stay accessible at ${viewport.width}x${viewport.height}`);
-  assert.ok(panelBottom<=viewport.height-94,
-    `sheet must clear the nav lane at ${viewport.width}x${viewport.height}`);
-  assert.ok(panelBottom-panelTop>=120,
-    `sheet must remain usable at ${viewport.width}x${viewport.height}`);
+ const js=read("../public/js/delivery-reminders-manager.js");
+ const section=css.slice(css.indexOf("/* #2715 / #2778: Agreed"));
+ assert.ok(section.includes("background:#fff"),"notification card background is plain white");
+ assert.ok(!section.includes("linear-gradient("),"no gradients in notification panel");
+ assert.ok(section.includes("thebe-delivery-sheet-header")&&section.includes("thebe-delivery-sheet-list"),
+   "heading and independently scrolling body are part of design");
+ assert.ok(section.includes("thebe-delivery-reminder-actions"),"action row must be styled");
+ assert.ok(section.includes("min-height:44px"),"mobile actions must be reachable");
+ assert.ok(section.includes("overflow-y:auto"),"notification card body must scroll");
+ assert.ok(section.includes("visibility:visible"),"bell remains visible when sheet opens");
+ for(const token of ["--thebe-sheet-top","--thebe-sheet-bottom","--thebe-sheet-left","--thebe-sheet-width"]){
+  assert.ok(css.includes(token)&&js.includes(token),"bell-attached panel must use "+token);
  }
+ assert.ok(js.includes('view.textContent="View Task"'),"View Task opens existing Daily Reports");
+ assert.ok(js.includes('read.textContent=alreadyRead?"Read":"Mark as Read"'),"Mark as Read is a real control");
+ assert.ok(js.includes('window.showView("dailyreports")'),"View Task uses existing workspace router");
+ assert.ok(js.includes("readReminders.add(reminderKey(item))"),"read action updates unread count");
+ assert.ok(js.includes("job status changes only in Daily Reports"),"read must not pretend a job was completed");
 });
 
 test("notification bell and dismiss keep keyboard navigation and accessible state",()=>{
@@ -109,7 +100,7 @@ test("movable Android bell and independent sheet keep viewport, rail and keyboar
    assert.ok(css.includes(key),"notification sheet must use "+key);
    assert.ok(js.includes(key),"runtime must update "+key);
  }
- assert.match(css,/thebe-delivery-manager-bell\[aria-expanded="true"\]\{visibility:hidden\}/);
+ assert.match(css,/thebe-delivery-manager-bell\[aria-expanded="true"\]\{visibility:visible\}/);
  assert.match(js,/function positionBell\(button,x,y\)/);
  assert.match(js,/window\.visualViewport\?\.addEventListener\("resize",sync\)/);
  assert.match(js,/button\.setPointerCapture\?\.\(event\.pointerId\)/);
