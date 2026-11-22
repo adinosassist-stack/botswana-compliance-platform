@@ -224,3 +224,73 @@ test("customer-ready browser print requires real fields and produces exactly two
   assert.equal(await page.locator(".qcp-watermark").count(),0);
  }finally{await page.close()}
 });
+
+
+test("390px Android-sized Chromium viewport keeps quotation controls usable and draft printing fail-closed",async()=>{
+  const origin="https://quotation-mobile.test";
+  const path="/app/quotations/customer-ready/";
+  const response=await quotationBrowserPreview(
+    new Request(origin+path,{headers:{cookie:"session=synthetic-mobile-owner"}}),
+    {THEBE_QUOTATION_PREVIEW_TENANT_ID:"synthetic-lovely"},
+    async()=>Response.json({user:{
+      id:"synthetic-mobile-owner",tenantId:"synthetic-lovely",
+      role:"owner",onboardingComplete:true
+    }})
+  );
+  assert.equal(response.status,200);
+  const html=await response.text();
+  const page=await browser.newPage({
+    viewport:{width:390,height:844},deviceScaleFactor:2,
+    isMobile:true,hasTouch:true
+  });
+  try{
+    await page.addInitScript(()=>{
+      window.printCalls=0;
+      window.print=()=>{window.printCalls++};
+    });
+    const modules=new Set([
+      "/js/quotation-customizable-page.mjs",
+      "/js/quotation-customizable-page-model.mjs"
+    ]);
+    await page.route(origin+"/**",async route=>{
+      const requestPath=new URL(route.request().url()).pathname;
+      if(requestPath===path)return route.fulfill({
+        status:200,headers:Object.fromEntries(response.headers),body:html
+      });
+      if(!modules.has(requestPath))return route.abort();
+      return route.fulfill({
+        contentType:"text/javascript",
+        body:await readFile(new URL("../public"+requestPath,import.meta.url))
+      });
+    });
+    await page.goto(origin+path);
+    assert.equal(await page.locator(".qcp-page").count(),2);
+    assert.equal(await page.locator(".qcp-watermark").count(),0);
+    const print=page.getByRole("button",{name:"Print customer quotation / Save PDF"});
+    await assert.doesNotReject(()=>print.waitFor({state:"visible"}));
+    assert.equal(await print.isEnabled(),true);
+    const geometry=await print.evaluate(el=>{
+      const b=el.getBoundingClientRect();
+      return {
+        width:b.width,height:b.height,left:b.left,right:b.right,
+        viewport:document.documentElement.clientWidth
+      };
+    });
+    assert.ok(geometry.height>=44,
+      "Mobile print control must have >=44px touch target: "+JSON.stringify(geometry));
+    assert.ok(geometry.width>=44,
+      "Mobile print control must have >=44px width: "+JSON.stringify(geometry));
+    assert.ok(geometry.left>=-1&&geometry.right<=geometry.viewport+1,
+      "Mobile print button must fit viewport: "+JSON.stringify(geometry));
+    assert.match(
+      await page.getByText("How to save as PDF on your phone").first().innerText(),
+      /How to save as PDF on your phone/
+    );
+    await print.tap();
+    assert.equal(await page.evaluate(()=>window.printCalls),0,
+      "Synthetic draft must NEVER invoke native printing");
+    assert.match(await page.locator("#qcp-print-status").innerText(),
+      /Cannot print yet:/);
+    assert.equal(await page.locator(".qcp-page").count(),2);
+  }finally{await page.close()}
+});
