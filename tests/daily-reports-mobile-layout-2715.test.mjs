@@ -46,3 +46,16 @@ test("mobile reminder panel reserves the bottom nav lane on portrait and landsca
    assert.ok(css.includes(`body.${state} .thebe-delivery-manager-bell`),`bell must yield to ${state}`);
  }
 });
+
+test("delivery reminders yield to the actual mobile Thebe Dock runtime state",()=>{
+ const css=read("../public/assets/delivery-reminder-notifications.css");
+ const dock=read("../public/js/thebe-live-voice.js");
+ // The real mobile opening state is *not* the desktop-only expanded state.
+ assert.match(dock,/document\.body\.classList\.toggle\("thebe-ai-mobile-open",mobile&&visible&&!isCollapsed\)/);
+ assert.match(dock,/document\.body\.classList\.toggle\("thebe-ai-expanded",visible&&!mobile&&dock\.dataset\.expanded==="true"\)/);
+ // A top-level rule, not limited to <=620px, must cover mobile/tablet
+ // where the dock is open and the reminder has a much higher z-index.
+ const guard=css.match(/body\.thebe-ai-mobile-open \.thebe-delivery-manager-bell,\s*body\.thebe-ai-mobile-open \.thebe-delivery-manager-popup\s*\{\s*display:none!important;\s*\}/);
+ assert.ok(guard,"actual mobile dock-open state must suppress both bell and popup");
+ assert.ok(css.indexOf(guard[0])<css.indexOf("/* #2715: keep notification control"),"tablet coverage must precede the narrower mobile layout rule");
+});
