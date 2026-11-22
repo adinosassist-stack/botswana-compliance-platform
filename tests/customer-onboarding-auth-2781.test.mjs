@@ -249,3 +249,80 @@ test("new owner can choose an authorized workspace after registration",async()=>
  await register({email:"owner@example.test",password:"synthetic-only"});
  assert.deepEqual(calls,["/api/auth/register","mode:login","login:default","login:tenant-owner"]);
 });
+
+
+test("unconfirmed registration result sends owner to sign in without another registration POST",async()=>{
+ const sectionStart=source.indexOf("async function registerAccount(");
+ const sectionEnd=source.indexOf("\nasync function loadCapabilities()",sectionStart);
+ assert.ok(sectionStart>=0&&sectionEnd>sectionStart);
+ const codes=["registration_confirmation_unavailable","registration_not_confirmed","timeout","network_error","auth_transport_changed","auth_transport_unavailable"];
+ for(const code of codes){
+  const modes=[],calls=[];
+  const ctx={
+   registrationMode:"open",LEGAL_VERSION:"2026-10-14",
+   solveRegistrationProof:async()=>"synthetic-proof",
+   setMode:mode=>modes.push(mode),
+   setStatus:()=>{},
+   api:async path=>{calls.push(path);throw Object.assign(new Error("Uncertain response"),{code})}
+  };
+  const register=vm.runInNewContext(source.slice(sectionStart,sectionEnd)+"\nregisterAccount",ctx);
+  await assert.rejects(register({email:"owner@example.test",password:"test-only-credentials"}),/couldn't confirm whether your workspace was created.*Sign in first/);
+  assert.deepEqual(modes,["login"],code);
+  assert.deepEqual(calls,["/api/auth/register"],code);
+ }
+});
+
+test("explicit registration validation failure remains correctable",async()=>{
+ const start=source.indexOf("async function registerAccount(");
+ const end=source.indexOf("\nasync function loadCapabilities()",start);
+ const modes=[];
+ const context={
+  registrationMode:"open",LEGAL_VERSION:"2026-10-14",
+  solveRegistrationProof:async()=>"synthetic-proof",
+  setMode:mode=>modes.push(mode),setStatus:()=>{},
+  api:async()=>{throw Object.assign(new Error("Correct your company name"),{code:"invalid_registration"})}
+ };
+ const register=vm.runInNewContext(source.slice(start,end)+"\nregisterAccount",context);
+ await assert.rejects(register({email:"owner@example.test"}),/Correct your company name/);
+ assert.deepEqual(modes,[]);
+});
+
+test("direct signup with uncertain response cannot submit a second account creation request",async()=>{
+ const attrs=new Map(),paths=[];
+ let submit,registrations=0;
+ const form={addEventListener:(_event,handler)=>{submit=handler},
+  setAttribute:(key,value)=>attrs.set(key,value),removeAttribute:key=>attrs.delete(key)};
+ const btn={disabled:false,textContent:"Create account"};
+ const status={setAttribute(){}};
+ const entries={
+  registerForm:form,submitBtn:btn,status,
+  companyName:{value:"Synthetic Company"},
+  email:{value:"owner@example.test"},
+  password:{value:"a synthetic password of length 12"},
+  website:{value:""}
+ };
+ const client={request:async path=>{
+  if(path==="/api/auth/registration-proof/challenge")return {token:"synthetic-challenge",difficulty:8};
+  if(path==="/api/auth/register"){
+   registrations++;
+   throw Object.assign(new Error("Uncertain confirmation"),{code:"registration_confirmation_unavailable"});
+  }
+  throw Error("unexpected request "+path);
+ }};
+ vm.runInNewContext(directRegistration,{
+  TextEncoder,
+  document:{getElementById:id=>entries[id]},
+  window:{BW:{api:{createClient:()=>client}}},
+  crypto:{subtle:{digest:async()=>new Uint8Array(32).buffer}},
+  location:{assign:path=>paths.push(path)}
+ });
+ await submit({preventDefault(){}});
+ assert.equal(registrations,1);
+ assert.equal(btn.disabled,false);
+ assert.equal(btn.textContent,"Go to sign in");
+ assert.match(status.textContent,/couldn't confirm whether your account was created/);
+ assert.equal(attrs.has("aria-busy"),false);
+ await submit({preventDefault(){}});
+ assert.equal(registrations,1,"a second submission must not recreate a workspace");
+ assert.deepEqual(paths,["/auth.html?mode=login"]);
+});
