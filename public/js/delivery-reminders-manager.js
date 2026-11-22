@@ -107,16 +107,33 @@ const bellPositionKey="thebe.delivery.bell.position.v2";
 const mobileBell=()=>window.matchMedia("(max-width: 1000px)").matches;
 let syncBellLayout=()=>{};
 function syncReminderViewport(){
-  const panel=byId("thebeDeliveryManagerPopup");
-  if(!panel)return;
-  const vv=window.visualViewport;
-  const top=vv?.offsetTop||0,left=vv?.offsetLeft||0;
-  const right=Math.max(0,window.innerWidth-left-(vv?.width||window.innerWidth));
-  const bottom=Math.max(0,window.innerHeight-top-(vv?.height||window.innerHeight));
-  panel.style.setProperty("--thebe-vv-top",top+"px");
-  panel.style.setProperty("--thebe-vv-bottom",bottom+"px");
-  panel.style.setProperty("--thebe-vv-left",left+"px");
-  panel.style.setProperty("--thebe-vv-right",right+"px");
+ const panel=byId("thebeDeliveryManagerPopup");
+ if(!panel)return;
+ const vv=window.visualViewport;
+ const left=vv?.offsetLeft||0,top=vv?.offsetTop||0;
+ const width=vv?.width||window.innerWidth,height=vv?.height||window.innerHeight;
+ panel.style.setProperty("--thebe-vv-top",top+"px");
+ panel.style.setProperty("--thebe-vv-bottom",Math.max(0,window.innerHeight-top-height)+"px");
+ panel.style.setProperty("--thebe-vv-left",left+"px");
+ panel.style.setProperty("--thebe-vv-right",Math.max(0,window.innerWidth-left-width)+"px");
+ if(!mobileBell())return;
+ const bell=byId("thebeDeliveryManagerBell");
+ if(!bell||bell.hidden)return;
+ const b=bell.getBoundingClientRect();
+ const safeTop=top+8,railTop=top+height-104;
+ // Pair the notification sheet with the movable bell, switching to above
+ // the bell if opening below would leave too little readable space.
+ const belowTop=b.bottom+8,aboveBottom=b.top-8;
+ const belowRoom=railTop-belowTop,aboveRoom=aboveBottom-safeTop;
+ const above=belowRoom<200&&aboveRoom>belowRoom;
+ const sheetTop=above?safeTop:Math.min(belowTop,railTop-80);
+ const sheetBottom=above?Math.max(sheetTop+80,aboveBottom):railTop;
+ const sheetWidth=Math.max(100,Math.min(420,width-16));
+ const sheetLeft=Math.max(left+8,Math.min(b.left,left+width-sheetWidth-8));
+ panel.style.setProperty("--thebe-sheet-top",sheetTop+"px");
+ panel.style.setProperty("--thebe-sheet-bottom",Math.max(0,window.innerHeight-sheetBottom)+"px");
+ panel.style.setProperty("--thebe-sheet-left",sheetLeft+"px");
+ panel.style.setProperty("--thebe-sheet-width",sheetWidth+"px");
 }
 function clearBellCoordinates(button){
   for(const property of ["left","top","right","bottom"])button.style.removeProperty(property);
@@ -164,6 +181,7 @@ function enableBellDrag(button){
     const positioned=positionBell(button,origin.x,origin.y);
     // Retain the user's preference; re-clamp it when the viewport changes.
     if(saved)saved=positioned;
+    syncReminderViewport();
   };
   window.addEventListener("resize",sync);
   window.addEventListener("orientationchange",sync);
@@ -179,13 +197,14 @@ function enableBellDrag(button){
     if(!start||event.pointerId!==start.id)return;
     const dx=event.clientX-start.x,dy=event.clientY-start.y;
     if(Math.hypot(dx,dy)>7)start.moved=true;
-    if(start.moved)positionBell(button,start.rect.left+dx,start.rect.top+dy);
+    if(start.moved){positionBell(button,start.rect.left+dx,start.rect.top+dy);syncReminderViewport()}
   });
   button.addEventListener("pointerup",event=>{
     if(!start||event.pointerId!==start.id)return;
     if(start.moved){
       const r=button.getBoundingClientRect();
       persist(positionBell(button,r.left,r.top));
+      syncReminderViewport();
       suppressClick=true;
       // Pointer capture normally produces a click after pointerup. Clear the
       // guard next tick if the browser does not emit that click.
@@ -215,6 +234,7 @@ function enableBellDrag(button){
     persist(positionBell(button,
       r.left+(event.key==="ArrowLeft"?-24:event.key==="ArrowRight"?24:0),
       r.top+(event.key==="ArrowUp"?-24:event.key==="ArrowDown"?24:0)));
+    syncReminderViewport();
   });
   syncBellLayout=sync;
   if(!button.hidden)sync();
