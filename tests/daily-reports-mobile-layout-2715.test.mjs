@@ -34,3 +34,15 @@ test("mobile delivery reminder does not auto-open over workspace navigation",()=
  assert.match(js,/if\(newDue\.length && !window\.matchMedia\("\(max-width: 620px\)"\)\.matches\)popup\(\)\.hidden=false/);
  assert.match(js,/button\.addEventListener\("click",\(\)=>\{const panel=popup\(\);panel\.hidden=!panel\.hidden\}\)/);
 });
+
+test("mobile reminder panel reserves the bottom nav lane on portrait and landscape",()=>{
+ const css=read("../public/assets/delivery-reminder-notifications.css");
+ assert.ok(css.includes("bottom:calc(104px + env(safe-area-inset-bottom, 0px))"));
+ assert.ok(css.includes("max-height:none"));
+ assert.ok(css.includes("@media(max-width:620px) and (max-height:500px)"));
+ assert.ok(css.includes(".thebe-delivery-manager-popup{top:calc(env(safe-area-inset-top, 0px) + 110px)}"));
+ for(const state of ["mobile-nav-open","thebe-ai-expanded","thebe-voice-active"]){
+   assert.ok(css.includes(`body.${state} .thebe-delivery-manager-popup`),`popup must yield to ${state}`);
+   assert.ok(css.includes(`body.${state} .thebe-delivery-manager-bell`),`bell must yield to ${state}`);
+ }
+});

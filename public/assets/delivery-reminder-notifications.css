@@ -57,6 +57,23 @@
  }
  .thebe-delivery-manager-popup{
    top:calc(env(safe-area-inset-top, 0px) + 210px);
-   max-height:calc(100dvh - 270px - env(safe-area-inset-bottom, 0px));
+   /* Keep reminders scrollable above the protected mobile navigation lane. */
+   bottom:calc(104px + env(safe-area-inset-bottom, 0px));
+   max-height:none;
+   overscroll-behavior:contain;
  }
+ /* Never cover the open navigation drawer or the immersive Thebe voice/dock UI. */
+ body.mobile-nav-open .thebe-delivery-manager-bell,
+ body.mobile-nav-open .thebe-delivery-manager-popup,
+ body.thebe-ai-expanded .thebe-delivery-manager-bell,
+ body.thebe-ai-expanded .thebe-delivery-manager-popup,
+ body.thebe-voice-active .thebe-delivery-manager-bell,
+ body.thebe-voice-active .thebe-delivery-manager-popup{
+   display:none!important;
+ }
+}
+/* Landscape and short-height / zoomed viewports require a higher, usable panel. */
+@media(max-width:620px) and (max-height:500px){
+ .thebe-delivery-manager-bell{top:calc(env(safe-area-inset-top, 0px) + 58px)}
+ .thebe-delivery-manager-popup{top:calc(env(safe-area-inset-top, 0px) + 110px)}
 }
