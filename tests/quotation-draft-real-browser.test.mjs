@@ -139,3 +139,70 @@ test("actual mobile browser blocks malformed amounts before any network request"
   assert.equal(requests,0);
  }finally{await context.close()}
 });
+
+test("mobile blocked automatic download retains explicit Save/Open PDF links until the draft changes",async()=>{
+ const {context,page}=await openPage({width:375,height:812});
+ let requests=0;
+ await page.route("**/api/quotation/draft/pdf-preview",async route=>{
+  requests++;
+  await route.fulfill({status:200,contentType:"application/pdf",
+   body:Buffer.from("%PDF-1.7\nSynthetic phone fallback acceptance\n")});
+ });
+ try{
+  await page.evaluate(()=>{
+   window.blockedAutomaticDownloads=0;
+   const originalClick=HTMLAnchorElement.prototype.click;
+   HTMLAnchorElement.prototype.click=function(){
+    if(this.classList.contains("qdf-download-link")){
+     window.blockedAutomaticDownloads++;return;
+    }
+    return originalClick.call(this);
+   };
+   window.revokedPdfUrls=0;
+   const originalRevoke=URL.revokeObjectURL.bind(URL);
+   URL.revokeObjectURL=function(url){window.revokedPdfUrls++;return originalRevoke(url)};
+  });
+  await page.getByRole("button",{name:"Download PDF preview"}).click();
+  await page.getByRole("link",{name:"Save PDF"}).waitFor({state:"visible"});
+  const save=page.getByRole("link",{name:"Save PDF"});
+  const open=page.getByRole("link",{name:"Open PDF"});
+  assert.equal(await open.isVisible(),true);
+  assert.equal(await page.evaluate(()=>window.blockedAutomaticDownloads),1);
+  assert.match(await page.locator(".qdf-status").innerText(),/If no download appeared, tap Save PDF or Open PDF/);
+  assert.doesNotMatch(await page.locator(".qdf-status").innerText(),/PDF downloaded/);
+  const rect=await save.boundingBox();
+  assert.ok(rect&&rect.height>=44&&rect.x>=0&&rect.x+rect.width<=375+1,
+   "manual save action must remain accessible on mobile");
+  const awaitedDownload=page.waitForEvent("download");
+  await save.click();
+  assert.equal((await awaitedDownload).suggestedFilename(),"quotation-draft-preview.pdf");
+  assert.equal(requests,1,"manual save must not trigger a second network request");
+  await page.getByLabel("Customer name").fill("Updated Synthetic Client");
+  assert.equal(await save.isVisible(),false,"an old PDF must not stay available after edits");
+  assert.equal(await open.isVisible(),false);
+  assert.equal(await page.evaluate(()=>window.revokedPdfUrls),1);
+ }finally{await context.close()}
+});
+
+test("asynchronous PDF response is discarded when quotation is edited while preparing",async()=>{
+ const {context,page}=await openPage({width:390,height:844});
+ let releaseResponse;
+ let requestObserved;
+ const observed=new Promise(resolve=>{requestObserved=resolve});
+ await page.route("**/api/quotation/draft/pdf-preview",async route=>{
+  releaseResponse=()=>route.fulfill({status:200,contentType:"application/pdf",
+   body:Buffer.from("%PDF-1.7\nSynthetic stale response\n")});
+  requestObserved();
+ });
+ try{
+  await page.getByRole("button",{name:"Download PDF preview"}).click();
+  await observed;
+  await page.getByLabel("Customer name").fill("New synthetic customer");
+  await releaseResponse();
+  await page.waitForFunction(()=>document.querySelector(".qdf-status")?.textContent.includes("Draft changed"));
+  assert.equal(await page.getByRole("link",{name:"Save PDF"}).isVisible(),false);
+  assert.equal(await page.getByRole("link",{name:"Open PDF"}).isVisible(),false);
+  assert.match(await page.locator(".qdf-status").innerText(),/Tap Download PDF preview again/);
+  assert.doesNotMatch(await page.locator(".qdf-status").innerText(),/PDF prepared/);
+ }finally{await context.close()}
+});
