@@ -112,7 +112,8 @@ async function submitForm(event){
  event.preventDefault();if(busy)return;clearStatus();
  const address=String(email.value||"").trim().toLowerCase(),secret=String(password.value||"");
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)){setStatus("Enter a valid email address.");email.focus();return}
- if(secret.length<12){setStatus(mode==="register"?"Create a password with at least 12 characters.":"Enter your password to sign in.");password.focus();return}
+ if((mode==="register"&&secret.length<12)||(mode==="login"&&!secret)){setStatus(mode==="register"?"Create a password with at least 12 characters.":"Enter your password to sign in.");password.focus();return}
+ if(mode==="register"&&String(company.value||"").trim().length<2){setStatus("Enter a business name with at least 2 characters.");company.focus();return}
  if(mode==="register"&&(!legalConsent||!legalConsent.checked)){setStatus("Agree to the Terms of Service and acknowledge the Privacy Notice to create a workspace.");legalConsent?.focus();return}
  busy=true;submit.disabled=true;const original=submit.textContent;submit.textContent=mode==="register"?"Securing registration…":"Signing in…";
  try{
