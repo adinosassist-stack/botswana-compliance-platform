@@ -3,6 +3,8 @@
 const form=document.getElementById("registerForm"),btn=document.getElementById("submitBtn"),status=document.getElementById("status");
 if(status){status.setAttribute("role","status");status.setAttribute("aria-live","polite");status.setAttribute("aria-atomic","true")}
 const encoder=new TextEncoder();
+const uncertainRegistrationCodes=new Set(["registration_confirmation_unavailable","registration_not_confirmed","timeout","network_error","auth_transport_changed","auth_transport_unavailable"]);
+let signInCheckRequired=false;
 const client=window.BW?.api?.createClient?.({getCsrfToken:()=>"",onUnauthorized:()=>{},onError:()=>{}});
 function setStatus(message,type="bad"){status.textContent=message;status.className=`status show ${type}`}
 async function api(path,options={}){if(!client)throw new Error("Registration service is not ready. Reload and try again.");return client.request(path,options)}
@@ -41,6 +43,7 @@ async function finishWorkspaceSelection(loginError,email,password){
 form?.addEventListener("submit",async event=>{
  event.preventDefault();
  if(btn.disabled)return;
+ if(signInCheckRequired){location.assign("/auth.html?mode=login");return}
  status.className="status";
  const companyName=String(document.getElementById("companyName")?.value||"").trim();
  const email=String(document.getElementById("email")?.value||"").trim().toLowerCase();
@@ -77,12 +80,18 @@ form?.addEventListener("submit",async event=>{
    setStatus(loginError?.message||"We couldn't confirm the account securely. Return to Thebe Desk sign in or use Forgot password if needed.");
   }
  }catch(error){
-  if(error?.code==="registration_not_confirmed"){await showSecureExistingAccountRecovery(email);return}
+  if(uncertainRegistrationCodes.has(String(error?.code||""))){
+   // The server may have committed the account before the response was lost.
+   signInCheckRequired=true;
+   if(error?.code==="registration_not_confirmed")await showSecureExistingAccountRecovery(email);
+   else setStatus("We couldn't confirm whether your account was created. Choose Go to sign in to check before creating another workspace, or use Forgot password.");
+   return;
+  }
   setStatus(error?.message||"Account creation could not complete. Try again.");
  }finally{
   btn.disabled=false;
   form.removeAttribute("aria-busy");
-  btn.textContent="Create account";
+  btn.textContent=signInCheckRequired?"Go to sign in":"Create account";
  }
 });
 })();

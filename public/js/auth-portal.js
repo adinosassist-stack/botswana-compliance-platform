@@ -84,7 +84,17 @@ async function registerAccount(payload){
  setStatus("Step 1 of 3: Checking registration security…","good");
  const proof=await solveRegistrationProof();
  setStatus("Step 2 of 3: Creating your workspace…","good");
- await api("/api/auth/register",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...payload,turnstileToken:proof,legalAcceptance:{version:LEGAL_VERSION,accepted:true}})});
+ try{
+  await api("/api/auth/register",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...payload,turnstileToken:proof,legalAcceptance:{version:LEGAL_VERSION,accepted:true}})});
+ }catch(error){
+  // A timeout or failed credential confirmation cannot prove that creation did not happen.
+  // Switch to sign-in before any further registration attempt; never re-POST automatically.
+  if(["registration_confirmation_unavailable","registration_not_confirmed","timeout","network_error","auth_transport_changed","auth_transport_unavailable"].includes(String(error?.code||""))){
+   setMode("login");
+   throw new Error("We couldn't confirm whether your workspace was created. Sign in first to check your account, or use Forgot password.");
+  }
+  throw error;
+ }
  // Registration is already committed. Any login failure must retry sign-in, never re-create a workspace.
  setMode("login");
  setStatus("Step 3 of 3: Opening your workspace…","good");
