@@ -83,7 +83,9 @@ try{
     assert.equal(await panel.isVisible(),false,'Panel yields to '+state+' at '+label);
     await page.evaluate(name=>document.body.classList.remove(name),state);
    }
-   assert(await bell.isVisible(),'Bell restores after overlay '+label);
+   assert(await panel.isVisible(),'Notification sheet restores after overlay '+label);
+   assert.equal(await bell.isVisible(),!g.mobile,
+     'On phones the active sheet takes priority over the bell '+label);
    await panel.getByRole('button',{name:'Close reminders'}).click();
    assert(await panel.isHidden(),'Dismiss works '+label);
    assert(await bell.isVisible(),'Bell reappears after notification close '+label);
