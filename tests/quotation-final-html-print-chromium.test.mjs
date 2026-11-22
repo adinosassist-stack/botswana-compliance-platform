@@ -295,3 +295,90 @@ test("320/375/390/414/430px touch Chromium matrix keeps customer-ready quotation
     }finally{await page.close()}
   }
 });
+
+test("200%-equivalent reflow widths keep private quotation controls accessible and sample print fail-closed",async()=>{
+  // A halved CSS viewport is a responsive reflow proxy, NOT proof of real
+  // desktop browser zoom. Real 200% zoom and Android sharing remain device gates.
+  const origin="https://quotation-zoom-reflow.test";
+  const path="/app/quotations/customer-ready/";
+  const response=await quotationBrowserPreview(
+    new Request(origin+path,{headers:{cookie:"session=synthetic-zoom-owner"}}),
+    {THEBE_QUOTATION_PREVIEW_TENANT_ID:"synthetic-lovely"},
+    async()=>Response.json({user:{
+      id:"synthetic-zoom-owner",tenantId:"synthetic-lovely",
+      role:"owner",onboardingComplete:true
+    }})
+  );
+  assert.equal(response.status,200);
+  const html=await response.text();
+  const modules=new Set([
+    "/js/quotation-customizable-page.mjs",
+    "/js/quotation-customizable-page-model.mjs"
+  ]);
+  // Approximate a 1280px or 640px CSS viewport reduced by 200% zoom.
+  for(const effectiveWidth of [640,320]){
+    const page=await browser.newPage({
+      viewport:{width:effectiveWidth,height:900},
+      isMobile:false,hasTouch:false,deviceScaleFactor:1
+    });
+    try{
+      await page.addInitScript(()=>{
+        window.printCalls=0;
+        window.print=()=>{window.printCalls++};
+      });
+      await page.route(origin+"/**",async route=>{
+        const requestedPath=new URL(route.request().url()).pathname;
+        if(requestedPath===path)return route.fulfill({
+          status:200,headers:Object.fromEntries(response.headers),body:html
+        });
+        if(!modules.has(requestedPath))return route.abort();
+        return route.fulfill({
+          contentType:"text/javascript",
+          body:await readFile(new URL("../public"+requestedPath,import.meta.url))
+        });
+      });
+      await page.goto(origin+path);
+      assert.equal(await page.locator(".qcp-page").count(),2);
+      assert.equal(await page.locator(".qcp-watermark").count(),0);
+      const print=page.getByRole("button",{name:"Print customer quotation / Save PDF"});
+      await print.waitFor({state:"visible"});
+      const geometry=await print.evaluate(el=>{
+        const b=el.getBoundingClientRect();
+        const sidebar=document.querySelector(".qcp-sidebar")?.getBoundingClientRect();
+        return {left:b.left,right:b.right,height:b.height,width:b.width,
+          viewport:document.documentElement.clientWidth,
+          sidebarLeft:sidebar?.left,sidebarRight:sidebar?.right};
+      });
+      assert.ok(geometry.height>=44&&geometry.width>=44,
+        "Reflow print control has undersized target at "+effectiveWidth+"px: "+JSON.stringify(geometry));
+      assert.ok(geometry.left>=-1&&geometry.right<=geometry.viewport+1,
+        "Reflow print control is off screen at "+effectiveWidth+"px: "+JSON.stringify(geometry));
+      assert.ok(geometry.sidebarLeft>=-1&&geometry.sidebarRight<=geometry.viewport+1,
+        "Reflow sidebar is off screen at "+effectiveWidth+"px: "+JSON.stringify(geometry));
+      assert.match(await page.getByText("How to save as PDF on your phone").first().innerText(),
+        /How to save as PDF on your phone/);
+      await print.focus();
+      await page.keyboard.press("Enter");
+      assert.equal(await page.evaluate(()=>window.printCalls),0,
+        "Keyboard activation of sample quote must not print at "+effectiveWidth+"px");
+      assert.match(await page.locator("#qcp-print-status").innerText(),
+        /Cannot print yet:/);
+      if(effectiveWidth===640){
+        await page.getByLabel("Quote number",{exact:true}).fill("Q-2026-ZOOM");
+        await page.getByLabel("Customer name",{exact:true}).fill("Synthetic zoom buyer");
+        await page.getByLabel("Customer number",{exact:true}).fill("+267 72 111 222");
+        await page.locator("details").filter({hasText:"Customize ALL document wording"}).locator("summary").click();
+        await page.getByLabel("bank Account",{exact:true}).fill("123456789");
+        await print.click();
+        assert.equal(await page.evaluate(()=>window.printCalls),1,
+          "Valid synthetic quote may open print after full data entry");
+        await page.emulateMedia({media:"print"});
+        const pdf=await pdfLib.PDFDocument.load(await page.pdf({
+          format:"A4",preferCSSPageSize:true,printBackground:true
+        }));
+        assert.equal(pdf.getPageCount(),2,
+          "Reflowed print must preserve two-page A4 document");
+      }
+    }finally{await page.close()}
+  }
+});
