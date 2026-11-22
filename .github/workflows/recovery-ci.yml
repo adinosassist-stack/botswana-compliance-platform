@@ -63,6 +63,12 @@ jobs:
           node-version-file: '.nvmrc'
           package-manager-cache: false
 
+      - name: Prove Essentials mobile layout and truthful UI regression contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/consolidated-ui-truthfulness-2735.test.mjs tests/daily-reports-mobile-layout-2715.test.mjs
+
       - name: Verify pinned npm
         shell: bash
         run: |
