@@ -101,3 +101,22 @@ test("notification bell and dismiss keep keyboard navigation and accessible stat
  assert.ok(js.includes('target.focus({preventScroll:true})'));
  assert.ok(js.includes('if(!items.length)panel.hidden=true'));
 });
+
+test("movable Android bell and independent sheet keep viewport, rail and keyboard controls (#2715)",()=>{
+ const css=read("../public/assets/delivery-reminder-notifications.css");
+ const js=read("../public/js/delivery-reminders-manager.js");
+ for(const key of ["--thebe-vv-top","--thebe-vv-bottom","--thebe-vv-left","--thebe-vv-right"]){
+   assert.ok(css.includes(key),"notification sheet must use "+key);
+   assert.ok(js.includes(key),"runtime must update "+key);
+ }
+ assert.match(css,/thebe-delivery-manager-bell\[aria-expanded="true"\]\{visibility:hidden\}/);
+ assert.match(js,/function positionBell\(button,x,y\)/);
+ assert.match(js,/window\.visualViewport\?\.addEventListener\("resize",sync\)/);
+ assert.match(js,/button\.setPointerCapture\?\.\(event\.pointerId\)/);
+ assert.match(js,/if\(Math\.hypot\(dx,dy\)>7\)start\.moved=true/);
+ assert.match(js,/pointercancel/);
+ assert.match(js,/event\.key==="Home"/);
+ assert.match(js,/localStorage\.removeItem\(bellPositionKey\)/);
+ assert.match(js,/button\.setAttribute\("aria-keyshortcuts"/);
+ assert.match(js,/syncBellLayout\(\)/);
+});
