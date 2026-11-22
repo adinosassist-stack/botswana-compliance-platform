@@ -18,6 +18,20 @@
   if(typeof module!=="undefined"&&module.exports){module.exports={deriveOwnerJourney};return}
   const doc=global.document;
   if(!doc||!global.BW?.api?.createClient)return;
+  const anchor=doc.getElementById("welcomeSetupBanner");
+  if(anchor&&!doc.getElementById("ownerJourney"))anchor.insertAdjacentHTML("beforebegin",`<section id="ownerJourney" class="card" hidden style="display:none;max-width:100%;margin:0 0 18px" aria-labelledby="ownerJourneyTitle">
+      <div class="between row" style="align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div style="min-width:0"><div class="section-eyebrow">Getting started</div><h2 id="ownerJourneyTitle">Your four setup milestones</h2><p class="muted small">Confirmed from your signed-in workspace. A saved check is not a legal compliance conclusion.</p></div>
+        <button id="ownerJourneyRefresh" type="button" class="btn soft" style="min-height:44px">Refresh progress</button>
+      </div>
+      <p id="ownerJourneySummary" role="status" aria-live="polite">Checking your saved progress…</p>
+      <ol id="ownerJourneySteps" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px;padding:0;margin:12px 0 0;list-style:none">
+        <li data-onboarding-milestone="account" style="min-width:0;padding:12px;border:1px solid var(--line);border-radius:12px"><b>1. Account access</b><div id="ownerJourneyAccount" class="small">Not checked</div><p class="muted small">Signed-in access is confirmed separately from email verification.</p></li>
+        <li data-onboarding-milestone="business" style="min-width:0;padding:12px;border:1px solid var(--line);border-radius:12px"><b>2. Business details</b><div id="ownerJourneyBusiness" class="small">Not checked</div><p class="muted small">Your legal entity, industry and employee count must be saved.</p><button id="ownerJourneyBusinessAction" class="btn soft" type="button" hidden style="display:none;min-height:44px">Complete basics</button></li>
+        <li data-onboarding-milestone="workspace" style="min-width:0;padding:12px;border:1px solid var(--line);border-radius:12px"><b>3. Workspace selection</b><div id="ownerJourneyWorkspace" class="small">Not checked</div><p class="muted small">Select a company in your authenticated workspace.</p><button id="ownerJourneyWorkspaceAction" class="btn soft" type="button" hidden style="display:none;min-height:44px">Choose company</button></li>
+        <li data-onboarding-milestone="first" style="min-width:0;padding:12px;border:1px solid var(--line);border-radius:12px"><b>4. First saved check</b><div id="ownerJourneyFirst" class="small">Not checked</div><p class="muted small">Ready only after the server confirms the saved result.</p><button id="ownerJourneyFirstAction" class="btn soft" type="button" hidden style="display:none;min-height:44px">Run first check</button></li>
+      </ol>
+    </section>`);
   const panel=doc.getElementById("ownerJourney");
   if(!panel)return;
   const client=global.BW.api.createClient({retries:0});
