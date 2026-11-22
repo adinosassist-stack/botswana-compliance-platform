@@ -13,3 +13,11 @@ test("rejects cross-tenant quotation before conversion",()=>{
 test("rejects principal without invoice permission",()=>{
  assert.throws(()=>prepareAuthorizedInvoiceDraft({principal:{...principal,permissions:[]},tenantId:"tenant-a",quotation,invoiceReference:"INV-1",createdAt:"2026-11-18"}),/permission_denied/);
 });
+
+test("uses the canonical invoice reference in the returned tenant-scoped uniqueness key",()=>{
+ const x=prepareAuthorizedInvoiceDraft({principal,tenantId:"tenant-a",quotation,invoiceReference:" INV-1 ",createdAt:"2026-11-18"});
+ assert.equal(x.draft.invoiceReference,"INV-1");
+ assert.equal(x.uniquenessKey,"tenant-a:INV-1");
+ const y=prepareAuthorizedInvoiceDraft({principal,tenantId:"tenant-a",quotation,invoiceReference:"INV-1",createdAt:"2026-11-18"});
+ assert.equal(x.uniquenessKey,y.uniquenessKey);
+});
