@@ -15,23 +15,31 @@ assert.match(block,/getAttribute\('aria-expanded'\)===\'false\'/,"mobile proof m
 assert.doesNotMatch(block,/mobileNavClose/,"mobile proof must not use a redundant close-button tap after navigation");
 assert.match(product,/btn=>btn\.addEventListener\("click",\(\)=>\{syncMobileActive\(btn\.dataset\.view\);if\(isMobile\(\)\)closeMobileWorkspaceMenu\(\)\}\)/,"product source must continue auto-closing the drawer from sidebar navigation");
 
-// Exercise the command handler used by both clicks and keyboard selection.
-const commandGo = product.match(/^function commandGo\(id\)\{.*\}$/m)?.[0];
-assert.ok(commandGo, "workspace command handler must exist");
-for (const { drawerOpen, viewAllowed, expected } of [
-  { drawerOpen: true, viewAllowed: true, expected: ["palette", "recent", "view", "drawer"] },
-  { drawerOpen: false, viewAllowed: true, expected: ["palette", "recent", "view"] },
-  { drawerOpen: true, viewAllowed: false, expected: ["palette", "recent", "view"] },
-]) {
-  const calls = [];
-  runInNewContext(commandGo + '\ncommandGo("dailyreports");', {
-    closeCommandPalette: () => calls.push("palette"),
-    recordRecentTool: () => calls.push("recent"),
-    showView: () => { calls.push("view"); return viewAllowed; },
-    document: { body: { classList: { contains: state => state === "mobile-nav-open" && drawerOpen } } },
-    window: { closeMobileWorkspaceMenu: () => calls.push("drawer") },
+// Find tools transfers the mobile user from the drawer to the palette.
+assert.match(product,/class="nav-more-tools" data-bw-onclick="openCommandPalette\(\)"/);
+const bindNavigation = product.match(/^  function bindNavigation\(\)\{[\s\S]*?^  \}/m)?.[0];
+assert.ok(bindNavigation, "mobile navigation binding must exist");
+for (const mobile of [true, false]) {
+  let findTools;
+  let closed = 0;
+  runInNewContext(bindNavigation + "\n  bindNavigation();", {
+    sidebar: () => ({
+      querySelector: selector => {
+        assert.equal(selector, "button.nav-more-tools");
+        return { addEventListener: (type, listener) => {
+          assert.equal(type, "click");
+          findTools = listener;
+        } };
+      },
+      querySelectorAll: () => [],
+    }),
+    document: { querySelectorAll: () => [] },
+    isMobile: () => mobile,
+    closeMobileWorkspaceMenu: () => closed++,
   });
-  assert.deepEqual(calls, expected);
+  assert.equal(typeof findTools, "function", "Find tools must bind the drawer handoff");
+  findTools();
+  assert.equal(closed, mobile ? 1 : 0);
 }
 
 console.log("v89 synthetic mobile navigation auto-close checks passed");
