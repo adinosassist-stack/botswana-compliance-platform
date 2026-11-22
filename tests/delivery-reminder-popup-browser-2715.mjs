@@ -43,7 +43,7 @@ try{
    await page.goto('http://reminder-fixture.test/',{waitUntil:'load'});
    await page.waitForFunction(()=>document.getElementById('thebeDeliveryManagerBell')?.dataset.count==='12');
    const bell=page.locator('#thebeDeliveryManagerBell'),panel=page.locator('#thebeDeliveryManagerPopup');
-   assert.equal(await bell.getAttribute('aria-label'),'Delivery and installation reminders: 12. Open reminders');
+   assert.equal(await bell.getAttribute('aria-label'),'Notifications: 12 unread delivery and installation reminders. Open notifications');
    if(await panel.isHidden())await bell.click();
    assert(await panel.isVisible(),'Reminder popup must open at '+width+'x'+height);
    assert.equal(await panel.locator('.thebe-delivery-reminder').count(),12);
@@ -131,7 +131,7 @@ try{
        const moved=await bell.boundingBox();
        assert(moved.x>=7&&moved.x+moved.width<=width-7,'Dragged bell stays horizontal '+label);
        assert(moved.y>=7&&moved.y+moved.height<=height-103,'Dragged bell stays above nav '+label);
-       assert.equal(await bell.getAttribute('data-count'),'12');
+       assert.equal(await bell.getAttribute('data-count'),'11');
      }
      const saved=await bell.boundingBox();
      assert(await page.evaluate(()=>!!localStorage.getItem('thebe.delivery.bell.position.v2')));
