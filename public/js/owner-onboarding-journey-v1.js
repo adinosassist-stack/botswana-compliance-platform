@@ -65,6 +65,34 @@
   }
   const panel=doc.getElementById("ownerJourney");
   if(!panel)return;
+  // Non-issuing first-document guidance. The quotation service remains separately gated.
+  const guide=make("section",{id:"ownerFirstDocumentGuide",style:"margin-top:14px;border-top:1px solid var(--line);padding-top:14px",attrs:{"aria-labelledby":"ownerFirstDocumentTitle"}});
+  guide.hidden=true;
+  guide.append(make("h3",{id:"ownerFirstDocumentTitle",text:"Prepare your first business document"}),
+    make("p",{className:"muted small",text:"Practice the steps before using a separately enabled quotation or invoice editor. No record, payment or PDF is created here."}));
+  const guideActions=make("div",{className:"row",style:"display:flex;gap:10px;flex-wrap:wrap"});
+  const quotation=make("button",{id:"ownerGuideQuotation",className:"btn soft",text:"Quotation guide",style:"min-height:44px"});
+  const invoice=make("button",{id:"ownerGuideInvoice",className:"btn soft",text:"Invoice guide",style:"min-height:44px"});
+  quotation.type="button";invoice.type="button";
+  guideActions.append(quotation,invoice);
+  const guideSteps=make("ol",{id:"ownerFirstDocumentSteps",style:"padding-left:24px;margin:10px 0",attrs:{"aria-label":"First document preparation checklist"}});
+  const guideStatus=make("p",{id:"ownerFirstDocumentStatus",className:"muted small",attrs:{role:"status","aria-live":"polite"}});
+  guide.append(guideActions,guideSteps,guideStatus);
+  panel.append(guide);
+  const guideCopy=Object.freeze({
+    quotation:["Confirm the intended customer and their contact details without using real customer information in a demo.","Prepare item descriptions, quantities, unit prices and any discounts in Botswana pula.","Use an authorized draft editor only when available; separately verify its saved result and PDF preview before sharing."],
+    invoice:["Confirm the customer, seller and agreed work or goods; keep demo content clearly marked.","Prepare itemized amounts, invoice date, payment terms and Botswana pula totals.","Issue or send an invoice only through an authorized workflow; never assume a draft or payment reference proves settlement."]
+  });
+  function showGuide(kind){
+    if(guide.hidden||!Object.prototype.hasOwnProperty.call(guideCopy,kind))return;
+    guideSteps.replaceChildren();
+    for(const step of guideCopy[kind])guideSteps.append(make("li",{text:step}));
+    quotation.setAttribute("aria-pressed",String(kind==="quotation"));
+    invoice.setAttribute("aria-pressed",String(kind==="invoice"));
+    guideStatus.textContent="Preparation only — no draft was saved, preview generated or document issued.";
+  }
+  quotation.addEventListener("click",()=>showGuide("quotation"));
+  invoice.addEventListener("click",()=>showGuide("invoice"));
   const client=global.BW.api.createClient({retries:0});
   const el=id=>doc.getElementById(id);
   const ids=["ownerJourneyAccount","ownerJourneyBusiness","ownerJourneyWorkspace","ownerJourneyFirst"];
@@ -74,6 +102,7 @@
   function showPanel(visible){
     panel.hidden=!visible;
     panel.style.display=visible?"block":"none";
+    if(!visible)guide.hidden=true;
   }
   function button(id,visible){
     const control=el(id);
@@ -88,6 +117,7 @@
   function render(model){
     last=model;
     showPanel(true);
+    guide.hidden=!(model.account&&model.business&&model.workspace);
     const [account,business,workspace,first]=ids.map(el);
     if(account)account.textContent="Signed-in owner session confirmed";
     if(business)business.textContent=model.business?"Business basics saved":"Business basics incomplete";
