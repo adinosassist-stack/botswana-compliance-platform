@@ -9150,6 +9150,9 @@ bootstrap();
     document.querySelectorAll("#mobileBar [data-mobile-view]").forEach(btn=>btn.classList.toggle("active",btn.dataset.mobileView===view));
   }
   function bindNavigation(){
+    sidebar()?.querySelector("button.nav-more-tools")?.addEventListener("click",()=>{
+      if(isMobile())closeMobileWorkspaceMenu();
+    });
     sidebar()?.querySelectorAll("button[data-view]").forEach(btn=>btn.addEventListener("click",()=>{syncMobileActive(btn.dataset.view);if(isMobile())closeMobileWorkspaceMenu()}));
     document.querySelectorAll(".nav-access-group").forEach(group=>group.addEventListener("toggle",()=>{
       if(!isMobile()||!group.open)return;
