@@ -81,8 +81,11 @@ async function login(payload){
 async function requestRecovery(address){try{await api("/api/auth/password-reset/request",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email:address})});return true}catch{return false}}
 async function registerAccount(payload){
  if(registrationMode!=="open"&&registrationMode!=="cohort")throw new Error("Registration is currently unavailable.");
+ setStatus("Step 1 of 3: Checking registration security…","good");
  const proof=await solveRegistrationProof();
+ setStatus("Step 2 of 3: Creating your workspace…","good");
  await api("/api/auth/register",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...payload,turnstileToken:proof,legalAcceptance:{version:LEGAL_VERSION,accepted:true}})});
+ setStatus("Step 3 of 3: Opening your workspace…","good");
  try{await login({email:payload.email,password:payload.password})}
  catch(error){
   if(error?.code==="workspace_selection_required"){
