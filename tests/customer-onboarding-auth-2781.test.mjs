@@ -35,3 +35,11 @@ test("authentication status is announced without injecting HTML",()=>{
   assert.match(source,/status\.setAttribute\("aria-atomic","true"\)/);
   assert.match(source,/status\.textContent=String\(message\|\|""\)/);
 });
+
+
+test("invalid onboarding inputs receive keyboard focus and helpful mode-specific guidance",()=>{
+  assert.match(source,/setStatus\("Enter a valid email address\."\);email\.focus\(\)/);
+  assert.match(source,/password\.focus\(\);return/);
+  assert.match(source,/company\.focus\(\);throw new Error/);
+  assert.match(source,/mode==="register"\?"Create a password/);
+});
