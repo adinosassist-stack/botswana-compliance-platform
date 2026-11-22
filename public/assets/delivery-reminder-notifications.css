@@ -217,18 +217,20 @@ body.thebe-voice-active .thebe-delivery-manager-popup{
  }
  .thebe-delivery-manager-popup{
   position:fixed!important;
-  top:var(--thebe-sheet-top, 60px)!important;
-  bottom:var(--thebe-sheet-bottom, 104px)!important;
-  left:var(--thebe-sheet-left, 8px)!important;
-  right:auto!important;
-  width:var(--thebe-sheet-width, calc(100vw - 16px))!important;
+  /* Fixed reading area below Android toolbar and above bottom navigation,
+     independent of the movable bell's remembered coordinates. */
+  top:calc(var(--thebe-vv-top, 0px) + env(safe-area-inset-top, 0px) + 12px)!important;
+  bottom:calc(var(--thebe-vv-bottom, 0px) + 104px + env(safe-area-inset-bottom, 0px))!important;
+  left:calc(var(--thebe-vv-left, 0px) + 8px)!important;
+  right:calc(var(--thebe-vv-right, 0px) + 8px)!important;
+  width:auto!important;
   max-height:none!important;min-height:0!important;
   padding:0!important;overflow:hidden!important;
   z-index:9999
  }
- /* Keep the bell available next to the sheet, not hidden on open.
-    The JS positions the sheet above/below it with an >=8px gap. */
- .thebe-delivery-manager-bell[aria-expanded="true"]{visibility:visible}
+ /* While reading, hide the bell to prevent overlapping the sheet. Closing
+    returns focus to the bell and restores its saved drag position. */
+ .thebe-delivery-manager-bell[aria-expanded="true"]{visibility:hidden}
 }
 @media(max-width:350px){
  .thebe-delivery-reminder-actions{grid-template-columns:1fr}
