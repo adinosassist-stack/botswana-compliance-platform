@@ -132,6 +132,9 @@ function enableBellDrag(button){
       const r=button.getBoundingClientRect();
       persist(positionBell(button,r.left,r.top));
       suppressClick=true;
+      // Pointer capture normally produces a click after pointerup. Clear the
+      // guard next tick if the browser does not emit that click.
+      setTimeout(()=>{suppressClick=false},0);
     }
     start=null;
   });
