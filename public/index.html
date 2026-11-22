@@ -4701,8 +4701,8 @@ body.thebe-ai-dock-open .property-valuation-service-card .formgrid{grid-template
   <button data-mobile-view="automationhub" data-bw-onclick="mobileGo('automationhub')" type="button"><span>✦</span>AI</button>
   <button data-mobile-view="menu" id="mobileMenuButton" data-bw-onclick="openMobileWorkspaceMenu()" type="button" aria-controls="workspaceSidebar" aria-expanded="false"><span>☰</span>Menu</button>
 </div>
-<div class="modal" id="onboardModal" role="dialog" aria-modal="true" aria-label="Onboard"><div class="modalbox onboarding-quickstart">
-      <div class="between row"><div><div class="section-eyebrow">Quick start</div><h2>Get to your first protection check</h2><div class="muted small">2 short steps · detailed tax, licence and filing facts can be confirmed later</div></div><button class="btn alt" type="button" data-bw-onclick="dismissOnboarding()">Finish later</button></div>
+<div class="modal" id="onboardModal" role="dialog" aria-modal="true" aria-labelledby="onboardQuickstartTitle"><div class="modalbox onboarding-quickstart">
+      <div class="between row"><div><div class="section-eyebrow">Quick start</div><h2 id="onboardQuickstartTitle">Get to your first protection check</h2><div class="muted small">2 short steps · detailed tax, licence and filing facts can be confirmed later</div></div><button class="btn alt" type="button" data-bw-onclick="dismissOnboarding()">Finish later</button></div>
       <div id="wizardProgress" class="progress" style="margin:14px 0"><span style="width:50%"></span></div>
 
       <div class="wizardstep active" data-step="0">
@@ -4721,10 +4721,10 @@ body.thebe-ai-dock-open .property-valuation-service-card .formgrid{grid-template
         <h3>2. Tick what the business does today</h3>
         <p class="muted small onboarding-explain">Tick only factual activities you know apply. VAT, PAYE and licence registration status will start as <b>Not confirmed</b> unless already confirmed in your workspace.</p>
         <div class="onboarding-facts">
-          <label class="onboarding-fact"><input id="wPremises" type="checkbox" aria-label="W premises"><span><b>Uses business premises</b><small>Shop, office, branch, workshop, site or other operating premises.</small></span></label>
-          <label class="onboarding-fact"><input id="wManufacturing" type="checkbox" aria-label="W manufacturing"><span><b>Manufactures or processes goods</b><small>Used to surface industrial/manufacturing checks.</small></span></label>
-          <label class="onboarding-fact"><input id="wData" type="checkbox" aria-label="W data"><span><b>Handles customer personal information</b><small>Names, phone numbers, IDs, addresses or similar customer data.</small></span></label>
-          <label class="onboarding-fact"><input id="wTender" type="checkbox" aria-label="W tender"><span><b>Submits tenders or bids</b><small>Government, corporate or other formal tender submissions.</small></span></label>
+          <label class="onboarding-fact"><input id="wPremises" type="checkbox"><span><b>Uses business premises</b><small>Shop, office, branch, workshop, site or other operating premises.</small></span></label>
+          <label class="onboarding-fact"><input id="wManufacturing" type="checkbox"><span><b>Manufactures or processes goods</b><small>Used to surface industrial/manufacturing checks.</small></span></label>
+          <label class="onboarding-fact"><input id="wData" type="checkbox"><span><b>Handles customer personal information</b><small>Names, phone numbers, IDs, addresses or similar customer data.</small></span></label>
+          <label class="onboarding-fact"><input id="wTender" type="checkbox"><span><b>Submits tenders or bids</b><small>Government, corporate or other formal tender submissions.</small></span></label>
         </div>
         <input id="wPaye" type="hidden" value="unknown"><input id="wVat" type="hidden" value="unknown"><input id="wTrade" type="hidden" value="unknown">
         <details class="onboarding-optional" style="margin-top:14px"><summary>Add optional details</summary>
@@ -4738,7 +4738,7 @@ body.thebe-ai-dock-open .property-valuation-service-card .formgrid{grid-template
             <div><label for="wTradeAnniversary">Trade licence anniversary</label><input id="wTradeAnniversary" type="date"></div>
           </div>
         </details>
-        <div id="wizardReview" class="callout" style="margin-top:14px"></div>
+        <div id="wizardReview" class="callout" aria-live="polite" style="margin-top:14px"></div>
       </div>
 
       <div id="wizardInlineError" class="autherror" role="alert" aria-live="polite"></div>
