@@ -112,7 +112,7 @@ function mountFirstValueGuide(sidebar,actions,{basic,itemsSection,termsSection,p
  const list=elt("ol","qcp-guide-list");
  const feedback=elt("p","qcp-guide-feedback","");
  feedback.id="qcp-first-value-status";
- feedback.setAttribute("role","status");
+ // Keep the existing quotation-draft save status as the sole role=status region.
  feedback.setAttribute("aria-live","polite");
  feedback.setAttribute("aria-atomic","true");
  let step=0;
