@@ -111,6 +111,8 @@
     control.style.display=visible?"inline-flex":"none";
   }
   function unknown(){
+    guide.hidden=true;
+    guideSteps.replaceChildren();
     for(const id of ids){const target=el(id);if(target)target.textContent="Not verified"}
     for(const id of controls)button(id,false);
   }
