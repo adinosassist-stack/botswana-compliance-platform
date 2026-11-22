@@ -63,3 +63,11 @@ test("workspace selection excludes missing tenant IDs and focuses valid choices"
   assert.match(source,/if\(!workspace\.options\.length\)/);
   assert.match(source,/workspaceField\.hidden=false;setStatus\("Choose the workspace you want to open\.","good"\);workspace\.focus\(\)/);
 });
+
+
+test("registration announces ordered progress through accessible status",()=>{
+  const steps=["Step 1 of 3: Checking registration security","Step 2 of 3: Creating your workspace","Step 3 of 3: Opening your workspace"];
+  let previous=-1;
+  for(const step of steps){const position=source.indexOf(step);assert.ok(position>previous,step);previous=position}
+  assert.match(source,/status\.setAttribute\("aria-live","polite"\)/);
+});
