@@ -1,0 +1,39 @@
+{
+  "kind": "thebe-essentials-invoice-schema-plan-v1",
+  "mode": "source-only-offline-no-remote-execution",
+  "cloudflareAccountId": "ae0dccfed66fc497259aebd81229f08d",
+  "isolatedD1Name": "bw-essentials-invoice-rehearsal",
+  "isolatedD1Id": "4eb6c739-9c45-4756-bfa9-8ec0a6efb3be",
+  "forbiddenProductionAccountId": "ddd23cab31928a4bb3d4998df9b26d1d",
+  "forbiddenProductionD1Id": "8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce",
+  "forbiddenLegacyStagingD1Id": "f6d35915-851a-4771-9e07-589572dc4d05",
+  "mainAtPreparation": "72a61c0c6d05d52193f940037bef2da31337b0a9",
+  "readyForRemoteSchemaWrite": false,
+  "requiresNewOwnerApproval": true,
+  "requiresNewIndependentThusicoApproval": true,
+  "requiresProtectedEnvironmentApproval": true,
+  "stagingSqlPath": "cloudflare/migrations/essentials_invoice_rehearsal_NEW_ACCOUNT_STAGING_ONLY.sql",
+  "rawSqlSha256": "8713f453f0033402040b9846dc2c089c7c81c78c4832efcdf95905a380039074",
+  "sourceFiles": [
+    "tests/fixtures/essentials_d1_synthetic_dependencies_STAGING_ONLY.sql",
+    "cloudflare/migrations/essentials_invoice_drafts_STAGING_ONLY.sql",
+    "cloudflare/migrations/essentials_accepted_quotation_snapshots_STAGING_CANDIDATE.sql"
+  ],
+  "expectedTables": [
+    "tenants",
+    "users",
+    "finance_customers",
+    "essentials_invoice_drafts",
+    "essentials_accepted_quotation_snapshots"
+  ],
+  "expectedTriggers": [
+    "essentials_invoice_drafts_customer_guard",
+    "essentials_accepted_snapshot_immutable",
+    "essentials_accepted_snapshot_no_delete",
+    "essentials_accepted_snapshot_customer_guard"
+  ],
+  "expectedIndexes": [
+    "essentials_invoice_drafts_tenant_customer_idx"
+  ],
+  "dataRecordsAllowed": false
+}
