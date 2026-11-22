@@ -29,7 +29,7 @@ async function showSecureExistingAccountRecovery(email){
  const requested=await requestPasswordRecovery(email);
  if(requested)setStatus("This email may already have an account. Registration never replaces an existing password. If the account exists, password recovery instructions have been requested. Use the email link, then sign in.");
  else setStatus("This email may already have an account. Registration never replaces an existing password. Use Forgot password on Thebe Desk, then sign in.");
- btn.disabled=false;form.removeAttribute("aria-busy");btn.textContent="Create account";
+
 }
 async function finishWorkspaceSelection(loginError,email,password){
  const workspaces=Array.isArray(loginError?.data?.workspaces)?loginError.data.workspaces:[];
@@ -39,7 +39,9 @@ async function finishWorkspaceSelection(loginError,email,password){
  await api("/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email,password,tenantId})});
 }
 form?.addEventListener("submit",async event=>{
- event.preventDefault();status.className="status";
+ event.preventDefault();
+ if(btn.disabled)return;
+ status.className="status";
  const companyName=String(document.getElementById("companyName")?.value||"").trim();
  const email=String(document.getElementById("email")?.value||"").trim().toLowerCase();
  const password=String(document.getElementById("password")?.value||"");
@@ -68,17 +70,19 @@ form?.addEventListener("submit",async event=>{
     }catch(selectionError){
      if(selectionError?.code==="invalid_credentials"){await showSecureExistingAccountRecovery(email);return}
      setStatus(selectionError?.message||"We couldn't open the selected workspace securely. Sign in from Thebe Desk and choose your workspace.");
-     btn.disabled=false;btn.textContent="Create account";
      return;
     }
    }
    if(loginError?.code==="invalid_credentials"){await showSecureExistingAccountRecovery(email);return}
    setStatus(loginError?.message||"We couldn't confirm the account securely. Return to Thebe Desk sign in or use Forgot password if needed.");
-   btn.disabled=false;btn.textContent="Create account";
   }
  }catch(error){
   if(error?.code==="registration_not_confirmed"){await showSecureExistingAccountRecovery(email);return}
-  setStatus(error?.message||"Account creation could not complete. Try again.");btn.disabled=false;btn.textContent="Create account";
+  setStatus(error?.message||"Account creation could not complete. Try again.");
+ }finally{
+  btn.disabled=false;
+  form.removeAttribute("aria-busy");
+  btn.textContent="Create account";
  }
 });
 })();
