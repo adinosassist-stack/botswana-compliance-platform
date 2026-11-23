@@ -2192,3 +2192,5 @@ body.thebe-voice-active #thebeAiDock :is(button,textarea):focus-visible {
 html body dialog#thebeVoiceScreen[open] {
   z-index:10001!important;
 }
+
+

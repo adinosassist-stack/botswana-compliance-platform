@@ -1,0 +1,33 @@
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+const runtime=readFileSync(new URL("../public/js/thebe-live-voice.js",import.meta.url),"utf8");
+const css=readFileSync(new URL("../public/assets/thebe-ai-immersive-v1.css",import.meta.url),"utf8");
+
+// Source-level invariants; authenticated Android/keyboard/voice testing is separate.
+assert.match(runtime,/thebe-aura-ribbon/,"The original SVG ribbon orb is mounted");
+assert.match(runtime,/thebeAuraStroke/,"The orb uses independent luminous ribbons");
+assert.match(runtime,/thebe-live-audio-level/,"The real audio event remains wired");
+assert.match(runtime,/--thebe-aura-energy/,"The orb receives measured voice energy");
+assert.match(runtime,/channel==="input"/,"Listening responds to microphone levels");
+assert.match(runtime,/channel==="output"/,"Speaking responds to output levels");
+assert.match(runtime,/thebe-aura-welcome/,"Immersive welcome is mounted");
+assert.match(runtime,/appendConversationTurn\("user",q\)/,"The typed request becomes a visible turn");
+assert.match(runtime,/archiveCurrentAnswer\(\)/,"Previous answers are retained before the next request");
+assert.match(runtime,/TEXT_HISTORY_LIMIT=24/,"In-memory history is bounded");
+assert.match(runtime,/voiceCompletedTurns\.splice\(0\)/,"Clearing chat removes per-session voice turns");
+assert.match(runtime,/aria-label","End voice conversation"/,"An accessible voice stop control remains");
+assert.match(runtime,/aria-label","Mute microphone"/,"An accessible microphone control remains");
+assert.match(runtime,/recoverDockPresentation\(\)/,"Dock recovery remains defined");
+assert.match(runtime,/dataset\.expanded==="true"\|\|document\.body\.classList\.contains\("thebe-voice-active"\)/,"Compact geometry recovery does not overwrite fullscreen");
+assert.match(runtime,/thebeAuraImmersiveStyle/,"Immersive styling loads only when the AI dock mounts");
+assert.match(runtime,/compactStylesReady/,"Immersive layout requires healthy compact stylesheet");
+assert.doesNotMatch(css,/--thebe-spatial-dock\s*:\s*1/,"Immersive CSS must not fake a healthy spatial dock");
+assert.match(css,/thebe-aura-light-flow/,"Orb has its own motion");
+assert.match(css,/\[data-phase="listening"\]/,"Listening has a motion state");
+assert.match(css,/\[data-phase="speaking"\]/,"Speaking has a motion state");
+assert.match(css,/prefers-reduced-motion:reduce/,"Reduced-motion alternatives are available");
+assert.match(css,/safe-area-inset-bottom/,"Input respects phone safe areas");
+assert.match(css,/thebe-aura-history/,"Conversation stays readable in fullscreen");
+assert.match(css,/\[data-conversation="true"\]/,"Conversation uses a compact orb layout");
+assert.doesNotMatch(runtime,/localStorage\.setItem\([^\n]*conversationHistory/,"No chat history written to localStorage");
+console.log("Thebe Aura fullscreen source invariants passed");
