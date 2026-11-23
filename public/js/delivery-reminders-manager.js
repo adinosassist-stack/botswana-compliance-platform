@@ -26,6 +26,8 @@ function updateReminderCounts(){
   toggle.setAttribute("aria-label","Notifications: "+unread+" unread delivery and installation reminders. Open notifications")}
  const summary=byId("thebeDeliverySummary");
  if(summary)summary.textContent=unread+" unread · "+reminders.length+" scheduled reminder"+(reminders.length===1?"":"s");
+ const title=byId("thebeDeliveryTitle");
+ if(title)title.textContent="Notifications ("+unread+")";
 }
 function openReminderTask(item){
  const status=byId("thebeDeliveryActionStatus");
@@ -55,10 +57,12 @@ function createReminder(item,withActions=false){
  row.dataset.read=String(readReminders.has(reminderKey(item)));
  row.dataset.reminderKey=reminderKey(item);
  const copy=document.createElement("div");copy.className="thebe-delivery-reminder-copy";
- const title=document.createElement("strong");title.textContent=label(item);
+ const title=document.createElement("strong");title.textContent=withActions?"Upcoming delivery & installation":label(item);
  const detail=document.createElement("small");
  detail.textContent="Job "+(item.jobReference||"Unspecified")+" · "+(item.scheduledDate||"Date unavailable")+" · "+(item.locationName||"Location unavailable")+" · "+(item.employeeName||"Reporter unavailable");
- copy.append(title,detail);row.append(copy);
+ copy.append(title);
+ if(withActions){const timing=document.createElement("span");timing.className="thebe-delivery-reminder-timing";timing.textContent=label(item);copy.append(timing)}
+ copy.append(detail);row.append(copy);
  if(withActions){
   const actions=document.createElement("div");actions.className="thebe-delivery-reminder-actions";
   const view=document.createElement("button");view.type="button";view.className="thebe-delivery-view-task";
@@ -86,7 +90,14 @@ function popup(){
   panel.setAttribute("aria-label","Upcoming delivery and installation reminders");
   const dismiss=document.createElement("button");dismiss.type="button";dismiss.className="thebe-delivery-dismiss";dismiss.textContent="×";dismiss.setAttribute("aria-label","Close delivery reminders");dismiss.addEventListener("click",()=>setPopupOpen(false,true));
   panel.addEventListener("keydown",event=>{
-    if(event.key==="Escape"&&!panel.hidden){event.stopPropagation();setPopupOpen(false,true)}
+    if(event.key==="Escape"&&!panel.hidden){event.stopPropagation();setPopupOpen(false,true);return}
+    // While the phone sheet is open, keep keyboard focus inside its controls.
+    if(event.key!=="Tab"||panel.hidden||!mobileBell())return;
+    const controls=Array.from(panel.querySelectorAll("button:not([disabled])")).filter(node=>node.getClientRects().length);
+    if(!controls.length)return;
+    const first=controls[0],last=controls[controls.length-1];
+    if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}
+    else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}
   });
   panel.append(dismiss);document.body.append(panel);return panel;
 }
@@ -112,6 +123,10 @@ function syncReminderViewport(){
  const vv=window.visualViewport;
  const left=vv?.offsetLeft||0,top=vv?.offsetTop||0;
  const width=vv?.width||window.innerWidth,height=vv?.height||window.innerHeight;
+ const sheetOpen=!panel.hidden&&mobileBell();
+ document.body.classList.toggle("thebe-delivery-sheet-open",sheetOpen);
+ panel.setAttribute("aria-modal",String(sheetOpen));
+ panel.dataset.compactViewport=String(height<420);
  panel.style.setProperty("--thebe-vv-top",top+"px");
  panel.style.setProperty("--thebe-vv-bottom",Math.max(0,window.innerHeight-top-height)+"px");
  panel.style.setProperty("--thebe-vv-left",left+"px");
@@ -260,9 +275,9 @@ function render(items){
  const header=document.createElement("header");header.className="thebe-delivery-sheet-header";
  const headText=document.createElement("div");headText.className="thebe-delivery-sheet-heading";
  const eyebrow=document.createElement("span");eyebrow.className="thebe-delivery-eyebrow";
- eyebrow.textContent="NOTIFICATIONS";
+ eyebrow.textContent="🔔 THEBE DESK";
  const title=document.createElement("h2");title.id="thebeDeliveryTitle";
- title.textContent="Upcoming delivery & installation";
+ title.textContent="Notifications (0)";
  const summary=document.createElement("p");summary.id="thebeDeliverySummary";summary.className="thebe-delivery-summary";
  headText.append(eyebrow,title,summary);
  const close=document.createElement("button");close.type="button";close.className="thebe-delivery-dismiss";

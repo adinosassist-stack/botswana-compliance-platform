@@ -19,10 +19,11 @@ const runtime=fs.readFileSync('public/js/delivery-reminders-manager.js','utf8');
 const html='<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">'+
  '<style>*{box-sizing:border-box}body{margin:0}#mobileRail{display:none}' +
  '@media(max-width:1000px){#mobileRail{display:block;position:fixed;bottom:0;left:0;right:0;height:86px;background:#eee}}</style>' +
- '<style>'+css+'</style></head><body><main id="dailyreports"></main><nav id="mobileRail"></nav>'+
+ '<style>'+css+'</style></head><body><main id="dailyreports"></main><nav id="mobileRail" class="mobilebar"></nav>'+
  '<script>'+runtime+'</script></body></html>';
 const viewports=[[320,640],[375,667],[414,896],[430,932],[768,1024],
- [667,375],[932,430],[768,375],[1280,375],[1280,768]];
+ [667,375],[932,430],[768,375],[1280,375],[1280,768],
+ [320,240],[200,320],[375,280]];
 const browser=await chromium.launch({headless:true,executablePath,
  args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
 try{
@@ -54,6 +55,7 @@ try{
     const hit=document.elementFromPoint(b.left+b.width/2,b.top+b.height/2);
     return {b:b.toJSON(),p:p.toJSON(),rail:rail.toJSON(),
      mobile:matchMedia('(max-width:1000px)').matches,
+     railHidden:getComputedStyle(document.getElementById("mobileRail")).visibility==="hidden",
      hitBell:!!hit?.closest('#thebeDeliveryManagerBell'),
      horizontalOverflow:document.documentElement.scrollWidth>innerWidth+1};
    });
@@ -65,7 +67,11 @@ try{
     assert.equal(await bell.isVisible(),false,'Bell hides while the fixed reading sheet is open '+label);
     assert(g.p.top>=-1,'Independent sheet stays within viewport after bell positioning '+label);
     assert(g.p.top>=-1,'Phone popup starts inside viewport '+label);
-    assert(g.p.bottom<=g.rail.top-8,'Phone popup clears bottom rail '+label);
+    assert(g.railHidden,'Background mobile rail is suspended while reading notifications '+label);
+    assert(g.p.bottom<=height-7,'Phone notification sheet uses full visual viewport without clipping '+label);
+    assert.equal(await panel.getAttribute("aria-modal"),"true",'Mobile sheet is modal for accessibility '+label);
+    assert.equal(await panel.locator("h2").textContent(),"Notifications (12)",'Agreed notification count heading '+label);
+    assert.equal(await panel.locator(".thebe-delivery-reminder strong").first().textContent(),"Upcoming delivery & installation",'Agreed card heading '+label);
     const close=panel.getByRole('button',{name:'Close reminders'});
     assert(await close.isVisible(),'Sticky close remains reachable '+label);
     const closeBox=await close.boundingBox();
@@ -110,6 +116,7 @@ try{
    await panel.getByRole('button',{name:'Close reminders'}).click();
    assert(await panel.isHidden(),'Dismiss works '+label);
    assert(await bell.isVisible(),'Bell reappears after notification close '+label);
+   if(g.mobile)assert(await page.locator("#mobileRail").isVisible(),'Bottom navigation restores after Close '+label);
    const bellHit=await bell.evaluate(node=>{
      const b=node.getBoundingClientRect();
      return !!document.elementFromPoint(b.left+b.width/2,b.top+b.height/2)?.closest('#thebeDeliveryManagerBell');
@@ -213,5 +220,5 @@ try{
    }
   }finally{await page.close()}
  }
- console.log('PASS #2715: 10 real-Chromium geometries; 12 synthetic reminders; sheet clearance, focus, pointer drag four corners, reload persistence, keyboard reset, Dock/voice/nav occlusion');
+ console.log('PASS #2715/#2778: 13 real-Chromium geometries including short/zoom plus 401/503 stale-DOM security tests; full-viewport sheet, restored nav, focus, pointer drag, reload persistence, keyboard reset, Dock/voice/nav occlusion');
 }finally{await browser.close()}
