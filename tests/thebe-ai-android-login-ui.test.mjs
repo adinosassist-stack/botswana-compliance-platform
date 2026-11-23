@@ -24,6 +24,21 @@ test('browser error and chooser are never accepted even with login text',()=>{
   }
 });
 
+test('browser onboarding, chooser and network failures have safe classified blockers',()=>{
+  const examples=[
+    ['Welcome to Chrome','browser first-run/onboarding prompt visible'],
+    ['Use without an account','browser first-run/onboarding prompt visible'],
+    ['Open with','Android browser chooser visible'],
+    ['Just once','Android browser chooser visible'],
+    ['Web page not available','browser network or rendering error visible']
+  ];
+  for(const [label,expected] of examples){
+    const result=assessLoginHierarchy(hierarchy('Thebe Desk','Business name',label));
+    assert.equal(result.status,'blocked');
+    assert.equal(result.reason,expected);
+  }
+});
+
 test('empty, malformed, oversize and unrelated emulator output fail closed',()=>{
   assert.equal(assessLoginHierarchy('').status,'blocked');
   assert.equal(assessLoginHierarchy('<node text="Thebe Desk" />').status,'blocked');
