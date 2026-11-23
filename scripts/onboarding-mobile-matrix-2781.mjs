@@ -28,7 +28,7 @@ const fixtureHTML=[
   'h2{font-size:22px;line-height:1.2;margin:8px 0;}h3{font-size:18px;}',
   '.btn{min-height:44px;max-width:100%;padding:10px 12px;font:inherit;',
   'border-radius:10px;border:1px solid #cad6e4;background:#fff;color:#1b3e69;white-space:normal;}',
-  '.bottom-nav{position:fixed;z-index:20;bottom:0;left:0;right:0;height:64px;',
+  '.bottom-nav{position:fixed;z-index:20;bottom:0;left:0;right:0;width:100%;max-width:100%;height:64px;',
   'background:#fff;border-top:1px solid #d5dde8;display:flex;justify-content:space-around;align-items:center;}',
   '.dock{position:fixed;z-index:21;right:12px;bottom:82px;width:48px;height:48px;',
   'border:0;border-radius:50%;background:#23344c;color:#fff;}',
@@ -36,7 +36,7 @@ const fixtureHTML=[
   '<main class="workspace" id="syntheticWorkspace">',
   '<div id="welcomeSetupBanner" hidden></div>',
   '</main><nav class="bottom-nav" aria-label="Synthetic bottom navigation">',
-  '<span>Home</span><span>Work</span><span>More</span></nav>',
+  '</nav>',
   '<button class="dock" type="button" aria-label="Synthetic AI Dock">AI</button>',
   '</body></html>'
 ].join('');
