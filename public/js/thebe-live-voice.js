@@ -1763,6 +1763,14 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
   }
   function mount(){
     if(document.getElementById("thebeAiDock"))return;
+    // Load only when the live assistant mounts. The compact dock CSS remains
+    // a flat, independently regression-tested surface for older workspace UI.
+    if(!document.getElementById("thebeAuraImmersiveStyle")){
+      const sheet=document.createElement("link");
+      sheet.id="thebeAuraImmersiveStyle";sheet.rel="stylesheet";
+      sheet.href="/assets/thebe-ai-immersive-v1.css?v=20261123-pr2817-02";
+      document.head.append(sheet);
+    }
     const storedCollapse=safeSessionGet(STORE_KEY);
     collapsed=storedCollapse==="1"||storedCollapse===null;
     if(!mobileDockMode()&&storedCollapse==="1")safeSessionSet(STORE_KEY,"0");
