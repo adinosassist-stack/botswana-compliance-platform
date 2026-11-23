@@ -793,6 +793,8 @@
     if(quick){quick.hidden=true;quick.replaceChildren()}
     if(options.focus!==false)input?.focus({preventScroll:true});
   }
+  // Conversation find stays local to this live document; no query or text is stored.
+  let syncConversationFind=()=>{},resetConversationFind=()=>{};
   // In-memory conversation only: never persist text across tenants or sessions.
   const TEXT_HISTORY_LIMIT=24;
   function appendConversationTurn(role,content){
@@ -804,6 +806,7 @@
     turn.append(el("span","thebe-aura-turn-label",role==="user"?"You":"Thebe"),el("p","thebe-aura-turn-content",value));
     conversationHistory.append(turn);
     while(conversationHistory.children.length>TEXT_HISTORY_LIMIT)conversationHistory.firstElementChild?.remove();
+    syncConversationFind();
   }
   function archiveCurrentAnswer(){
     if(!lastAnswer)return;
@@ -813,6 +816,7 @@
   function clearConversation(){
     if(!dock)return;
     conversationHistory?.replaceChildren();
+    resetConversationFind();
     voiceCompletedTurns.splice(0);syncVoiceChatActivity();
     textAbortController?.abort("conversation-cleared");
     textAbortController=null;
@@ -1320,6 +1324,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     return true;
   }
   function surfaceLatestResponse(){
+    syncConversationFind();
     if(autoFollowResponse){scrollResponseIntoView();return}
     syncLatestResponseButton();
   }
@@ -1611,6 +1616,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const answer=marketingAnswer(question);
     responseMessage(answer);
     lastAnswer=answer;
+    syncConversationFind();
     if(!responseBox)return;
     const actions=el("div","thebe-ai-public-actions");
     const voice=el("button","thebe-ai-public-voice","Try voice");
@@ -1994,7 +2000,93 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     conversationHistory.setAttribute("role","log");
     conversationHistory.setAttribute("aria-label","Thebe text conversation");
     conversationHistory.setAttribute("aria-live","polite");
-    scroll.append(contextBar,modeRail,voiceCard,quick,conversationHistory,voiceChatActivity,responseBox);
+
+    // Web Dock: search rendered, bounded in-memory chat only. This never calls
+    // an AI endpoint, writes a transcript, or exposes another tenant's data.
+    const findWrap=el("section","thebe-ai-find");
+    const findToggle=el("button","thebe-ai-find-toggle","⌕ Find in chat");
+    findToggle.type="button";
+    findToggle.setAttribute("aria-controls","thebeAiFindPanel");
+    findToggle.setAttribute("aria-expanded","false");
+    const findPanel=el("div","thebe-ai-find-panel");
+    findPanel.id="thebeAiFindPanel";findPanel.hidden=true;
+    const findInput=el("input","thebe-ai-find-input");
+    findInput.type="search";findInput.maxLength=120;
+    findInput.autocomplete="off";findInput.spellcheck=false;
+    findInput.placeholder="Search this conversation";
+    findInput.setAttribute("aria-label","Search this Thebe conversation");
+    const findStatus=el("span","thebe-ai-find-status","Enter a word to search this chat");
+    findStatus.setAttribute("role","status");findStatus.setAttribute("aria-live","polite");
+    const findPrevious=el("button","thebe-ai-find-previous","↑");
+    const findNext=el("button","thebe-ai-find-next","↓");
+    for(const [button,label] of [[findPrevious,"Previous matching message"],[findNext,"Next matching message"]]){
+      button.type="button";button.disabled=true;button.setAttribute("aria-label",label);
+    }
+    const findClose=el("button","thebe-ai-find-close","×");
+    findClose.type="button";findClose.setAttribute("aria-label","Close conversation search");
+    const findInputRow=el("div","thebe-ai-find-input-row");
+    findInputRow.append(findInput,findPrevious,findNext,findClose);
+    findPanel.append(findInputRow,findStatus);findWrap.append(findToggle,findPanel);
+    let findIndex=-1,findTargets=[];
+    const findMatches=()=>{
+      const needle=findInput.value.trim().toLocaleLowerCase();
+      if(!needle)return [];
+      const visible=[...conversationHistory.querySelectorAll(".thebe-aura-turn")];
+      // Only the actual latest answer is searchable, not a transient status.
+      if(lastAnswer)visible.push(responseBox);
+      return visible.filter(node=>
+        String(node===responseBox?lastAnswer:node.textContent||"").toLocaleLowerCase().includes(needle));
+    };
+    syncConversationFind=()=>{
+      if(findPanel.hidden)return;
+      const current=findTargets[findIndex]||null;
+      findTargets=findMatches();
+      findIndex=current?findTargets.indexOf(current):-1;
+      if(!findTargets.length)findIndex=-1;
+      else if(findIndex<0)findIndex=0;
+      findPrevious.disabled=findNext.disabled=!findTargets.length;
+      findStatus.textContent=!findInput.value.trim()?"Enter a word to search this chat":
+        !findTargets.length?"No matching messages":`${findIndex+1} of ${findTargets.length} matching messages`;
+    };
+    const navigateFind=direction=>{
+      syncConversationFind();
+      if(!findTargets.length)return;
+      findIndex=(findIndex+direction+findTargets.length)%findTargets.length;
+      const target=findTargets[findIndex];
+      target.tabIndex=-1;
+      target.scrollIntoView({block:"center",behavior:"auto"});
+      target.focus({preventScroll:true});
+      findStatus.textContent=`${findIndex+1} of ${findTargets.length} matching messages`;
+    };
+    const closeFind=()=>{
+      findPanel.hidden=true;findToggle.setAttribute("aria-expanded","false");
+      findInput.value="";findTargets=[];findIndex=-1;
+      findPrevious.disabled=findNext.disabled=true;
+      findStatus.textContent="Enter a word to search this chat";
+      findToggle.focus({preventScroll:true});
+    };
+    resetConversationFind=()=>{
+      findInput.value="";findTargets=[];findIndex=-1;findPanel.hidden=true;
+      findToggle.setAttribute("aria-expanded","false");
+      findPrevious.disabled=findNext.disabled=true;
+      findStatus.textContent="Enter a word to search this chat";
+    };
+    findToggle.addEventListener("click",()=>{
+      if(!findPanel.hidden){closeFind();return}
+      findPanel.hidden=false;findToggle.setAttribute("aria-expanded","true");
+      syncConversationFind();findInput.focus({preventScroll:true});
+    });
+    findInput.addEventListener("input",syncConversationFind);
+    findInput.addEventListener("keydown",event=>{
+      if(event.key==="Escape"){event.preventDefault();closeFind()}
+      else if(event.key==="Enter"&&!event.isComposing){
+        event.preventDefault();navigateFind(event.shiftKey?-1:1);
+      }
+    });
+    findPrevious.addEventListener("click",()=>navigateFind(-1));
+    findNext.addEventListener("click",()=>navigateFind(1));
+    findClose.addEventListener("click",closeFind);
+    scroll.append(contextBar,modeRail,voiceCard,quick,findWrap,conversationHistory,voiceChatActivity,responseBox);
 
     latestResponseButton=el("button","thebe-ai-latest-response","Latest response ↓");
     latestResponseButton.type="button";
