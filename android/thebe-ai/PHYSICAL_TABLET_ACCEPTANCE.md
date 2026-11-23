@@ -26,6 +26,13 @@ CI's Android API 35 smoke checks visible *public* sign-in markers from a synthet
 8. Test offline/reconnect and browser missing/disabled states. The app must not claim that cloud AI can function offline.
 9. Capture minimal, redacted **local** evidence for each case: device class, Android and browser version, app source SHA/APK digest, test result, expected vs actual and defect reference. No secrets, account emails, payment details, voice recordings or customer screenshots.
 
+## Public website association preflight (read-only)
+
+- Before attempting full-screen trusted origin validation, run `node android/thebe-ai/scripts/audit-origin-assetlinks.mjs` to check whether the public Digital Asset Links file is present without a login redirect.
+- Once the authorized release signing identity is independently verified, re-run with `--fingerprint <VERIFIED_RELEASE_CERT_SHA256>`. A syntactically valid digest is **not** enough: it must match the exact release-signing certificate for `com.thebedesk.ai` and the published statement.
+- Keep the association blocked unless the independent owner/reviewer approves the package ID, signing authority and production-site change. Do not silently publish a debug certificate association.
+- Even a matching statement cannot replace evidence of full-screen mode and browser behavior on an actual tablet.
+
 ## Release gates
 
 - Signed test artifact and reproducible build; internal debug signature must never be presented as a release signature.
