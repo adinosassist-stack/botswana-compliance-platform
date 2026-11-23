@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   SITE, ASSETLINKS, PACKAGE_NAME, normalizeFingerprint,
-  hasVerifiedAssociation, fetchPublicAssetlinks, run
+  hasVerifiedAssociation, fetchPublicAssetlinks
 } from '../android/thebe-ai/scripts/audit-origin-assetlinks.mjs';
 
 const fp = Array.from({length:32},(_,i)=>i.toString(16).padStart(2,'0')).join(':').toUpperCase();
@@ -26,7 +26,7 @@ test('origin is fixed to HTTPS and package binding is exact',()=>{
 test('only a well-formed nonzero SHA-256 signing certificate digest is accepted',()=>{
   assert.equal(normalizeFingerprint(fp),fp);
   assert.equal(normalizeFingerprint(fp.replaceAll(':','').toLowerCase()),fp);
-  for(const bad of ['',null,'x','00'.repeat(32),'AA:BB','FF:'.repeat(32),'::'+fp,'1'.repeat(64)]){
+  for(const bad of ['',null,'x','00'.repeat(32),'AA:BB','FF:'.repeat(32),'::'+fp,'G'.repeat(64)]){
     assert.equal(normalizeFingerprint(bad),null);
   }
 });
