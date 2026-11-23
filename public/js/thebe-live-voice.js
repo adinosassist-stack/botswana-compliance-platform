@@ -2083,7 +2083,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       findIndex=-1;findTargets=[];syncConversationFind();
     });
     findInput.addEventListener("keydown",event=>{
-      if(event.key==="Escape"){event.preventDefault();closeFind()}
+      if(event.key==="Escape"){event.preventDefault();event.stopPropagation();closeFind()}
       else if(event.key==="Enter"&&!event.isComposing){
         event.preventDefault();navigateFind(event.shiftKey?-1:1);
       }
