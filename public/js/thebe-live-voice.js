@@ -2486,10 +2486,11 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
   });
   function updateOrbAudio(level,brightness){
     if(!orb)return;
-    orb.style.setProperty("--thebe-audio-scale",(1+level*.13).toFixed(3));
+    const scale=1+level*.13;
+    orb.style.setProperty("--thebe-audio-scale",scale.toFixed(3));
     orb.style.setProperty("--thebe-aura-energy",level.toFixed(3));
     orb.style.setProperty("--thebe-aura-tilt",((brightness-.35)*level*11).toFixed(2)+"deg");
-    voiceScreenOrb?.style.setProperty("--thebe-voice-energy",(1+level*.13).toFixed(3));
+    voiceScreenOrb?.style.setProperty("--thebe-voice-energy",scale.toFixed(3));
     orb.style.setProperty("--thebe-audio-ring",(8+level*5).toFixed(1)+"px");
     orb.style.setProperty("--thebe-audio-blur",(14+level*12).toFixed(1)+"px");
   }
