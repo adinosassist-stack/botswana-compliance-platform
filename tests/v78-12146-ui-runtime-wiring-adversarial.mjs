@@ -14,7 +14,7 @@ check("passport fragment has missing-surface fail-safe",html.includes('if(!gate|
 check("passport viewer posts token without URL query",html.includes('publicApiClient.request("/public/passport/verify",{method:"POST"'));
 check("billing renderer targets billingPlanName",html.includes('planEl=document.getElementById("billingPlanName")'));
 check("billing renderer no stale billingPlan target",!html.includes('document.getElementById("billingPlan")'));
-check("subscription checkout validates manual bank order",html.includes('if(!data?.paymentOrder?.id||data.checkoutMode!=="manual_bank_transfer")throw new Error("Manual payment order was not created.")'));
+check("subscription checkout validates manual bank order",html.includes('renderManualBankCheckout(data,upgradeResult)')&&html.includes('if(!data?.paymentOrder?.id||data.checkoutMode!=="manual_bank_transfer"||!data.bankTransfer?.reference)throw new Error('));
 check("subscription checkout does not redirect to hosted provider",!html.includes('await openHostedCheckout(data.paymentOrder.id)'));
 check("manual bank submission is wired",html.includes('/api/payments/manual-bank/submit')&&html.includes('submitManualBankPayment'));
 check("standalone preview does not attempt live checkout",html.includes('if(STANDALONE_PREVIEW){billingInfo={...(billingInfo||{}),plan,status:"preview"}'));

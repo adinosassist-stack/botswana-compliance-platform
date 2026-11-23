@@ -36,3 +36,9 @@ Approved Aura implementation is already present in baseline main `af3b87896326a1
 | Production | Fresh protected main and cumulative delta, manifest-only release candidate, exact-SHA CI/recovery/BF-07 seal, separate owner production authorization and independent environment approval; postdeploy verification |
 
 Suggested sequencing: finish CI/review and staging prerequisites by 26 November; evaluate a limited pilot on 27 November only if the applicable gates pass; complete production qualification and Android acceptance by 30 November. Proceed with 1 December paid launch only after all applicable P0 gates close. These are conditional milestones, not operational approvals.
+
+## CI follow-up
+
+The first candidate's GitHub mobile job `45289650280` passed the updated synthetic onboarding text-fragment matrix and public mobile smoke. Workspace navigation Chromium and Dock composer CI also passed. This resolves the local browser limitation for those synthetic cases only; authenticated physical Android acceptance remains open.
+
+CI found three stale assertions tied to the old subscription-only wording and the former location of the shared transfer markup. Updated them to verify the shared renderer, manual-order validation and settled-funds language. The repaired 74-test Batch A suite, 24 owner/WhatsApp tests and 26 runtime-wiring checks pass locally. Fresh exact-head CI is required after this test-only follow-up.
