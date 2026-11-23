@@ -26,6 +26,24 @@ CI's Android API 35 smoke checks visible *public* sign-in markers from a synthet
 8. Test offline/reconnect and browser missing/disabled states. The app must not claim that cloud AI can function offline.
 9. Capture minimal, redacted **local** evidence for each case: device class, Android and browser version, app source SHA/APK digest, test result, expected vs actual and defect reference. No secrets, account emails, payment details, voice recordings or customer screenshots.
 
+## Offline, privacy-safe acceptance manifest
+
+The tester can prepare a local JSON checklist without connecting a tablet to CI:
+
+```bash
+node android/thebe-ai/scripts/tablet-qa.mjs --template > private-tablet-qa.json
+```
+
+Fill in only these **non-identifying** fields after observing them: tablet size category, Android API level, browser family and major version, the exact reviewed source commit SHA, the independently verified APK SHA-256 digest, and the status of each check. Record `pass` only for a check actually witnessed on the approved tablet. Use `not_run` for anything not tested; `fail` or `blocked` may include an issue number (e.g. `#2715`), not comments.
+
+```bash
+node android/thebe-ai/scripts/tablet-qa.mjs --validate private-tablet-qa.json
+```
+
+The validator returns nonzero if checks are missing, blocked, failed, not run, or the data format is invalid. It prints only aggregate counts; it **cannot certify** the tablet identity, actual observations, certificate authority, device software, browser security, or APK provenance. It must not be treated as a substitute for a human-witnessed acceptance process or independent `thusico` review. Keep the file locally; **do not upload it to CI or a GitHub PR**.
+
+The allowed report schema deliberately rejects free-text notes, email addresses, hardware serials, accounts, audio, screenshot paths, and customer data. Store any necessary test proof separately under an approved private QA process with appropriate redaction; this source-only tooling does not capture evidence itself.
+
 ## Public website association preflight (read-only)
 
 - Before attempting full-screen trusted origin validation, run `node android/thebe-ai/scripts/audit-origin-assetlinks.mjs` to check whether the public Digital Asset Links file is present without a login redirect.
