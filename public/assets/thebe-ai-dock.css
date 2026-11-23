@@ -2192,3 +2192,20 @@ body.thebe-voice-active #thebeAiDock :is(button,textarea):focus-visible {
 html body dialog#thebeVoiceScreen[open] {
   z-index:10001!important;
 }
+
+/* #2813: movable AI pill — no gradient or heavy neon outline. */
+@media(max-width:1023px){
+ #thebeAiDockPill{
+  touch-action:none;user-select:none;-webkit-user-select:none;
+  min-height:48px;max-width:calc(100vw - 16px);
+  padding:11px 16px;border-radius:999px;
+  border:1px solid #426184;background:#151b24;color:#fff;
+  box-shadow:0 5px 16px #10253c38;
+  font-weight:750;cursor:grab;
+ }
+ #thebeAiDockPill:active{cursor:grabbing}
+ #thebeAiDockPill .thebe-ai-pill-dot{background:#2689f5}
+}
+@media(prefers-reduced-motion:reduce){
+ #thebeAiDockPill .thebe-ai-pill-dot{animation:none!important}
+}
