@@ -60,7 +60,7 @@ async function start(width,{role='owner',error=false,height=844}={}){
   const outgoing=[];
   page.on('request',req=>outgoing.push(req.url()));
   await page.setContent(fixtureHTML);
-  await page.evaluate(({user,data,fail})=>{
+  await page.evaluate(({user,data,fail,role})=>{
     window.__fixture={user:{...user,role},data,fail,reads:[]};
     window.BW={api:{createClient:()=>({request:async (path,opts)=>{
       window.__fixture.reads.push({path,method:opts?.method});
