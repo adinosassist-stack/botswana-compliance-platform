@@ -16,7 +16,7 @@ test("drag uses viewport clamping, saved coordinates and collision avoidance",()
  assert.ok(dock.includes("prefers-reduced-motion:reduce"));
 });
 test("notification sheet is content-sized and preserves bottom navigation clearance",()=>{
- for(const token of ["height:max-content!important","bottom:auto!important","100dvh - 128px","safe-area-inset-bottom","thebe-delivery-sheet-list","overflow-y:auto","thebe-delivery-reminder-actions"])
+ for(const token of ["height:max-content!important","bottom:auto!important","var(--thebe-vv-height","safe-area-inset-bottom","thebe-delivery-sheet-list","overflow-y:auto","thebe-delivery-reminder-actions"])
   assert.ok(notices.includes(token),token);
 });
 test("voice shortcut invokes existing governed voice handler",()=>{
