@@ -47,7 +47,7 @@
   transform-origin:center;transition:transform .09s linear,filter .09s linear;
 }
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-aura-curve{
-  stroke-dasharray:400 90;animation:thebe-aura-light-flow 8s linear infinite;
+  stroke-dasharray:none;animation:thebe-aura-light-flow 8s ease-in-out infinite;
 }
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) [data-phase="listening"] .thebe-aura-curve{
   animation-duration:3.4s;stroke-width:4px;
@@ -56,7 +56,7 @@
   animation-duration:2s;stroke-width:4.5px;
 }
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) [data-phase="thinking"] .thebe-aura-ribbon{filter:drop-shadow(0 0 22px rgba(112,126,250,.85))}
-@keyframes thebe-aura-light-flow{to{stroke-dashoffset:-490}}
+@keyframes thebe-aura-light-flow{0%,100%{opacity:.65}50%{opacity:1}}
 #thebeAiDock .thebe-aura-welcome{display:none}
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-aura-welcome{
   display:grid!important;gap:14px;text-align:center;justify-items:center;color:#f6f8ff;
@@ -167,3 +167,11 @@ html body.thebe-voice-active dialog#thebeVoiceScreen[open] #thebeVoiceMiniContro
 /* Keep accessible controls reachable on 320px devices during a live session. */
 html body.thebe-voice-active #thebeAiDock :is(.thebe-ai-clear,.thebe-ai-expand,.thebe-ai-minimize){display:none!important}
 html body.thebe-voice-active #thebeAiDock .thebe-ai-head-actions{gap:5px!important;flex-shrink:0!important}
+
+/* Reference sphere: retain continuous rim and move filled silk inside the clip. */
+#thebeAiDock .thebe-aura-surface{transform-origin:120px 120px;animation:thebe-aura-silk-drift 9s ease-in-out infinite alternate}
+#thebeAiDock [data-phase="listening"] .thebe-aura-surface{animation-duration:4s}
+#thebeAiDock [data-phase="speaking"] .thebe-aura-surface{animation-duration:2.5s}
+@keyframes thebe-aura-silk-drift{from{opacity:.8}to{opacity:1}}
+#thebeAiDock .thebe-aura-question{color:#f6f8ff!important}
+@media(prefers-reduced-motion:reduce){#thebeAiDock .thebe-aura-surface{animation:none!important}}
