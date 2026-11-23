@@ -157,5 +157,61 @@ try{
    }
   }finally{await page.close()}
  }
+ // Regression #2781/#2715: auth failures and transient read failures must
+ // immediately remove previously rendered company job data from the DOM.
+ // This is a wholly synthetic local fixture, never a production API request.
+ {
+  const page=await browser.newPage({viewport:{width:375,height:667}});
+  try{
+   await page.addInitScript(()=>{
+    window.__reminderTestMode='ok';
+    window.BW={api:{createClient:()=>({request:async()=>{
+     if(window.__reminderTestMode!=='ok'){
+      throw Object.assign(new Error('synthetic reminder read denied'),{
+       status:window.__reminderTestMode==='unauthorized'?401:503
+      });
+     }
+     return {deliveryReminders:[{
+      locationId:'synthetic-location',employeeId:'synthetic-employee',
+      jobType:'delivery',jobReference:'SYNTHETIC-PRIVATE-JOB',
+      scheduledDate:'2026-11-24',locationName:'Synthetic location',
+      employeeName:'Synthetic reporter',daysUntil:1
+     }]};
+    }})}};
+   });
+   await page.route('http://reminder-fixture.test/**',route=>route.fulfill({contentType:'text/html',body:html}));
+   await page.goto('http://reminder-fixture.test/',{waitUntil:'load'});
+   const bell=page.locator('#thebeDeliveryManagerBell');
+   const popup=page.locator('#thebeDeliveryManagerPopup');
+   await page.waitForFunction(()=>document.getElementById('thebeDeliveryManagerBell')?.dataset.count==='1');
+   for(const mode of ['unauthorized','unavailable']){
+    await bell.click();
+    assert.equal(await popup.isVisible(),true,'Synthetic reminder sheet opens before '+mode);
+    assert.equal(await popup.locator('.thebe-delivery-reminder').count(),1);
+    await page.evaluate(value=>{
+     window.__reminderTestMode=value;
+     document.dispatchEvent(new Event('visibilitychange'));
+    },mode);
+    await page.waitForFunction(()=>{
+     const bell=document.getElementById('thebeDeliveryManagerBell');
+     const popup=document.getElementById('thebeDeliveryManagerPopup');
+     return bell?.hidden===true&&popup?.hidden===true
+      &&popup.childElementCount===0
+      &&document.getElementById('thebeDeliveryWorkspace')===null;
+    },null,{timeout:7000});
+    assert.equal(await bell.getAttribute('data-count'),'0','Unread count clears on failed '+mode+' read');
+    assert.equal(await bell.getAttribute('aria-expanded'),'false','Bell closes on failed '+mode+' read');
+    assert.equal(await popup.locator('.thebe-delivery-reminder').count(),0,
+     'Company job details are removed after '+mode+' read failure');
+    await page.evaluate(()=>{
+     window.__reminderTestMode='ok';
+     document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await page.waitForFunction(()=>document.getElementById('thebeDeliveryManagerBell')?.dataset.count==='1'
+     &&document.getElementById('thebeDeliveryWorkspace')?.textContent?.includes('Delivery / installation'),null,{timeout:7000});
+    assert.equal(await bell.isVisible(),true,'Reminders recover after successful verified '+mode+' re-read');
+   }
+  }finally{await page.close()}
+ }
  console.log('PASS #2715: 10 real-Chromium geometries; 12 synthetic reminders; sheet clearance, focus, pointer drag four corners, reload persistence, keyboard reset, Dock/voice/nav occlusion');
 }finally{await browser.close()}
