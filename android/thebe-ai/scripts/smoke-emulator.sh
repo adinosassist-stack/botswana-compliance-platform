@@ -28,7 +28,10 @@ fi
 sleep 6
 adb logcat -d -v brief -s AndroidRuntime:E > "${RUNNER_TEMP:-/tmp}/thebe-androidruntime.log" || true
 if grep -A 8 'FATAL EXCEPTION' "${RUNNER_TEMP:-/tmp}/thebe-androidruntime.log" | grep -Fq 'Process: com.thebedesk.ai'; then
-  printf 'Thebe AI process crashed during emulator launch\n' >&2
+  printf 'Thebe AI process crashed during emulator launch:\n' >&2
+  # The emulator contains no customer accounts. Print the bounded AndroidRuntime
+  # exception instead of returning an opaque failure; keep private app data out.
+  sed -n '/FATAL EXCEPTION/,+34p' "${RUNNER_TEMP:-/tmp}/thebe-androidruntime.log" | head -n 80 >&2
   exit 1
 fi
 
