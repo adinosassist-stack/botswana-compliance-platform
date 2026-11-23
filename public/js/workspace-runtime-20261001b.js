@@ -2066,12 +2066,27 @@ async function renderDeletionStatus(){
 }
 async function createAiCreditOrder(sku){
   if(currentWorkspaceRole()!=="owner"){notifyUser("Only the account owner can buy AI credit packs.");return}
+  const packs=document.getElementById("aiCreditPacks");if(!packs)return;
+  let out=document.getElementById("aiCreditCheckoutResult");
+  if(!out){out=document.createElement("div");out.id="aiCreditCheckoutResult";out.setAttribute("role","status");packs.insertAdjacentElement("afterend",out)}
+  if(out.dataset.busy==="1")return;
+  out.dataset.busy="1";out.textContent="Preparing bank transfer…";
   try{
     const r=await apiJson("/api/payments/ai-credit-checkout",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({sku}),idempotencyKey:true});
-    if(r.pack) console.info(`AI credit checkout: ${r.pack.credits} credits for P${r.pack.price_bwp}`);
-    await renderPayments();
-    await openHostedCheckout(r.paymentOrder.id);
-  }catch(e){notifyUser(e.message)}
+    if(r.checkoutMode!=="manual_bank_transfer"||!r.paymentOrder?.id||!r.bankTransfer?.reference)throw new Error("Manual credit payment unavailable.");
+    const b=r.bankTransfer;
+    out.safeHTML=`<div class="upgradeSuccess"><b>Buy ${Number(r.pack.credits)} AI credits · P${Number(b.amountBwp).toLocaleString()}</b><div class="small"><b>Bank:</b> ${escapeHtml(b.bankName||"—")}<br><b>Account name:</b> ${escapeHtml(b.accountName||"—")}<br><b>Account number:</b> ${escapeHtml(b.accountNumber||"—")}<br><b>Branch code:</b> ${escapeHtml(b.branchCode||"—")}<br><b>Payment reference:</b> ${escapeHtml(b.reference)}</div><p>Transfer the exact amount using this reference. Credits are added only after settled funds are verified.</p><label>Bank transaction reference<input id="aiCreditBankReference" maxlength="100" autocomplete="off"></label><button type="button" class="btn" id="aiCreditSubmitPayment">I have paid</button><div id="aiCreditSubmitResult" role="status"></div></div>`;
+    const button=document.getElementById("aiCreditSubmitPayment");
+    button?.addEventListener("click",async()=>{
+      if(button.disabled)return;
+      const bankReference=String(document.getElementById("aiCreditBankReference")?.value||"").trim(),result=document.getElementById("aiCreditSubmitResult");
+      if(!bankReference){result.textContent="Enter your bank transaction reference.";return}
+      button.disabled=true;
+      try{const submitted=await apiJson("/api/payments/manual-bank/submit",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({paymentOrderId:r.paymentOrder.id,bankReference}),idempotencyKey:true});result.textContent=submitted.message||"Awaiting verification of settled funds.";await renderAiCredits();}
+      catch(e){result.textContent=e.message;button.disabled=false}
+    });
+  }catch(e){out.textContent=e.message}
+  finally{delete out.dataset.busy}
 }
 async function renderAiCredits(){
   const box=document.getElementById("aiCreditWalletBox");if(!box)return;
