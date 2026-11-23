@@ -2193,6 +2193,8 @@ html body dialog#thebeVoiceScreen[open] {
   z-index:10001!important;
 }
 
+
+
 /* #2813: compact charcoal AI launcher with independent controls.
    Only the dedicated handle intercepts drag gestures; chat and voice remain taps. */
 #thebeAiDockPill{
