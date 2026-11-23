@@ -2193,32 +2193,41 @@ html body dialog#thebeVoiceScreen[open] {
   z-index:10001!important;
 }
 
-/* #2813: movable AI pill — no gradient or heavy neon outline. */
+/* #2813: compact charcoal AI launcher with independent controls.
+   Only the dedicated handle intercepts drag gestures; chat and voice remain taps. */
+#thebeAiDockPill{
+ display:inline-flex;align-items:center;gap:3px;box-sizing:border-box;
+ padding:3px 4px;min-height:48px;max-width:calc(100vw - 16px);
+ border:1px solid #485569;border-radius:999px;
+ background:#151b24;color:#f7f9fc;box-shadow:0 6px 18px #10253c38;
+ font-size:13px;font-weight:750;
+}
+#thebeAiDockPill :is(.thebe-ai-pill-open,.thebe-ai-pill-mic,.thebe-ai-pill-handle){
+ display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;
+ min-height:42px;border:0;border-radius:999px;background:transparent;
+ color:inherit;font:inherit;cursor:pointer;
+}
+#thebeAiDockPill .thebe-ai-pill-open{gap:5px;min-width:74px;padding:0 9px;white-space:nowrap}
+#thebeAiDockPill .thebe-ai-pill-mic{width:38px;min-width:38px;color:#a9d0ff}
+#thebeAiDockPill .thebe-ai-pill-mic svg{width:18px;height:18px;display:block}
+#thebeAiDockPill .thebe-ai-pill-handle{
+ width:36px;min-width:36px;touch-action:none;
+ user-select:none;-webkit-user-select:none;cursor:grab;
+ color:#c7d0df;font-size:23px;line-height:1
+}
+#thebeAiDockPill .thebe-ai-pill-handle:active{cursor:grabbing}
+#thebeAiDockPill .thebe-ai-pill-dot{background:#2689f5;margin:0 4px 0 0}
+#thebeAiDockPill :is(.thebe-ai-pill-open,.thebe-ai-pill-mic,.thebe-ai-pill-handle):focus-visible{
+ outline:2px solid #a6b7ce;outline-offset:-3px;box-shadow:none
+}
+@media(min-width:1024px){
+ #thebeAiDockPill :is(.thebe-ai-pill-mic,.thebe-ai-pill-handle){display:none!important}
+}
 @media(max-width:1023px){
- #thebeAiDockPill{
-  touch-action:none;user-select:none;-webkit-user-select:none;
-  min-height:48px;max-width:calc(100vw - 16px);
-  padding:11px 16px;border-radius:999px;
-  border:1px solid #426184;background:#151b24;color:#fff;
-  box-shadow:0 5px 16px #10253c38;
-  font-weight:750;cursor:grab;
+ body.thebe-delivery-sheet-open #thebeAiDockPill{
+  visibility:hidden!important;pointer-events:none!important
  }
- #thebeAiDockPill:active{cursor:grabbing}
- #thebeAiDockPill .thebe-ai-pill-dot{background:#2689f5}
 }
 @media(prefers-reduced-motion:reduce){
  #thebeAiDockPill .thebe-ai-pill-dot{animation:none!important}
-}
-
-/* #2813: distinguish moving the assistant from opening the assistant. */
-@media(max-width:1023px){
- #thebeAiDockPill{display:inline-flex;align-items:center;gap:7px;cursor:pointer}
- #thebeAiDockPill .thebe-ai-pill-grip{
-  display:inline-flex;align-items:center;justify-content:center;
-  width:30px;height:34px;margin:-6px 0 -6px -7px;
-  font-size:22px;line-height:1;color:#c2d7f3;
-  cursor:grab;touch-action:none;
- }
- #thebeAiDockPill .thebe-ai-pill-grip:active{cursor:grabbing}
- #thebeAiDockPill .thebe-ai-pill-dot{margin-right:0;flex:none}
 }
