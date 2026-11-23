@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "purpose": "thebe-ai-mobile-qa-offline",
+  "status": "proposed-not-created",
+  "sourceSha": "4c22c606ac1aa9bcfaa0c7eda3ba60ef8c58c9f9",
+  "workerName": "bw-mobile-qa-staging",
+  "workersDev": false,
+  "previewUrls": false,
+  "routes": [],
+  "customDomains": [],
+  "bindings": [],
+  "networkAccess": false,
+  "authentication": false,
+  "syntheticOnly": true,
+  "productionDeploy": false,
+  "paymentActivation": false,
+  "databaseMigration": false,
+  "generalAiProviderCalls": false,
+  "publicApkDistribution": false,
+  "ownerApprovalRequired": true,
+  "independentReviewRequired": true
+}
