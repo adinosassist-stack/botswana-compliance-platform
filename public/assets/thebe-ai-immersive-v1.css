@@ -2,8 +2,9 @@
    Uses the existing authenticated voice/audio events; never simulates audio. */
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])){
   /* Do not claim the compact/spatial CSS passed its health check. */
-  background:radial-gradient(ellipse 65% 46% at 50% 100%,#103a6a 0%,#07182f 58%,#03050e 100%)!important;
-  color:#f5f7ff!important;color-scheme:dark!important;
+  background:linear-gradient(to top,#84b5e6 0%,#14569a 9%,#071c38 22%,#000 40%)!important;
+  border:0!important;outline:0!important;box-shadow:none!important;box-sizing:border-box!important;
+  color:#f5f7ff!important;color-scheme:dark!important;font-family:system-ui,sans-serif!important;
 }
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"]))>.thebe-ai-dock-head{
   background:transparent!important;border:0!important;padding: max(12px,env(safe-area-inset-top)) clamp(14px,3vw,32px) 0!important;
@@ -20,16 +21,16 @@
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) :is(.thebe-ai-context-bar,.thebe-ai-mode-rail,.thebe-ai-quick,.thebe-ai-eyebrow,.thebe-ai-voice-label,.thebe-ai-voice-sub,.thebe-ai-voice-mount,.thebe-ai-mission,.thebe-ai-live-transcript,.thebe-ai-foot){display:none!important}
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-ai-voice-card{
   display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;
-  width:100%!important;max-width:none!important;min-height:min(59dvh,540px)!important;
+  width:100%!important;max-width:none!important;min-height:min(69dvh,620px)!important;
   border:0!important;border-radius:0!important;background:transparent!important;
   margin:0!important;padding:12px 0 22px!important;gap:0!important;flex:none!important;
 }
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-ai-orb-button{
   display:grid!important;place-items:center!important;
-  width:clamp(184px,29vmin,252px)!important;height:clamp(184px,29vmin,252px)!important;
+  width:clamp(128px,43vmin,240px)!important;height:auto!important;aspect-ratio:1;flex-shrink:0!important;
   min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;
   border:0!important;border-radius:50%!important;background:transparent!important;
-  overflow:visible!important;box-shadow:none!important;margin:0 auto 20px!important;padding:0!important;
+  overflow:visible!important;box-shadow:none!important;margin:0 auto clamp(16px,7dvh,64px)!important;padding:0!important;
 }
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-particle-orb{
   display:block!important;width:100%!important;height:100%!important;background:transparent!important;
@@ -43,29 +44,27 @@
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-aura-ribbon{
   display:block!important;width:100%;height:100%;overflow:visible;
   transform:scale(var(--thebe-audio-scale,1));
-  filter:drop-shadow(0 0 var(--thebe-audio-blur,14px) rgba(47,132,255,.8));
-  transform-origin:center;transition:transform .09s linear,filter .09s linear;
+  filter:drop-shadow(9px 0 11px #267aff8c) drop-shadow(17px -5px 21px #0864e447);
+  transform-origin:center;transition:transform .12s ease-out;
 }
-:is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-aura-curve{
-  stroke-dasharray:400 90;animation:thebe-aura-light-flow 8s linear infinite;
+#thebeAiDock .thebe-aura-surface{
+  transform-origin:120px 120px;
+  transform:rotate(var(--thebe-aura-tilt,0deg));
+  transition:transform .15s ease-out;
+  opacity:calc(.91 + .09 * var(--thebe-aura-energy,0));
 }
-:is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) [data-phase="listening"] .thebe-aura-curve{
-  animation-duration:3.4s;stroke-width:4px;
-}
-:is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) [data-phase="speaking"] .thebe-aura-curve{
-  animation-duration:2s;stroke-width:4.5px;
-}
-:is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) [data-phase="thinking"] .thebe-aura-ribbon{filter:drop-shadow(0 0 22px rgba(112,126,250,.85))}
-@keyframes thebe-aura-light-flow{to{stroke-dashoffset:-490}}
+#thebeAiDock [data-phase="thinking"] .thebe-aura-surface{animation:thebe-aura-light-flow 2.4s ease-in-out infinite}
+#thebeAiDock :is([data-phase="listening"],[data-phase="speaking"]) .thebe-aura-ribbon{filter:drop-shadow(9px 0 16px #398dffb0)}
+@keyframes thebe-aura-light-flow{0%,100%{opacity:.74}50%{opacity:1}}
 #thebeAiDock .thebe-aura-welcome{display:none}
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-aura-welcome{
-  display:grid!important;gap:14px;text-align:center;justify-items:center;color:#f6f8ff;
+  display:grid!important;gap:clamp(8px,2.8dvh,24px);text-align:center;justify-items:center;color:#f6f8ff;
 }
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-aura-hello{
-  margin:0;color:#b5bdd1;font-size:clamp(17px,3.7vw,24px);font-weight:400;
+  margin:0;color:#b5bdd1;font-size:clamp(14px,4.2vw,22px);font-weight:400;
 }
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-aura-question{
-  margin:0;max-width:520px;font-weight:650;font-size:clamp(28px,6.7vw,48px);
+  margin:0;max-width:14ch;font-weight:550;font-size:clamp(26px,8vw,48px);color:#f6f8ff!important;
   line-height:1.13;letter-spacing:-.045em;text-wrap:balance;
 }
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"]))[data-conversation="true"] .thebe-aura-welcome{display:none!important}
@@ -85,27 +84,27 @@
   width:100%!important;max-width:none!important;background:#111c32!important;color:#f0f6ff!important;
   font-size:14px!important;line-height:1.65!important;box-shadow:none!important;padding:15px 18px!important;
 }
-:is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"]))[data-conversation="false"] .thebe-ai-response{display:none!important}
+:is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"]))[data-conversation="false"] .thebe-ai-response:not([data-state="error"]){display:none!important}
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-ai-voice-chat-activity{
   background:#101b31!important;border-color:#304c75!important;border-radius:20px!important;
   padding:15px 18px!important;gap:12px!important;
 }
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"]))>.thebe-ai-compose{
-  flex:0 0 auto!important;width:min(calc(100% - 32px),720px)!important;max-width:720px!important;
+  flex:0 0 auto!important;width:min(90%,720px)!important;max-width:720px!important;
   align-self:center!important;min-width:0!important;margin:0 auto max(14px,env(safe-area-inset-bottom))!important;
-  padding:9px 12px!important;border:1px solid rgba(147,196,255,.42)!important;
-  border-radius:999px!important;background:rgba(44,108,179,.49)!important;
+  padding:9px 12px!important;border:1px solid rgba(222,238,255,.39)!important;
+  border-radius:999px!important;background:linear-gradient(180deg,#193f6b38,#cceaff32)!important;
   box-shadow:0 0 30px rgba(54,149,255,.18), inset 0 -12px 25px rgba(108,173,241,.12)!important;
   backdrop-filter:blur(14px)!important;display:flex!important;gap:8px!important;
 }
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"]))>.thebe-ai-compose textarea{
   background:transparent!important;color:#f8faff!important;border:0!important;outline:0!important;
-  min-width:0!important;box-shadow:none!important;font-size:17px!important;
+  min-width:0!important;box-shadow:none!important;font:inherit!important;font-size:17px!important;
 }
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"]))>.thebe-ai-compose textarea::placeholder{color:#dae5f3!important}
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"]))>.thebe-ai-compose :is(button,.thebe-ai-composer-action){
   border:0!important;border-radius:50%!important;background:transparent!important;color:#f8fbff!important;
-  flex-shrink:0!important;min-width:38px!important;min-height:38px!important;width:38px!important;height:38px!important;
+  flex-shrink:0!important;min-width:44px!important;min-height:44px!important;width:44px!important;height:44px!important;
 }
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"]))>.thebe-ai-compose :is(button,.thebe-ai-composer-action):focus-visible{outline:2px solid #c5e6ff!important;outline-offset:2px!important}
 #thebeAiDock .thebe-aura-mute,#thebeAiDock .thebe-aura-end{display:none}
@@ -147,10 +146,10 @@ html body.thebe-voice-active dialog#thebeVoiceScreen[open] #thebeVoiceMiniContro
 }
 
 @media(max-width:600px){
-  :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-ai-voice-card{min-height:min(55dvh,440px)!important}
+  :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-ai-voice-card{min-height:min(68dvh,540px)!important}
   :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"]))>.thebe-ai-dock-scroll{padding-bottom:16px!important}
   :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"]))>.thebe-ai-compose{
-    width:calc(100% - 24px)!important;padding:7px 8px!important;margin-bottom:max(10px,env(safe-area-inset-bottom))!important;
+    width:90%!important;padding:6px 8px!important;margin-bottom:max(18px,env(safe-area-inset-bottom))!important;
   }
   html body.thebe-voice-active #thebeAiDock .thebe-aura-end{font-size:0!important;min-width:38px!important;padding:0 8px!important}
   html body.thebe-voice-active #thebeAiDock .thebe-aura-end:after{content:"End";font-size:11px}
@@ -160,10 +159,34 @@ html body.thebe-voice-active dialog#thebeVoiceScreen[open] #thebeVoiceMiniContro
   :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"]))[data-conversation="true"] .thebe-ai-voice-card{min-height:110px!important}
 }
 @media(prefers-reduced-motion:reduce){
-  :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-aura-curve{animation:none!important}
+  :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-aura-surface{animation:none!important;transition:none!important;transform:none!important;opacity:1!important}
   :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-aura-ribbon{transition:none!important;transform:none!important}
 }
 
 /* Keep accessible controls reachable on 320px devices during a live session. */
-html body.thebe-voice-active #thebeAiDock :is(.thebe-ai-clear,.thebe-ai-expand,.thebe-ai-minimize){display:none!important}
+html body.thebe-voice-active #thebeAiDock:not([data-css-recovery="1"]) :is(.thebe-ai-clear,.thebe-ai-expand,.thebe-ai-minimize){display:none!important}
 html body.thebe-voice-active #thebeAiDock .thebe-ai-head-actions{gap:5px!important;flex-shrink:0!important}
+
+/* Single voice surface when the healthy immersive dock is visible. Retain the legacy dialog for recovery or absent dock. */
+html body.thebe-voice-active:has(#thebeAiDock.thebe-ai-dock:not([hidden]):not([data-css-recovery="1"])) dialog#thebeVoiceScreen[open]{display:none!important}
+html body.thebe-voice-active #thebeAiDock:not([data-css-recovery="1"]) .thebe-ai-head-actions{flex-wrap:wrap!important;max-width:100%;min-width:0}
+html body.thebe-voice-active #thebeAiDock:not([data-css-recovery="1"]) .thebe-ai-voice-label{display:block!important;color:#b5bdd1!important;text-align:center;overflow-wrap:anywhere}
+html body.thebe-voice-active #thebeAiDock:not([data-css-recovery="1"]) .thebe-ai-live-transcript:not([hidden]){display:block!important;max-width:100%;overflow-wrap:anywhere;color:#eef3ff!important}
+
+/* Keep the composer visible while the welcome and conversation scroll. */
+:is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"]))>.thebe-ai-compose{
+  box-sizing:border-box!important;
+}
+:is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"]))[data-conversation="false"] .thebe-ai-find{display:none!important}
+@media(max-width:380px){
+  html body.thebe-voice-active #thebeAiDock:not([data-css-recovery="1"]) .thebe-ai-head-actions{gap:4px!important}
+}
+@media(max-height:480px){
+  :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-ai-voice-card{min-height:0!important}
+}
+
+:is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"]))::before{display:none!important}
+:is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) :is(.thebe-aura-welcome,.thebe-ai-compose){font-family:system-ui,sans-serif!important}
+:is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-ai-compose-hint{display:none!important}
+:is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) >.thebe-ai-compose:has(textarea:focus-visible){outline:2px solid #d9efff!important;outline-offset:3px}
+:is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) >.thebe-ai-compose textarea:focus-visible{outline:0!important}
