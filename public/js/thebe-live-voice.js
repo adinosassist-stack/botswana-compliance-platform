@@ -1943,7 +1943,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     pill.id="thebeAiDockPill";pill.type="button";pill.hidden=true;
     pill.setAttribute("aria-controls","thebeAiDock");
     pillLabel=el("span","thebe-ai-pill-label","Thebe");
-    pill.append(el("span","thebe-ai-pill-dot"),pillLabel);
+    pill.append(el("span","thebe-ai-pill-grip","⠿"),el("span","thebe-ai-pill-dot"),pillLabel);
     // #2813: movable compact AI pill; movement never opens chat.
     // Keep the persisted coordinates local to this browser/device.
     let pillDrag=null, pillSuppressClick=false;
@@ -1985,9 +1985,9 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
         y:(p.top-b.top)/Math.max(1,b.bottom-b.top)
       }));}catch(_){/* private browsing */}
     };
-    pill.setAttribute("aria-label","Open Thebe AI. Drag to reposition; Alt plus arrow keys moves the pill.");
+    pill.setAttribute("aria-label","Open Thebe AI. Drag the grip to reposition; Alt plus arrow keys moves the pill.");
     pill.addEventListener("pointerdown",event=>{
-      if(event.button!==0)return;
+      if(event.button!==0||!event.target.closest?.(".thebe-ai-pill-grip"))return;
       const r=pill.getBoundingClientRect();
       pillDrag={id:event.pointerId,x:event.clientX,y:event.clientY,left:r.left,top:r.top,moved:false};
       pill.setPointerCapture?.(event.pointerId);
