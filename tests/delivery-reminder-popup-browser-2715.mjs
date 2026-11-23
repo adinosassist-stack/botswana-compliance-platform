@@ -230,5 +230,74 @@ try{
    }
   }finally{await page.close()}
  }
+ // Authenticated SPA company switching must clear old reminders immediately
+ // and ignore a slow response that began before the company changed. Never
+ // substitute synthetic fixture evidence for actual signed-in acceptance.
+ {
+  const scenarioHTML=html
+   .replace('<main id="dailyreports"></main>',
+    '<select id="companySelect"><option value="company-A">Company A</option><option value="company-B">Company B</option></select><main id="dailyreports"></main>')
+   .replace('<script>'+runtime+'</script>',
+    '<script>let currentUser={id:"synthetic-owner-A",tenantId:"synthetic-tenant-A"};</script><script>'+runtime+'</script>');
+  const page=await browser.newPage({viewport:{width:375,height:667}});
+  try{
+   await page.addInitScript(()=>{
+    window.__holdCompanyA=false;window.__denyNext=false;window.__oldRequestResolve=null;
+    window.__requestCompanies=[];
+    const responseFor=company=>({deliveryReminders:[{
+     sourceReportId:'TEST-'+company,locationId:'synthetic-'+company,
+     employeeId:'synthetic-worker',jobType:'delivery',
+     jobReference:'PRIVATE-'+company,scheduledDate:'2026-11-24',
+     locationName:'Fake '+company,employeeName:'Synthetic',daysUntil:1
+    }]});
+    window.__oldResponseFor=responseFor;
+    window.BW={api:{createClient:()=>({request:()=>{
+     const company=document.getElementById('companySelect')?.value||'company-A';
+     window.__requestCompanies.push(company);
+     if(window.__holdCompanyA&&company==='company-A')
+      return new Promise(resolve=>{window.__oldRequestResolve=()=>resolve(responseFor(company))});
+     if(window.__denyNext)return Promise.reject(Object.assign(Error('Synthetic auth denied'),{status:401}));
+     return Promise.resolve(responseFor(company));
+    }})}};
+   });
+   await page.route('http://reminder-fixture.test/**',route=>route.fulfill({contentType:'text/html',body:scenarioHTML}));
+   await page.goto('http://reminder-fixture.test/',{waitUntil:'load'});
+   await page.waitForFunction(()=>document.getElementById('thebeDeliveryWorkspace')?.textContent?.includes('PRIVATE-company-A'));
+   const bell=page.locator('#thebeDeliveryManagerBell');
+   await bell.click();
+   assert(await page.locator('#thebeDeliveryManagerPopup').isVisible());
+   await page.evaluate(()=>{
+    window.__holdCompanyA=true;
+    document.dispatchEvent(new Event('visibilitychange'));
+   });
+   await page.waitForFunction(()=>typeof window.__oldRequestResolve==='function');
+   await page.selectOption('#companySelect','company-B');
+   await page.waitForFunction(()=>document.getElementById('thebeDeliveryWorkspace')?.textContent?.includes('PRIVATE-company-B'));
+   assert.equal(await page.locator('body').innerText().then(x=>x.includes('PRIVATE-company-A')),false,
+    'Previous company reminder must disappear from the DOM on selection');
+   await page.evaluate(()=>window.__oldRequestResolve());
+   await page.waitForTimeout(30);
+   assert.equal(await page.locator('body').innerText().then(x=>x.includes('PRIVATE-company-A')),false,
+    'Late old-company response must not restore a stale reminder');
+   assert.match(await page.locator('#thebeDeliveryWorkspace').innerText(),/PRIVATE-company-B/);
+   // A new signed-in identity can arrive without reloading the SPA. Fail
+   // closed when its fresh authenticated read fails, never reuse B's data.
+   await page.evaluate(()=>{
+    window.__denyNext=true;
+    currentUser={id:'synthetic-owner-2',tenantId:'synthetic-tenant-2'};
+    window.dispatchEvent(new Event('thebe:workspace-ready'));
+   });
+   await page.waitForFunction(()=>document.getElementById('thebeDeliveryWorkspace')===null);
+   assert.equal(await bell.isVisible(),false,'Identity switch with read denial hides reminder bell');
+   assert.equal(await page.evaluate(()=>document.body.classList.contains('thebe-delivery-sheet-open')),false,
+    'Cross-account invalidation restores mobile navigation state');
+   await page.evaluate(()=>{
+    window.__denyNext=false;
+    window.dispatchEvent(new Event('thebe:workspace-ready'));
+   });
+   await page.waitForFunction(()=>document.getElementById('thebeDeliveryWorkspace')?.textContent?.includes('PRIVATE-company-B'));
+   assert.equal(await page.evaluate(()=>window.__requestCompanies.includes('company-B')),true);
+  }finally{await page.close()}
+ }
  console.log('PASS #2715/#2778: 13 real-Chromium geometries including short/zoom plus 401/503 stale-DOM security tests; full-viewport sheet, restored nav, focus, pointer drag, reload persistence, keyboard reset, Dock/voice/nav occlusion');
 }finally{await browser.close()}
