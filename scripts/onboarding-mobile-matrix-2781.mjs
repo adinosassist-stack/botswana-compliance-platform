@@ -115,6 +115,13 @@ async function ownerMatrix(width,{approxZoom=false}={}){
     assert.equal(await guide.isVisible(),true);
     assert.equal(await page.locator('[data-onboarding-milestone]').count(),4);
     const overflow=await page.evaluate(()=>document.scrollingElement.scrollWidth-document.documentElement.clientWidth);
+    if(overflow>1){
+      const offenders=await page.evaluate(()=>[...document.querySelectorAll('*')].map(el=>{
+        const box=el.getBoundingClientRect();
+        return {tag:el.tagName,id:el.id,cls:typeof el.className==='string'?el.className.slice(0,50):'',right:Math.round(box.right),width:Math.round(box.width),text:(el.textContent||'').trim().slice(0,65)};
+      }).filter(v=>v.right>document.documentElement.clientWidth+1).slice(0,14));
+      console.error(JSON.stringify({effectiveWidth,overflow,offenders}));
+    }
     assert.ok(overflow<=1,'Horizontal overflow at CSS '+effectiveWidth+'px: '+overflow);
     for(const selector of ['#ownerJourneyRefresh','#ownerGuideQuotation','#ownerGuideInvoice']){
       const m=await metrics(page,selector);
