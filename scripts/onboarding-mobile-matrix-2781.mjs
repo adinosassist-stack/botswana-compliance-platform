@@ -36,7 +36,7 @@ const fixtureHTML=[
   '<main class="workspace" id="syntheticWorkspace">',
   '<div id="welcomeSetupBanner" hidden></div>',
   '</main><nav class="bottom-nav" aria-label="Synthetic bottom navigation">',
-  '<span>Home</span><span>Business</span><span>More</span></nav>',
+  '<span>Home</span><span>Work</span><span>More</span></nav>',
   '<button class="dock" type="button" aria-label="Synthetic AI Dock">AI</button>',
   '</body></html>'
 ].join('');
