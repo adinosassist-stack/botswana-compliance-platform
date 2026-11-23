@@ -26,6 +26,7 @@ test("movable pill stays within viewport and stores only normalized coordinates"
 test("notification sheet is content-sized with inner scrolling and accessible actions",()=>{
   assert.match(notices,/height:max-content!important/);
   assert.match(notices,/bottom:auto!important/);
+  assert.match(notices,/100dvh - 128px - env\\(safe-area-inset-bottom/);
   assert.match(notices,/\.thebe-delivery-sheet-list\{flex:0 1 auto;min-height:0;overflow-y:auto\}/);
   assert.match(notices,/\.thebe-delivery-reminder-actions/);
   assert.match(notices,/\.thebe-delivery-manager-popup\[hidden\]\{display:none!important\}/);
