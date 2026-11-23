@@ -16,8 +16,11 @@ if [[ "$installed" != package:* ]]; then
   exit 1
 fi
 
-# Clear old AndroidRuntime logs before launching our own debug APK.
-adb logcat -c
+# Fresh emulators are isolated, but Android 8 / API 26 may refuse to clear
+# the 'main' log. Clearing is best-effort; reading crash logs below is NOT.
+if ! adb logcat -c >/dev/null 2>&1; then
+  printf 'WARN: emulator refused logcat clear; still checking AndroidRuntime crashes\n' >&2
+fi
 launch="$(adb shell am start -W -n 'com.thebedesk.ai/com.google.androidbrowserhelper.trusted.LauncherActivity' 2>&1 | tr -d '\r')"
 printf '%s\n' "$launch"
 if ! printf '%s\n' "$launch" | grep -Fq 'Status: ok'; then
@@ -26,8 +29,12 @@ if ! printf '%s\n' "$launch" | grep -Fq 'Status: ok'; then
 fi
 
 sleep 6
-adb logcat -d -v brief -s AndroidRuntime:E > "${RUNNER_TEMP:-/tmp}/thebe-androidruntime.log" || true
-if grep -A 8 'FATAL EXCEPTION' "${RUNNER_TEMP:-/tmp}/thebe-androidruntime.log" | grep -Fq 'Process: com.thebedesk.ai'; then
+log_file="${RUNNER_TEMP:-/tmp}/thebe-androidruntime.log"
+if ! adb logcat -d -v brief -s AndroidRuntime:E > "$log_file"; then
+  printf 'Unable to read AndroidRuntime crash logs; refusing to pass emulator smoke\n' >&2
+  exit 1
+fi
+if grep -A 8 'FATAL EXCEPTION' "$log_file" | grep -Fq 'Process: com.thebedesk.ai'; then
   printf 'Thebe AI process crashed during emulator launch:\n' >&2
   # The emulator contains no customer accounts. Print the bounded AndroidRuntime
   # exception instead of returning an opaque failure; keep private app data out.
