@@ -8,6 +8,16 @@ on:
       - "tests/thebe-ai-android-origin-trust.test.mjs"
       - "tests/thebe-ai-android-login-ui.test.mjs"
       - ".github/workflows/thebe-ai-android-check.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "android/thebe-ai/**"
+      - "tests/thebe-ai-android-source.test.mjs"
+      - "tests/thebe-ai-android-compatibility.test.mjs"
+      - "tests/thebe-ai-android-origin-trust.test.mjs"
+      - "tests/thebe-ai-android-login-ui.test.mjs"
+      - ".github/workflows/thebe-ai-android-check.yml"
   workflow_dispatch:
 
 permissions:
@@ -40,11 +50,20 @@ jobs:
         run: gradle --no-daemon --stacktrace :app:assembleDebug
       - name: Verify debug APK identity, Android signature and permissions
         run: bash android/thebe-ai/scripts/verify-debug-apk.sh
+      - name: Record exact-source debug APK provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="android/thebe-ai/app/build/outputs/apk/debug"
+          (cd "$output" && sha256sum -- *.apk > SHA256SUMS)
+          printf '%s\n' "$GITHUB_SHA" > "$output/SOURCE_SHA"
+          (cd "$output" && sha256sum -c SHA256SUMS)
       - name: Save private test artifact
         uses: actions/upload-artifact@v4
         with:
           name: thebe-ai-android-debug-not-for-release
-          path: android/thebe-ai/app/build/outputs/apk/debug/*.apk
+          path: android/thebe-ai/app/build/outputs/apk/debug/
+          if-no-files-found: error
           retention-days: 7
 
   emulator-install-smoke:
@@ -66,6 +85,13 @@ jobs:
         with:
           name: thebe-ai-android-debug-not-for-release
           path: android/thebe-ai/app/build/outputs/apk/debug
+      - name: Verify downloaded APK checksum and exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="android/thebe-ai/app/build/outputs/apk/debug"
+          test "$(cat "$output/SOURCE_SHA")" = "$GITHUB_SHA"
+          (cd "$output" && sha256sum -c SHA256SUMS)
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
