@@ -2066,7 +2066,7 @@ async function renderDeletionStatus(){
 }
 let creditCheckoutBusy=false;
 async function createAiCreditOrder(sku){
-if(currentWorkspaceRole()!=="owner"){notifyUser("Only the owner can buy AI credits.");return}
+if(currentWorkspaceRole()!=="owner"){notifyUser("Only the account owner can buy AI credit packs.");return}
 if(creditCheckoutBusy)return;
 const user=currentUser,box=document.getElementById("aiCreditPacks");
 creditCheckoutBusy=true;

@@ -22,7 +22,7 @@ const checks=[
  ["scheduled reconcile",w.includes("reconcilePendingPayments(env,25)")],
  ["refund provider call",w.includes("<Request>refundToken</Request>")&&w.includes("refundPreflight")],
  ["payments UI",h.includes('id="payments"')],
- ["ai checkout response",h.includes("r.pack.credits")&&h.includes("/api/payments/ai-credit-checkout")],
+ ["ai checkout response",h.includes("/api/payments/ai-credit-checkout")&&h.includes("renderManualBankCheckout(r,box)")],
  ["service payment wiring",h.includes("/api/payments/service-checkout")],
  ["subscription payment wiring",h.includes("/api/payments/subscription-checkout")]
 ];
