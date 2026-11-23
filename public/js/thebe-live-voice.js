@@ -661,7 +661,7 @@
     if(!dock||dock.hidden)return;
     // The immersive surface has its own responsive geometry. A stale compact
     // recovery pass must never replace it with an inline, !important panel.
-    if(dock.dataset.expanded==="true"||document.body.classList.contains("thebe-voice-active")){
+    if((dock.dataset.expanded==="true"||document.body.classList.contains("thebe-voice-active"))&&dock.dataset.cssRecovery!=="1"&&dock.dataset.geometryRecovery!=="20261003-emergency-dock-geometry-v269"){
       releaseDockRecoveryStyles();dock.dataset.cssRecovery="0";return;
     }
     if(getComputedStyle(dock).getPropertyValue("--thebe-spatial-dock").trim()==="1"){releaseDockRecoveryStyles();dock.dataset.cssRecovery="0";return}
