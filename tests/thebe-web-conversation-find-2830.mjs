@@ -22,13 +22,14 @@ try{
       <meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="margin:0">
       <section id="marketingGate" style="display:none" hidden></section>
       <section id="appShell"><h1 id="pageTitle">Workspace</h1>
+      <select id="companySelect" aria-label="Company"><option value="company-A">A</option><option value="company-B">B</option></select>
       <div class="view active" id="dashboard"></div></section></body></html>`});
     const local="public"+pathname;
     return fs.existsSync(local)?route.fulfill({path:local}):route.fulfill({status:404,body:""});
   });
   await page.addInitScript(()=>{
     window.currentWorkspaceRole=()=> "owner";
-    window.currentUser={firstName:"Tester"};
+    window.currentUser={id:"owner-A",tenantId:"tenant-A",role:"owner",firstName:"Tester"};
     window.advisorCalls=0;
     window.apiJson=async url=>url==="/api/ai/advisor"
       ?{answer:"Grounded test answer "+(++window.advisorCalls),references:[]}
@@ -96,6 +97,27 @@ try{
   assert.equal(await panel.isHidden(),true,"Clearing a chat closes search");
   assert.equal(await field.inputValue(),"","Clearing a chat removes the search phrase");
   assert.equal(await page.locator(".thebe-aura-turn").count(),0,"Clearing a chat removes in-memory turns");
+
+  // Company switching in one signed-in SPA must never carry private chat or
+  // a draft into the newly selected business. No real tenant is requested.
+  await page.evaluate(async()=>window.ThebeAiDock.ask("Company A confidential quotation","ask"));
+  assert.equal(await page.locator(".thebe-aura-turn").count(),1);
+  await dock.locator("#thebeAiDockInput").fill("Sensitive unsent company A draft");
+  await page.selectOption("#companySelect","company-B");
+  assert.equal(await page.locator(".thebe-aura-turn").count(),0,"Switching business clears the previous company's chat");
+  assert.equal(await dock.locator("#thebeAiDockInput").inputValue(),"","Switching business clears an unsent draft");
+  assert.equal(await panel.isHidden(),true,"Switching business resets in-session search");
+  assert.equal(await dock.locator(".thebe-ai-find-current").count(),0);
+  assert.equal(await dock.locator("#thebeAiDockResponse").evaluate(x=>x.textContent.includes("Grounded test answer 3")),false,
+    "Switching business removes the previous business answer");
+  await page.evaluate(async()=>window.ThebeAiDock.ask("Company B private test","ask"));
+  assert.equal(await page.locator(".thebe-aura-turn").count(),1);
+  await page.evaluate(()=>{
+    window.currentUser={id:"owner-B",tenantId:"tenant-B",role:"owner",firstName:"Second"};
+    window.dispatchEvent(new Event("thebe:workspace-ready"));
+  });
+  assert.equal(await page.locator(".thebe-aura-turn").count(),0,"Changing authenticated identity resets the same-tab chat");
+  assert.equal(await dock.locator("#thebeAiDockInput").inputValue(),"");
   assert.deepEqual(errors,[],"The web Dock creates no browser page errors");
   console.log("THEBE_WEB_FIND_BROWSER_PASS: local search, current response, navigation, reset, responsive geometry");
 }finally{await browser.close()}
