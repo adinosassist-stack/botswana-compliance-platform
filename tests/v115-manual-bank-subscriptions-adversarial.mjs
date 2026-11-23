@@ -17,7 +17,7 @@ const checks=[
  ["one time fulfillment preserved",w.includes("applyVerifiedPaymentOrder(env,row.payment_order_id")&&w.includes("claimPaymentSettlement")],
  ["duplicate bank ref blocked",w.includes("bank_reference_already_used")&&s.includes("bank_reference TEXT NOT NULL UNIQUE")],
  ["pending order reused",w.includes("reused:true")&&w.includes("existing pending bank-transfer reference")],
- ["customer UI bank details",h.includes("Manual bank transfer")&&h.includes("I have paid")&&h.includes("manualBankReference")&&!h.includes("<b>Account name:</b>")&&h.includes("<b>Branch:</b>")&&h.includes("<b>SWIFT:</b>")],
+ ["customer UI bank details",h.includes("Manual bank transfer")&&h.includes("I have paid")&&h.includes("manualBankReference")&&!h.includes("<b>Account name:</b>")&&h.includes('["Branch",b.branchName]')&&h.includes('["SWIFT",b.swiftCode]')],
  ["approval warning",h.includes("Approve only after the matching funds are visible")&&h.includes("Verify & activate")],
  ["hosted subscription checkout removed",!h.includes("Preparing secure hosted checkout")&&!h.includes("Opening the configured hosted payment provider")],
  ["migration 050 retained under current release tip",Number(String(profile.latest_cloudflare_migration||"").slice(0,3))>=50&&m.includes("manual_payment_submissions")],

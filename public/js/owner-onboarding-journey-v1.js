@@ -47,7 +47,7 @@
     const header=make("div",{className:"between row",style:"align-items:flex-start;gap:12px;flex-wrap:wrap"});
     const copy=make("div",{style:"min-width:0"});
     copy.append(make("div",{className:"section-eyebrow",text:"Getting started"}),
-      make("h2",{id:"ownerJourneyTitle",text:"Your four setup milestones"}),
+      make("h2",{id:"ownerJourneyTitle",text:"Your four setup milestones",style:"overflow-wrap:anywhere"}),
       make("p",{className:"muted small",text:"Confirmed from your signed-in workspace. A saved check is not a legal compliance conclusion."}));
     header.append(copy);
     const refresh=make("button",{id:"ownerJourneyRefresh",className:"btn soft",text:"Refresh progress",style:"min-height:44px"});

@@ -11,6 +11,9 @@ on:
       - 'scripts/qualify-core-only-release.mjs'
       - 'scripts/verify-live-core-only-bindings.mjs'
       - 'tests/manual-bank-*.test.mjs'
+      - 'tests/ai-credit-*.test.mjs'
+      - 'public/js/workspace-runtime-20261001b.js'
+      - 'public/index.html'
       - 'tests/owner-payment-*.test.mjs'
       - 'tests/owner-bank-*.test.mjs'
       - 'tests/trusted-bank-settlement-gate.test.mjs'
@@ -54,6 +57,8 @@ jobs:
             tests/owner-bank-allocation-sqlite.test.mjs \
             tests/d1-bank-allocation-adapter-reference.test.mjs \
             tests/owner-bank-d1-staging-fixture.test.mjs \
+            tests/ai-credit-manual-payment-2843.test.mjs \
+            tests/ai-credit-checkout-ui-2843.test.mjs \
             tests/manual-bank-owner-approval-flow.test.mjs \
             tests/manual-bank-payment-queue-scope.test.mjs \
             tests/manual-bank-settlement-retry.test.mjs \
