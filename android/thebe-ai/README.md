@@ -1,6 +1,6 @@
 # Thebe AI — Android tablet foundation
 
-**Status: source-only prototype. Not signed, installed, tested on a real device, released, or enabled in production.**
+**Status: internal Android prototype. A debug-signed APK was compiled in CI. It is not release-signed, not tested on physical devices, not publicly released, and not deployed as a new production service.**
 
 This is an independent Android Studio project for **Thebe AI Tablet Edition**, initially using a **Trusted Web Activity (TWA)** to reuse the existing authenticated Thebe Desk workspace at `https://thebedesk.com/app/`.
 
@@ -32,7 +32,7 @@ This project already includes the *app-to-site* statement (the reverse declarati
 
 ## Acceptance before anyone calls it an installable product
 
-- CI passes for the exact PR head: `gradle :app:assembleDebug` and `node --test tests/thebe-ai-android-source.test.mjs`.
+- CI passes for the exact PR head: `gradle :app:assembleDebug`, `node --test tests/thebe-ai-android-source.test.mjs`, built APK identity/signature inspection, and an Android emulator install/launch smoke. Emulator success is **not** physical-device acceptance.
 - Independently reviewed by `thusico`; no approval bypass, main merge or deployment by this PR alone.
 - Android tablets at 320/375/414/430 CSS-pixel-equivalent and 768px layouts: portrait, landscape, keyboard, zoom, navigation, login/logout, microphone permission, chat/voice availability and fail-closed error handling.
 - Resolve the existing notification/AI Dock overlap and clipping acceptance work on real Android hardware; do not mark tests passed based on browser emulation alone.
