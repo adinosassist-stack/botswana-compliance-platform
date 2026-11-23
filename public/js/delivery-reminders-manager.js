@@ -313,6 +313,9 @@ function clearRemindersAfterReadFailure(){
   bell.setAttribute("aria-expanded","false");
  }
  byId("thebeDeliveryWorkspace")?.remove();
+ // The sheet was dismissed without setPopupOpen(): also release the mobile
+ // foreground-sheet state so the bottom rail is not left hidden after a 401/503.
+ syncReminderViewport();
 }
 async function load(){
   if(loading||document.hidden)return;
