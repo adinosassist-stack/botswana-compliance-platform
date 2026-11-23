@@ -1956,21 +1956,26 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       }
       defs.append(gradient);
     });
+    // Continuous spherical silhouette and translucent filled ribbon surfaces.
+    const svgNode=(tag,attrs,parent)=>{
+      const node=document.createElementNS(svgNS,tag);
+      for(const [key,value] of Object.entries(attrs))node.setAttribute(key,String(value));
+      parent.append(node);return node;
+    };
+    const sphereGradient=svgNode("radialGradient",{id:"thebeAuraSphere",cx:"76%",cy:"43%",r:"78%"},defs);
+    for(const [offset,color] of [["0%","#142c70"],["48%","#071633"],["78%","#020819"],["100%","#12428c"]])svgNode("stop",{offset,"stop-color":color},sphereGradient);
+    const silk=svgNode("linearGradient",{id:"thebeAuraSilk",x1:"15%",y1:"90%",x2:"90%",y2:"20%"},defs);
+    for(const [offset,color,opacity] of [["0%","#6554ff",.5],["35%","#1037ac",.18],["72%","#36bfff",.65],["92%","#bafaff",.96],["100%","#2676ef",.35]])svgNode("stop",{offset,"stop-color":color,"stop-opacity":opacity},silk);
+    const clip=svgNode("clipPath",{id:"thebeAuraSphereClip"},defs);
+    svgNode("circle",{cx:120,cy:120,r:92},clip);
     ribbon.append(defs);
-    const paths=[
-      ["M 58 192 C 16 159 22 87 70 48 C 106 18 162 26 186 60 C 216 103 189 143 153 161 C 116 181 83 187 58 192",0,3.4],
-      ["M 48 172 C 79 211 149 203 189 165 C 228 127 210 70 174 46 C 132 13 94 39 78 62",1,2.8],
-      ["M 34 143 C 70 105 122 141 166 100 C 199 68 194 48 177 38",2,2.2],
-      ["M 57 192 C 100 165 137 180 173 148 C 212 114 204 75 174 47",1,2]
-    ];
-    for(const [d,gradient,width] of paths){
-      const path=document.createElementNS(svgNS,"path");
-      path.setAttribute("d",d);path.setAttribute("fill","none");
-      path.setAttribute("stroke","url(#thebeAuraStroke"+gradient+")");
-      path.setAttribute("stroke-width",String(width));
-      path.setAttribute("stroke-linecap","round");path.setAttribute("class","thebe-aura-curve");
-      ribbon.append(path);
-    }
+    svgNode("circle",{cx:120,cy:120,r:92,fill:"url(#thebeAuraSphere)",stroke:"url(#thebeAuraStroke0)","stroke-width":1.3},ribbon);
+    const surface=svgNode("g",{"clip-path":"url(#thebeAuraSphereClip)",class:"thebe-aura-surface"},ribbon);
+    svgNode("path",{d:"M 69 198 C 44 174 106 158 155 133 C 206 107 206 61 151 31 C 215 44 238 117 198 159 C 163 195 99 170 69 198 Z",fill:"url(#thebeAuraSilk)"},surface);
+    svgNode("path",{d:"M 40 83 C 77 28 147 39 165 54 C 132 42 116 91 76 92 C 58 92 46 97 33 114 Z",fill:"url(#thebeAuraSilk)",opacity:.28},surface);
+    svgNode("path",{d:"M 78 203 C 49 175 117 167 165 145 C 208 124 217 85 182 51 C 235 96 208 153 174 168 C 132 185 93 178 78 203 Z",fill:"url(#thebeAuraSilk)",opacity:.7},surface);
+    svgNode("path",{d:"M 69 198 C 44 174 106 158 155 133 C 206 107 206 61 151 31",fill:"none",stroke:"url(#thebeAuraStroke0)","stroke-width":1.4,class:"thebe-aura-curve"},surface);
+    svgNode("path",{d:"M 78 203 C 49 175 117 167 165 145 C 208 124 217 85 182 51",fill:"none",stroke:"url(#thebeAuraStroke1)","stroke-width":1.2,class:"thebe-aura-curve"},surface);
     orb.append(wave,core);
     orb.append(ribbon);
     orbButton.append(orb);
