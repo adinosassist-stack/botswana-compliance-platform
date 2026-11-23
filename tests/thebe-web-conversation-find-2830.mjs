@@ -22,13 +22,14 @@ try{
       <meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="margin:0">
       <section id="marketingGate" style="display:none" hidden></section>
       <section id="appShell"><h1 id="pageTitle">Workspace</h1>
+      <select id="companySelect" aria-label="Company"><option value="company-A">A</option><option value="company-B">B</option></select>
       <div class="view active" id="dashboard"></div></section></body></html>`});
     const local="public"+pathname;
     return fs.existsSync(local)?route.fulfill({path:local}):route.fulfill({status:404,body:""});
   });
   await page.addInitScript(()=>{
     window.currentWorkspaceRole=()=> "owner";
-    window.currentUser={firstName:"Tester"};
+    window.currentUser={id:"owner-A",tenantId:"tenant-A",role:"owner",firstName:"Tester"};
     window.advisorCalls=0;
     window.apiJson=async url=>url==="/api/ai/advisor"
       ?{answer:"Grounded test answer "+(++window.advisorCalls),references:[]}
@@ -37,6 +38,9 @@ try{
   });
   await page.goto("http://thebe-find.test/");
   await page.addStyleTag({path:path.resolve("public/assets/thebe-ai-dock.css")});
+  // Match the authenticated web workspace runtime's top-level lexical 'let',
+  // which is not a window property. The Dock must prefer it to stale fallback.
+  await page.addScriptTag({content:'let currentUser={id:"owner-A",tenantId:"tenant-A",role:"owner",firstName:"Real shell"};'});
   await page.addScriptTag({path:path.resolve("public/js/thebe-live-voice.js")});
   await page.evaluate(()=>window.ThebeAiDock.open());
   const dock=page.locator("#thebeAiDock");
@@ -56,15 +60,21 @@ try{
   await field.press("Enter");
   assert.equal(await panel.locator(".thebe-ai-find-status").innerText(),"1 of 1 matching messages");
   assert.equal(await page.evaluate(()=>document.activeElement?.dataset?.role),"user");
+  assert.equal(await dock.locator(".thebe-ai-find-current").count(),1,"The current matching message is visibly identified");
+  assert.equal(await dock.locator(".thebe-ai-find").evaluate(el=>getComputedStyle(el).position),"sticky","Search controls stay in the scroll viewport");
   await field.fill("Grounded test answer 2");
   await panel.locator(".thebe-ai-find-next").click();
   assert.equal(await page.evaluate(()=>document.activeElement?.id),"thebeAiDockResponse","Current response is searchable");
+  assert.equal(await dock.locator(".thebe-ai-find-current").count(),1,"Only one matching message is highlighted");
+  assert.equal(await dock.locator("#thebeAiDockResponse.thebe-ai-find-current").count(),1,"The current answer can be the active search result");
   await field.fill("no-such-message");
+  assert.equal(await dock.locator(".thebe-ai-find-current").count(),0,"A changed query clears the old match highlight");
   assert.equal(await panel.locator(".thebe-ai-find-status").innerText(),"No matching messages");
   assert(await panel.locator(".thebe-ai-find-next").isDisabled(),"Empty results have no navigation");
   await field.press("Escape");
   assert.equal(await panel.isHidden(),true);
   assert.equal(await toggle.getAttribute("aria-expanded"),"false");
+  assert.equal(await dock.locator(".thebe-ai-find-current").count(),0,"Closing search removes temporary highlights");
 
   // Search is local UI-only. There is no assistant request or persisted search text.
   assert.equal(await page.evaluate(()=>window.advisorCalls),2);
@@ -90,6 +100,29 @@ try{
   assert.equal(await panel.isHidden(),true,"Clearing a chat closes search");
   assert.equal(await field.inputValue(),"","Clearing a chat removes the search phrase");
   assert.equal(await page.locator(".thebe-aura-turn").count(),0,"Clearing a chat removes in-memory turns");
+
+  // Company switching in one signed-in SPA must never carry private chat or
+  // a draft into the newly selected business. No real tenant is requested.
+  await page.evaluate(async()=>window.ThebeAiDock.ask("Company A confidential quotation","ask"));
+  assert.equal(await page.locator(".thebe-aura-turn").count(),1);
+  await dock.locator("#thebeAiDockInput").fill("Sensitive unsent company A draft");
+  await page.selectOption("#companySelect","company-B");
+  assert.equal(await page.locator(".thebe-aura-turn").count(),0,"Switching business clears the previous company's chat");
+  assert.equal(await dock.locator("#thebeAiDockInput").inputValue(),"","Switching business clears an unsent draft");
+  assert.equal(await panel.isHidden(),true,"Switching business resets in-session search");
+  assert.equal(await dock.locator(".thebe-ai-find-current").count(),0);
+  assert.equal(await dock.locator("#thebeAiDockResponse").evaluate(x=>x.textContent.includes("Grounded test answer 3")),false,
+    "Switching business removes the previous business answer");
+  await page.evaluate(async()=>window.ThebeAiDock.ask("Company B private test","ask"));
+  assert.equal(await page.locator(".thebe-aura-turn").count(),1);
+  await page.evaluate(()=>{
+    // Deliberately leave window.currentUser as owner-A: the real runtime's
+    // mutable global lexical binding is authoritative for this UI boundary.
+    currentUser={id:"owner-B",tenantId:"tenant-B",role:"owner",firstName:"Second"};
+    window.dispatchEvent(new Event("thebe:workspace-ready"));
+  });
+  assert.equal(await page.locator(".thebe-aura-turn").count(),0,"Changing authenticated global lexical identity resets the same-tab chat");
+  assert.equal(await dock.locator("#thebeAiDockInput").inputValue(),"");
   assert.deepEqual(errors,[],"The web Dock creates no browser page errors");
   console.log("THEBE_WEB_FIND_BROWSER_PASS: local search, current response, navigation, reset, responsive geometry");
 }finally{await browser.close()}

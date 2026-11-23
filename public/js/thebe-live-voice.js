@@ -1003,7 +1003,25 @@
     dock.style.setProperty("--thebe-workspace-left",left);
     pill?.style.setProperty("--thebe-workspace-left",left);
   }
-  let lastDockMobileMode=null;
+  let lastDockMobileMode=null, lastWorkspaceScope=null;
+  function currentWorkspaceScope(){
+    // The authenticated workspace runtime declares top-level 'let currentUser',
+    // which is a global lexical binding, not necessarily window.currentUser.
+    // Read that owner-validated identity first; keep a window fallback for
+    // independently loaded/public shells and the existing browser fixtures.
+    let user=null;
+    try{
+      if(typeof currentUser!=="undefined"&&currentUser&&typeof currentUser==="object")
+        user=currentUser;
+    }catch{}
+    if(!user)user=global.currentUser||{};
+    // UI-only scope: never send/store this key. No cross-tenant reuse of chat.
+    const part=value=>String(value??"").trim().slice(0,160);
+    return JSON.stringify([
+      part(user.id),part(user.tenantId),part(commandCentreRole()),
+      part(document.getElementById("companySelect")?.value)
+    ]);
+  }
   function syncVisibility(){
     if(!dock||!pill)return;
     const mobile=mobileDockMode();
@@ -1033,7 +1051,19 @@
     document.body.classList.toggle("thebe-ai-mobile-open",mobile&&visible&&!isCollapsed);
     dock.dataset.surface=surface;
     pill.dataset.surface=surface;
-    if(!workspace&&(dock.dataset.workspaceVisible==="1"||pendingFiles.length)){clearConversation()}
+    // Prevent in-memory chat, draft, search and live voice from crossing
+    // a signed-in identity or selected company boundary in a single SPA tab.
+    if(workspace){
+      const scope=currentWorkspaceScope();
+      if(lastWorkspaceScope!==null&&lastWorkspaceScope!==scope){
+        closeVoiceScreen(true);
+        clearConversation();
+      }
+      lastWorkspaceScope=scope;
+    }else{
+      lastWorkspaceScope=null;
+      if(dock.dataset.workspaceVisible==="1"||pendingFiles.length)clearConversation();
+    }
     syncComposerState();
     syncWorkspaceVisualInvariants();
     dock.dataset.workspaceVisible=workspace?"1":"0";
@@ -2029,7 +2059,12 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const findInputRow=el("div","thebe-ai-find-input-row");
     findInputRow.append(findInput,findPrevious,findNext,findClose);
     findPanel.append(findInputRow,findStatus);findWrap.append(findToggle,findPanel);
-    let findIndex=-1,findTargets=[];
+    let findIndex=-1,findTargets=[],findHighlighted=null;
+    // Keep the selected match visible without replacing text or injecting HTML.
+    const clearFindHighlight=()=>{
+      findHighlighted?.classList.remove("thebe-ai-find-current");
+      findHighlighted=null;
+    };
     const findMatches=()=>{
       const needle=findInput.value.trim().toLocaleLowerCase();
       if(!needle)return [];
@@ -2045,6 +2080,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       findTargets=findMatches();
       findIndex=current?findTargets.indexOf(current):-1;
       if(!findTargets.length)findIndex=-1;
+      if(findHighlighted&&!findTargets.includes(findHighlighted))clearFindHighlight();
       findPrevious.disabled=findNext.disabled=!findTargets.length;
       findStatus.textContent=!findInput.value.trim()?"Enter a word to search this chat":
         !findTargets.length?"No matching messages":
@@ -2056,12 +2092,16 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       const start=findIndex<0?(direction>0?-1:0):findIndex;
       findIndex=(start+direction+findTargets.length)%findTargets.length;
       const target=findTargets[findIndex];
+      clearFindHighlight();
+      findHighlighted=target;
+      target.classList.add("thebe-ai-find-current");
       target.tabIndex=-1;
       target.scrollIntoView({block:"center",behavior:"auto"});
       target.focus({preventScroll:true});
       findStatus.textContent=`${findIndex+1} of ${findTargets.length} matching messages`;
     };
     const closeFind=()=>{
+      clearFindHighlight();
       findPanel.hidden=true;findToggle.setAttribute("aria-expanded","false");
       findInput.value="";findTargets=[];findIndex=-1;
       findPrevious.disabled=findNext.disabled=true;
@@ -2069,6 +2109,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       findToggle.focus({preventScroll:true});
     };
     resetConversationFind=()=>{
+      clearFindHighlight();
       findInput.value="";findTargets=[];findIndex=-1;findPanel.hidden=true;
       findToggle.setAttribute("aria-expanded","false");
       findPrevious.disabled=findNext.disabled=true;
@@ -2080,6 +2121,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       syncConversationFind();findInput.focus({preventScroll:true});
     });
     findInput.addEventListener("input",()=>{
+      clearFindHighlight();
       findIndex=-1;findTargets=[];syncConversationFind();
     });
     findInput.addEventListener("keydown",event=>{
@@ -2365,6 +2407,9 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     global.addEventListener("pageshow",recoverVisibility,{passive:true});
     global.addEventListener("focus",recoverVisibility,{passive:true});
     global.addEventListener("thebe:workspace-ready",recoverVisibility);
+    document.addEventListener("change",event=>{
+      if(event.target?.id==="companySelect")recoverVisibility();
+    });
     if(typeof global.whenThebeWorkspaceReady==="function")global.whenThebeWorkspaceReady(recoverVisibility);
   }
 

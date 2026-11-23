@@ -2285,3 +2285,13 @@ html body dialog#thebeVoiceScreen[open] {
 @media(prefers-reduced-motion:reduce){
   #thebeAiDock .thebe-ai-find *{scroll-behavior:auto!important;transition:none!important;}
 }
+
+/* Web assistant search polish: controls stay reachable while chat scrolls.
+   The active match gets a neutral, temporary focus ring, never HTML markup. */
+#thebeAiDock .thebe-ai-find{
+  position:sticky;top:0;z-index:5;padding:5px 0 8px;
+  background:#111827;isolation:isolate;
+}
+#thebeAiDock :is(.thebe-aura-turn,.thebe-ai-response).thebe-ai-find-current{
+  outline:2px solid #bac7d6!important;outline-offset:-2px!important;
+}
