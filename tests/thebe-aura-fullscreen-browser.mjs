@@ -55,8 +55,8 @@ try {
   assert.equal(initial.greeting,'Hello Tester');
   assert(initial.ribbons>=4,'the orb includes luminous ribbon geometry');
   await page.evaluate(async()=>{
-    await ThebeAiDock.ask('ask','First question');
-    await ThebeAiDock.ask('ask','Second question');
+    await ThebeAiDock.ask('First question','ask');
+    await ThebeAiDock.ask('Second question','ask');
     dispatchEvent(new CustomEvent('thebe-live-event',{detail:{event:{type:'input_audio_buffer.speech_started'}}}));
     dispatchEvent(new CustomEvent('thebe-live-audio-level',{detail:{channel:'input',level:0.8}}));
   });
