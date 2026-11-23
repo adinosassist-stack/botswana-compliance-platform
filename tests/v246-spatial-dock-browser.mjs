@@ -83,12 +83,14 @@ try{
  // Controlled status boundary: no live service or real microphone access.
  await page.evaluate(()=>{window.mediaRequests=0;window.apiJson=()=>new Promise(resolve=>window.resolveVoiceGate=resolve);navigator.mediaDevices.getUserMedia=async()=>{window.mediaRequests++;throw Error('unexpected microphone acquisition')}});
  await page.locator('.thebe-ai-orb-button').click();
- const screen=page.locator('#thebeVoiceScreen');assert(await screen.isVisible(),'voice activation opens dedicated screen');
+ const screen=page.locator('#thebeVoiceScreen');
+ const endVoice=page.getByRole('button',{name:'End voice conversation'});
+ await endVoice.waitFor({state:'visible'});
+ assert(await screen.isHidden(),'healthy immersive voice hides the fallback controller');
  if(process.env.THEBE_SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.THEBE_SCREENSHOT_DIR,'voice-fullscreen.png')});
- const rect=await screen.boundingBox();assert(rect.width<250&&rect.height<400,'voice remains a compact floating orb');
  assert(await page.locator('#thebeAiDockInput').isEditable(),'voice must not block the dock composer');
- await page.locator('.thebe-voice-float-toggle').click();
- await page.locator('.thebe-voice-exit').click();assert(!(await screen.isVisible()),'end voice closes floating controller');
+ await endVoice.click();
+ assert.equal(await screen.evaluate(el=>el.open),false,'end voice closes the voice session');
  await page.evaluate(()=>window.resolveVoiceGate({sessionCreationAllowed:true}));
  await page.waitForTimeout(30);assert.equal(await page.evaluate(()=>window.mediaRequests),0,'cancelled connection cannot acquire microphone');
  await page.evaluate(()=>{
