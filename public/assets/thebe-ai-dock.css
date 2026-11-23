@@ -2207,7 +2207,7 @@ html body dialog#thebeVoiceScreen[open] {
  min-height:42px;border:0;border-radius:999px;background:transparent;
  color:inherit;font:inherit;cursor:pointer;
 }
-#thebeAiDockPill .thebe-ai-pill-open{gap:5px;min-width:74px;padding:0 9px;white-space:nowrap}
+#thebeAiDockPill .thebe-ai-pill-open{gap:5px;min-width:132px;padding:0 9px;white-space:nowrap}
 #thebeAiDockPill .thebe-ai-pill-mic{width:38px;min-width:38px;color:#a9d0ff}
 #thebeAiDockPill .thebe-ai-pill-mic svg{width:18px;height:18px;display:block}
 #thebeAiDockPill .thebe-ai-pill-handle{
@@ -2227,6 +2227,12 @@ html body dialog#thebeVoiceScreen[open] {
  body.thebe-delivery-sheet-open #thebeAiDockPill{
   visibility:hidden!important;pointer-events:none!important
  }
+}
+@media(max-width:250px){
+ #thebeAiDockPill{gap:0;padding:2px;min-height:48px}
+ #thebeAiDockPill .thebe-ai-pill-open{min-width:44px;padding:0 3px;gap:0}
+ #thebeAiDockPill .thebe-ai-pill-open .thebe-ai-pill-dot{display:none}
+ #thebeAiDockPill .thebe-ai-pill-label{font-size:11px;max-width:44px;overflow:hidden;text-overflow:ellipsis}
 }
 @media(prefers-reduced-motion:reduce){
  #thebeAiDockPill .thebe-ai-pill-dot{animation:none!important}
