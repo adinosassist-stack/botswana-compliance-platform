@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {assessLoginHierarchy} from '../android/thebe-ai/scripts/check-login-ui.mjs';
+import {assessLoginHierarchy,summarizeHierarchy} from '../android/thebe-ai/scripts/check-login-ui.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const read=(name)=>fs.readFileSync(path.join(root,name),'utf8');
@@ -45,6 +45,17 @@ test('empty, malformed, oversize and unrelated emulator output fail closed',()=>
   assert.equal(assessLoginHierarchy(hierarchy('Chrome','Search')).status,'blocked');
   assert.equal(assessLoginHierarchy('x'.repeat(1024*1024+1)).status,'blocked');
   assert.equal(assessLoginHierarchy(hierarchy('Thebe Desk','Open your Thebe Desk workspace.','No browser found')).status,'blocked');
+});
+
+test('emulator diagnostics expose only aggregate signals, never UI text',()=>{
+  const xml='<?xml version="1.0"?><hierarchy>'+
+    '<node package="com.android.chrome" class="android.webkit.WebView" text="private@example.com" content-desc="" />'+
+    '<node package="com.android.chrome" class="android.widget.TextView" text="Welcome to Chrome" content-desc="" />'+
+    '</hierarchy>';
+  const summary=summarizeHierarchy(xml);
+  assert.deepEqual(summary,{nodes:2,labelledNodes:2,chromeOwned:true,webView:true});
+  assert.doesNotMatch(JSON.stringify(summary),/private@example\.com|Welcome to Chrome/);
+  assert.deepEqual(summarizeHierarchy(null),{nodes:0,labelledNodes:0,chromeOwned:false,webView:false});
 });
 
 test('emulator check is isolated and never uploads/login to user account',()=>{
