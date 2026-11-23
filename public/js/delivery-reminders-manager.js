@@ -127,6 +127,7 @@ function syncReminderViewport(){
  document.body.classList.toggle("thebe-delivery-sheet-open",sheetOpen);
  panel.setAttribute("aria-modal",String(sheetOpen));
  panel.dataset.compactViewport=String(height<420);
+ panel.style.setProperty("--thebe-vv-height",height+"px");
  panel.style.setProperty("--thebe-vv-top",top+"px");
  panel.style.setProperty("--thebe-vv-bottom",Math.max(0,window.innerHeight-top-height)+"px");
  panel.style.setProperty("--thebe-vv-left",left+"px");
