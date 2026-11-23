@@ -2209,3 +2209,16 @@ html body dialog#thebeVoiceScreen[open] {
 @media(prefers-reduced-motion:reduce){
  #thebeAiDockPill .thebe-ai-pill-dot{animation:none!important}
 }
+
+/* #2813: distinguish moving the assistant from opening the assistant. */
+@media(max-width:1023px){
+ #thebeAiDockPill{display:inline-flex;align-items:center;gap:7px;cursor:pointer}
+ #thebeAiDockPill .thebe-ai-pill-grip{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:30px;height:34px;margin:-6px 0 -6px -7px;
+  font-size:22px;line-height:1;color:#c2d7f3;
+  cursor:grab;touch-action:none;
+ }
+ #thebeAiDockPill .thebe-ai-pill-grip:active{cursor:grabbing}
+ #thebeAiDockPill .thebe-ai-pill-dot{margin-right:0;flex:none}
+}
