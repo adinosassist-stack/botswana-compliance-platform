@@ -108,6 +108,9 @@ async function ownerMatrix(width,{approxZoom=false}={}){
   const effectiveWidth=approxZoom?Math.floor(width/2):width;
   const {context,page,outgoing}=await start(effectiveWidth);
   try{
+    // The 2x reflow approximation isolates onboarding; mock fixed navigation is
+    // already hit-tested at actual 320–768px sizes and is not production nav CSS.
+    if(approxZoom)await page.evaluate(()=>document.querySelector('.bottom-nav')?.remove());
     await page.waitForFunction(()=>document.querySelector('#ownerJourneySummary')?.textContent?.startsWith('4 of 4'));
     const panel=page.locator('#ownerJourney');
     const guide=page.locator('#ownerFirstDocumentGuide');
