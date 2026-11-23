@@ -175,3 +175,9 @@ html body.thebe-voice-active #thebeAiDock .thebe-ai-head-actions{gap:5px!importa
 @keyframes thebe-aura-silk-drift{from{opacity:.8}to{opacity:1}}
 #thebeAiDock .thebe-aura-question{color:#f6f8ff!important}
 @media(prefers-reduced-motion:reduce){#thebeAiDock .thebe-aura-surface{animation:none!important}}
+
+/* Single voice surface when the healthy immersive dock is visible. Retain the legacy dialog for recovery or absent dock. */
+html body.thebe-voice-active:has(#thebeAiDock.thebe-ai-dock:not([hidden]):not([data-css-recovery="1"])) dialog#thebeVoiceScreen[open]{display:none!important}
+html body.thebe-voice-active #thebeAiDock:not([data-css-recovery="1"]) .thebe-ai-head-actions{flex-wrap:wrap!important;max-width:100%;min-width:0}
+html body.thebe-voice-active #thebeAiDock:not([data-css-recovery="1"]) .thebe-ai-voice-label{display:block!important;color:#b5bdd1!important;text-align:center;overflow-wrap:anywhere}
+html body.thebe-voice-active #thebeAiDock:not([data-css-recovery="1"]) .thebe-ai-live-transcript:not([hidden]){display:block!important;max-width:100%;overflow-wrap:anywhere;color:#eef3ff!important}
