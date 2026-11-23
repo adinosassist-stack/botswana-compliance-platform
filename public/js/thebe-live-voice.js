@@ -1005,8 +1005,17 @@
   }
   let lastDockMobileMode=null, lastWorkspaceScope=null;
   function currentWorkspaceScope(){
-    // Local UI identity only; neither the scope key nor conversation is persisted.
-    const user=global.currentUser||{};
+    // The authenticated workspace runtime declares top-level 'let currentUser',
+    // which is a global lexical binding, not necessarily window.currentUser.
+    // Read that owner-validated identity first; keep a window fallback for
+    // independently loaded/public shells and the existing browser fixtures.
+    let user=null;
+    try{
+      if(typeof currentUser!=="undefined"&&currentUser&&typeof currentUser==="object")
+        user=currentUser;
+    }catch{}
+    if(!user)user=global.currentUser||{};
+    // UI-only scope: never send/store this key. No cross-tenant reuse of chat.
     const part=value=>String(value??"").trim().slice(0,160);
     return JSON.stringify([
       part(user.id),part(user.tenantId),part(commandCentreRole()),
