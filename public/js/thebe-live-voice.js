@@ -1001,7 +1001,18 @@
     const mobile=mobileDockMode();
     // A desktop rail must become a mobile launcher instead of covering the workspace.
     // Explicitly opened mobile conversations stay open when the mobile viewport changes.
-    if(mobile&&lastDockMobileMode===false){collapsed=true;safeSessionSet(STORE_KEY,"1")}
+    if(mobile&&lastDockMobileMode===false){
+      // Crossing from desktop to mobile must not inherit a maximized rail.
+      // A fresh mobile open starts compact; the user can expand again.
+      collapsed=true;safeSessionSet(STORE_KEY,"1");
+      if(dock.dataset.expanded==="true"){
+        dock.dataset.expanded="false";
+        const expandButton=dock.querySelector(".thebe-ai-expand");
+        expandButton?.setAttribute("aria-pressed","false");
+        expandButton?.setAttribute("aria-label","Expand Thebe panel");
+        if(expandButton)expandButton.title="Expand Thebe";
+      }
+    }
     lastDockMobileMode=mobile;
     const surface=surfaceMode(),visible=surface!=="hidden",workspace=surface==="workspace",yielded=dockShouldYield(),isCollapsed=effectiveCollapsed();
     dock.hidden=!visible||isCollapsed;
