@@ -1944,7 +1944,82 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     pill.setAttribute("aria-controls","thebeAiDock");
     pillLabel=el("span","thebe-ai-pill-label","Thebe");
     pill.append(el("span","thebe-ai-pill-dot"),pillLabel);
-    pill.addEventListener("click",()=>setCollapsed(false));
+    // #2813: movable compact AI pill; movement never opens chat.
+    // Keep the persisted coordinates local to this browser/device.
+    let pillDrag=null, pillSuppressClick=false;
+    const pillBounds=()=>{
+      const vv=global.visualViewport;
+      const width=vv?.width||global.innerWidth;
+      const height=vv?.height||global.innerHeight;
+      const offsetLeft=vv?.offsetLeft||0,offsetTop=vv?.offsetTop||0;
+      const rail=global.innerWidth<=1023?104:12;
+      return {left:offsetLeft+8,top:offsetTop+8,
+        right:offsetLeft+width-pill.offsetWidth-8,
+        bottom:offsetTop+height-pill.offsetHeight-rail};
+    };
+    const clampPill=(x,y)=>{
+      const b=pillBounds();
+      const left=Math.max(b.left,Math.min(Math.max(b.left,b.right),x));
+      const top=Math.max(b.top,Math.min(Math.max(b.top,b.bottom),y));
+      pill.style.setProperty("left",left+"px");
+      pill.style.setProperty("top",top+"px");
+      pill.style.setProperty("right","auto");
+      pill.style.setProperty("bottom","auto");
+      return {left,top};
+    };
+    const restorePill=()=>{
+      try{
+        const saved=JSON.parse(global.localStorage.getItem("thebe-ai-pill-position-v1")||"null");
+        if(saved&&Number.isFinite(saved.x)&&Number.isFinite(saved.y)){
+          const b=pillBounds();
+          clampPill(b.left+saved.x*Math.max(0,b.right-b.left),
+            b.top+saved.y*Math.max(0,b.bottom-b.top));
+        }else if(pill.style.left)clampPill(parseFloat(pill.style.left),parseFloat(pill.style.top));
+      }catch(_){ /* Storage can be disabled; keep default position. */ }
+    };
+    const savePill=()=>{
+      const b=pillBounds(),r=pill.getBoundingClientRect();
+      const p=clampPill(r.left,r.top);
+      try{global.localStorage.setItem("thebe-ai-pill-position-v1",JSON.stringify({
+        x:(p.left-b.left)/Math.max(1,b.right-b.left),
+        y:(p.top-b.top)/Math.max(1,b.bottom-b.top)
+      }));}catch(_){/* private browsing */}
+    };
+    pill.setAttribute("aria-label","Open Thebe AI. Drag to reposition; Alt plus arrow keys moves the pill.");
+    pill.addEventListener("pointerdown",event=>{
+      if(event.button!==0)return;
+      const r=pill.getBoundingClientRect();
+      pillDrag={id:event.pointerId,x:event.clientX,y:event.clientY,left:r.left,top:r.top,moved:false};
+      pill.setPointerCapture?.(event.pointerId);
+    });
+    pill.addEventListener("pointermove",event=>{
+      if(!pillDrag||event.pointerId!==pillDrag.id)return;
+      const dx=event.clientX-pillDrag.x,dy=event.clientY-pillDrag.y;
+      if(Math.hypot(dx,dy)>6)pillDrag.moved=true;
+      if(pillDrag.moved){clampPill(pillDrag.left+dx,pillDrag.top+dy);event.preventDefault();}
+    });
+    const finishPillDrag=event=>{
+      if(!pillDrag||event.pointerId!==pillDrag.id)return;
+      if(pillDrag.moved){pillSuppressClick=true;savePill();}
+      pillDrag=null;
+    };
+    pill.addEventListener("pointerup",finishPillDrag);
+    pill.addEventListener("pointercancel",finishPillDrag);
+    pill.addEventListener("click",event=>{
+      if(pillSuppressClick){pillSuppressClick=false;event.preventDefault();return;}
+      setCollapsed(false);
+    });
+    pill.addEventListener("keydown",event=>{
+      if(!event.altKey||!["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(event.key))return;
+      event.preventDefault();
+      const r=pill.getBoundingClientRect(),step=event.shiftKey?40:16;
+      clampPill(r.left+(event.key==="ArrowLeft"?-step:event.key==="ArrowRight"?step:0),
+        r.top+(event.key==="ArrowUp"?-step:event.key==="ArrowDown"?step:0));
+      savePill();
+    });
+    global.addEventListener("resize",restorePill,{passive:true});
+    global.visualViewport?.addEventListener("resize",restorePill,{passive:true});
+    global.requestAnimationFrame?.(restorePill);
 
     document.body.append(dock,pill);
     syncVisibility();syncAttention();bindMarketingPrompts();
