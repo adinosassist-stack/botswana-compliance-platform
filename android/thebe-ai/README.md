@@ -20,6 +20,12 @@ This is an independent Android Studio project for **Thebe AI Tablet Edition**, i
    The emulator smoke now also checks that Android resolves an HTTPS handler and captures synthetic foreground evidence. This does **not** prove the website rendered, that Custom Tabs work on physical hardware, or that Digital Asset Links are verified.
 5. **Debug APKs are for internal testing only.** Never distribute a debug build as a production release. No official signed APK/AAB has been generated.
 
+## Supported Android compatibility testing
+
+CI builds one internal debug APK and exercises its install, launcher, crash guard, and HTTPS handler on two synthetic Google APIs emulators: **Android 8.0 / API 26** (minimum supported) and **Android 15 / API 35**. Both jobs must pass independently; neither establishes actual page rendering or microphone/function parity.
+
+Physical device owners can run the read-only script `ANDROID_SERIAL=<approved-device-id> bash android/thebe-ai/scripts/inspect-tablet.sh`. It does not install or launch anything, access account contents, take screenshots or upload data. The full [physical tablet acceptance checklist](PHYSICAL_TABLET_ACCEPTANCE.md) is a separate supervised QA procedure, **not completed testing**.
+
 ## Full-screen TWA prerequisite — NOT authorized for production yet
 
 A release engineer must approve and control the final application ID `com.thebedesk.ai`, the signing-key lifecycle and SHA-256 signing-certificate fingerprint. After that, separately approve and serve the exact `https://thebedesk.com/.well-known/assetlinks.json` site-to-app statement for:

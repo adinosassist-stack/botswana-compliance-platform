@@ -4,6 +4,7 @@ on:
     paths:
       - "android/thebe-ai/**"
       - "tests/thebe-ai-android-source.test.mjs"
+      - "tests/thebe-ai-android-compatibility.test.mjs"
       - ".github/workflows/thebe-ai-android-check.yml"
   workflow_dispatch:
 
@@ -30,8 +31,8 @@ jobs:
           packages: "platform-tools"
       - name: Install Android SDK
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
-      - name: Verify Android wrapper source boundary
-        run: node --test tests/thebe-ai-android-source.test.mjs
+      - name: Verify Android wrapper and supported-OS matrix
+        run: node --test tests/thebe-ai-android-source.test.mjs tests/thebe-ai-android-compatibility.test.mjs
       - name: Assemble debug APK
         working-directory: android/thebe-ai
         run: gradle --no-daemon --stacktrace :app:assembleDebug
@@ -45,10 +46,18 @@ jobs:
           retention-days: 7
 
   emulator-install-smoke:
-    name: Emulator APK install and launch (no account)
+    name: Android ${{ matrix.api_level }} emulator install / launch (no account)
     needs: android-debug
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api_level: 26
+            profile: pixel_2
+          - api_level: 35
+            profile: pixel_7
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -70,10 +79,10 @@ jobs:
       - name: Install and start Thebe AI on a test emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: ${{ matrix.api_level }}
           target: google_apis
           arch: x86_64
-          profile: pixel_7
+          profile: ${{ matrix.profile }}
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: bash android/thebe-ai/scripts/smoke-emulator.sh
