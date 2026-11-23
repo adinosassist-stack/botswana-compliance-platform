@@ -2029,7 +2029,12 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const findInputRow=el("div","thebe-ai-find-input-row");
     findInputRow.append(findInput,findPrevious,findNext,findClose);
     findPanel.append(findInputRow,findStatus);findWrap.append(findToggle,findPanel);
-    let findIndex=-1,findTargets=[];
+    let findIndex=-1,findTargets=[],findHighlighted=null;
+    // Keep the selected match visible without replacing text or injecting HTML.
+    const clearFindHighlight=()=>{
+      findHighlighted?.classList.remove("thebe-ai-find-current");
+      findHighlighted=null;
+    };
     const findMatches=()=>{
       const needle=findInput.value.trim().toLocaleLowerCase();
       if(!needle)return [];
@@ -2045,6 +2050,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       findTargets=findMatches();
       findIndex=current?findTargets.indexOf(current):-1;
       if(!findTargets.length)findIndex=-1;
+      if(findHighlighted&&!findTargets.includes(findHighlighted))clearFindHighlight();
       findPrevious.disabled=findNext.disabled=!findTargets.length;
       findStatus.textContent=!findInput.value.trim()?"Enter a word to search this chat":
         !findTargets.length?"No matching messages":
@@ -2056,12 +2062,16 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       const start=findIndex<0?(direction>0?-1:0):findIndex;
       findIndex=(start+direction+findTargets.length)%findTargets.length;
       const target=findTargets[findIndex];
+      clearFindHighlight();
+      findHighlighted=target;
+      target.classList.add("thebe-ai-find-current");
       target.tabIndex=-1;
       target.scrollIntoView({block:"center",behavior:"auto"});
       target.focus({preventScroll:true});
       findStatus.textContent=`${findIndex+1} of ${findTargets.length} matching messages`;
     };
     const closeFind=()=>{
+      clearFindHighlight();
       findPanel.hidden=true;findToggle.setAttribute("aria-expanded","false");
       findInput.value="";findTargets=[];findIndex=-1;
       findPrevious.disabled=findNext.disabled=true;
@@ -2069,6 +2079,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       findToggle.focus({preventScroll:true});
     };
     resetConversationFind=()=>{
+      clearFindHighlight();
       findInput.value="";findTargets=[];findIndex=-1;findPanel.hidden=true;
       findToggle.setAttribute("aria-expanded","false");
       findPrevious.disabled=findNext.disabled=true;
@@ -2080,6 +2091,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       syncConversationFind();findInput.focus({preventScroll:true});
     });
     findInput.addEventListener("input",()=>{
+      clearFindHighlight();
       findIndex=-1;findTargets=[];syncConversationFind();
     });
     findInput.addEventListener("keydown",event=>{
