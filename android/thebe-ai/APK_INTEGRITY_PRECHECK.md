@@ -21,7 +21,7 @@ The check is local and read-only: no Android device access, accounts, network ca
 ANDROID_HOME=/path/to/android/sdk bash android/thebe-ai/scripts/verify-debug-apk.sh /approved/local/path/app-debug.apk
 ```
 
-This existing script checks `com.thebedesk.ai`, SDK 26/36, Android Browser Helper launcher, restricted native permissions and APK signing with Android SDK 36.0.0 build tools. A valid debug signature is **not** a trusted release signature or proof of website Digital Asset Links.
+The existing script checks `com.thebedesk.ai`, SDK 26/36, Android Browser Helper launcher, restricted native permissions and APK signature **validity** with Android SDK 36.0.0 build tools. Signature validity alone does not establish the signer's identity, approved signing-key ownership, a trusted release signature or website Digital Asset Links.
 
 ## Physical QA is a separate gate
 
