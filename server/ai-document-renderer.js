@@ -50,9 +50,18 @@ export async function renderAiDocument(model, format) {
      // Standard Helvetica cannot encode all Unicode; reject rather than corrupt.
      if(/[^\x20-\x7E]/.test(text))throw new Error("pdf_unicode_font_required");
      const words=text.split(/\s+/);let line="";
-     // Reject unbreakable words that exceed the printable width.
-     if(words.some(word=>font.widthOfTextAtSize(word,11)>490))throw new Error("pdf_word_too_long");
+     // Split overlong tokens at glyph boundaries instead of losing legal IDs or URLs.
+     const fitted=[];
      for(const word of words){
+       let segment="";
+       for(const glyph of word){
+         if(segment && font.widthOfTextAtSize(segment+glyph,11)>490){fitted.push(segment);segment="";}
+         if(font.widthOfTextAtSize(glyph,11)>490)throw new Error("pdf_glyph_too_wide");
+         segment+=glyph;
+       }
+       fitted.push(segment);
+     }
+     for(const word of fitted){
        const candidate=line?line+" "+word:word;
        if(font.widthOfTextAtSize(candidate,11)>490 && line){
          if(y<60){page=pdf.addPage([595.28,841.89]);y=790}
