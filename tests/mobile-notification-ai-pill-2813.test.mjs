@@ -31,3 +31,9 @@ test("notification sheet is content-sized with inner scrolling and accessible ac
   assert.match(notices,/\.thebe-delivery-reminder-actions/);
   assert.match(notices,/\.thebe-delivery-manager-popup\[hidden\]\{display:none!important\}/);
 });
+
+test("cancelled touch drag restores prior position and does not save",()=>{
+  assert.match(voice,/event\.type==="pointercancel"/);
+  assert.match(voice,/clampPill\(pillDrag\.left,pillDrag\.top\)/);
+  assert.match(voice,/else\{pillSuppressClick=true;savePill\(\);\}/);
+});
