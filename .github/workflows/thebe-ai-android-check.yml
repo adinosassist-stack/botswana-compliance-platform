@@ -5,6 +5,7 @@ on:
       - "android/thebe-ai/**"
       - "tests/thebe-ai-android-source.test.mjs"
       - "tests/thebe-ai-android-compatibility.test.mjs"
+      - "tests/thebe-ai-android-login-ui.test.mjs"
       - ".github/workflows/thebe-ai-android-check.yml"
   workflow_dispatch:
 
