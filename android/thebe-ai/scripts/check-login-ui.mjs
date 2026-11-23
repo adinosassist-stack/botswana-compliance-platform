@@ -50,7 +50,7 @@ export function assessLoginHierarchy(xml) {
 // Never disclose UIAutomator text or user-entered content in CI logs.
 // This safe diagnostic reports counts and known package/component booleans only.
 export function summarizeHierarchy(xml) {
-  if (typeof xml !== 'string') return {nodes:0,labelledNodes:0,chromeOwned:false,webView:false};
+  if (typeof xml !== 'string') return {nodes:0,labelledNodes:0,chromeOwned:false,webView:false,systemUiOwned:false,launcherOwned:false,permissionOwned:false,androidSettingsOwned:false,targetAppOwned:false};
   const nodes=[...xml.matchAll(/<node\b[^>]*>/g)];
   const labelledNodes=nodes.filter(([tag]) => /\b(?:text|content-desc)="[^"]+"/.test(tag)).length;
   // Only report booleans for allowlisted, non-sensitive Android package
@@ -91,7 +91,10 @@ export function run(args=process.argv.slice(2)) {
     const safe=summarizeHierarchy(xml);
     process.stderr.write('SAFE_EMULATOR_UI_DIAG: nodes='+safe.nodes+
       ' labelled='+safe.labelledNodes+' chromeOwned='+safe.chromeOwned+
-      ' webView='+safe.webView+'.\n');
+      ' webView='+safe.webView+' systemUiOwned='+safe.systemUiOwned+
+      ' launcherOwned='+safe.launcherOwned+' permissionOwned='+safe.permissionOwned+
+      ' settingsOwned='+safe.androidSettingsOwned+' targetAppOwned='+safe.targetAppOwned+
+      '.\n');
     return 1;
   }
   process.stdout.write('PASS: synthetic Android emulator shows Thebe Desk sign-in markers.\n');
