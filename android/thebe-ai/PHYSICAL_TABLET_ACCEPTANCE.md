@@ -10,6 +10,10 @@
 4. Run `ANDROID_SERIAL=<approved-device-id> bash android/thebe-ai/scripts/inspect-tablet.sh`.
 5. Record manufacturer, model, Android version, browser version, and whether the HTTPS browser handler is present. API below 26 is unsupported. No-install and no-browser cases are explicit blockers.
 
+## Emulator login render evidence boundary
+
+CI's Android API 35 smoke checks visible *public* sign-in markers from a synthetic device and reports **BLOCKED** if web content is absent or an error/chooser is shown. API 26 verifies APK install and launch but not visible web content. This does not replace the physical-tablet requirements below.
+
 ## Manual acceptance (separate opt-in)
 
 1. Install the exact, checksum-verified internal debug APK only after device-owner permission. Record SHA-256 APK digest and source commit in private QA evidence.
