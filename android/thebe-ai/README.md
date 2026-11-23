@@ -26,6 +26,17 @@ CI builds one internal debug APK and exercises its install, launcher, crash guar
 
 Physical device owners can run the read-only script `ANDROID_SERIAL=<approved-device-id> bash android/thebe-ai/scripts/inspect-tablet.sh`. It does not install or launch anything, access account contents, take screenshots or upload data. The full [physical tablet acceptance checklist](PHYSICAL_TABLET_ACCEPTANCE.md) is a separate supervised QA procedure, **not completed testing**.
 
+## Physical-tablet readiness evidence (local, manual)
+
+A separate offline acceptance tool can create an untested checklist and validate a tester-completed record:
+
+```bash
+node android/thebe-ai/scripts/tablet-qa.mjs --template > private-tablet-qa.json
+node android/thebe-ai/scripts/tablet-qa.mjs --validate private-tablet-qa.json
+```
+
+The generated template is **not** a passing test record. Validation stays blocked until every required tablet behavior is explicitly marked passed with Android API/browser and reviewed APK/source digests. It logs only pass/fail/blocked/not-run totals and does not read a connected device, launch an app, upload a screenshot or prove that a tester's assertions are true. See [the physical-device checklist](PHYSICAL_TABLET_ACCEPTANCE.md). No public APK or release signing is authorized.
+
 ## Read-only Android origin association audit
 
 The source-only audit `node android/thebe-ai/scripts/audit-origin-assetlinks.mjs` checks whether the **public** `https://thebedesk.com/.well-known/assetlinks.json` is available as a nonredirecting JSON response. It uses an allowlisted origin, sends no account cookies, reads at most 64 KiB, and never changes website configuration. It returns a **blocked** status without a verified release-signing certificate.
