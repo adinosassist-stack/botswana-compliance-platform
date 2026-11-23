@@ -17,6 +17,7 @@ This is an independent Android Studio project for **Thebe AI Tablet Edition**, i
 2. Sync Gradle and run `app` on a compatible emulator or an Android tablet (Android 8.0 / API 26 or later).
 3. Or, on an Android SDK workstation with Gradle installed: `gradle :app:assembleDebug`.
 4. An unverified browser provider or absent browser may prevent the app from opening. Confirm the fallback on real devices.
+   The emulator smoke now also checks that Android resolves an HTTPS handler and captures synthetic foreground evidence. This does **not** prove the website rendered, that Custom Tabs work on physical hardware, or that Digital Asset Links are verified.
 5. **Debug APKs are for internal testing only.** Never distribute a debug build as a production release. No official signed APK/AAB has been generated.
 
 ## Full-screen TWA prerequisite — NOT authorized for production yet
