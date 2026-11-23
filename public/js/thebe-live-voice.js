@@ -2010,6 +2010,8 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     findToggle.setAttribute("aria-expanded","false");
     const findPanel=el("div","thebe-ai-find-panel");
     findPanel.id="thebeAiFindPanel";findPanel.hidden=true;
+    findPanel.setAttribute("role","search");
+    findPanel.setAttribute("aria-label","Find in the current Thebe conversation");
     const findInput=el("input","thebe-ai-find-input");
     findInput.type="search";findInput.maxLength=120;
     findInput.autocomplete="off";findInput.spellcheck=false;
@@ -2043,15 +2045,16 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       findTargets=findMatches();
       findIndex=current?findTargets.indexOf(current):-1;
       if(!findTargets.length)findIndex=-1;
-      else if(findIndex<0)findIndex=0;
       findPrevious.disabled=findNext.disabled=!findTargets.length;
       findStatus.textContent=!findInput.value.trim()?"Enter a word to search this chat":
-        !findTargets.length?"No matching messages":`${findIndex+1} of ${findTargets.length} matching messages`;
+        !findTargets.length?"No matching messages":
+        findIndex<0?`${findTargets.length} matching messages`:`${findIndex+1} of ${findTargets.length} matching messages`;
     };
     const navigateFind=direction=>{
       syncConversationFind();
       if(!findTargets.length)return;
-      findIndex=(findIndex+direction+findTargets.length)%findTargets.length;
+      const start=findIndex<0?(direction>0?-1:0):findIndex;
+      findIndex=(start+direction+findTargets.length)%findTargets.length;
       const target=findTargets[findIndex];
       target.tabIndex=-1;
       target.scrollIntoView({block:"center",behavior:"auto"});
@@ -2076,7 +2079,9 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       findPanel.hidden=false;findToggle.setAttribute("aria-expanded","true");
       syncConversationFind();findInput.focus({preventScroll:true});
     });
-    findInput.addEventListener("input",syncConversationFind);
+    findInput.addEventListener("input",()=>{
+      findIndex=-1;findTargets=[];syncConversationFind();
+    });
     findInput.addEventListener("keydown",event=>{
       if(event.key==="Escape"){event.preventDefault();closeFind()}
       else if(event.key==="Enter"&&!event.isComposing){
