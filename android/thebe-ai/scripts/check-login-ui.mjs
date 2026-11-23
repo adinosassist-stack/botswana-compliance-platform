@@ -53,11 +53,21 @@ export function summarizeHierarchy(xml) {
   if (typeof xml !== 'string') return {nodes:0,labelledNodes:0,chromeOwned:false,webView:false};
   const nodes=[...xml.matchAll(/<node\b[^>]*>/g)];
   const labelledNodes=nodes.filter(([tag]) => /\b(?:text|content-desc)="[^"]+"/.test(tag)).length;
+  // Only report booleans for allowlisted, non-sensitive Android package
+  // classes. Never emit package IDs, XML, window titles or label text.
+  const packageNames=nodes.map(([tag])=>
+    (tag.match(/\bpackage="([^"]{0,150})"/)||[])[1]||"");
+  const hasPackage=predicate=>packageNames.some(predicate);
   return {
     nodes: Math.min(nodes.length,9999),
     labelledNodes: Math.min(labelledNodes,9999),
     chromeOwned: /\bpackage="(?:com\.android\.chrome|org\.chromium\.chrome)"/.test(xml),
     webView: /\bclass="[^"]*(?:WebView|webview)[^"]*"/.test(xml),
+    systemUiOwned:hasPackage(p=>p==="com.android.systemui"||p==="com.google.android.systemui"),
+    launcherOwned:hasPackage(p=>/^(?:com\.google\.android\.apps\.nexuslauncher|com\.android\.launcher3)$/.test(p)),
+    permissionOwned:hasPackage(p=>p==="com.android.permissioncontroller"||p==="com.google.android.permissioncontroller"),
+    androidSettingsOwned:hasPackage(p=>p==="com.android.settings"),
+    targetAppOwned:hasPackage(p=>p==="com.thebedesk.ai"),
   };
 }
 
