@@ -131,3 +131,44 @@ test("foreground mobile reminder sheet respects keyboard visual viewport and res
  assert.ok(js.includes('title.textContent=withActions?"Upcoming delivery & installation":label(item)'));
  assert.ok(js.includes('if(event.key!=="Tab"||panel.hidden||!mobileBell())return'));
 });
+
+
+test("AI pill separates open, voice and drag controls while keeping persisted position",()=>{
+ const js=read("../public/js/thebe-live-voice.js");
+ const css=read("../public/assets/thebe-ai-dock.css");
+ assert.ok(js.includes('pill=el("div","thebe-ai-pill")'),"pill is an accessible control group, not a nested button");
+ for(const token of [
+  'pillOpen=el("button","thebe-ai-pill-open")',
+  'const pillMic=el("button","thebe-ai-pill-mic")',
+  'const pillHandle=el("button","thebe-ai-pill-handle")',
+  'pillOpen.addEventListener("click",()=>setCollapsed(false))',
+  'pillMic.addEventListener("click",()=>orbButton.click())',
+  'pillHandle.addEventListener("pointerdown"',
+  'pillHandle.addEventListener("pointermove"',
+  'pillHandle.addEventListener("pointercancel"',
+  'pillHandle.addEventListener("keydown"',
+  'global.visualViewport?.addEventListener("resize",pillSync',
+  'pill.dataset.dragPosition="true"',
+  'if(mobileDockMode()&&pill?.dataset.dragPosition==="true"'
+ ])assert.ok(js.includes(token),"missing independent pill interaction "+token);
+ assert.match(js,/pillHandle\.setPointerCapture\?\.\(event\.pointerId\)/);
+ assert.match(js,/pillHandle\.setAttribute\("aria-keyshortcuts"/);
+ assert.match(js,/global\.localStorage\?\.setItem\(positionKey/);
+ assert.match(css,/#thebeAiDockPill \.thebe-ai-pill-handle\{/);
+ assert.match(css,/touch-action:none/);
+ assert.match(css,/body\.thebe-delivery-sheet-open #thebeAiDockPill/);
+ assert.doesNotMatch(css.slice(css.lastIndexOf("/* #2813: compact charcoal AI launcher")),/linear-gradient\(/);
+});
+
+test("compact notification cap uses actual visual viewport and never exposes the rail beneath its modal",()=>{
+ const css=read("../public/assets/delivery-reminder-notifications.css");
+ const js=read("../public/js/delivery-reminders-manager.js");
+ const section=css.slice(css.lastIndexOf("/* #2813: compact notification reading sheet"));
+ assert.ok(section.includes("max-height:min(72dvh,560px"),"content-height cap is bounded");
+ assert.ok(section.includes("var(--thebe-vv-height"),"keyboard visual viewport bounds the sheet");
+ assert.ok(section.includes("overflow-y:auto"),"notification body is separately scrollable");
+ assert.ok(section.includes('.thebe-delivery-manager-popup[hidden]{display:none!important}'));
+ assert.ok(js.includes('panel.style.setProperty("--thebe-vv-height",height+"px")'));
+ assert.ok(css.includes("visibility:hidden!important;pointer-events:none!important"),"foreground sheet hides the background navigation rail");
+ assert.doesNotMatch(section,/thebe-delivery-sheet-open[\s\S]*visibility:visible!important/,"do not show navigation behind notification");
+});
