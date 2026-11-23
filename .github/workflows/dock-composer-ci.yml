@@ -12,6 +12,7 @@ on:
       - 'public/assets/thebe-ai-dock.css'
       - 'public/assets/thebe-ai-immersive-v1.css'
       - 'tests/thebe-aura-fullscreen-browser.mjs'
+      - 'tests/thebe-web-conversation-find-2830.mjs'
       - 'public/assets/market-thebe-gemini-v273.css'
       - 'public/assets/thebe-spatial-dock-v246.css'
       - 'public/assets/workspace-audit-refinements-20261013.css'
@@ -50,4 +51,5 @@ jobs:
           node tests/v292-dock-visual-contract-browser.mjs
           node tests/thebe-aura-fullscreen.mjs
           node tests/thebe-aura-fullscreen-browser.mjs
+          node tests/thebe-web-conversation-find-2830.mjs
           node tests/public-dock-width-contract.mjs
