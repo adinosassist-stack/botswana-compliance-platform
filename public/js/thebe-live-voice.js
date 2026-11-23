@@ -574,6 +574,7 @@
   const MOBILE_DOCK_MAX=1023;
   let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,scrollRegion=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null,missionRail=null,missionLabel=null,missionMeta=null,missionAction=null,contextBar=null,contextLabel=null,modeRail=null,clearButton=null,latestResponseButton=null;
   let audioButton=null,attachButton=null,fileInput=null,attachmentTray=null,pendingFiles=[];
+  let conversationHistory=null,immersiveGreeting=null,immersiveMute=null;
   let voiceScreen=null,voiceScreenStatus=null,voiceScreenOrb=null,voiceScreenTranscript=null,voiceReturnFocus=null;
   let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",mascotFocus="ambient",ownerCommandState=null,persistentObjectiveState=null,collapsed=false,assistantMode="ask",lastAnswer="",lastGoal="",lastAdvisorTrust="neutral",autoFollowResponse=true,responseScrollLock=false,textRunId=0,textAbortController=null;
 
@@ -658,6 +659,11 @@
   }
   function recoverDockPresentation(){
     if(!dock||dock.hidden)return;
+    // The immersive surface has its own responsive geometry. A stale compact
+    // recovery pass must never replace it with an inline, !important panel.
+    if(dock.dataset.expanded==="true"||document.body.classList.contains("thebe-voice-active")){
+      releaseDockRecoveryStyles();dock.dataset.cssRecovery="0";return;
+    }
     if(getComputedStyle(dock).getPropertyValue("--thebe-spatial-dock").trim()==="1"){releaseDockRecoveryStyles();dock.dataset.cssRecovery="0";return}
     const head=dock.querySelector(".thebe-ai-dock-head");
     const scroll=dock.querySelector(".thebe-ai-dock-scroll");
@@ -786,8 +792,27 @@
     if(quick){quick.hidden=true;quick.replaceChildren()}
     if(options.focus!==false)input?.focus({preventScroll:true});
   }
+  // In-memory conversation only: never persist text across tenants or sessions.
+  const TEXT_HISTORY_LIMIT=24;
+  function appendConversationTurn(role,content){
+    if(!conversationHistory)return;
+    const value=cleanMultiline(content,3200);
+    if(!value)return;
+    const turn=el("article","thebe-aura-turn");
+    turn.dataset.role=role==="user"?"user":"assistant";
+    turn.append(el("span","thebe-aura-turn-label",role==="user"?"You":"Thebe"),el("p","thebe-aura-turn-content",value));
+    conversationHistory.append(turn);
+    while(conversationHistory.children.length>TEXT_HISTORY_LIMIT)conversationHistory.firstElementChild?.remove();
+  }
+  function archiveCurrentAnswer(){
+    if(!lastAnswer)return;
+    appendConversationTurn("assistant",lastAnswer);
+    lastAnswer="";
+  }
   function clearConversation(){
     if(!dock)return;
+    conversationHistory?.replaceChildren();
+    voiceCompletedTurns.splice(0);syncVoiceChatActivity();
     textAbortController?.abort("conversation-cleared");
     textAbortController=null;
     textRunId+=1;
@@ -1002,6 +1027,10 @@
     if(presence){
       presence.replaceChildren(el("span","thebe-ai-presence-dot"),document.createTextNode(workspace?"Your business assistant":"Public assistant · try Thebe"));
     }
+    if(immersiveGreeting&&workspace){
+      const firstName=clean(global.currentUser?.firstName||"",32);
+      immersiveGreeting.textContent=firstName?"Hello "+firstName:"Hello";
+    }
     if(voicePhase==="idle"&&dock.dataset.conversation!=="true"){
       if(workspace)setPhase("idle","Talk to Thebe","What would you like to get done?");
       else if(surface==="public")setPhase("idle","Talk to Thebe","Ask about Thebe Desk or tap the particles to sample voice");
@@ -1132,6 +1161,9 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       document.body.append(voiceScreen);
     }
     if(!voiceScreen.open){
+      // The full-screen conversation must remain visible when voice begins from
+      // a collapsed mobile pill, without making a second orb cover the screen.
+      if(dock?.hidden&&surfaceMode()!=="hidden")setCollapsed(false);
       voiceReturnFocus=document.activeElement;
       voiceScreen.querySelector('.thebe-voice-context').textContent=shellVisible()?"Same Thebe AI · current workspace context":"Thebe Desk · public voice sample · no workspace data";
       const miniControls=voiceScreen.querySelector("#thebeVoiceMiniControls");
@@ -1144,7 +1176,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       document.body.classList.add("thebe-voice-active");
       // Keep the composer editable while the voice session remains live.
       // Do not move focus outside the visible voice controls.
-      voiceScreen.querySelector(".thebe-voice-float-toggle")?.focus({preventScroll:true});
+      (immersiveMute||voiceScreen.querySelector(".thebe-voice-float-toggle"))?.focus({preventScroll:true});
     }
   }
   function closeVoiceScreen(stopSession=false){
@@ -1152,6 +1184,11 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     if(stopSession)global.ThebeLiveVoice?.stop?.();
     if(voiceScreen?.open)voiceScreen.close();
     document.body.classList.remove("thebe-voice-active");
+    if(immersiveMute){
+      immersiveMute.setAttribute("aria-pressed","false");
+      immersiveMute.setAttribute("aria-label","Mute microphone");
+      immersiveMute.textContent="Mute";
+    }
     // Do not steal composer focus during redundant cleanup or when the user
     // deliberately switched from voice controls back to the editable chat.
     if(restoreFocus && voiceReturnFocus?.isConnected)voiceReturnFocus.focus({preventScroll:true});
@@ -1553,7 +1590,9 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     return "Ask me about Thebe Desk features, Botswana compliance workflows, Thebe AI, Employer Shield, tenders, evidence, financial intelligence or pricing. You can also tap the black-and-white particles to sample Thebe voice for up to one minute.";
   }
   function renderMarketingAnswer(question){
-    responseMessage(marketingAnswer(question));
+    const answer=marketingAnswer(question);
+    responseMessage(answer);
+    lastAnswer=answer;
     if(!responseBox)return;
     const actions=el("div","thebe-ai-public-actions");
     const voice=el("button","thebe-ai-public-voice","Try voice");
@@ -1616,6 +1655,8 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const q=clean(question,MAX_QUESTION)||(files.length?"Review the attached files and summarise the important points.":"");
     if(textBusy||!q.length)return;
     dock.dataset.conversation="true";
+    archiveCurrentAnswer();
+    appendConversationTurn("user",q);
     syncWorkspaceVisualInvariants();
     if(!shellVisible()){
       renderMarketingAnswer(q);
@@ -1765,7 +1806,21 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       expand.title=expanded?"Restore Thebe panel":"Maximize Thebe panel";
       syncVisibility();
     });
-    headActions.append(attentionButton,clearButton,expand,minimize);head.append(title,headActions);
+    const muteVoice=el("button","thebe-ai-icon-btn thebe-aura-mute","Mute");
+    muteVoice.type="button";muteVoice.setAttribute("aria-label","Mute microphone");
+    muteVoice.setAttribute("aria-pressed","false");
+    muteVoice.addEventListener("click",()=>{
+      const muted=muteVoice.getAttribute("aria-pressed")!=="true";
+      global.ThebeLiveVoice?.setMuted?.(muted);
+      muteVoice.setAttribute("aria-pressed",String(muted));
+      muteVoice.setAttribute("aria-label",muted?"Unmute microphone":"Mute microphone");
+      muteVoice.textContent=muted?"Unmute":"Mute";
+    });
+    immersiveMute=muteVoice;
+    const endVoice=el("button","thebe-ai-icon-btn thebe-aura-end","End voice");
+    endVoice.type="button";endVoice.setAttribute("aria-label","End voice conversation");
+    endVoice.addEventListener("click",()=>closeVoiceScreen(true));
+    headActions.append(muteVoice,endVoice,attentionButton,clearButton,expand,minimize);head.append(title,headActions);
 
     const scroll=el("div","thebe-ai-dock-scroll");
     scrollRegion=scroll;
@@ -1795,6 +1850,10 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     }
 
     const voiceCard=el("div","thebe-ai-voice-card");
+    const immersiveWelcome=el("div","thebe-aura-welcome");
+    immersiveGreeting=el("p","thebe-aura-hello","Hello");
+    const immersiveQuestion=el("h2","thebe-aura-question","How can I help you today?");
+    immersiveWelcome.append(immersiveGreeting,immersiveQuestion);
     const orbButton=el("button","thebe-ai-orb-button");
     orbButton.type="button";orbButton.setAttribute("aria-label","Start or stop Thebe voice");
     orb=el("div","thebe-particle-orb");orb.dataset.phase="idle";
@@ -1816,7 +1875,41 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const core=el("span","thebe-particle-core");
     // V181: keep the Talk to Thebe voice field character-free. The public mascot now belongs only to the marketing hero.
     mascot=null;
-    orb.append(wave,core);
+    // Original, layered ribbon sphere: SVG paths rather than a static picture.
+    // Audio meter events drive its scale and glow; phase drives the motion.
+    const ribbon=document.createElementNS(svgNS,"svg");
+    ribbon.classList.add("thebe-aura-ribbon");
+    ribbon.setAttribute("viewBox","0 0 240 240");
+    ribbon.setAttribute("aria-hidden","true");
+    const defs=document.createElementNS(svgNS,"defs");
+    const colors=[["#1650cf","#82e6ff"],["#2e56e9","#b4ecff"],["#1c399f","#3faaff"]];
+    colors.forEach(([start,end],i)=>{
+      const gradient=document.createElementNS(svgNS,"linearGradient");
+      gradient.id="thebeAuraStroke"+i;
+      gradient.setAttribute("x1","0%");gradient.setAttribute("y1","15%");
+      gradient.setAttribute("x2","100%");gradient.setAttribute("y2","85%");
+      for(const [offset,color] of [["0%",start],["50%",end],["100%",start]]){
+        const stop=document.createElementNS(svgNS,"stop");
+        stop.setAttribute("offset",offset);stop.setAttribute("stop-color",color);gradient.append(stop);
+      }
+      defs.append(gradient);
+    });
+    ribbon.append(defs);
+    const paths=[
+      ["M 58 192 C 16 159 22 87 70 48 C 106 18 162 26 186 60 C 216 103 189 143 153 161 C 116 181 83 187 58 192",0,3.4],
+      ["M 48 172 C 79 211 149 203 189 165 C 228 127 210 70 174 46 C 132 13 94 39 78 62",1,2.8],
+      ["M 34 143 C 70 105 122 141 166 100 C 199 68 194 48 177 38",2,2.2],
+      ["M 57 192 C 100 165 137 180 173 148 C 212 114 204 75 174 47",1,2]
+    ];
+    for(const [d,gradient,width] of paths){
+      const path=document.createElementNS(svgNS,"path");
+      path.setAttribute("d",d);path.setAttribute("fill","none");
+      path.setAttribute("stroke","url(#thebeAuraStroke"+gradient+")");
+      path.setAttribute("stroke-width",String(width));
+      path.setAttribute("stroke-linecap","round");path.setAttribute("class","thebe-aura-curve");
+      ribbon.append(path);
+    }
+    orb.append(wave,core,ribbon);
     orbButton.append(orb);
     orbButton.addEventListener("click",()=>{
       // Open on direct user gesture; existing browser UX tests require immediate feedback.
@@ -1861,7 +1954,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     missionRail.append(missionTrack,missionCopy);
     const voiceMount=el("div","thebe-ai-voice-mount");voiceMount.id="thebeAiDockVoiceMount";
     transcriptBox=el("div","thebe-ai-live-transcript");transcriptBox.id="thebeAiDockTranscript";transcriptBox.hidden=true;
-    voiceCard.append(el("div","thebe-ai-eyebrow","LIVE VOICE"),orbButton,voiceLabel,voiceSub,missionRail,voiceMount,transcriptBox);
+    voiceCard.append(el("div","thebe-ai-eyebrow","LIVE VOICE"),orbButton,voiceLabel,voiceSub,missionRail,voiceMount,transcriptBox,immersiveWelcome);
 
     quick=el("div","thebe-ai-quick");
     quick.setAttribute("role","group");quick.setAttribute("aria-label","Suggested Thebe actions");
@@ -1870,7 +1963,11 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     responseBox=el("div","thebe-ai-response");responseBox.id="thebeAiDockResponse";responseBox.setAttribute("role","status");responseBox.setAttribute("aria-live","polite");responseBox.setAttribute("aria-busy","false");responseMessage("Ready when you are. Ask about this screen, request a brief, or choose a priority action.");
 
     voiceChatActivity=el("div","thebe-ai-voice-chat-activity");voiceChatActivity.hidden=true;voiceChatActivity.setAttribute("role","status");voiceChatActivity.setAttribute("aria-live","polite");
-    scroll.append(contextBar,modeRail,voiceCard,quick,voiceChatActivity,responseBox);
+    conversationHistory=el("div","thebe-aura-history");
+    conversationHistory.setAttribute("role","log");
+    conversationHistory.setAttribute("aria-label","Thebe text conversation");
+    conversationHistory.setAttribute("aria-live","polite");
+    scroll.append(contextBar,modeRail,voiceCard,quick,conversationHistory,voiceChatActivity,responseBox);
 
     latestResponseButton=el("button","thebe-ai-latest-response","Latest response ↓");
     latestResponseButton.type="button";
@@ -2074,6 +2171,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const ring=relevant?(8+level*5):8;
     const blur=relevant?(28+level*20):28;
     orb.style.setProperty("--thebe-audio-scale",scale.toFixed(3));
+    orb.style.setProperty("--thebe-aura-energy",(relevant?level:0).toFixed(3));
     voiceScreenOrb?.style.setProperty("--thebe-voice-energy",scale.toFixed(3));
     orb.style.setProperty("--thebe-audio-ring",ring.toFixed(1)+"px");
     orb.style.setProperty("--thebe-audio-blur",blur.toFixed(1)+"px");
