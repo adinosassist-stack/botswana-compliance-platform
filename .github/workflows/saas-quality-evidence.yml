@@ -1,0 +1,33 @@
+name: SaaS Quality Evidence Gate
+on:
+  pull_request:
+    paths:
+      - 'scripts/saas-quality-evidence-gate.mjs'
+      - 'scripts/workspace-navigation-performance-summary.mjs'
+      - 'tests/saas-quality-evidence-gate.test.mjs'
+      - 'tests/workspace-mobile-grid-containment.test.mjs'
+      - 'public/assets/workspace-container-alignment-v313.css'
+      - 'public/js/thebe-dock-recovery-geometry-v269.js'
+      - 'tests/workspace-dock-pointer-lifecycle.test.mjs'
+      - '.github/workflows/saas-quality-evidence.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-quality-evidence:
+    name: SaaS offline quality evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax checks
+        run: |
+          node --check scripts/saas-quality-evidence-gate.mjs
+          node --check tests/saas-quality-evidence-gate.test.mjs
+      - name: Offline adversarial regression
+        run: node --test tests/saas-quality-evidence-gate.test.mjs tests/workspace-mobile-grid-containment.test.mjs tests/workspace-dock-pointer-lifecycle.test.mjs
