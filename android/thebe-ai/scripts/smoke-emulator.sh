@@ -48,4 +48,12 @@ fi
 # evidence; do not infer successful website rendering from an activity launch.
 bash android/thebe-ai/scripts/browser-evidence-emulator.sh
 
+# On API 35 also require actual public sign-in content in UI accessibility.
+# Older API 26 remains an install/launch smoke; lack of web UI evidence there
+# is not reported as a login-page pass.
+android_api="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
+if [[ "$android_api" == "35" ]]; then
+  bash android/thebe-ai/scripts/assert-login-screen-emulator.sh
+fi
+
 printf 'PASS: debug APK installed and Android activity launch accepted (emulator only)\n'
