@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 const runtime=readFileSync(new URL("../public/js/thebe-live-voice.js",import.meta.url),"utf8");
-const css=readFileSync(new URL("../public/assets/thebe-ai-dock.css",import.meta.url),"utf8");
+const css=readFileSync(new URL("../public/assets/thebe-ai-immersive-v1.css",import.meta.url),"utf8");
 
 // Source-level invariants; authenticated Android/keyboard/voice testing is separate.
 assert.match(runtime,/thebe-aura-ribbon/,"The original SVG ribbon orb is mounted");
@@ -19,6 +19,7 @@ assert.match(runtime,/aria-label","End voice conversation"/,"An accessible voice
 assert.match(runtime,/aria-label","Mute microphone"/,"An accessible microphone control remains");
 assert.match(runtime,/recoverDockPresentation\(\)/,"Dock recovery remains defined");
 assert.match(runtime,/dataset\.expanded==="true"\|\|document\.body\.classList\.contains\("thebe-voice-active"\)/,"Compact geometry recovery does not overwrite fullscreen");
+assert.match(runtime,/thebeAuraImmersiveStyle/,"Immersive styling loads only when the AI dock mounts");
 assert.match(css,/thebe-aura-light-flow/,"Orb has its own motion");
 assert.match(css,/\[data-phase="listening"\]/,"Listening has a motion state");
 assert.match(css,/\[data-phase="speaking"\]/,"Speaking has a motion state");
