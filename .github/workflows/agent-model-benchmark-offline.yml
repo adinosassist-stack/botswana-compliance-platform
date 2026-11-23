@@ -1,0 +1,26 @@
+name: Agent model benchmark offline checks
+on:
+  pull_request:
+    paths:
+      - 'research/agent-model-benchmark/**'
+      - '.github/workflows/agent-model-benchmark-offline.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax checks
+        run: |
+          node --check research/agent-model-benchmark/benchmark.mjs
+          node --check research/agent-model-benchmark/benchmark.test.mjs
+      - name: Synthetic offline tests
+        run: node --test research/agent-model-benchmark/benchmark.test.mjs
