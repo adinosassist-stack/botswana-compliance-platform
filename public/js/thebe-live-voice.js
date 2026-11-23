@@ -1928,7 +1928,8 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       path.setAttribute("stroke-linecap","round");path.setAttribute("class","thebe-aura-curve");
       ribbon.append(path);
     }
-    orb.append(wave,core,ribbon);
+    orb.append(wave,core);
+    orb.append(ribbon);
     orbButton.append(orb);
     orbButton.addEventListener("click",()=>{
       // Open on direct user gesture; existing browser UX tests require immediate feedback.
