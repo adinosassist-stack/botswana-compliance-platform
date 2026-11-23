@@ -22,3 +22,11 @@ test("notification sheet is content-sized and preserves bottom navigation cleara
 test("voice shortcut invokes existing governed voice handler",()=>{
  assert.match(voice,/pillMic\.addEventListener\("click",\(\)=>orbButton\.click\(\)\)/);
 });
+
+test("cancelled drag restores starting coordinates",()=>{
+ assert.match(voice,/const \{left,top\}=pillDrag;\s*pillDrag=null;clampPill\(left,top\)/);
+});
+test("mobile pill microphone and drag handles meet 44px touch target",()=>{
+ assert.match(dock,/#thebeAiDockPill \.thebe-ai-pill-mic\{width:44px;min-width:44px\}/);
+ assert.match(dock,/#thebeAiDockPill \.thebe-ai-pill-handle\{width:44px;min-width:44px\}/);
+});
