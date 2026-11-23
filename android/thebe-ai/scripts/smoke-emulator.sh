@@ -16,6 +16,13 @@ if [[ "$installed" != package:* ]]; then
   exit 1
 fi
 
+# Prepare only the disposable API 35 CI browser before the first TWA launch.
+# This is never used on a physical tablet and does not disable origin checking.
+android_api="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
+if [[ "$android_api" == "35" ]]; then
+  THEBE_ANDROID_SYNTHETIC_EMULATOR=1 bash android/thebe-ai/scripts/prepare-chrome-emulator.sh
+fi
+
 # Fresh emulators are isolated, but Android 8 / API 26 may refuse to clear
 # the 'main' log. Clearing is best-effort; reading crash logs below is NOT.
 if ! adb logcat -c >/dev/null 2>&1; then
@@ -51,7 +58,6 @@ bash android/thebe-ai/scripts/browser-evidence-emulator.sh
 # On API 35 also require actual public sign-in content in UI accessibility.
 # Older API 26 remains an install/launch smoke; lack of web UI evidence there
 # is not reported as a login-page pass.
-android_api="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
 if [[ "$android_api" == "35" ]]; then
   bash android/thebe-ai/scripts/assert-login-screen-emulator.sh
 fi
