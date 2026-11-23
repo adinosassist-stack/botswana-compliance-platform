@@ -26,6 +26,14 @@ CI builds one internal debug APK and exercises its install, launcher, crash guar
 
 Physical device owners can run the read-only script `ANDROID_SERIAL=<approved-device-id> bash android/thebe-ai/scripts/inspect-tablet.sh`. It does not install or launch anything, access account contents, take screenshots or upload data. The full [physical tablet acceptance checklist](PHYSICAL_TABLET_ACCEPTANCE.md) is a separate supervised QA procedure, **not completed testing**.
 
+## Read-only Android origin association audit
+
+The source-only audit `node android/thebe-ai/scripts/audit-origin-assetlinks.mjs` checks whether the **public** `https://thebedesk.com/.well-known/assetlinks.json` is available as a nonredirecting JSON response. It uses an allowlisted origin, sends no account cookies, reads at most 64 KiB, and never changes website configuration. It returns a **blocked** status without a verified release-signing certificate.
+
+Only after separate owner approval of the release package identity and signing process, the reviewer may run
+`node android/thebe-ai/scripts/audit-origin-assetlinks.mjs --fingerprint <VERIFIED_RELEASE_CERT_SHA256>`.
+A match means the published statement names the package/relation/certificate; it **does not** certify device-side TWA fullscreen, sign-in, microphone, or physical-tablet acceptance. The supplied digest must come from the real, independently verified **release** certificate, never a debug signing key or made-up placeholder. This PR does not publish the statement or create any signing keys.
+
 ## Full-screen TWA prerequisite — NOT authorized for production yet
 
 A release engineer must approve and control the final application ID `com.thebedesk.ai`, the signing-key lifecycle and SHA-256 signing-certificate fingerprint. After that, separately approve and serve the exact `https://thebedesk.com/.well-known/assetlinks.json` site-to-app statement for:
