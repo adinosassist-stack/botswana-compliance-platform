@@ -6,6 +6,7 @@ on:
       - "tests/thebe-ai-android-source.test.mjs"
       - "tests/thebe-ai-android-compatibility.test.mjs"
       - "tests/thebe-ai-android-origin-trust.test.mjs"
+      - "tests/thebe-ai-tablet-qa-evidence.test.mjs"
       - ".github/workflows/thebe-ai-android-check.yml"
   workflow_dispatch:
 
@@ -33,7 +34,7 @@ jobs:
       - name: Install Android SDK
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - name: Verify Android wrapper and supported-OS matrix
-        run: node --test tests/thebe-ai-android-source.test.mjs tests/thebe-ai-android-compatibility.test.mjs tests/thebe-ai-android-origin-trust.test.mjs
+        run: node --test tests/thebe-ai-android-source.test.mjs tests/thebe-ai-android-compatibility.test.mjs tests/thebe-ai-android-origin-trust.test.mjs tests/thebe-ai-tablet-qa-evidence.test.mjs
       - name: Assemble debug APK
         working-directory: android/thebe-ai
         run: gradle --no-daemon --stacktrace :app:assembleDebug
