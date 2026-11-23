@@ -195,6 +195,10 @@ try{
     await bell.click();
     assert.equal(await popup.isVisible(),true,'Synthetic reminder sheet opens before '+mode);
     assert.equal(await popup.locator('.thebe-delivery-reminder').count(),1);
+    assert.equal(await page.evaluate(()=>document.body.classList.contains('thebe-delivery-sheet-open')),true,
+      'Open mobile notification sheet owns foreground navigation lane before '+mode);
+    assert.equal(await page.locator('#mobileRail').evaluate(el=>getComputedStyle(el).visibility),'hidden',
+      'Navigation rail yields to foreground notification sheet before '+mode);
     await page.evaluate(value=>{
      window.__reminderTestMode=value;
      document.dispatchEvent(new Event('visibilitychange'));
@@ -210,6 +214,12 @@ try{
     assert.equal(await bell.getAttribute('aria-expanded'),'false','Bell closes on failed '+mode+' read');
     assert.equal(await popup.locator('.thebe-delivery-reminder').count(),0,
      'Company job details are removed after '+mode+' read failure');
+    assert.equal(await page.evaluate(()=>document.body.classList.contains('thebe-delivery-sheet-open')),false,
+     'Failed '+mode+' read must release foreground sheet state');
+    assert.equal(await popup.getAttribute('aria-modal'),'false',
+     'Failed '+mode+' read must reset stale modal semantics');
+    assert.equal(await page.locator('#mobileRail').evaluate(el=>getComputedStyle(el).visibility),'visible',
+     'Failed '+mode+' read must restore mobile bottom navigation');
     await page.evaluate(()=>{
      window.__reminderTestMode='ok';
      document.dispatchEvent(new Event('visibilitychange'));
