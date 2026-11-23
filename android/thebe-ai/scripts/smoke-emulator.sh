@@ -37,4 +37,8 @@ fi
 
 # A browser may show its address bar because no production signing identity
 # has been associated with the website; this is expected, not a TWA parity claim.
+# Check that Android can resolve the browser dependency and capture synthetic UI
+# evidence; do not infer successful website rendering from an activity launch.
+bash android/thebe-ai/scripts/browser-evidence-emulator.sh
+
 printf 'PASS: debug APK installed and Android activity launch accepted (emulator only)\n'
