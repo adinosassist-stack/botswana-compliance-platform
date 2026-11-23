@@ -27,3 +27,14 @@ test('tablet inspection is read-only and does not install or start apps',()=>{
   assert.doesNotMatch(s,/adb\s+(?:-s\s+[^\s]+\s+)?(?:install|uninstall|reboot|push|pull|root|remount)\b/);
   assert.doesNotMatch(s,/am\s+(?:start|force-stop)|logcat\s+-c|screencap|uiautomator/);
 });
+
+test('API 26 logcat clear denial is nonfatal but AndroidRuntime inspection remains mandatory',()=>{
+  const s=read('android/thebe-ai/scripts/smoke-emulator.sh');
+  assert.match(s,/if\s+!\s+adb logcat -c\b/,'API 26 may deny clearing the main log');
+  assert.match(s,/if\s+!\s+adb logcat -d -v brief -s AndroidRuntime:E\s+>\s+"\$log_file"/,
+    'launch must fail closed if AndroidRuntime cannot be inspected');
+  assert.match(s,/FATAL EXCEPTION/);
+  assert.match(s,/Process: com\.thebedesk\.ai/);
+  assert.doesNotMatch(s,/adb logcat -d[^\n]*\|\| true/,
+    'crash-log read errors must not be ignored');
+});
