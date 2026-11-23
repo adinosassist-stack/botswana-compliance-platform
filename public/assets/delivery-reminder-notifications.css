@@ -242,3 +242,40 @@ body.thebe-voice-active .thebe-delivery-manager-popup{
  .thebe-delivery-sheet-footer{display:none}
  .thebe-delivery-sheet-list{padding:7px 10px}
 }
+
+/* #2715/#2778 final mobile clipping guard.
+   Reading notifications is a foreground mobile sheet: suspend the background
+   bottom rail while it is visible rather than stealing 104px from the visual
+   viewport (which can become very short with Android keyboard/200% zoom).
+   The rail returns automatically on Close/View Task, no navigation data lost. */
+.thebe-delivery-reminder-timing{
+ display:block;color:#245b99;font-size:12px;font-weight:750;
+ line-height:1.4;margin-top:5px;overflow-wrap:anywhere
+}
+@media(max-width:1000px){
+ body.thebe-delivery-sheet-open:not(.mobile-nav-open):not(.thebe-ai-mobile-open):not(.thebe-ai-expanded):not(.thebe-voice-active) .mobilebar,
+ body.thebe-delivery-sheet-open:not(.mobile-nav-open):not(.thebe-ai-mobile-open):not(.thebe-ai-expanded):not(.thebe-voice-active) .mobile-nav-occlusion{
+  opacity:0!important;visibility:hidden!important;pointer-events:none!important
+ }
+ .thebe-delivery-manager-popup{
+  top:calc(var(--thebe-vv-top, 0px) + env(safe-area-inset-top, 0px) + 8px)!important;
+  bottom:calc(var(--thebe-vv-bottom, 0px) + env(safe-area-inset-bottom, 0px) + 8px)!important
+ }
+ .thebe-delivery-manager-popup[data-compact-viewport="true"] .thebe-delivery-sheet-header{
+  padding:7px 10px
+ }
+ .thebe-delivery-manager-popup[data-compact-viewport="true"] .thebe-delivery-eyebrow{
+  display:none
+ }
+ .thebe-delivery-manager-popup[data-compact-viewport="true"] .thebe-delivery-sheet-footer{
+  display:none
+ }
+ .thebe-delivery-manager-popup[data-compact-viewport="true"] .thebe-delivery-sheet-list{
+  padding:7px 9px
+ }
+}
+@media(max-width:250px){
+ .thebe-delivery-reminder-actions{grid-template-columns:minmax(0,1fr)}
+ .thebe-delivery-manager-popup .thebe-delivery-sheet-header h2{font-size:14px}
+ .thebe-delivery-manager-popup .thebe-delivery-reminder{padding:9px}
+}
