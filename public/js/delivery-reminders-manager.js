@@ -4,7 +4,21 @@ const byId=id=>document.getElementById(id);
 const seen=new Set();
 let dayShown="";
 let reminders=[];
-let loading=false;
+let loading=false,loadEpoch=0,lastScope=null;
+// The canonical authenticated Workspace declares lexical 'let currentUser',
+// which need not be present as window.currentUser. This UI scope stays private.
+function reminderScope(){
+ let user=null;
+ try{
+  if(typeof currentUser!=="undefined"&&currentUser&&typeof currentUser==="object")
+   user=currentUser;
+ }catch{}
+ if(!user)user=window.currentUser||{};
+ return JSON.stringify([
+  String(user.id??""),String(user.tenantId??""),
+  String(byId("companySelect")?.value??"")
+ ]);
+}
 function localDate(){
   const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Africa/Gaborone",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
   const p=Object.fromEntries(parts.map(x=>[x.type,x.value]));
@@ -322,10 +336,21 @@ async function load(){
   if(loading||document.hidden)return;
   const client=globalThis.BW?.api?.createClient?.({timeoutMs:15000,retries:0});
   if(!client)return;
+  const epoch=++loadEpoch,scope=reminderScope();
+  if(lastScope!==null&&scope!==lastScope)clearRemindersAfterReadFailure();
+  lastScope=scope;
   loading=true;
   try{
     const today=localDate();
     const data=await client.request(`/api/daily-reporting/dashboard?date=${encodeURIComponent(today)}`,{method:"GET",cache:"no-store"});
+    // Responses started under a previous company/login must not repaint the
+    // current company's sheet, even if the old request resolves last.
+    if(epoch!==loadEpoch)return;
+    if(scope!==reminderScope()){
+      clearRemindersAfterReadFailure();
+      lastScope=reminderScope();
+      return;
+    }
     const items=Array.isArray(data.deliveryReminders)?data.deliveryReminders:[];
     if(dayShown!==today){seen.clear();readReminders.clear();dayShown=today}
     const newDue=items.filter(x=>!seen.has([x.locationId,x.employeeId,x.jobType,x.jobReference,today].join("|")));
@@ -333,9 +358,30 @@ async function load(){
     render(items);
     if(newDue.length && !window.matchMedia("(max-width: 1000px)").matches)setPopupOpen(true);
   }catch{
-    // No successful authenticated read: fail closed, including old DOM and badges.
-    clearRemindersAfterReadFailure();
-  }finally{loading=false}
+    // Only the currently scoped request can clear or change current UI.
+    if(epoch===loadEpoch)clearRemindersAfterReadFailure();
+  }finally{if(epoch===loadEpoch)loading=false}
 }
-document.addEventListener("DOMContentLoaded",()=>{setTimeout(load,1200);setInterval(load,60*60*1000);document.addEventListener("visibilitychange",()=>{if(!document.hidden)load()})});
+function refreshAfterWorkspaceChange(){
+  // Invalidate any request already in flight, clear the old private DOM first,
+  // then let the existing authenticated GET confirm the new workspace state.
+  ++loadEpoch;
+  loading=false;
+  lastScope=reminderScope();
+  clearRemindersAfterReadFailure();
+  if(!document.hidden)queueMicrotask(()=>void load());
+}
+document.addEventListener("DOMContentLoaded",()=>{
+ setTimeout(load,1200);
+ setInterval(load,60*60*1000);
+ document.addEventListener("change",event=>{
+  if(event.target?.id==="companySelect")refreshAfterWorkspaceChange();
+ });
+ window.addEventListener("thebe:workspace-ready",refreshAfterWorkspaceChange);
+ document.addEventListener("visibilitychange",()=>{
+  if(document.hidden)return;
+  if(lastScope!==null&&lastScope!==reminderScope())refreshAfterWorkspaceChange();
+  else load();
+ });
+});
 })();
