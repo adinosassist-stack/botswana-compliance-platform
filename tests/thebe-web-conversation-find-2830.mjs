@@ -38,6 +38,9 @@ try{
   });
   await page.goto("http://thebe-find.test/");
   await page.addStyleTag({path:path.resolve("public/assets/thebe-ai-dock.css")});
+  // Match the authenticated web workspace runtime's top-level lexical 'let',
+  // which is not a window property. The Dock must prefer it to stale fallback.
+  await page.addScriptTag({content:'let currentUser={id:"owner-A",tenantId:"tenant-A",role:"owner",firstName:"Real shell"};'});
   await page.addScriptTag({path:path.resolve("public/js/thebe-live-voice.js")});
   await page.evaluate(()=>window.ThebeAiDock.open());
   const dock=page.locator("#thebeAiDock");
@@ -113,10 +116,12 @@ try{
   await page.evaluate(async()=>window.ThebeAiDock.ask("Company B private test","ask"));
   assert.equal(await page.locator(".thebe-aura-turn").count(),1);
   await page.evaluate(()=>{
-    window.currentUser={id:"owner-B",tenantId:"tenant-B",role:"owner",firstName:"Second"};
+    // Deliberately leave window.currentUser as owner-A: the real runtime's
+    // mutable global lexical binding is authoritative for this UI boundary.
+    currentUser={id:"owner-B",tenantId:"tenant-B",role:"owner",firstName:"Second"};
     window.dispatchEvent(new Event("thebe:workspace-ready"));
   });
-  assert.equal(await page.locator(".thebe-aura-turn").count(),0,"Changing authenticated identity resets the same-tab chat");
+  assert.equal(await page.locator(".thebe-aura-turn").count(),0,"Changing authenticated global lexical identity resets the same-tab chat");
   assert.equal(await dock.locator("#thebeAiDockInput").inputValue(),"");
   assert.deepEqual(errors,[],"The web Dock creates no browser page errors");
   console.log("THEBE_WEB_FIND_BROWSER_PASS: local search, current response, navigation, reset, responsive geometry");
