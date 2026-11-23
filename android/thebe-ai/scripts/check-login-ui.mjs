@@ -3,7 +3,7 @@
 // synthetic Android emulator. This is NOT a login or real-tablet test.
 // Avoid printing captured UI content: even emulator UI evidence may change.
 import fs from 'node:fs';
-import {fileURLToPath} from 'node:url';
+import {pathToFileURL} from 'node:url';
 
 const LIMIT = 1024 * 1024;
 
@@ -65,6 +65,6 @@ export function run(args=process.argv.slice(2)) {
   return 0;
 }
 
-if(process.argv[1] && import.meta.url===fileURLToPath(process.argv[1]).href){
+if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href){
   process.exitCode=run();
 }
