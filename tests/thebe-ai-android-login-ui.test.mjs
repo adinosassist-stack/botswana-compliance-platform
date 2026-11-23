@@ -76,6 +76,17 @@ test('first-run Chrome setup is restricted to disposable Android 15 emulators',(
   assert.ok(!setup.includes('ignore-certificate-errors'));
 });
 
+test('failed emulator UI check prints redacted foreground categories only',()=>{
+  const s=read('android/thebe-ai/scripts/assert-login-screen-emulator.sh');
+  assert.ok(s.includes('SAFE_EMULATOR_FOREGROUND'));
+  assert.ok(s.includes('adb shell pidof com.android.chrome'));
+  assert.ok(s.includes('topResumedActivity'));
+  assert.ok(s.includes("foreground_class='chrome'"));
+  assert.ok(s.includes("foreground_class='unknown'"));
+  assert.ok(!s.includes('printf "%s" "$foreground"'));
+  assert.ok(!s.includes('cat "$xml"'));
+});
+
 test('emulator check is isolated and never uploads/login to user account',()=>{
   const s=read('android/thebe-ai/scripts/assert-login-screen-emulator.sh');
   const cli=read('android/thebe-ai/scripts/check-login-ui.mjs');
