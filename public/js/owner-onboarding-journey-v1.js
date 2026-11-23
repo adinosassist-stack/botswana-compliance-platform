@@ -1,5 +1,14 @@
 (function ownerJourneyBootstrap(global){
   "use strict";
+  // A missing or empty employee count must never become a saved zero.
+  // Accept the existing numeric form and canonical digit strings only.
+  function hasSavedEmployeeCount(value){
+    if(typeof value==="number")return Number.isSafeInteger(value)&&value>=0;
+    if(typeof value!=="string")return false;
+    const text=value.trim();
+    return /^(?:0|[1-9][0-9]*)$/.test(text)&&
+      Number.isSafeInteger(Number(text));
+  }
   function deriveOwnerJourney(user, payload){
     if(!user||user.role!=="owner"||!user.id||!user.tenantId)return null;
     const root=payload?.state;
@@ -8,11 +17,14 @@
     const profile=company?.profile||{};
     const account=true;
     const business=!!company&&!!String(profile.entityType||"").trim()&&!!String(profile.industry||"").trim()&&
-      Number.isInteger(Number(profile.employees))&&Number(profile.employees)>=0;
+      hasSavedEmployeeCount(profile.employees);
     const workspace=!!company;
     const onboardingComplete=user.onboardingComplete===true;
     const checkedAt=typeof profile.firstProtectionCheckAt==="string"?Date.parse(profile.firstProtectionCheckAt):NaN;
-    const first=workspace&&business&&onboardingComplete&&profile.firstProtectionCheckStatus==="complete"&&Number.isFinite(checkedAt);
+    // Only a real, non-future saved timestamp can prove a completed check.
+    // Five minutes allows bounded clock skew; never treat a future date as proof.
+    const validCheckTime=Number.isFinite(checkedAt)&&checkedAt>0&&checkedAt<=Date.now()+5*60*1000;
+    const first=workspace&&business&&onboardingComplete&&profile.firstProtectionCheckStatus==="complete"&&validCheckTime;
     return Object.freeze({account,business,workspace,first,onboardingComplete,emailVerified:user.emailVerified===true?true:null});
   }
   if(typeof module!=="undefined"&&module.exports){module.exports={deriveOwnerJourney};return}
