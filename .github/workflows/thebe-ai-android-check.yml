@@ -1,0 +1,43 @@
+name: Thebe AI Android source and debug build
+on:
+  pull_request:
+    paths:
+      - "android/thebe-ai/**"
+      - "tests/thebe-ai-android-source.test.mjs"
+      - ".github/workflows/thebe-ai-android-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-debug:
+    name: Build private debug APK (no release)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.6.0"
+      - uses: android-actions/setup-android@v3
+        with:
+          # The action's obsolete default "tools" package fails on current SDK catalogs.
+          packages: "platform-tools"
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Verify Android wrapper source boundary
+        run: node --test tests/thebe-ai-android-source.test.mjs
+      - name: Assemble debug APK
+        working-directory: android/thebe-ai
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Save private test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: thebe-ai-android-debug-not-for-release
+          path: android/thebe-ai/app/build/outputs/apk/debug/*.apk
+          retention-days: 7
