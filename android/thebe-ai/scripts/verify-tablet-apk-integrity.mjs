@@ -46,20 +46,20 @@ export async function checkLocalApk(apkFile,expectedSha){
 
 export async function run(args=process.argv.slice(2)){
   if(args.length===1 && args[0]==='--help'){
-    process.stdout.write('Read-only integrity check: --apk <app-debug.apk> --expected-sha256 <trusted-SHA256>.\\n');
+    process.stdout.write('Read-only integrity check: --apk <app-debug.apk> --expected-sha256 <trusted-SHA256>.\n');
     return 0;
   }
   if(args.length!==4 || args[0]!=='--apk' || args[2]!=='--expected-sha256'){
-    process.stderr.write('BLOCKED: expected --apk <app-debug.apk> --expected-sha256 <trusted-SHA256>.\\n');
+    process.stderr.write('BLOCKED: expected --apk <app-debug.apk> --expected-sha256 <trusted-SHA256>.\n');
     return 2;
   }
   const result=await checkLocalApk(args[1],args[3]);
   if(result.status!=='match'){
-    process.stderr.write((result.status==='mismatch'?'BLOCKED: ':'INVALID: ')+result.reason+'.\\n');
+    process.stderr.write((result.status==='mismatch'?'BLOCKED: ':'INVALID: ')+result.reason+'.\n');
     return result.status==='mismatch'?1:2;
   }
-  process.stdout.write('MATCH: internal debug APK bytes match the independently supplied SHA-256 digest.\\n');
-  process.stdout.write('NOT VERIFIED: origin of digest, GitHub source SHA, APK signature, physical tablet, trusted full-screen mode or release readiness.\\n');
+  process.stdout.write('MATCH: internal debug APK bytes match the independently supplied SHA-256 digest.\n');
+  process.stdout.write('NOT VERIFIED: origin of digest, GitHub source SHA, APK signature, physical tablet, trusted full-screen mode or release readiness.\n');
   return 0;
 }
 
