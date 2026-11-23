@@ -31,6 +31,26 @@ test("incomplete business details cannot pass milestone",()=>{
  assert.equal(a.business,false);
  assert.equal(b.business,false);
 });
+test("missing and malformed employee counts never masquerade as a saved zero",()=>{
+ for(const employees of [undefined,null,"","  ",false,true,"-1","0.5","1e3","Infinity",NaN,Infinity,0.5,{},[]]){
+  const result=derive(owner,payload({...profile,employees}));
+  assert.equal(result.business,false,"invalid employee count: "+String(employees));
+  assert.equal(result.first,false);
+ }
+ for(const employees of [0,1,"0","2"," 2 "]){
+  const result=derive(owner,payload({...profile,employees}));
+  assert.equal(result.business,true,"valid saved employee count: "+String(employees));
+ }
+});
+test("a future-dated first check cannot be presented as confirmed",()=>{
+ const complete={...profile,firstProtectionCheckStatus:"complete"};
+ const valid=new Date(Date.now()-24*60*60*1000).toISOString();
+ const future=new Date(Date.now()+24*60*60*1000).toISOString();
+ assert.equal(derive({...owner,onboardingComplete:true},payload({...complete,firstProtectionCheckAt:valid})).first,true);
+ assert.equal(derive({...owner,onboardingComplete:true},payload({...complete,firstProtectionCheckAt:future})).first,false);
+ assert.equal(derive({...owner,onboardingComplete:true},payload({...complete,firstProtectionCheckAt:"1970-01-01T00:00:00.000Z"})).first,false);
+});
+
 test("no selected company cannot pass workspace or first value",()=>{
  const result=derive({...owner,onboardingComplete:true},{state:{activeCompanyId:"other",companies:[{id:"company-a",profile:{...profile,firstProtectionCheckStatus:"complete",firstProtectionCheckAt:"2026-11-22T10:00:00Z"}}]}});
  assert.equal(result.workspace,false);
