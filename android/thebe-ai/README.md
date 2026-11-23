@@ -38,6 +38,8 @@ A match means the published statement names the package/relation/certificate; it
 
 The API 35 Android emulator now attempts a **strict, read-only accessibility check** after launching the internal debug APK. It accepts only *visible* Thebe Desk branding together with distinctive public sign-in text (such as "Business name" or "Open your Thebe Desk workspace"). A URL in the browser chrome or a successful `am start` alone does **not** pass. Browser error pages, chooser dialogs, absent accessibility content and timeouts are blocked.
 
+The Android 15 CI runner first prepares **its disposable Chrome instance** with Chromium's `--disable-fre` testing switch so Chrome's first-run screen cannot conceal the public login page. The preparation checks `ro.kernel.qemu=1`, an `emulator-*` serial and Android API 35. It does not run on a real tablet, change the shipping APK, bypass Digital Asset Links verification or accept any Chrome browser terms on a customer's behalf. If Chrome ignores this test flag, the render test still reports a blocker.
+
 The smoke does not enter credentials, sign in, request microphone access, scrape customer data, or upload the local accessibility dump or screenshot. It can fail when a browser provider does not expose web content to UIAutomator: that is a **test limitation requiring separate supervised visual proof**, not authorization to weaken the gate. API 26 remains install/launch/HTTPS-handler smoke only.
 
 This is not proof of trusted full-screen TWA, physical-tablet UI, AI Dock, notifications, printing, voice or authenticated workspace functionality.
