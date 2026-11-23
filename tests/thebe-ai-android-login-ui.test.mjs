@@ -58,6 +58,24 @@ test('emulator diagnostics expose only aggregate signals, never UI text',()=>{
   assert.deepEqual(summarizeHierarchy(null),{nodes:0,labelledNodes:0,chromeOwned:false,webView:false});
 });
 
+test('first-run Chrome setup is restricted to disposable Android 15 emulators',()=>{
+  const setup=read('android/thebe-ai/scripts/prepare-chrome-emulator.sh');
+  const smoke=read('android/thebe-ai/scripts/smoke-emulator.sh');
+  assert.ok(setup.includes('THEBE_ANDROID_SYNTHETIC_EMULATOR'));
+  assert.ok(setup.includes('adb get-serialno'));
+  assert.ok(setup.includes('ro.kernel.qemu'));
+  assert.ok(setup.includes('ro.build.version.sdk'));
+  assert.ok(setup.includes('emulator-*'));
+  assert.ok(setup.includes('--disable-fre'));
+  assert.ok(setup.includes('--no-first-run'));
+  assert.ok(setup.includes('com.android.chrome'));
+  assert.ok(smoke.includes('THEBE_ANDROID_SYNTHETIC_EMULATOR=1 bash android/thebe-ai/scripts/prepare-chrome-emulator.sh'));
+  assert.ok(smoke.includes('if [[ "$android_api" == "35" ]]'));
+  assert.ok(!setup.includes('disable-digital-asset-link-verification-for-url'));
+  assert.ok(!setup.includes('disable-web-security'));
+  assert.ok(!setup.includes('ignore-certificate-errors'));
+});
+
 test('emulator check is isolated and never uploads/login to user account',()=>{
   const s=read('android/thebe-ai/scripts/assert-login-screen-emulator.sh');
   const cli=read('android/thebe-ai/scripts/check-login-ui.mjs');
