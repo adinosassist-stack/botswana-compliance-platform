@@ -35,9 +35,45 @@ jobs:
       - name: Assemble debug APK
         working-directory: android/thebe-ai
         run: gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Verify debug APK identity, Android signature and permissions
+        run: bash android/thebe-ai/scripts/verify-debug-apk.sh
       - name: Save private test artifact
         uses: actions/upload-artifact@v4
         with:
           name: thebe-ai-android-debug-not-for-release
           path: android/thebe-ai/app/build/outputs/apk/debug/*.apk
           retention-days: 7
+
+  emulator-install-smoke:
+    name: Emulator APK install and launch (no account)
+    needs: android-debug
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: thebe-ai-android-debug-not-for-release
+          path: android/thebe-ai/app/build/outputs/apk/debug
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools"
+      - name: Enable hardware acceleration on Linux runner
+        run: |
+          if [[ -e /dev/kvm ]]; then
+            sudo chmod 666 /dev/kvm
+          fi
+      - name: Install and start Thebe AI on a test emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: bash android/thebe-ai/scripts/smoke-emulator.sh
