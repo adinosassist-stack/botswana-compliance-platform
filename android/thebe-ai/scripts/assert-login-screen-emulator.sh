@@ -33,7 +33,7 @@ if [[ -n "$(adb shell pidof com.android.chrome 2>/dev/null || true)" ]]; then
 else
   chrome_alive='no'
 fi
-printf 'SAFE_EMULATOR_FOREGROUND: class=%s chromeProcess=%s.\\n' "$foreground_class" "$chrome_alive" >&2
+printf 'SAFE_EMULATOR_FOREGROUND: class=%s chromeProcess=%s.\n' "$foreground_class" "$chrome_alive" >&2
 
 printf 'BLOCKED: no verified accessible Thebe Desk sign-in content on the API 35 emulator.\n' >&2
 printf 'This may be a browser provider, network, page-loading or accessibility issue; do not claim render acceptance.\n' >&2
