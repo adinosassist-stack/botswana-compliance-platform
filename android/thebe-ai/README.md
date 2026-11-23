@@ -26,6 +26,14 @@ CI builds one internal debug APK and exercises its install, launcher, crash guar
 
 Physical device owners can run the read-only script `ANDROID_SERIAL=<approved-device-id> bash android/thebe-ai/scripts/inspect-tablet.sh`. It does not install or launch anything, access account contents, take screenshots or upload data. The full [physical tablet acceptance checklist](PHYSICAL_TABLET_ACCEPTANCE.md) is a separate supervised QA procedure, **not completed testing**.
 
+## Synthetic browser-page rendering check (API 35)
+
+The API 35 Android emulator now attempts a **strict, read-only accessibility check** after launching the internal debug APK. It accepts only *visible* Thebe Desk branding together with distinctive public sign-in text (such as "Business name" or "Open your Thebe Desk workspace"). A URL in the browser chrome or a successful `am start` alone does **not** pass. Browser error pages, chooser dialogs, absent accessibility content and timeouts are blocked.
+
+The smoke does not enter credentials, sign in, request microphone access, scrape customer data, or upload the local accessibility dump or screenshot. It can fail when a browser provider does not expose web content to UIAutomator: that is a **test limitation requiring separate supervised visual proof**, not authorization to weaken the gate. API 26 remains install/launch/HTTPS-handler smoke only.
+
+This is not proof of trusted full-screen TWA, physical-tablet UI, AI Dock, notifications, printing, voice or authenticated workspace functionality.
+
 ## Full-screen TWA prerequisite — NOT authorized for production yet
 
 A release engineer must approve and control the final application ID `com.thebedesk.ai`, the signing-key lifecycle and SHA-256 signing-certificate fingerprint. After that, separately approve and serve the exact `https://thebedesk.com/.well-known/assetlinks.json` site-to-app statement for:
