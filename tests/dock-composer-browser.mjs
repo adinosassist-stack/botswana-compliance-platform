@@ -99,9 +99,10 @@ try{
     await input.fill('a');assert(await send.isVisible(),'one character offers send');assert(await audio.isHidden());
     await input.fill('');assert(await audio.isVisible(),'clearing restores voice');
     await page.evaluate(()=>{window.voiceStarts=[];window.ThebeLiveVoice={status:()=>({state:'idle'}),start:async options=>{window.voiceStarts.push(options)},stop:()=>{}}});
-    await audio.click();await page.locator('#thebeVoiceScreen').waitFor({state:'visible'});
-     const voiceStack=await page.evaluate(()=>({dialog:Number.parseInt(getComputedStyle(document.querySelector('#thebeVoiceScreen')).zIndex,10),dock:Number.parseInt(getComputedStyle(document.querySelector('#thebeAiDock')).zIndex,10)}));
-     assert(voiceStack.dialog>voiceStack.dock,'voice controls must stack above the immersive dock: '+JSON.stringify(voiceStack));
+    await audio.click();
+    const endVoice=dock.getByRole('button',{name:'End voice conversation'});
+    await endVoice.waitFor({state:'visible'});
+    assert(await page.locator('#thebeVoiceScreen').isHidden(),'healthy immersive mode hides the legacy controller');
     await page.waitForFunction(()=>window.voiceStarts.length===1);
     assert.equal(await page.evaluate(()=>voiceStarts[0].mode),workspace?'workspace':'marketing');
     await input.fill('I can continue typing during voice');
@@ -114,12 +115,9 @@ try{
     assert((await activity.innerText()).includes('Show my open invoices'),'user speech appears in dock');
     assert((await activity.innerText()).includes('Here are your outstanding invoices'),'assistant speech appears in dock');
     assert.equal(await input.inputValue(),'I can continue typing during voice','voice cannot overwrite typed draft');
-    assert(await page.locator('#thebeVoiceScreen').isVisible(),'voice remains active while typing');
+    assert(await endVoice.isVisible(),'voice remains active while typing');
     await input.fill('');
-    const voiceToggle=page.locator('.thebe-voice-float-toggle');
-    await voiceToggle.click();
-    assert.equal(await voiceToggle.getAttribute('aria-expanded'),'true','voice options announce expanded state');
-    await page.locator('.thebe-voice-exit').click();
+    await endVoice.click();
     assert.equal(await page.locator('#thebeVoiceScreen').evaluate(el=>el.open),false,'ending voice closes floating dialog');
     assert.equal(await page.evaluate(()=>document.body.classList.contains('thebe-voice-active')),false,'ending voice restores dock presentation');
     if(workspace){
