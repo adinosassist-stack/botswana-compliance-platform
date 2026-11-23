@@ -572,7 +572,7 @@
   const STORE_KEY="thebe_ai_dock_collapsed_v5";
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
-  let dock=null,pill=null,pillLabel=null,orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,scrollRegion=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null,missionRail=null,missionLabel=null,missionMeta=null,missionAction=null,contextBar=null,contextLabel=null,modeRail=null,clearButton=null,latestResponseButton=null;
+  let dock=null,pill=null,pillOpen=null,pillLabel=null,pillSync=()=>{},orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,scrollRegion=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null,missionRail=null,missionLabel=null,missionMeta=null,missionAction=null,contextBar=null,contextLabel=null,modeRail=null,clearButton=null,latestResponseButton=null;
   let audioButton=null,attachButton=null,fileInput=null,attachmentTray=null,pendingFiles=[];
   let voiceScreen=null,voiceScreenStatus=null,voiceScreenOrb=null,voiceScreenTranscript=null,voiceReturnFocus=null;
   let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",mascotFocus="ambient",ownerCommandState=null,persistentObjectiveState=null,collapsed=false,assistantMode="ask",lastAnswer="",lastGoal="",lastAdvisorTrust="neutral",autoFollowResponse=true,responseScrollLock=false,textRunId=0,textAbortController=null;
@@ -943,7 +943,7 @@
     collapsed=(mobile||surfaceMode()==="workspace")?Boolean(next):false;
     safeSessionSet(STORE_KEY,collapsed?"1":"0");
     syncVisibility();
-    if(collapsed)pill?.focus();else input?.focus({preventScroll:true});
+    if(collapsed)pillOpen?.focus();else input?.focus({preventScroll:true});
   }
   function clearRoutineWorkspaceInlineGeometry(){
     if(!dock)return;
@@ -952,7 +952,10 @@
     const orbButton=dock.querySelector(".thebe-ai-orb-button");
     const voiceCard=dock.querySelector(".thebe-ai-voice-card");
     for(const property of dockProperties)dock.style.removeProperty(property);
-    for(const property of pillProperties)pill?.style.removeProperty(property);
+    for(const property of pillProperties){
+      if(mobileDockMode()&&pill?.dataset.dragPosition==="true"&&["left","right","bottom"].includes(property))continue;
+      pill?.style.removeProperty(property);
+    }
     voiceCard?.style.removeProperty("grid-template-columns");
     for(const property of ["width","min-width","max-width","height","min-height"])orbButton?.style.removeProperty(property);
   }
@@ -981,10 +984,11 @@
     const surface=surfaceMode(),visible=surface!=="hidden",workspace=surface==="workspace",yielded=dockShouldYield(),isCollapsed=effectiveCollapsed();
     dock.hidden=!visible||isCollapsed;
     dock.style.setProperty("display",visible&&!isCollapsed?"flex":"none","important");
-    pill.setAttribute("aria-expanded",String(visible&&!isCollapsed));
+    pillOpen?.setAttribute("aria-expanded",String(visible&&!isCollapsed));
     document.body.classList.toggle("thebe-ai-expanded",visible&&!mobile&&dock.dataset.expanded==="true");
     pill.hidden=!visible||!isCollapsed||yielded;
     pill.style.setProperty("display",visible&&isCollapsed&&!yielded?"inline-flex":"none","important");
+    if(mobile&&visible&&isCollapsed&&!yielded)global.requestAnimationFrame?.(pillSync);
     document.body.classList.toggle("thebe-ai-mobile-open",mobile&&visible&&!isCollapsed);
     dock.dataset.surface=surface;
     pill.dataset.surface=surface;
@@ -1939,60 +1943,100 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     foot=el("div","thebe-ai-foot","Thebe can analyse, brief and prepare next steps. Governed actions remain behind the existing approval controls.");
     dock.append(head,scroll,latestResponseButton,attachmentTray,compose,foot);
 
-    pill=el("button","thebe-ai-pill");
-    pill.id="thebeAiDockPill";pill.type="button";pill.hidden=true;
-    pill.setAttribute("aria-controls","thebeAiDock");
+    // #2813: the compact launcher is a group of independent, accessible controls.
+    // Keep the grab handle separate from both chat and microphone actions.
+    pill=el("div","thebe-ai-pill");
+    pill.id="thebeAiDockPill";pill.hidden=true;
+    pill.setAttribute("role","group");
+    pill.setAttribute("aria-label","Thebe AI floating controls");
+    pillOpen=el("button","thebe-ai-pill-open");
+    pillOpen.type="button";pillOpen.setAttribute("aria-controls","thebeAiDock");
+    pillOpen.setAttribute("aria-label","Open Thebe AI chat");
     pillLabel=el("span","thebe-ai-pill-label","Thebe");
-    pill.append(el("span","thebe-ai-pill-grip","⠿"),el("span","thebe-ai-pill-dot"),pillLabel);
-    // #2813: movable compact AI pill; movement never opens chat.
-    // Keep the persisted coordinates local to this browser/device.
-    let pillDrag=null, pillSuppressClick=false;
+    pillOpen.append(el("span","thebe-ai-pill-dot"),pillLabel);
+    pillOpen.addEventListener("click",()=>setCollapsed(false));
+
+    const pillMic=el("button","thebe-ai-pill-mic");
+    pillMic.type="button";pillMic.title="Talk to Thebe";
+    pillMic.setAttribute("aria-label","Start Thebe AI voice");
+    pillMic.append(mic.cloneNode(true));
+    // The existing governed voice handler supplies permission and runtime checks.
+    pillMic.addEventListener("click",()=>orbButton.click());
+
+    const pillHandle=el("button","thebe-ai-pill-handle");
+    pillHandle.type="button";pillHandle.title="Move Thebe AI";
+    pillHandle.setAttribute("aria-label","Move Thebe AI pill. Drag or press Alt plus arrow keys.");
+    pillHandle.setAttribute("aria-keyshortcuts","Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown");
+    pillHandle.textContent="⠿";
+    pill.append(pillOpen,pillMic,pillHandle);
+
+    let pillDrag=null,savedPillPosition=null;
+    const positionKey="thebe-ai-pill-position-v1";
     const pillBounds=()=>{
       const vv=global.visualViewport;
-      const width=vv?.width||global.innerWidth;
-      const height=vv?.height||global.innerHeight;
+      const width=vv?.width||global.innerWidth,height=vv?.height||global.innerHeight;
       const offsetLeft=vv?.offsetLeft||0,offsetTop=vv?.offsetTop||0;
-      const rail=global.innerWidth<=1023?104:12;
+      const rail=mobileDockMode()?104:12;
       return {left:offsetLeft+8,top:offsetTop+8,
         right:offsetLeft+width-pill.offsetWidth-8,
         bottom:offsetTop+height-pill.offsetHeight-rail};
     };
     const clampPill=(x,y)=>{
       const b=pillBounds();
-      const left=Math.max(b.left,Math.min(Math.max(b.left,b.right),x));
-      const top=Math.max(b.top,Math.min(Math.max(b.top,b.bottom),y));
-      pill.style.setProperty("left",left+"px");
-      pill.style.setProperty("top",top+"px");
-      pill.style.setProperty("right","auto");
-      pill.style.setProperty("bottom","auto");
+      let left=Math.max(b.left,Math.min(Math.max(b.left,b.right),x));
+      let top=Math.max(b.top,Math.min(Math.max(b.top,b.bottom),y));
+      // Give the independent draggable notification bell its own touch lane.
+      const bell=document.getElementById("thebeDeliveryManagerBell");
+      if(bell&&!bell.hidden&&getComputedStyle(bell).visibility!=="hidden"&&
+         !document.body.classList.contains("thebe-delivery-sheet-open")){
+        const br=bell.getBoundingClientRect();
+        if(left<br.right+8&&left+pill.offsetWidth>br.left-8&&
+           top<br.bottom+8&&top+pill.offsetHeight>br.top-8){
+          const toLeft=br.left-pill.offsetWidth-10;
+          const toRight=br.right+10;
+          if(toLeft>=b.left)left=toLeft;
+          else if(toRight<=b.right)left=toRight;
+          else top=Math.max(b.top,Math.min(Math.max(b.top,b.bottom),br.bottom+10));
+        }
+      }
+      pill.style.setProperty("left",left+"px","important");
+      pill.style.setProperty("top",top+"px","important");
+      pill.style.setProperty("right","auto","important");
+      pill.style.setProperty("bottom","auto","important");
+      pill.dataset.dragPosition="true";
       return {left,top};
     };
-    const restorePill=()=>{
-      try{
-        const saved=JSON.parse(global.localStorage.getItem("thebe-ai-pill-position-v1")||"null");
-        if(saved&&Number.isFinite(saved.x)&&Number.isFinite(saved.y)){
-          const b=pillBounds();
-          clampPill(b.left+saved.x*Math.max(0,b.right-b.left),
-            b.top+saved.y*Math.max(0,b.bottom-b.top));
-        }else if(pill.style.left)clampPill(parseFloat(pill.style.left),parseFloat(pill.style.top));
-      }catch(_){ /* Storage can be disabled; keep default position. */ }
-    };
     const savePill=()=>{
-      const b=pillBounds(),r=pill.getBoundingClientRect();
-      const p=clampPill(r.left,r.top);
-      try{global.localStorage.setItem("thebe-ai-pill-position-v1",JSON.stringify({
+      const b=pillBounds(),r=pill.getBoundingClientRect(),p=clampPill(r.left,r.top);
+      savedPillPosition={
         x:(p.left-b.left)/Math.max(1,b.right-b.left),
         y:(p.top-b.top)/Math.max(1,b.bottom-b.top)
-      }));}catch(_){/* private browsing */}
+      };
+      try{global.localStorage?.setItem(positionKey,JSON.stringify(savedPillPosition))}catch(_){}
     };
-    pill.setAttribute("aria-label","Open Thebe AI. Drag the grip to reposition; Alt plus arrow keys moves the pill.");
-    pill.addEventListener("pointerdown",event=>{
-      if(event.button!==0||!event.target.closest?.(".thebe-ai-pill-grip"))return;
+    try{
+      const value=JSON.parse(global.localStorage?.getItem(positionKey)||"null");
+      if(value&&Number.isFinite(value.x)&&Number.isFinite(value.y)&&
+         value.x>=0&&value.x<=1&&value.y>=0&&value.y<=1)savedPillPosition=value;
+    }catch(_){}
+    pillSync=()=>{
+      if(pill.hidden||!mobileDockMode())return;
+      const b=pillBounds();
+      if(savedPillPosition){
+        clampPill(b.left+savedPillPosition.x*Math.max(0,b.right-b.left),
+          b.top+savedPillPosition.y*Math.max(0,b.bottom-b.top));
+      }else if(pill.dataset.dragPosition==="true"){
+        const x=Number.parseFloat(pill.style.left),y=Number.parseFloat(pill.style.top);
+        if(Number.isFinite(x)&&Number.isFinite(y))clampPill(x,y);
+      }
+    };
+    pillHandle.addEventListener("pointerdown",event=>{
+      if(!mobileDockMode()||event.button!==0||!event.isPrimary)return;
       const r=pill.getBoundingClientRect();
       pillDrag={id:event.pointerId,x:event.clientX,y:event.clientY,left:r.left,top:r.top,moved:false};
-      pill.setPointerCapture?.(event.pointerId);
+      pillHandle.setPointerCapture?.(event.pointerId);
     });
-    pill.addEventListener("pointermove",event=>{
+    pillHandle.addEventListener("pointermove",event=>{
       if(!pillDrag||event.pointerId!==pillDrag.id)return;
       const dx=event.clientX-pillDrag.x,dy=event.clientY-pillDrag.y;
       if(Math.hypot(dx,dy)>6)pillDrag.moved=true;
@@ -2000,16 +2044,20 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     });
     const finishPillDrag=event=>{
       if(!pillDrag||event.pointerId!==pillDrag.id)return;
-      if(pillDrag.moved){pillSuppressClick=true;savePill();}
+      if(pillDrag.moved){
+        const b=pillBounds(),r=pill.getBoundingClientRect();
+        // Snap to the nearest safe horizontal edge without crossing the mobile rail.
+        clampPill(r.left-b.left<(b.right-r.left)?b.left:Math.max(b.left,b.right),r.top);
+        savePill();
+      }
       pillDrag=null;
     };
-    pill.addEventListener("pointerup",finishPillDrag);
-    pill.addEventListener("pointercancel",finishPillDrag);
-    pill.addEventListener("click",event=>{
-      if(pillSuppressClick){pillSuppressClick=false;event.preventDefault();return;}
-      setCollapsed(false);
+    pillHandle.addEventListener("pointerup",finishPillDrag);
+    pillHandle.addEventListener("pointercancel",event=>{
+      if(!pillDrag||event.pointerId!==pillDrag.id)return;
+      pillDrag=null;pillSync();
     });
-    pill.addEventListener("keydown",event=>{
+    pillHandle.addEventListener("keydown",event=>{
       if(!event.altKey||!["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(event.key))return;
       event.preventDefault();
       const r=pill.getBoundingClientRect(),step=event.shiftKey?40:16;
@@ -2017,9 +2065,10 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
         r.top+(event.key==="ArrowUp"?-step:event.key==="ArrowDown"?step:0));
       savePill();
     });
-    global.addEventListener("resize",restorePill,{passive:true});
-    global.visualViewport?.addEventListener("resize",restorePill,{passive:true});
-    global.requestAnimationFrame?.(restorePill);
+    for(const eventName of ["resize","orientationchange","pageshow"])
+      global.addEventListener(eventName,pillSync,{passive:true});
+    global.visualViewport?.addEventListener("resize",pillSync,{passive:true});
+    global.visualViewport?.addEventListener("scroll",pillSync,{passive:true});
 
     document.body.append(dock,pill);
     syncVisibility();syncAttention();bindMarketingPrompts();
