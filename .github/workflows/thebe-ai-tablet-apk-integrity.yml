@@ -1,0 +1,25 @@
+name: Thebe AI tablet APK integrity — offline checks
+on:
+  pull_request:
+    paths:
+      - "android/thebe-ai/scripts/verify-tablet-apk-integrity.mjs"
+      - "android/thebe-ai/APK_INTEGRITY_PRECHECK.md"
+      - "tests/thebe-ai-tablet-apk-integrity.test.mjs"
+      - ".github/workflows/thebe-ai-tablet-apk-integrity.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-integrity-test:
+    name: Local APK digest preflight regression (fixtures only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify no-device and fail-closed artifact integrity logic
+        run: node --test tests/thebe-ai-tablet-apk-integrity.test.mjs
