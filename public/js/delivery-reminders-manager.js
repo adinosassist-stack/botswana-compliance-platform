@@ -285,6 +285,20 @@ function render(items){
  syncBellLayout();
  syncReminderViewport();
 }
+// A failed authenticated read cannot vouch for the cached reminder list. Remove
+// all previously rendered job details rather than leaving another session's
+// or an out-of-date company's reminders available on screen.
+function clearRemindersAfterReadFailure(){
+ reminders=[];seen.clear();readReminders.clear();dayShown="";
+ const panel=byId("thebeDeliveryManagerPopup");
+ if(panel){panel.hidden=true;panel.replaceChildren()}
+ const bell=byId("thebeDeliveryManagerBell");
+ if(bell){
+  bell.hidden=true;bell.dataset.count="0";
+  bell.setAttribute("aria-expanded","false");
+ }
+ byId("thebeDeliveryWorkspace")?.remove();
+}
 async function load(){
   if(loading||document.hidden)return;
   const client=globalThis.BW?.api?.createClient?.({timeoutMs:15000,retries:0});
@@ -300,7 +314,8 @@ async function load(){
     render(items);
     if(newDue.length && !window.matchMedia("(max-width: 1000px)").matches)setPopupOpen(true);
   }catch{
-    // Unauthorized visitors and transient failures must not reveal company data.
+    // No successful authenticated read: fail closed, including old DOM and badges.
+    clearRemindersAfterReadFailure();
   }finally{loading=false}
 }
 document.addEventListener("DOMContentLoaded",()=>{setTimeout(load,1200);setInterval(load,60*60*1000);document.addEventListener("visibilitychange",()=>{if(!document.hidden)load()})});
