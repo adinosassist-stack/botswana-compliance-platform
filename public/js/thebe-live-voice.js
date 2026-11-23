@@ -1046,7 +1046,7 @@
       if(workspace)setPhase("idle","Talk to Thebe","What would you like to get done?");
       else if(surface==="public")setPhase("idle","Talk to Thebe","Ask about Thebe Desk or tap the particles to sample voice");
     }
-    if(input)input.placeholder=workspace?modeCopy[assistantMode].placeholder:"Ask about Thebe Desk…";
+    if(input)input.placeholder=(dock?.dataset.expanded==="true"||document.body.classList.contains("thebe-voice-active"))?"Ask anything…":workspace?modeCopy[assistantMode].placeholder:"Ask about Thebe Desk…";
     const planMode=modeRail?.querySelector('[data-thebe-mode="goal_plan"]');
     if(planMode)planMode.hidden=!workspace||!["owner","manager"].includes(commandCentreRole());
     syncContextBar();
@@ -1185,6 +1185,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       voiceScreen.show();
       // Keep the underlying dock immersive for the entire voice session.
       document.body.classList.add("thebe-voice-active");
+      if(input)input.placeholder="Ask anything…";
       // Keep the composer editable while the voice session remains live.
       // Do not move focus outside the visible voice controls.
       (immersiveMute||voiceScreen.querySelector(".thebe-voice-float-toggle"))?.focus({preventScroll:true});
@@ -1195,6 +1196,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     if(stopSession)global.ThebeLiveVoice?.stop?.();
     if(voiceScreen?.open)voiceScreen.close();
     document.body.classList.remove("thebe-voice-active");
+    if(input)input.placeholder=dock?.dataset.expanded==="true"?"Ask anything…":shellVisible()?modeCopy[assistantMode].placeholder:"Ask about Thebe Desk…";
     if(immersiveMute){
       immersiveMute.setAttribute("aria-pressed","false");
       immersiveMute.setAttribute("aria-label","Mute microphone");
