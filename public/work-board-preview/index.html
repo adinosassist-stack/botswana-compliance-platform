@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Thebe Desk · Work board preview</title>
+<link rel="stylesheet" href="/assets/work-board-readonly.css">
+<style>
+:root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#f4f7fb;font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;color:#192534}
+header.preview-head{background:#192534;color:white;padding:16px 20px;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+.preview-head strong{font-size:1.05rem}.preview-head span{color:#c7d7ee;font-size:.8rem}
+main{max-width:1200px;margin:auto;padding:18px}
+.preview-notice{border-left:4px solid #2465b5;background:white;padding:12px 14px;margin:0 0 18px;border-radius:8px;font-size:.88rem}
+</style>
+</head>
+<body>
+<header class="preview-head"><strong>Thebe Desk · Work</strong><span>Development preview · no live data</span></header>
+<main>
+<p class="preview-notice">Synthetic example tasks only. This preview does not connect to employee accounts, change task status, or approve work.</p>
+<div id="work-board" aria-live="polite"></div>
+</main>
+<script type="module">
+import {buildWorkBoard} from '/js/work-board-readonly.js';
+import {renderWorkBoard} from '/js/work-board-renderer.js';
+const tenantId='synthetic-preview-tenant';
+const tasks=[
+{id:'example-1',tenantId,title:'Prepare memorial installation',status:'assigned',dueDate:'2026-11-13'},
+{id:'example-2',tenantId,title:'Confirm production measurements',status:'in_progress',dueDate:'2026-11-10'},
+{id:'example-3',tenantId,title:'Review site completion photos',status:'submitted',dueDate:'2026-11-11'},
+{id:'example-4',tenantId,title:'Approve completed site handover',status:'completed',dueDate:'2026-11-09'}
+];
+try{renderWorkBoard(document.getElementById('work-board'),buildWorkBoard({tasks,tenantId,today:'2026-11-11'}));}
+catch{document.getElementById('work-board').textContent='Preview unavailable. No data was changed.'}
+</script>
+</body>
+</html>

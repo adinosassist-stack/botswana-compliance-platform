@@ -1,0 +1,18 @@
+/* Thebe Work: mobile-first read-only task overview. Flat brand surfaces. */
+.thebe-work-board{color:#192534;font:inherit;max-width:100%;min-width:0}
+.thebe-work-board>header{margin-bottom:16px}
+.thebe-work-board h2{font-size:1.3rem;line-height:1.3;margin:0 0 4px}
+.thebe-work-board header p{font-size:.875rem;color:#526176;margin:0}
+.thebe-work-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.thebe-work-summary>div{display:flex;flex-direction:column;gap:5px;background:#f4f7fb;border:1px solid #dbe5f2;border-radius:12px;padding:12px}
+.thebe-work-summary span{font-size:.8rem;color:#526176}
+.thebe-work-summary strong{font-size:1.4rem;color:#174b91}
+.thebe-work-lanes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.thebe-work-lane{min-width:0;background:#fff;border:1px solid #dbe5f2;border-radius:14px;padding:12px}
+.thebe-work-lane h3{text-transform:capitalize;font-size:.95rem;margin:0 0 12px;color:#192534}
+.thebe-work-lane ul{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+.thebe-work-lane li{display:flex;flex-direction:column;gap:4px;padding:10px;background:#f4f7fb;border-radius:10px;overflow-wrap:anywhere}
+.thebe-work-lane li strong{font-size:.875rem;font-weight:600}
+.thebe-work-lane li span,.thebe-work-lane>p{font-size:.8rem;color:#526176}
+@media(max-width:900px){.thebe-work-lanes{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.thebe-work-lanes{grid-template-columns:minmax(0,1fr)}.thebe-work-board h2{font-size:1.15rem}}
