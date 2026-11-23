@@ -121,8 +121,13 @@
       const source=context.createMediaStreamSource(stream);
       source.connect(analyser);
       const samples=new Uint8Array(analyser.fftSize);
+      const spectrum=new Uint8Array(analyser.frequencyBinCount);
       const meter={context,analyser,source,raf:0,channel};
-      const frame=()=>{
+      let lastFrame=-Infinity;
+      const frame=now=>{
+        meter.raf=requestAnimationFrame(frame);
+        if(now-lastFrame<32||document.hidden)return;
+        lastFrame=now;
         analyser.getByteTimeDomainData(samples);
         let sum=0;
         for(let i=0;i<samples.length;i++){
@@ -131,8 +136,15 @@
         }
         const rms=Math.sqrt(sum/samples.length);
         const level=Math.max(0,Math.min(1,rms*5.5));
-        emit("thebe-live-audio-level",{channel,level});
-        meter.raf=requestAnimationFrame(frame);
+        analyser.getByteFrequencyData(spectrum);
+        let energy=0,weighted=0;
+        for(let i=1;i<spectrum.length;i++){
+          const band=spectrum[i]*spectrum[i];
+          energy+=band;
+          weighted+=i*band;
+        }
+        const brightness=energy ? Math.min(1,weighted/energy*context.sampleRate/analyser.fftSize/4000) : 0;
+        emit("thebe-live-audio-level",{channel,level,brightness});
       };
       audioMeters.push(meter);
       meter.raf=requestAnimationFrame(frame);
@@ -1004,7 +1016,7 @@
     pill?.style.setProperty("--thebe-workspace-left",left);
   }
   let lastDockMobileMode=null, lastWorkspaceScope=null;
-  function currentWorkspaceScope(){
+  function workspaceUser(){
     // The authenticated workspace runtime declares top-level 'let currentUser',
     // which is a global lexical binding, not necessarily window.currentUser.
     // Read that owner-validated identity first; keep a window fallback for
@@ -1014,7 +1026,10 @@
       if(typeof currentUser!=="undefined"&&currentUser&&typeof currentUser==="object")
         user=currentUser;
     }catch{}
-    if(!user)user=global.currentUser||{};
+    return user||global.currentUser||{};
+  }
+  function currentWorkspaceScope(){
+    const user=workspaceUser();
     // UI-only scope: never send/store this key. No cross-tenant reuse of chat.
     const part=value=>String(value??"").trim().slice(0,160);
     return JSON.stringify([
@@ -1027,7 +1042,7 @@
     const mobile=mobileDockMode();
     // A desktop rail must become a mobile launcher instead of covering the workspace.
     // Explicitly opened mobile conversations stay open when the mobile viewport changes.
-    if(mobile&&lastDockMobileMode===false){
+    if(mobile&&lastDockMobileMode===false&&!document.body.classList.contains("thebe-voice-active")){
       // Crossing from desktop to mobile must not inherit a maximized rail.
       // A fresh mobile open starts compact; the user can expand again.
       collapsed=true;safeSessionSet(STORE_KEY,"1");
@@ -1077,8 +1092,9 @@
     if(presence){
       presence.replaceChildren(el("span","thebe-ai-presence-dot"),document.createTextNode(workspace?"Your business assistant":"Public assistant · try Thebe"));
     }
-    if(immersiveGreeting&&workspace){
-      const firstName=clean(global.currentUser?.firstName||"",32);
+    if(immersiveGreeting){
+      const user=workspace?workspaceUser():{};
+      const firstName=clean(user.firstName||clean(user.displayName,100).split(/\s+/)[0],32);
       immersiveGreeting.textContent=firstName?"Hello "+firstName:"Hello";
     }
     if(voicePhase==="idle"&&dock.dataset.conversation!=="true"){
@@ -1231,7 +1247,9 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     }
   }
   function closeVoiceScreen(stopSession=false){
-    const restoreFocus=Boolean(voiceScreen?.open && voiceScreen.contains(document.activeElement));
+    const focused=document.activeElement;
+    const restoreFocus=Boolean(voiceScreen?.open &&
+      (voiceScreen.contains(focused)||focused===immersiveMute||focused?.classList.contains("thebe-aura-end")));
     if(stopSession)global.ThebeLiveVoice?.stop?.();
     if(voiceScreen?.open)voiceScreen.close();
     document.body.classList.remove("thebe-voice-active");
@@ -1246,7 +1264,9 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     if(restoreFocus && voiceReturnFocus?.isConnected)voiceReturnFocus.focus({preventScroll:true});
   }
   function setPhase(phase,label,sub){
+    const previousPhase=voicePhase;
     voicePhase=phase||"idle";
+    if(previousPhase!==voicePhase)updateOrbAudio(0,0);
     if(voiceScreenOrb)voiceScreenOrb.dataset.phase=voicePhase;
     syncVoiceChatActivity();
     if(voiceScreenStatus)voiceScreenStatus.textContent=label||"Talk to Thebe";
@@ -1822,7 +1842,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     if(!document.getElementById("thebeAuraImmersiveStyle")){
       const sheet=document.createElement("link");
       sheet.id="thebeAuraImmersiveStyle";sheet.rel="stylesheet";
-      sheet.href="/assets/thebe-ai-immersive-v1.css?v=20261123-pr2817-02";
+      sheet.href="/assets/thebe-ai-immersive-v1.css?v=20261123-aura-reference-03";
       document.head.append(sheet);
     }
     const storedCollapse=safeSessionGet(STORE_KEY);
@@ -1944,38 +1964,45 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     ribbon.setAttribute("viewBox","0 0 240 240");
     ribbon.setAttribute("aria-hidden","true");
     const defs=document.createElementNS(svgNS,"defs");
-    const colors=[["#1650cf","#82e6ff"],["#2e56e9","#b4ecff"],["#1c399f","#3faaff"]];
-    colors.forEach(([start,end],i)=>{
-      const gradient=document.createElementNS(svgNS,"linearGradient");
-      gradient.id="thebeAuraStroke"+i;
-      gradient.setAttribute("x1","0%");gradient.setAttribute("y1","15%");
-      gradient.setAttribute("x2","100%");gradient.setAttribute("y2","85%");
-      for(const [offset,color] of [["0%",start],["50%",end],["100%",start]]){
-        const stop=document.createElementNS(svgNS,"stop");
-        stop.setAttribute("offset",offset);stop.setAttribute("stop-color",color);gradient.append(stop);
-      }
-      defs.append(gradient);
-    });
-    // Continuous spherical silhouette and translucent filled ribbon surfaces.
     const svgNode=(tag,attrs,parent)=>{
       const node=document.createElementNS(svgNS,tag);
       for(const [key,value] of Object.entries(attrs))node.setAttribute(key,String(value));
-      parent.append(node);return node;
+      parent.append(node);
+      return node;
     };
-    const sphereGradient=svgNode("radialGradient",{id:"thebeAuraSphere",cx:"76%",cy:"43%",r:"78%"},defs);
-    for(const [offset,color] of [["0%","#142c70"],["48%","#071633"],["78%","#020819"],["100%","#12428c"]])svgNode("stop",{offset,"stop-color":color},sphereGradient);
-    const silk=svgNode("linearGradient",{id:"thebeAuraSilk",x1:"15%",y1:"90%",x2:"90%",y2:"20%"},defs);
-    for(const [offset,color,opacity] of [["0%","#6554ff",.5],["35%","#1037ac",.18],["72%","#36bfff",.65],["92%","#bafaff",.96],["100%","#2676ef",.35]])svgNode("stop",{offset,"stop-color":color,"stop-opacity":opacity},silk);
+    const gradient=(tag,id,geometry,stops)=>{
+      const node=svgNode(tag,{id,...geometry},defs);
+      for(const [offset,color,opacity=1] of stops)svgNode("stop",{offset,"stop-color":color,"stop-opacity":opacity},node);
+    };
+    gradient("radialGradient","thebeAuraSphere",{cx:"43%",cy:"43%",r:"62%"},[
+      ["0%","#01030f",.96],["57%","#04102c",.85],["84%","#0a255c",.9],["100%","#1751a3",.8]
+    ]);
+    gradient("linearGradient","thebeAuraStroke",{x1:"4%",y1:"24%",x2:"98%",y2:"65%"},[
+      ["0%","#3b92eb",.82],["38%","#3187ff",.38],["73%","#625cff",.62],["100%","#deffff"]
+    ]);
+    gradient("radialGradient","thebeAuraSilk",{cx:"98%",cy:"55%",r:"91%"},[
+      ["0%","#efffff"],["19%","#73edff",.96],["38%","#2eacff",.72],["70%","#2354ee",.32],["100%","#503bf5",.09]
+    ]);
+    gradient("linearGradient","thebeAuraFold",{x1:"12%",y1:"95%",x2:"82%",y2:"19%"},[
+      ["0%","#a4f9ff",.88],["25%","#5447ef",.47],["62%","#2444e7",.12],["100%","#081c59",0]
+    ]);
     const clip=svgNode("clipPath",{id:"thebeAuraSphereClip"},defs);
     svgNode("circle",{cx:120,cy:120,r:92},clip);
     ribbon.append(defs);
-    svgNode("circle",{cx:120,cy:120,r:92,fill:"url(#thebeAuraSphere)",stroke:"url(#thebeAuraStroke0)","stroke-width":1.3},ribbon);
-    const surface=svgNode("g",{"clip-path":"url(#thebeAuraSphereClip)",class:"thebe-aura-surface"},ribbon);
-    svgNode("path",{d:"M 69 198 C 44 174 106 158 155 133 C 206 107 206 61 151 31 C 215 44 238 117 198 159 C 163 195 99 170 69 198 Z",fill:"url(#thebeAuraSilk)"},surface);
-    svgNode("path",{d:"M 40 83 C 77 28 147 39 165 54 C 132 42 116 91 76 92 C 58 92 46 97 33 114 Z",fill:"url(#thebeAuraSilk)",opacity:.28},surface);
-    svgNode("path",{d:"M 78 203 C 49 175 117 167 165 145 C 208 124 217 85 182 51 C 235 96 208 153 174 168 C 132 185 93 178 78 203 Z",fill:"url(#thebeAuraSilk)",opacity:.7},surface);
-    svgNode("path",{d:"M 69 198 C 44 174 106 158 155 133 C 206 107 206 61 151 31",fill:"none",stroke:"url(#thebeAuraStroke0)","stroke-width":1.4,class:"thebe-aura-curve"},surface);
-    svgNode("path",{d:"M 78 203 C 49 175 117 167 165 145 C 208 124 217 85 182 51",fill:"none",stroke:"url(#thebeAuraStroke1)","stroke-width":1.2,class:"thebe-aura-curve"},surface);
+    svgNode("circle",{cx:120,cy:120,r:92,fill:"url(#thebeAuraSphere)"},ribbon);
+    const clipped=svgNode("g",{"clip-path":"url(#thebeAuraSphereClip)"},ribbon);
+    const surface=svgNode("g",{class:"thebe-aura-surface"},clipped);
+    svgNode("path",{d:"M29 111 C39 68 79 55 100 56 C123 55 128 31 145 31 C124 81 84 92 52 94 C40 96 33 102 29 111Z",fill:"url(#thebeAuraFold)",opacity:.33},surface);
+    svgNode("path",{d:"M115 28 C149 27 191 49 206 91 C226 151 203 174 161 173 C111 170 75 185 84 205 C48 190 80 176 117 163 C167 145 194 116 190 85 C187 57 152 33 115 28Z",fill:"url(#thebeAuraSilk)"},surface);
+    svgNode("path",{d:"M200 127 C193 163 174 174 138 173 C108 171 81 186 84 199 C88 208 104 211 115 212 C85 214 58 200 68 187 C86 167 124 170 149 161 C170 154 192 142 200 127Z",fill:"url(#thebeAuraFold)"},surface);
+    const curves=[
+      ["M115 28 C149 30 188 53 190 85 C194 116 167 145 117 163 C76 178 54 190 84 205",1.65,1],
+      ["M200 127 C193 163 174 174 138 173 C108 171 72 188 84 205",1.25,.82],
+      ["M35 101 C53 77 85 99 113 77 C132 62 137 42 150 34",.9,.32],
+      ["M196 112 C181 143 155 155 125 166 C95 177 79 190 93 207",.85,.52]
+    ];
+    for(const [d,width,opacity] of curves)svgNode("path",{d,fill:"none",stroke:"url(#thebeAuraStroke)","stroke-width":width,opacity,class:"thebe-aura-curve"},surface);
+    svgNode("circle",{cx:120,cy:120,r:92,fill:"none",stroke:"url(#thebeAuraStroke)","stroke-width":1.2},ribbon);
     orb.append(wave,core);
     orb.append(ribbon);
     orbButton.append(orb);
@@ -2457,19 +2484,21 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       setPhase("ready","Voice connected","Ready for your next request");
     }
   });
-  global.addEventListener("thebe-live-audio-level",event=>{
+  function updateOrbAudio(level,brightness){
     if(!orb)return;
-    const channel=event?.detail?.channel||"all";
-    const level=Math.max(0,Math.min(1,Number(event?.detail?.level)||0));
-    const relevant=(voicePhase==="listening"&&channel==="input")||(voicePhase==="speaking"&&channel==="output");
-    const scale=relevant?(1+level*.13):1;
-    const ring=relevant?(8+level*5):8;
-    const blur=relevant?(28+level*20):28;
-    orb.style.setProperty("--thebe-audio-scale",scale.toFixed(3));
-    orb.style.setProperty("--thebe-aura-energy",(relevant?level:0).toFixed(3));
-    voiceScreenOrb?.style.setProperty("--thebe-voice-energy",scale.toFixed(3));
-    orb.style.setProperty("--thebe-audio-ring",ring.toFixed(1)+"px");
-    orb.style.setProperty("--thebe-audio-blur",blur.toFixed(1)+"px");
+    orb.style.setProperty("--thebe-audio-scale",(1+level*.13).toFixed(3));
+    orb.style.setProperty("--thebe-aura-energy",level.toFixed(3));
+    orb.style.setProperty("--thebe-aura-tilt",((brightness-.35)*level*11).toFixed(2)+"deg");
+    voiceScreenOrb?.style.setProperty("--thebe-voice-energy",(1+level*.13).toFixed(3));
+    orb.style.setProperty("--thebe-audio-ring",(8+level*5).toFixed(1)+"px");
+    orb.style.setProperty("--thebe-audio-blur",(14+level*12).toFixed(1)+"px");
+  }
+  global.addEventListener("thebe-live-audio-level",event=>{
+    const {channel,level,brightness}=event.detail||{};
+    if(channel==="all"){updateOrbAudio(0,0);return}
+    if((voicePhase==="listening"&&channel==="input")||(voicePhase==="speaking"&&channel==="output")){
+      updateOrbAudio(Math.max(0,Math.min(1,Number(level)||0)),Math.max(0,Math.min(1,Number(brightness)||0)));
+    }
   });
   global.addEventListener("thebe-live-delegation",()=>{
     setMascotState("acting");

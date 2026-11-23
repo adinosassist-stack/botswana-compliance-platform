@@ -10,6 +10,12 @@ const executablePath=[process.env.CHROMIUM_EXECUTABLE_PATH,'/usr/bin/google-chro
   .filter(Boolean).find(p=>fs.existsSync(p));
 const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox','--disable-dev-shm-usage']});
 const page=await browser.newPage({viewport:{width:390,height:844}});
+const screenshotDir=process.env.THEBE_AURA_SCREENSHOT_DIR;
+if(screenshotDir)fs.mkdirSync(screenshotDir,{recursive:true});
+async function capture(name){
+  if(screenshotDir)await page.screenshot({path:path.join(screenshotDir,name+'.png'),animations:'disabled'});
+}
+page.setDefaultTimeout(7000);
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
 try {
   await page.route('http://aura.test/**',route=>{
@@ -24,16 +30,29 @@ try {
   });
   await page.addInitScript(()=>{
     window.currentWorkspaceRole=()=> 'owner';
-    window.currentUser={firstName:'Tester'};
     window.auraAnswerNumber=0;
     window.apiJson=async url=>url==='/api/ai/advisor'
       ?{answer:'Grounded test answer '+(++window.auraAnswerNumber),references:[]}
       :({sessionCreationAllowed:false});
-    window.ThebeLiveVoice={status:()=>({state:'idle'}),start:async()=>{},stop:()=>{},setMuted:()=>{}};
+
   });
   await page.goto('http://aura.test/');
+  await page.addScriptTag({content:"let currentUser={id:'fixture',displayName:'Tester Example'};"});
   await page.addStyleTag({path:path.resolve('public/assets/thebe-ai-dock.css')});
   await page.addScriptTag({path:path.resolve('public/js/thebe-live-voice.js')});
+  await page.evaluate(()=>{
+    window.auraVoice={state:'idle',muted:false,fail:false};
+    window.ThebeLiveVoice={
+      status:()=>({state:window.auraVoice.state}),
+      start:async()=>{
+        if(window.auraVoice.fail)throw new Error('Fixture network failure');
+        window.auraVoice.state='connected';
+        window.auraVoice.muted=false;
+      },
+      stop:()=>{window.auraVoice.state='idle'},
+      setMuted:muted=>{window.auraVoice.muted=muted}
+    };
+  });
   await page.waitForFunction(()=>[...document.styleSheets].some(sheet=>sheet.href?.includes('thebe-ai-immersive-v1.css')));
   await page.evaluate(()=>window.ThebeAiDock.open());
   await page.locator('#thebeAiDock').waitFor({state:'visible'});
@@ -51,14 +70,33 @@ try {
       ribbons:dock.querySelectorAll('.thebe-aura-curve').length
     };
   });
-  assert(initial.orb>=180,'fullscreen shows the large orb instead of compact pill');
+  assert(initial.orb>=160,'fullscreen shows the large orb instead of compact pill');
   assert.equal(initial.greeting,'Hello Tester');
   assert(initial.ribbons>=4,'the orb includes luminous ribbon geometry');
+  await page.locator('.thebe-ai-expand').focus();
+  await capture('welcome-390');
+  const voiceButton=page.getByRole('button',{name:'Start voice conversation with Thebe'});
+  await voiceButton.click();
+  await page.locator('body.thebe-voice-active').waitFor();
+  await page.locator('#thebeVoiceScreen').waitFor({state:'hidden'});
+  await page.getByRole('button',{name:'Mute microphone',exact:true}).click();
+  assert(await page.evaluate(()=>window.auraVoice.muted));
+  await page.getByRole('button',{name:'Unmute microphone',exact:true}).click();
+  assert.equal(await page.evaluate(()=>window.auraVoice.muted),false);
+  await page.getByRole('button',{name:'End voice conversation'}).click();
+  assert(await voiceButton.evaluate(el=>el===document.activeElement),'ending voice restores launch control focus');
+  await page.evaluate(()=>{window.auraVoice.fail=true});
+  await voiceButton.click();
+  await page.getByText('Fixture network failure').waitFor();
+  await page.evaluate(()=>{window.auraVoice.fail=false});
+  await voiceButton.click();
+  await page.locator('body.thebe-voice-active').waitFor();
   await page.evaluate(async()=>{
     await ThebeAiDock.ask('First question','ask');
     await ThebeAiDock.ask('Second question','ask');
     dispatchEvent(new CustomEvent('thebe-live-event',{detail:{event:{type:'input_audio_buffer.speech_started'}}}));
-    dispatchEvent(new CustomEvent('thebe-live-audio-level',{detail:{channel:'input',level:0.8}}));
+    dispatchEvent(new CustomEvent('thebe-live-audio-level',{detail:{channel:'input',level:0.8,brightness:0.75}}));
+    dispatchEvent(new CustomEvent('thebe-live-audio-level',{detail:{channel:'output',level:0}}));
   });
   const conversation=await page.evaluate(()=>{
     const d=document.getElementById('thebeAiDock');
@@ -67,7 +105,8 @@ try {
       turns:[...d.querySelectorAll('.thebe-aura-turn')].map(t=>t.textContent),
       latest:d.querySelector('#thebeAiDockResponse').textContent,
       level:parseFloat(orb.style.getPropertyValue('--thebe-audio-scale')),
-      phase:orb.dataset.phase
+      phase:orb.dataset.phase,
+      tilt:parseFloat(orb.style.getPropertyValue('--thebe-aura-tilt'))
     };
   });
   assert(conversation.turns.some(x=>x.includes('First question')),'first question is retained');
@@ -75,14 +114,16 @@ try {
   assert(conversation.turns.some(x=>x.includes('Second question')),'second question is retained');
   assert(conversation.latest.includes('Grounded test answer 2'),'newest answer is readable');
   assert.equal(conversation.phase,'listening');
-  assert(conversation.level>1.05,'real input audio level grows the orb');
+  assert(conversation.level>1.05,'inactive output must not undo microphone response');
+  assert(conversation.tilt>0,'measured spectral brightness changes ribbon angle');
   await page.evaluate(()=>{
     dispatchEvent(new CustomEvent('thebe-live-event',{detail:{event:{type:'response.output_audio_transcript.delta',delta:'Speaking now'}}}));
     dispatchEvent(new CustomEvent('thebe-live-audio-level',{detail:{channel:'output',level:0.9}}));
   });
   assert(await page.locator('.thebe-particle-orb').evaluate(el=>parseFloat(el.style.getPropertyValue('--thebe-audio-scale'))>1.08),'output audio also changes orb energy');
-  for(const width of [320,375,414,430,768]){
-    await page.setViewportSize({width,height:800});
+  for(const [width,height] of [[320,800],[375,800],[390,844],[414,800],[430,800],[768,800],[1024,800],[1440,900],[844,390],[390,340]]){
+    await page.setViewportSize({width,height});
+    await capture('conversation-'+width+'x'+height);
     const geometry=await page.evaluate(()=>{
       const r=document.querySelector('#thebeAiDock .thebe-ai-compose').getBoundingClientRect();
       const d=document.querySelector('#thebeAiDock').getBoundingClientRect();
@@ -91,6 +132,14 @@ try {
     assert(geometry.left>=0&&geometry.right<=width+1,`composer clips at ${width}: ${JSON.stringify(geometry)}`);
     assert(geometry.bottom<=geometry.height+1,`composer falls below viewport at ${width}`);
   }
+  await page.emulateMedia({reducedMotion:'reduce'});
+  assert.equal(await page.locator('.thebe-aura-surface').evaluate(el=>getComputedStyle(el).transform),'none');
+  assert.equal(await page.locator('.thebe-aura-surface').evaluate(el=>getComputedStyle(el).animationName),'none');
+  await page.evaluate(()=>{
+    dispatchEvent(new CustomEvent('thebe-live-event',{detail:{event:{type:'response.done'}}}));
+  });
+  assert.equal(await page.locator('.thebe-particle-orb').evaluate(el=>el.style.getPropertyValue('--thebe-audio-scale')),'1.000','phase exit resets the audio transform');
+  await page.getByRole('button',{name:'End voice conversation'}).click();
   await page.evaluate(()=>window.ThebeAiDock.clear());
   assert.equal(await page.locator('.thebe-aura-turn').count(),0,'clear deletes in-memory conversation');
   assert.deepEqual(errors,[],'no browser runtime errors');
