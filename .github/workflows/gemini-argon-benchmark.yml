@@ -1,0 +1,21 @@
+name: Gemini Argon offline benchmark
+on:
+  pull_request:
+    paths:
+      - 'scripts/gemini-argon-benchmark.mjs'
+      - 'tests/gemini-argon-benchmark.mjs'
+      - '.github/workflows/gemini-argon-benchmark.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Offline evaluator contract tests
+        run: node tests/gemini-argon-benchmark.mjs
