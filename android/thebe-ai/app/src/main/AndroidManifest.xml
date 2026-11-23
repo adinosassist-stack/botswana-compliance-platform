@@ -10,6 +10,7 @@
     </queries>
 
     <application
+        android:manageSpaceActivity="com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity"
         android:label="@string/app_name"
         android:icon="@drawable/ic_thebe"
         android:allowBackup="false"
@@ -23,6 +24,16 @@
         <meta-data
             android:name="asset_statements"
             android:resource="@string/asset_statements" />
+
+        <!-- Android Browser Helper checks this component on every launcher start.
+             Keep it private; do not advertise external URL handlers. -->
+        <activity
+            android:name="com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity"
+            android:exported="false">
+            <meta-data
+                android:name="android.support.customtabs.trusted.MANAGE_SPACE_URL"
+                android:value="https://thebedesk.com/app/" />
+        </activity>
 
         <activity
             android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
