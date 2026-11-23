@@ -47,6 +47,20 @@ export function assessLoginHierarchy(xml) {
   return {status:'pass',reason:'Thebe Desk branding and distinctive sign-in content visible'};
 }
 
+// Never disclose UIAutomator text or user-entered content in CI logs.
+// This safe diagnostic reports counts and known package/component booleans only.
+export function summarizeHierarchy(xml) {
+  if (typeof xml !== 'string') return {nodes:0,labelledNodes:0,chromeOwned:false,webView:false};
+  const nodes=[...xml.matchAll(/<node\b[^>]*>/g)];
+  const labelledNodes=nodes.filter(([tag]) => /\b(?:text|content-desc)="[^"]+"/.test(tag)).length;
+  return {
+    nodes: Math.min(nodes.length,9999),
+    labelledNodes: Math.min(labelledNodes,9999),
+    chromeOwned: /\bpackage="(?:com\.android\.chrome|org\.chromium\.chrome)"/.test(xml),
+    webView: /\bclass="[^"]*(?:WebView|webview)[^"]*"/.test(xml),
+  };
+}
+
 export function run(args=process.argv.slice(2)) {
   if (args.length!==1) {
     process.stderr.write('BLOCKED: expected one local UIAutomator XML file.\n');
@@ -64,6 +78,10 @@ export function run(args=process.argv.slice(2)) {
   const result=assessLoginHierarchy(xml);
   if(result.status!=='pass') {
     process.stderr.write('BLOCKED: '+result.reason+'.\n');
+    const safe=summarizeHierarchy(xml);
+    process.stderr.write('SAFE_EMULATOR_UI_DIAG: nodes='+safe.nodes+
+      ' labelled='+safe.labelledNodes+' chromeOwned='+safe.chromeOwned+
+      ' webView='+safe.webView+'.\n');
     return 1;
   }
   process.stdout.write('PASS: synthetic Android emulator shows Thebe Desk sign-in markers.\n');
