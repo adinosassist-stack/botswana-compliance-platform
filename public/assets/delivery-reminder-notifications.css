@@ -310,3 +310,31 @@ body.thebe-voice-active .thebe-delivery-manager-popup{
   max-height:calc(var(--thebe-vv-height,100dvh) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 16px)!important
  }
 }
+
+/* #2715: action feedback must stay visible to sighted users and assistive
+   technology on short/zoomed mobile viewports. Only the informational note
+   yields space; the live status never disappears after an action. */
+@media (max-height:480px){
+ .thebe-delivery-manager-popup .thebe-delivery-sheet-footer{
+  display:block!important;flex:0 0 auto;padding:5px 10px;
+  line-height:1.35;font-size:11px;
+ }
+ .thebe-delivery-manager-popup .thebe-delivery-sheet-footer>span:first-child{
+  display:none!important;
+ }
+ .thebe-delivery-manager-popup .thebe-delivery-sheet-footer:has(#thebeDeliveryActionStatus:empty){
+  display:none!important;
+ }
+}
+@media (max-width:1000px){
+ .thebe-delivery-manager-popup[data-compact-viewport="true"] .thebe-delivery-sheet-footer{
+  display:block!important;flex:0 0 auto;padding:5px 10px;
+  line-height:1.35;font-size:11px;
+ }
+ .thebe-delivery-manager-popup[data-compact-viewport="true"] .thebe-delivery-sheet-footer>span:first-child{
+  display:none!important;
+ }
+ .thebe-delivery-manager-popup[data-compact-viewport="true"] .thebe-delivery-sheet-footer:has(#thebeDeliveryActionStatus:empty){
+  display:none!important;
+ }
+}
