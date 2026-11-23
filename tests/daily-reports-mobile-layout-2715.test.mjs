@@ -10,6 +10,9 @@ test("daily reports keeps stable metric IDs and accessible compact KPI labels",(
  assert.match(html,/aria-label="Reporting status"/);
  assert.match(html,/grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
  assert.match(html,/max-width:360px/);
+ assert.match(html,/max-width:240px/);
+ assert.match(html,/\.ops-primary-summary \.ops-visual-flow>span:last-child\{grid-column:1\/-1\}/);
+ assert.match(html,/grid-template-columns:minmax\(0,1fr\)!important/);
 });
 test("delivery reminder bell exposes count and avoids mobile bottom rail",()=>{
  const css=read("../public/assets/delivery-reminder-notifications.css");
@@ -38,7 +41,9 @@ test("mobile delivery reminder does not auto-open over workspace navigation",()=
 test("mobile reminder panel reserves the bottom nav lane on portrait and landscape",()=>{
  const css=read("../public/assets/delivery-reminder-notifications.css");
  assert.match(css, /@media\(max-width:1000px\)\{\s*\.thebe-delivery-manager-bell\{\s*top:calc\(env\(safe-area-inset-top/);
- assert.ok(css.includes("bottom:calc(104px + env(safe-area-inset-bottom, 0px))"));
+ assert.ok(css.includes("bottom:calc(104px + env(safe-area-inset-bottom, 0px))"),"legacy rail reserve still applies when reading sheet is closed");
+ assert.ok(css.includes("body.thebe-delivery-sheet-open"),"open mobile sheet must yield background bottom rail");
+ assert.ok(css.includes("var(--thebe-vv-bottom, 0px) + env(safe-area-inset-bottom, 0px) + 8px"),"reading sheet uses visual viewport rather than clipping under rail");
  assert.ok(css.includes("max-height:none"));
  assert.ok(css.includes("@media(max-width:1000px) and (max-height:500px)"));
  assert.ok(css.includes(".thebe-delivery-manager-popup{top:calc(env(safe-area-inset-top, 0px) + 110px)}"));
@@ -109,4 +114,20 @@ test("movable Android bell and independent sheet keep viewport, rail and keyboar
  assert.match(js,/localStorage\.removeItem\(bellPositionKey\)/);
  assert.match(js,/button\.setAttribute\("aria-keyshortcuts"/);
  assert.match(js,/syncBellLayout\(\)/);
+});
+
+test("foreground mobile reminder sheet respects keyboard visual viewport and restores bottom navigation (#2778)",()=>{
+ const css=read("../public/assets/delivery-reminder-notifications.css");
+ const js=read("../public/js/delivery-reminders-manager.js");
+ assert.ok(css.includes("body.thebe-delivery-sheet-open:not(.mobile-nav-open)"));
+ assert.ok(css.includes(".mobilebar,"));
+ assert.ok(css.includes(".mobile-nav-occlusion{"));
+ assert.ok(css.includes("visibility:hidden!important;pointer-events:none!important"));
+ assert.ok(js.includes('document.body.classList.toggle("thebe-delivery-sheet-open",sheetOpen)'));
+ assert.ok(js.includes('panel.setAttribute("aria-modal",String(sheetOpen))'));
+ assert.ok(js.includes("panel.dataset.compactViewport=String(height<420)"));
+ assert.ok(css.includes('data-compact-viewport="true"'));
+ assert.ok(js.includes('title.textContent="Notifications ("+unread+")'));
+ assert.ok(js.includes('title.textContent=withActions?"Upcoming delivery & installation":label(item)'));
+ assert.ok(js.includes('if(event.key!=="Tab"||panel.hidden||!mobileBell())return'));
 });
