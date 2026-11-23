@@ -20,6 +20,8 @@ assert.match(runtime,/aria-label","Mute microphone"/,"An accessible microphone c
 assert.match(runtime,/recoverDockPresentation\(\)/,"Dock recovery remains defined");
 assert.match(runtime,/dataset\.expanded==="true"\|\|document\.body\.classList\.contains\("thebe-voice-active"\)/,"Compact geometry recovery does not overwrite fullscreen");
 assert.match(runtime,/thebeAuraImmersiveStyle/,"Immersive styling loads only when the AI dock mounts");
+assert.match(runtime,/compactStylesReady/,"Immersive layout requires healthy compact stylesheet");
+assert.doesNotMatch(css,/--thebe-spatial-dock\s*:\s*1/,"Immersive CSS must not fake a healthy spatial dock");
 assert.match(css,/thebe-aura-light-flow/,"Orb has its own motion");
 assert.match(css,/\[data-phase="listening"\]/,"Listening has a motion state");
 assert.match(css,/\[data-phase="speaking"\]/,"Speaking has a motion state");
