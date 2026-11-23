@@ -56,15 +56,21 @@ try{
   await field.press("Enter");
   assert.equal(await panel.locator(".thebe-ai-find-status").innerText(),"1 of 1 matching messages");
   assert.equal(await page.evaluate(()=>document.activeElement?.dataset?.role),"user");
+  assert.equal(await dock.locator(".thebe-ai-find-current").count(),1,"The current matching message is visibly identified");
+  assert.equal(await dock.locator(".thebe-ai-find").evaluate(el=>getComputedStyle(el).position),"sticky","Search controls stay in the scroll viewport");
   await field.fill("Grounded test answer 2");
   await panel.locator(".thebe-ai-find-next").click();
   assert.equal(await page.evaluate(()=>document.activeElement?.id),"thebeAiDockResponse","Current response is searchable");
+  assert.equal(await dock.locator(".thebe-ai-find-current").count(),1,"Only one matching message is highlighted");
+  assert.equal(await dock.locator("#thebeAiDockResponse.thebe-ai-find-current").count(),1,"The current answer can be the active search result");
   await field.fill("no-such-message");
+  assert.equal(await dock.locator(".thebe-ai-find-current").count(),0,"A changed query clears the old match highlight");
   assert.equal(await panel.locator(".thebe-ai-find-status").innerText(),"No matching messages");
   assert(await panel.locator(".thebe-ai-find-next").isDisabled(),"Empty results have no navigation");
   await field.press("Escape");
   assert.equal(await panel.isHidden(),true);
   assert.equal(await toggle.getAttribute("aria-expanded"),"false");
+  assert.equal(await dock.locator(".thebe-ai-find-current").count(),0,"Closing search removes temporary highlights");
 
   // Search is local UI-only. There is no assistant request or persisted search text.
   assert.equal(await page.evaluate(()=>window.advisorCalls),2);
