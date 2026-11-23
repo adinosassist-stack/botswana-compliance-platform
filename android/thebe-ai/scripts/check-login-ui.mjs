@@ -30,8 +30,14 @@ export function assessLoginHierarchy(xml) {
   }
   const visible = labels.join(' ').replace(/\s+/g,' ').trim();
   if (!visible) return {status:'blocked',reason:'no visible accessibility labels'};
-  if (/\b(?:Web page not available|This site can.t be reached|ERR_(?:NAME_NOT_RESOLVED|CONNECTION|INTERNET)|No internet connection|Choose an app|No browser found)\b/i.test(visible)) {
-    return {status:'blocked',reason:'browser error or chooser visible'};
+  if (/\b(?:Web page not available|This site can.t be reached|ERR_(?:NAME_NOT_RESOLVED|CONNECTION|INTERNET)|No internet connection|No browser found)\b/i.test(visible)) {
+    return {status:'blocked',reason:'browser network or rendering error visible'};
+  }
+  if (/\b(?:Welcome to Chrome|Use without an account|Sign in to Chrome|Accept & continue|Accept and continue)\b/i.test(visible)) {
+    return {status:'blocked',reason:'browser first-run/onboarding prompt visible'};
+  }
+  if (/\b(?:Choose an app|Open with|Just once)\b/i.test(visible)) {
+    return {status:'blocked',reason:'Android browser chooser visible'};
   }
   const hasBrand = /\bThebe Desk\b/i.test(visible);
   const hasAuth = /\b(?:Open your Thebe Desk workspace|Business name|Forgot password\??|One intelligent desk for the whole business)\b/i.test(visible);
