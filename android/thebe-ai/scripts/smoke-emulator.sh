@@ -20,7 +20,7 @@ fi
 adb logcat -c
 launch="$(adb shell am start -W -n 'com.thebedesk.ai/com.google.androidbrowserhelper.trusted.LauncherActivity' 2>&1 | tr -d '\r')"
 printf '%s\n' "$launch"
-if ! printf '%s\n' "$launch" | grep -Eq 'Status: ok|Status: timeout'; then
+if ! printf '%s\n' "$launch" | grep -Fq 'Status: ok'; then
   printf 'Android did not confirm app launch\n' >&2
   exit 1
 fi
