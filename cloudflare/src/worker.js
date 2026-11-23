@@ -7789,8 +7789,11 @@ export default {
         return idempotentJsonMutation(env,a,req,"ai-credit-checkout",{sku},async()=>{
           const pack=await env.DB.prepare("SELECT sku,credits,price_bwp FROM ai_credit_packs WHERE sku=? AND active=1 LIMIT 1").bind(sku).first();
           if(!pack)return {status:404,body:{error:"credit_pack_not_found"}};
-          const po=await createPaymentOrder(env,{tenantId:a.tenant_id,orderType:"ai_credits",amountBwp:pack.price_bwp,metadata:{sku:pack.sku,credits:pack.credits}});
-          return {status:201,body:{ok:true,paymentOrder:po,pack}};
+          const bank=manualBankConfig(env);if(!bank.configured)return {status:503,body:{error:"manual_bank_transfer_not_configured"}};
+          if(!Number.isSafeInteger(Number(pack.credits))||Number(pack.credits)<=0||!Number.isFinite(Number(pack.price_bwp))||Number(pack.price_bwp)<=0)return {status:409,body:{error:"invalid_credit_pack"}};
+          const po=await createPaymentOrder(env,{tenantId:a.tenant_id,orderType:"ai_credits",amountBwp:pack.price_bwp,metadata:{sku:pack.sku,credits:pack.credits,paymentMode:"manual_bank"}});
+          await env.DB.prepare("UPDATE payment_orders SET provider='manual_bank',updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=?").bind(po.id,a.tenant_id).run();
+          return {status:201,body:{ok:true,paymentOrder:{...po,reference:manualPaymentReference(po.id)},pack,checkoutMode:"manual_bank_transfer",bankTransfer:{...bank,reference:manualPaymentReference(po.id),amountBwp:po.amountBwp}}};
         });
       }
 
