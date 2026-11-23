@@ -10,6 +10,10 @@ const read=(name)=>fs.readFileSync(path.join(root,name),'utf8');
 test('Android app launches the canonical HTTPS workspace in an isolated browser TWA',()=>{
   const manifest=read('app/src/main/AndroidManifest.xml');
   assert.match(manifest,/android:name="com\.google\.androidbrowserhelper\.trusted\.LauncherActivity"/);
+  // Android Browser Helper unconditionally touches this component at launch.
+  // Missing it caused a reproducible emulator fatal exception.
+  assert.match(manifest,/android:manageSpaceActivity="com\\.google\\.androidbrowserhelper\\.trusted\\.ManageDataLauncherActivity"/);
+  assert.match(manifest,/<activity\\s+android:name="com\\.google\\.androidbrowserhelper\\.trusted\\.ManageDataLauncherActivity"\\s+android:exported="false"/);
   assert.match(manifest,/android:value="https:\/\/thebedesk\.com\/app\/"/);
   assert.match(manifest,/android:exported="true"/);
   assert.match(manifest,/android:usesCleartextTraffic="false"/);
