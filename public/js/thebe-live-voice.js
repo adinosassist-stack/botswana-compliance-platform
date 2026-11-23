@@ -2055,7 +2055,8 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     pillHandle.addEventListener("pointerup",finishPillDrag);
     pillHandle.addEventListener("pointercancel",event=>{
       if(!pillDrag||event.pointerId!==pillDrag.id)return;
-      pillDrag=null;pillSync();
+      const {left,top}=pillDrag;
+      pillDrag=null;clampPill(left,top);
     });
     pillHandle.addEventListener("keydown",event=>{
       if(!event.altKey||!["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(event.key))return;
