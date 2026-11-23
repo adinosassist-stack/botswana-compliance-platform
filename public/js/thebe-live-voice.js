@@ -1003,7 +1003,16 @@
     dock.style.setProperty("--thebe-workspace-left",left);
     pill?.style.setProperty("--thebe-workspace-left",left);
   }
-  let lastDockMobileMode=null;
+  let lastDockMobileMode=null, lastWorkspaceScope=null;
+  function currentWorkspaceScope(){
+    // Local UI identity only; neither the scope key nor conversation is persisted.
+    const user=global.currentUser||{};
+    const part=value=>String(value??"").trim().slice(0,160);
+    return JSON.stringify([
+      part(user.id),part(user.tenantId),part(commandCentreRole()),
+      part(document.getElementById("companySelect")?.value)
+    ]);
+  }
   function syncVisibility(){
     if(!dock||!pill)return;
     const mobile=mobileDockMode();
@@ -1033,7 +1042,19 @@
     document.body.classList.toggle("thebe-ai-mobile-open",mobile&&visible&&!isCollapsed);
     dock.dataset.surface=surface;
     pill.dataset.surface=surface;
-    if(!workspace&&(dock.dataset.workspaceVisible==="1"||pendingFiles.length)){clearConversation()}
+    // Prevent in-memory chat, draft, search and live voice from crossing
+    // a signed-in identity or selected company boundary in a single SPA tab.
+    if(workspace){
+      const scope=currentWorkspaceScope();
+      if(lastWorkspaceScope!==null&&lastWorkspaceScope!==scope){
+        closeVoiceScreen(true);
+        clearConversation();
+      }
+      lastWorkspaceScope=scope;
+    }else{
+      lastWorkspaceScope=null;
+      if(dock.dataset.workspaceVisible==="1"||pendingFiles.length)clearConversation();
+    }
     syncComposerState();
     syncWorkspaceVisualInvariants();
     dock.dataset.workspaceVisible=workspace?"1":"0";
@@ -2377,6 +2398,9 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     global.addEventListener("pageshow",recoverVisibility,{passive:true});
     global.addEventListener("focus",recoverVisibility,{passive:true});
     global.addEventListener("thebe:workspace-ready",recoverVisibility);
+    document.addEventListener("change",event=>{
+      if(event.target?.id==="companySelect")recoverVisibility();
+    });
     if(typeof global.whenThebeWorkspaceReady==="function")global.whenThebeWorkspaceReady(recoverVisibility);
   }
 
