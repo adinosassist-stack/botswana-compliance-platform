@@ -62,6 +62,7 @@ test('CLI logs only aggregate byte-integrity finding and has no installation sid
     assert.equal(match.status,0,match.stderr);
     assert.match(match.stdout,/MATCH: internal debug APK bytes match/);
     assert.match(match.stdout,/NOT VERIFIED:/);
+    assert.equal(match.stdout.split(String.fromCharCode(10)).length,3,'both output lines must end in a newline');
     const fail=run('f'.repeat(64));
     assert.equal(fail.status,1);
     assert.match(fail.stderr,/BLOCKED:/);
