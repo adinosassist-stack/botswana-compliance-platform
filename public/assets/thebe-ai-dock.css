@@ -2231,3 +2231,10 @@ html body dialog#thebeVoiceScreen[open] {
 @media(prefers-reduced-motion:reduce){
  #thebeAiDockPill .thebe-ai-pill-dot{animation:none!important}
 }
+
+/* #2813: minimum touch targets for mobile AI pill controls. */
+@media(max-width:1023px){
+ #thebeAiDockPill :is(.thebe-ai-pill-open,.thebe-ai-pill-mic,.thebe-ai-pill-handle){min-height:44px}
+ #thebeAiDockPill .thebe-ai-pill-mic{width:44px;min-width:44px}
+ #thebeAiDockPill .thebe-ai-pill-handle{width:44px;min-width:44px}
+}
