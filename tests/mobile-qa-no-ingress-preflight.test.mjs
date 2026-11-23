@@ -4,7 +4,7 @@ import fs from "node:fs";
 import {execFileSync} from "node:child_process";
 import {validateMobileQaPlan} from "../scripts/mobile-qa-no-ingress-preflight.mjs";
 
-const main="10cc532bfa5252674ee0e8971a9c97eae48abca9";
+const main="4c22c606ac1aa9bcfaa0c7eda3ba60ef8c58c9f9";
 const source=JSON.parse(fs.readFileSync("docs/mobile-qa-staging-offline-plan.json","utf8"));
 const validate=value=>validateMobileQaPlan(value,{exactMainSha:main});
 const mutate=(name,value)=>({...source,[name]:value});
