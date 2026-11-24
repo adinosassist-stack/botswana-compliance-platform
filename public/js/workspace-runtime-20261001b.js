@@ -2066,12 +2066,27 @@ async function renderDeletionStatus(){
 }
 async function createAiCreditOrder(sku){
   if(currentWorkspaceRole()!=="owner"){notifyUser("Only the account owner can buy AI credit packs.");return}
+  const packs=document.getElementById("aiCreditPacks");if(!packs)return;
+  let out=document.getElementById("aiCreditCheckoutResult");
+  if(!out){out=document.createElement("div");out.id="aiCreditCheckoutResult";out.setAttribute("role","status");packs.insertAdjacentElement("afterend",out)}
+  if(out.dataset.busy==="1")return;
+  out.dataset.busy="1";out.textContent="Preparing bank transfer…";
   try{
     const r=await apiJson("/api/payments/ai-credit-checkout",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({sku}),idempotencyKey:true});
-    if(r.pack) console.info(`AI credit checkout: ${r.pack.credits} credits for P${r.pack.price_bwp}`);
-    await renderPayments();
-    await openHostedCheckout(r.paymentOrder.id);
-  }catch(e){notifyUser(e.message)}
+    if(r.checkoutMode!=="manual_bank_transfer"||!r.paymentOrder?.id||!r.bankTransfer?.reference)throw new Error("Manual credit payment unavailable.");
+    const b=r.bankTransfer;
+    out.safeHTML=`<div class="upgradeSuccess"><b>Buy ${Number(r.pack.credits)} AI credits · P${Number(b.amountBwp).toLocaleString()}</b><div class="small"><b>Bank:</b> ${escapeHtml(b.bankName||"—")}<br><b>Account name:</b> ${escapeHtml(b.accountName||"—")}<br><b>Account number:</b> ${escapeHtml(b.accountNumber||"—")}<br><b>Branch code:</b> ${escapeHtml(b.branchCode||"—")}<br><b>Payment reference:</b> ${escapeHtml(b.reference)}</div><p>Transfer the exact amount using this reference. Credits are added only after settled funds are verified.</p><label>Bank transaction reference<input id="aiCreditBankReference" maxlength="100" autocomplete="off"></label><button type="button" class="btn" id="aiCreditSubmitPayment">I have paid</button><div id="aiCreditSubmitResult" role="status"></div></div>`;
+    const button=document.getElementById("aiCreditSubmitPayment");
+    button?.addEventListener("click",async()=>{
+      if(button.disabled)return;
+      const bankReference=String(document.getElementById("aiCreditBankReference")?.value||"").trim(),result=document.getElementById("aiCreditSubmitResult");
+      if(!bankReference){result.textContent="Enter your bank transaction reference.";return}
+      button.disabled=true;
+      try{const submitted=await apiJson("/api/payments/manual-bank/submit",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({paymentOrderId:r.paymentOrder.id,bankReference}),idempotencyKey:true});result.textContent=submitted.message||"Awaiting verification of settled funds.";await renderAiCredits();}
+      catch(e){result.textContent=e.message;button.disabled=false}
+    });
+  }catch(e){out.textContent=e.message}
+  finally{delete out.dataset.busy}
 }
 async function renderAiCredits(){
   const box=document.getElementById("aiCreditWalletBox");if(!box)return;
@@ -2644,7 +2659,7 @@ try{
 const admin=await apiJson("/api/platform/billing/manual-payments");
 if(load!==manualPaymentAdminLoad||!platformBillingSessionCurrent(user))return;
 if(pendingCount)pendingCount.textContent=String(admin.total??(admin.items||[]).length);
-box.safeHTML=(admin.items||[]).map(x=>`<div class="item"><div class="muted small">POP/ref is not proof. Match funds in Thebe Desk bank account before approval.</div><b>${escapeHtml(x.tenant_name||x.tenant_id)} · P${x.amount_bwp}</b><div class="muted small">${escapeHtml(platformBillingPlan(x.metadata?.plan))} · bank ref ${escapeHtml(x.bank_reference)} · submitted ${platformBillingTime(x.submitted_at)}</div><div class="row" style="margin-top:8px"><button type="button" class="btn" aria-label="Verify settled payment for ${escapeHtml(x.tenant_name||x.tenant_id)}" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','approve')">Verify & activate</button><button type="button" class="btn soft" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','reject')">Reject</button></div><div class="muted small" role="status" aria-live="polite" id="manualPaymentStatus_${escapeHtml(x.id)}"></div></div>`).join("")||'<div class="muted small">No manual payments awaiting approval.</div>';
+box.safeHTML=(admin.items||[]).map(x=>`<div class="item"><div class="muted small">POP/ref is not proof. Match funds in Thebe Desk bank account before approval.</div><b>${escapeHtml(x.tenant_name||x.tenant_id)} · P${x.amount_bwp}</b><div class="muted small">${x.order_type==="ai_credits"?escapeHtml(String(x.metadata?.credits??"")+" AI credits"):escapeHtml(platformBillingPlan(x.metadata?.plan))} · bank ref ${escapeHtml(x.bank_reference)} · submitted ${platformBillingTime(x.submitted_at)}</div><div class="row" style="margin-top:8px"><button type="button" class="btn" aria-label="Verify settled payment for ${escapeHtml(x.tenant_name||x.tenant_id)}" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','approve')">${x.order_type==="ai_credits"?"Verify & add credits":"Verify & activate"}</button><button type="button" class="btn soft" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','reject')">Reject</button></div><div class="muted small" role="status" aria-live="polite" id="manualPaymentStatus_${escapeHtml(x.id)}"></div></div>`).join("")||'<div class="muted small">No manual payments awaiting approval.</div>';
 }catch(e){
 if(load!==manualPaymentAdminLoad||!platformBillingSessionCurrent(user))return;
 box.textContent=e.status===403?"Platform billing access was denied. Sign out and sign in with an authorized Thebe Desk admin account.":"Could not load payments. Select Refresh approvals to retry.";
@@ -2751,8 +2766,9 @@ if(!/^[A-Z0-9][A-Z0-9._:/-]{5,127}$/.test(bankTransactionId))return;
 }else return;
 const r=await apiJson(`/api/platform/billing/manual-payments/${encodeURIComponent(id)}/${action}`,{method:"POST",body:JSON.stringify({reason,bankFundsConfirmed,bankAmountMatched,bankTransactionMatched,bankTransactionId}),idempotencyKey:true});
 if(!platformBillingSessionCurrent(user))return;
-if(r?.ok!==true||(action==="approve"?(r.status!=="approved"||r.activated!==true):r.status!=="rejected"))throw Error("Server did not confirm the decision. Refresh approvals.");
-show(action==="approve"?"Payment verified and plan activated.":"Payment submission rejected.");
+const credited=Number.isSafeInteger(r?.creditsApplied)&&r.creditsApplied>0&&r.activated===false;
+if(r?.ok!==true||(action==="approve"?(r.status!=="approved"||(!credited&&r.activated!==true)):r.status!=="rejected"))throw Error("Server did not confirm the decision. Refresh approvals.");
+show(action==="approve"?(credited?`Payment verified and ${r.creditsApplied} AI credits allocated.`:"Payment verified and plan activated."):"Payment submission rejected.");
 await refreshPlatformBillingDashboard();
 }catch(e){
 if(platformBillingSessionCurrent(user)){

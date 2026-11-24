@@ -7631,7 +7631,7 @@ export default {
         return idempotentJsonMutation(env,a,req,"manual-bank-submit",{orderId,bankReference},async()=>{
           const order=await env.DB.prepare("SELECT id,tenant_id,order_type,status,amount_bwp,provider FROM payment_orders WHERE id=? AND tenant_id=? LIMIT 1").bind(orderId,a.tenant_id).first();
           if(!order)return {status:404,body:{error:"payment_order_not_found"}};
-          if(order.order_type!=="subscription"||String(order.provider||"")!=="manual_bank")return {status:409,body:{error:"payment_order_not_manual_subscription"}};
+          if(!["subscription","ai_credits"].includes(order.order_type)||String(order.provider||"")!=="manual_bank")return {status:409,body:{error:"payment_order_not_manual_subscription"}};
           if(!["pending","processing","failed"].includes(order.status))return {status:409,body:{error:"payment_order_not_submittable",status:order.status}};
           const sid=id();
           try{
@@ -7648,7 +7648,7 @@ export default {
           await env.DB.prepare("INSERT INTO manual_payment_events(id,submission_id,payment_order_id,tenant_id,event_type,actor_user_id,event_data) VALUES(?,?,?,?,?,?,?)")
             .bind(id(),row.id,orderId,a.tenant_id,"submitted",a.user_id,JSON.stringify({bankReference})).run();
           await writeAudit(env,a.tenant_id,a.user_id,"MANUAL_PAYMENT_SUBMITTED",{paymentOrderId:orderId,submissionId:row.id,bankReference});
-          return {status:201,body:{ok:true,submissionId:row.id,status:"submitted",message:"Payment submitted for manual verification. Your plan remains inactive until Thebe Desk confirms the funds have reflected."}};
+          return {status:201,body:{ok:true,submissionId:row.id,status:"submitted",message:order.order_type==="ai_credits"?"Payment submitted for manual verification. Credits will be added only after Thebe Desk confirms settled funds.":"Payment submitted for manual verification. Your plan remains inactive until Thebe Desk confirms the funds have reflected."}};
         });
       }
       if(url.pathname==="/api/platform/billing/analytics"&&req.method==="GET"){
@@ -7672,17 +7672,17 @@ export default {
         // Show only actionable manual-bank subscription reviews. Tenant and order
         // must agree; customer references and other provider orders are not approvals.
         try{const r=await env.DB.prepare(`SELECT m.id,m.payment_order_id,m.tenant_id,m.bank_reference,m.status,m.submitted_at,m.reviewed_at,m.rejection_reason,
-          o.amount_bwp,o.metadata_json,o.status order_status,t.name tenant_name
+          o.amount_bwp,o.metadata_json,o.order_type,o.status order_status,t.name tenant_name
           FROM manual_payment_submissions m
           JOIN payment_orders o ON o.id=m.payment_order_id AND o.tenant_id=m.tenant_id
           JOIN tenants t ON t.id=m.tenant_id
-          WHERE m.status IN ('submitted','reviewing') AND o.provider='manual_bank' AND o.order_type='subscription'
+          WHERE m.status IN ('submitted','reviewing') AND o.provider='manual_bank' AND o.order_type IN ('subscription','ai_credits')
             AND o.status IN ('pending','processing','failed','paid')
           ORDER BY m.submitted_at ASC LIMIT 200`).all();
         const total=await env.DB.prepare(`SELECT COUNT(*) total FROM manual_payment_submissions m
           JOIN payment_orders o ON o.id=m.payment_order_id AND o.tenant_id=m.tenant_id
           JOIN tenants t ON t.id=m.tenant_id
-          WHERE m.status IN ('submitted','reviewing') AND o.provider='manual_bank' AND o.order_type='subscription'
+          WHERE m.status IN ('submitted','reviewing') AND o.provider='manual_bank' AND o.order_type IN ('subscription','ai_credits')
             AND o.status IN ('pending','processing','failed','paid')`).first();
         billingDashboardAggregate(total,["total"]);
         return json({items:billingDashboardRows(r).map(x=>({...x,metadata:safeJson(x.metadata_json,{})})),total:Number(total.total)});
@@ -7723,7 +7723,9 @@ export default {
           return json({ok:true,status:"rejected"});
         }
         if(action==="approve"&&body.bankTransactionId===String(row.bank_reference||"").trim().toUpperCase())return json({error:"bank_transaction_must_be_bank_issued"},400);
-        if(row.order_type!=="subscription"||String(row.provider||"")!=="manual_bank")return json({error:"manual_payment_order_invalid"},409);
+        if(!["subscription","ai_credits"].includes(row.order_type)||String(row.provider||"")!=="manual_bank")return json({error:"manual_payment_order_invalid"},409);
+        const isCredit=row.order_type==="ai_credits",creditCount=Number(safeJson(row.metadata_json,{})?.credits);
+        if(isCredit&&(!Number.isSafeInteger(creditCount)||creditCount<=0))return json({error:"invalid_credit_order"},409);
         if(row.order_status==="refunded"||row.order_status==="canceled")return json({error:"payment_order_already_final",status:row.order_status},409);
         // A previous attempt may have already committed the paid order and
         // applied fulfillment before the review/audit response was interrupted.
@@ -7733,7 +7735,7 @@ export default {
         let settlement;
         if(row.order_status==="paid"){
           const plan=String(safeJson(row.metadata_json,{})?.plan||"starter");
-          const applied=await env.DB.prepare(`SELECT f.payment_order_id FROM payment_fulfillments f
+          const applied=isCredit?await env.DB.prepare(`SELECT f.payment_order_id FROM payment_fulfillments f JOIN ai_credit_ledger l ON l.reference_id=f.payment_order_id AND l.tenant_id=f.tenant_id WHERE f.payment_order_id=? AND f.tenant_id=? AND f.order_type='ai_credits' AND f.fulfillment_status='applied' AND l.entry_type='purchase' AND l.credits=? LIMIT 1`).bind(row.payment_order_id,row.tenant_id,creditCount).first():await env.DB.prepare(`SELECT f.payment_order_id FROM payment_fulfillments f
             JOIN subscriptions s ON s.tenant_id=f.tenant_id
             WHERE f.payment_order_id=? AND f.tenant_id=? AND f.order_type='subscription'
               AND f.fulfillment_status='applied' AND s.provider='manual_bank'
@@ -7757,7 +7759,7 @@ export default {
         // unless the same order has a paid row, applied fulfillment and active
         // matching manual-bank subscription in authoritative storage.
         const plan=String(safeJson(row.metadata_json,{})?.plan||"starter");
-        const appliedNow=await env.DB.prepare(`SELECT o.id FROM payment_orders o
+        const appliedNow=isCredit?await env.DB.prepare(`SELECT o.id FROM payment_orders o JOIN payment_fulfillments f ON f.payment_order_id=o.id AND f.tenant_id=o.tenant_id JOIN ai_credit_ledger l ON l.reference_id=o.id AND l.tenant_id=o.tenant_id WHERE o.id=? AND o.tenant_id=? AND o.status='paid' AND o.order_type='ai_credits' AND o.provider='manual_bank' AND o.provider_payment_id=? AND f.order_type='ai_credits' AND f.fulfillment_status='applied' AND l.entry_type='purchase' AND l.credits=? LIMIT 1`).bind(row.payment_order_id,row.tenant_id,body.bankTransactionId,creditCount).first():await env.DB.prepare(`SELECT o.id FROM payment_orders o
           JOIN payment_fulfillments f ON f.payment_order_id=o.id AND f.tenant_id=o.tenant_id
           JOIN subscriptions s ON s.tenant_id=o.tenant_id
           WHERE o.id=? AND o.tenant_id=? AND o.status='paid' AND o.order_type='subscription'
@@ -7767,7 +7769,7 @@ export default {
             AND datetime(s.current_period_ends_at)>datetime('now') LIMIT 1`)
           .bind(row.payment_order_id,row.tenant_id,body.bankTransactionId,plan).first();
         if(!appliedNow)return json({error:"manual_payment_settlement_not_confirmed"},503);
-        const mutation=env.DB.prepare(`UPDATE manual_payment_submissions SET status='approved',reviewed_at=CURRENT_TIMESTAMP,reviewed_by_user_id=?,rejection_reason=NULL
+        const mutation=isCredit?env.DB.prepare(`UPDATE manual_payment_submissions SET status='approved',reviewed_at=CURRENT_TIMESTAMP,reviewed_by_user_id=?,rejection_reason=NULL WHERE id=? AND tenant_id=? AND payment_order_id=? AND bank_reference=? AND ((status='reviewing' AND reviewed_by_user_id=?) OR (status='submitted' AND reviewed_by_user_id IS NULL)) AND EXISTS(SELECT 1 FROM payment_orders o JOIN payment_fulfillments f ON f.payment_order_id=o.id AND f.tenant_id=o.tenant_id JOIN ai_credit_ledger l ON l.reference_id=o.id AND l.tenant_id=o.tenant_id WHERE o.id=manual_payment_submissions.payment_order_id AND o.tenant_id=manual_payment_submissions.tenant_id AND o.status='paid' AND o.order_type='ai_credits' AND o.provider='manual_bank' AND o.provider_payment_id=? AND f.order_type='ai_credits' AND f.fulfillment_status='applied' AND l.entry_type='purchase' AND l.credits=?)`).bind(a.user_id,submissionId,row.tenant_id,row.payment_order_id,row.bank_reference,a.user_id,body.bankTransactionId,creditCount):env.DB.prepare(`UPDATE manual_payment_submissions SET status='approved',reviewed_at=CURRENT_TIMESTAMP,reviewed_by_user_id=?,rejection_reason=NULL
           WHERE id=? AND tenant_id=? AND payment_order_id=? AND bank_reference=? AND ((status='reviewing' AND reviewed_by_user_id=?) OR (status='submitted' AND reviewed_by_user_id IS NULL))
           AND EXISTS(SELECT 1 FROM payment_orders o JOIN payment_fulfillments f ON f.payment_order_id=o.id AND f.tenant_id=o.tenant_id
             JOIN subscriptions s ON s.tenant_id=o.tenant_id WHERE o.id=manual_payment_submissions.payment_order_id AND o.tenant_id=manual_payment_submissions.tenant_id
@@ -7775,11 +7777,11 @@ export default {
             AND f.order_type='subscription' AND f.fulfillment_status='applied' AND s.provider='manual_bank' AND s.plan=? AND s.status='active'
             AND datetime(s.current_period_ends_at)>datetime('now'))`).bind(a.user_id,submissionId,row.tenant_id,row.payment_order_id,row.bank_reference,a.user_id,body.bankTransactionId,plan);
         const completionReceipt=env.DB.prepare("INSERT INTO manual_payment_events(id,submission_id,payment_order_id,tenant_id,event_type,actor_user_id,event_data) SELECT ?,?,?,?,?,?,? WHERE changes()=1")
-          .bind(id(),submissionId,row.payment_order_id,row.tenant_id,"approved_and_activated",a.user_id,JSON.stringify({bankTransactionId:body.bankTransactionId,bankReference:row.bank_reference,amountBwp:row.amount_bwp}));
+          .bind(id(),submissionId,row.payment_order_id,row.tenant_id,isCredit?"approved_and_credited":"approved_and_activated",a.user_id,JSON.stringify({bankTransactionId:body.bankTransactionId,bankReference:row.bank_reference,amountBwp:row.amount_bwp}));
         const marked=await appendSealedAuditEvent(env,{tenantId:row.tenant_id,actorUserId:a.user_id,eventType:"MANUAL_PAYMENT_APPROVED",entityType:"user",entityId:a.user_id,
           eventData:{paymentOrderId:row.payment_order_id,submissionId,bankTransactionId:body.bankTransactionId,bankReference:row.bank_reference,amountBwp:row.amount_bwp},mutation,completionReceipt});
         if(!marked.ok)return json({error:"manual_payment_review_conflict"},409);
-        return json({ok:true,status:"approved",activated:true,settlement});
+        return json({ok:true,status:"approved",activated:!isCredit,creditsApplied:isCredit?creditCount:undefined,settlement});
       }
 
       if(url.pathname==="/api/payments/ai-credit-checkout"&&req.method==="POST"){
@@ -7789,8 +7791,11 @@ export default {
         return idempotentJsonMutation(env,a,req,"ai-credit-checkout",{sku},async()=>{
           const pack=await env.DB.prepare("SELECT sku,credits,price_bwp FROM ai_credit_packs WHERE sku=? AND active=1 LIMIT 1").bind(sku).first();
           if(!pack)return {status:404,body:{error:"credit_pack_not_found"}};
-          const po=await createPaymentOrder(env,{tenantId:a.tenant_id,orderType:"ai_credits",amountBwp:pack.price_bwp,metadata:{sku:pack.sku,credits:pack.credits}});
-          return {status:201,body:{ok:true,paymentOrder:po,pack}};
+          const bank=manualBankConfig(env);if(!bank.configured)return {status:503,body:{error:"manual_bank_transfer_not_configured"}};
+          if(!Number.isSafeInteger(Number(pack.credits))||Number(pack.credits)<=0||!Number.isFinite(Number(pack.price_bwp))||Number(pack.price_bwp)<=0)return {status:409,body:{error:"invalid_credit_pack"}};
+          const po=await createPaymentOrder(env,{tenantId:a.tenant_id,orderType:"ai_credits",amountBwp:pack.price_bwp,metadata:{sku:pack.sku,credits:pack.credits,paymentMode:"manual_bank"}});
+          await env.DB.prepare("UPDATE payment_orders SET provider='manual_bank',updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=?").bind(po.id,a.tenant_id).run();
+          return {status:201,body:{ok:true,paymentOrder:{...po,reference:manualPaymentReference(po.id)},pack,checkoutMode:"manual_bank_transfer",bankTransfer:{...bank,reference:manualPaymentReference(po.id),amountBwp:po.amountBwp}}};
         });
       }
 
