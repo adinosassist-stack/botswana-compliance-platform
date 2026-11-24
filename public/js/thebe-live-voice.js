@@ -816,6 +816,17 @@
     const turn=el("article","thebe-aura-turn");
     turn.dataset.role=role==="user"?"user":"assistant";
     turn.append(el("span","thebe-aura-turn-label",role==="user"?"You":"Thebe"),el("p","thebe-aura-turn-content",value));
+    if(role==="user"){
+      const edit=el("button","thebe-aura-edit-prompt","Edit & resend");
+      edit.type="button";
+      edit.setAttribute("aria-label","Edit and resend this message as a new prompt");
+      edit.addEventListener("click",()=>{
+        if(!input||textBusy||input.value.trim()||pendingFiles.length)return;
+        input.value=value.slice(0,MAX_QUESTION);
+        syncComposerHeight();syncComposerState();input.focus({preventScroll:true});
+      });
+      turn.append(edit);
+    }
     conversationHistory.append(turn);
     while(conversationHistory.children.length>TEXT_HISTORY_LIMIT)conversationHistory.firstElementChild?.remove();
     syncConversationFind();
@@ -1784,6 +1795,19 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       requireAdvisorAnswer(result);
       pendingFiles=pendingFiles.filter(file=>!files.includes(file));renderAttachmentTray();
       renderResult(result);
+      // Only ordinary, attachment-free advisor answers may be requested again.
+      // Saved plans and public marketing responses do not receive this control.
+      if(!files.length&&requestedMode==="ask"&&responseBox){
+        const retry=el("button","thebe-ai-open-full thebe-ai-regenerate","Regenerate answer");
+        retry.type="button";
+        retry.title="Request another answer; AI credits may apply";
+        retry.setAttribute("aria-label","Regenerate answer; AI credits may apply");
+        retry.addEventListener("click",()=>{
+          if(textBusy||!shellVisible()||!retry.isConnected||input?.value.trim()||pendingFiles.length)return;
+          void ask("ask",q);
+        });
+        responseBox.querySelector(".thebe-ai-response-tools")?.append(retry);
+      }
     }catch(error){
       if(runId!==textRunId||error?.code==="aborted")return;
       if(input&&!input.value){input.value=q;syncComposerHeight()}
@@ -2136,7 +2160,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       // Only the actual latest answer is searchable, not a transient status.
       if(lastAnswer)visible.push(responseBox);
       return visible.filter(node=>
-        String(node===responseBox?lastAnswer:node.textContent||"").toLocaleLowerCase().includes(needle));
+        String(node===responseBox?lastAnswer:node.querySelector(".thebe-aura-turn-content")?.textContent||"").toLocaleLowerCase().includes(needle));
     };
     syncConversationFind=()=>{
       if(findPanel.hidden)return;
@@ -2159,9 +2183,11 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       clearFindHighlight();
       findHighlighted=target;
       target.classList.add("thebe-ai-find-current");
-      target.tabIndex=-1;
+      autoFollowResponse=false;
+      syncLatestResponseButton();
       target.scrollIntoView({block:"center",behavior:"auto"});
-      target.focus({preventScroll:true});
+      // Keep the search input or navigation button focused so repeated searches
+      // do not dismiss the mobile keyboard or strand keyboard users in chat.
       findStatus.textContent=`${findIndex+1} of ${findTargets.length} matching messages`;
     };
     const closeFind=()=>{

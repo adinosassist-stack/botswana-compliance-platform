@@ -2250,37 +2250,37 @@ html body dialog#thebeVoiceScreen[open] {
 /* #2830 web-only conversation find: flat charcoal, both compact & Aura fullscreen. */
 #thebeAiDock .thebe-ai-find{display:flex;flex-direction:column;gap:8px;min-width:0;flex:none;}
 #thebeAiDock .thebe-ai-find-toggle{
-  align-self:flex-start;min-height:44px;border:1px solid #435268;border-radius:999px;
-  padding:8px 15px;background:#172332;color:#eaf2ff;font:inherit;
+  align-self:flex-start;min-height:44px;border:1px solid #454c56;border-radius:999px;
+  padding:8px 15px;background:#22252b;color:#eaf2ff;font:inherit;
   font-size:12px;font-weight:650;letter-spacing:.01em;
 }
-#thebeAiDock .thebe-ai-find-toggle[aria-expanded="true"]{background:#243952;border-color:#8db8e8;}
+#thebeAiDock .thebe-ai-find-toggle[aria-expanded="true"]{background:#30343a;border-color:#737982;}
 #thebeAiDock .thebe-ai-find-panel{
   min-width:0;display:flex;flex-direction:column;gap:6px;padding:10px;
-  border:1px solid #435268;border-radius:13px;background:#161d27;color:#d9e4f3;
+  border:1px solid #454c56;border-radius:13px;background:#1b1e23;color:#d9e4f3;
 }
 #thebeAiDock .thebe-ai-find-panel[hidden]{display:none!important;}
 #thebeAiDock .thebe-ai-find-input-row{display:flex;align-items:center;gap:5px;min-width:0;}
 #thebeAiDock .thebe-ai-find-input{
   flex:1 1 auto;width:100%;min-width:0;height:44px;padding:8px 10px;
-  border:1px solid #516077;border-radius:9px;background:#0e1621;color:#fff;
+  border:1px solid #555b65;border-radius:9px;background:#14161a;color:#fff;
   font:inherit;font-size:16px;
 }
 #thebeAiDock .thebe-ai-find-input::placeholder{color:#bac6d8;}
 #thebeAiDock .thebe-ai-find-input-row button{
-  flex:0 0 44px;min-height:44px;border:1px solid #435268;border-radius:10px;
-  background:#253348;color:#f5f7ff;font:inherit;font-size:17px;
+  flex:0 0 44px;min-height:44px;border:1px solid #454c56;border-radius:10px;
+  background:#2a2e34;color:#f5f7ff;font:inherit;font-size:17px;
 }
 #thebeAiDock .thebe-ai-find-input-row button:disabled{opacity:.48;cursor:default;}
 #thebeAiDock .thebe-ai-find-status{display:block;min-height:18px;color:#c2cfdd;font-size:11px;line-height:1.5;}
 #thebeAiDock :is(.thebe-ai-find-toggle,.thebe-ai-find-input,.thebe-ai-find-input-row button):focus-visible,
 #thebeAiDock :is(.thebe-aura-turn,.thebe-ai-response)[tabindex="-1"]:focus-visible{
-  outline:2px solid #c6d9ef;outline-offset:2px;
+  outline:2px solid #d1d5db;outline-offset:2px;
 }
 @media(max-width:380px){
   #thebeAiDock .thebe-ai-find-panel{padding:8px;}
   #thebeAiDock .thebe-ai-find-input-row{gap:3px;}
-  #thebeAiDock .thebe-ai-find-input-row button{flex-basis:40px;min-height:44px;}
+  #thebeAiDock .thebe-ai-find-input-row button{flex-basis:44px;min-height:44px;}
 }
 @media(prefers-reduced-motion:reduce){
   #thebeAiDock .thebe-ai-find *{scroll-behavior:auto!important;transition:none!important;}
@@ -2290,7 +2290,7 @@ html body dialog#thebeVoiceScreen[open] {
    The active match gets a neutral, temporary focus ring, never HTML markup. */
 #thebeAiDock .thebe-ai-find{
   position:sticky;top:0;z-index:5;padding:5px 0 8px;
-  background:#111827;isolation:isolate;
+  background:#181a1e;isolation:isolate;
 }
 #thebeAiDock :is(.thebe-aura-turn,.thebe-ai-response).thebe-ai-find-current{
   outline:2px solid #bac7d6!important;outline-offset:-2px!important;
@@ -2314,4 +2314,17 @@ html body dialog#thebeVoiceScreen[open] {
     border-color: #858b94 !important;
     box-shadow: 0 0 0 1px #858b94 !important;
   }
+}
+
+
+/* #2835: explicit prompt reuse, shared by compact and fullscreen Dock. */
+#thebeAiDock .thebe-aura-edit-prompt{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:44px;max-width:100%;margin-top:4px;padding:6px 12px;
+  border:1px solid #454c56;border-radius:10px;
+  background:#22252b;color:#e5e7eb;font:inherit;font-size:12px;
+  cursor:pointer;white-space:normal;
+}
+#thebeAiDock .thebe-aura-edit-prompt:focus-visible{
+  outline:2px solid #d1d5db;outline-offset:2px;
 }
