@@ -2260,6 +2260,7 @@ html body dialog#thebeVoiceScreen[open] {
   border:1px solid #454c56;border-radius:13px;background:#1b1e23;color:#d9e4f3;
 }
 #thebeAiDock .thebe-ai-find-panel[hidden]{display:none!important;}
+#thebeAiDock .thebe-ai-web-search[hidden]{display:none!important;}
 #thebeAiDock .thebe-ai-find-input-row{display:flex;align-items:center;gap:5px;min-width:0;}
 #thebeAiDock .thebe-ai-find-input{
   flex:1 1 auto;width:100%;min-width:0;height:44px;padding:8px 10px;
