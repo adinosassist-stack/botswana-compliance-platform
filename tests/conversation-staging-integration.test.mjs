@@ -60,6 +60,7 @@ try{
  const database={prepare(sql){
   const stmt=sqlite.prepare(sql);
   return {first:()=>stmt.get(),bind:(...args)=>({
+   first:()=>stmt.get(...args),
    run:()=>({success:true,meta:{changes:stmt.run(...args).changes}}),
    all:()=>({success:true,results:stmt.all(...args)})
   })};
@@ -93,7 +94,31 @@ try{
  sqlite.prepare("UPDATE thebe_conversations_rehearsal SET title=? WHERE tenant_id='B'").run("Other tenant only");
  assert.deepEqual((await (await search("Other tenant")).json()).items,[]);
  sqlite.prepare("UPDATE thebe_conversations_rehearsal SET title=NULL WHERE tenant_id='B'").run();
+ // Fresh integration instances represent separate authenticated clients. No
+ // in-memory conversation cache is shared between these instances.
+ const typed={role:"user",sourceKind:"typed",content:"Synthetic restoration message",idempotencyKey:"restore-typed"};
+ const writeMessage=(client,message)=>client.fetch(new Request(path,{method:"POST",headers:{origin,"content-type":"application/json"},body:JSON.stringify(message)}),realEnv);
+ const readMessages=client=>client.fetch(new Request(path),realEnv);
+ assert.equal((await writeMessage(worker,typed)).status,200);
+ const deviceB=createConversationStagingIntegration({verifyCurrentSession:async()=>session});
+ const restored=await readMessages(deviceB);
+ assert.equal(restored.status,200);
+ assert.deepEqual((await restored.json()).items.map(x=>x.content_redacted),[typed.content]);
+ const retry=await writeMessage(deviceB,typed);
+ assert.equal(retry.status,200);
+ assert.equal((await retry.json()).duplicate,true);
+ session=null;
+ assert.equal((await readMessages(deviceB)).status,401);
+ session={authenticated:true,active:true,userId:"u",tenantId:"A",csrfVerified:true};
+ assert.equal((await readMessages(deviceB)).status,200);
+ session={...session,userId:"v",tenantId:"B"};
+ const otherTenant=await readMessages(deviceB);
+ assert.equal(otherTenant.status,200);
+ assert.deepEqual((await otherTenant.json()).items,[]);
+ session={...session,userId:"u",tenantId:"A"};
  assert.equal((await remove()).status,200);
+ assert.equal((await readMessages(deviceB)).status,401);
+ assert.equal((await writeMessage(deviceB,{...typed,idempotencyKey:"after-delete"})).status,401);
  assert.deepEqual((await (await search("Quarterly")).json()).items,[]);
  assert.equal((await rename({title:"Deleted"})).status,404);
  assert.equal((await remove()).status,404);
