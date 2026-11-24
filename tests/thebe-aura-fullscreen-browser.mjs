@@ -137,6 +137,7 @@ try {
   });
   for(const [width,height] of [[320,800],[375,800],[390,844],[414,800],[430,800],[768,800],[1024,800],[1440,900],[844,390],[390,340]]){
     await page.setViewportSize({width,height});
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
     await capture('conversation-'+width+'x'+height);
     const geometry=await page.evaluate(()=>{
       const r=document.querySelector('#thebeAiDock .thebe-ai-compose').getBoundingClientRect();
@@ -150,6 +151,12 @@ try {
       assert(r&&r.width>=44&&r.height>=44&&r.x>=0&&r.x+r.width<=width+1,`${selector} accessible at ${width}`);
     }
     assert.equal(await page.locator('.thebe-ai-compose').evaluate(el=>getComputedStyle(el).backgroundImage),'none');
+    for(const selector of ['.thebe-ai-attach','.thebe-ai-audio','.thebe-ai-conversation-voice','#thebeAiDockInput']){
+      assert(await page.locator(selector).evaluate(el=>{
+        const r=el.getBoundingClientRect();
+        return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));
+      }),`${selector} is not occluded at ${width}x${height}`);
+    }
     if(width===320){
       assert.equal(await page.locator('#thebeAiDockInput').getAttribute('placeholder'),'Ask…');
       assert((await page.locator('.thebe-ai-compose').boundingBox()).height<85,'empty narrow composer stays compact');

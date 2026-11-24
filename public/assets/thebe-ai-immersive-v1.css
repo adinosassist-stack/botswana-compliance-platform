@@ -96,7 +96,7 @@
   padding:9px 12px!important;border:0!important;
   border-radius:28px!important;background:#191d24!important;
   box-shadow:none!important;
-  backdrop-filter:blur(14px)!important;display:flex!important;gap:8px!important;
+  backdrop-filter:none!important;display:flex!important;gap:8px!important;
 }
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"]))>.thebe-ai-compose textarea{
   background:transparent!important;color:#f8faff!important;border:0!important;outline:0!important;
@@ -222,3 +222,6 @@ html body.thebe-voice-active #thebeAiDock:not([data-css-recovery="1"]) .thebe-ai
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-aura-hello{max-width:100%;overflow-wrap:anywhere}
 
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-ai-dock-scroll:focus-visible{outline:0!important;box-shadow:inset 3px 0 #d1d5db!important}
+
+/* Business dialogs own the interaction layer above an expanded assistant. */
+html body:has(.modal.open,.commandshade.open) #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"]){z-index:900!important}
