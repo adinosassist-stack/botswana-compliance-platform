@@ -109,6 +109,16 @@ try{
     assert(g.left>=-1&&g.right<=g.viewport+1&&g.fieldLeft>=-1&&g.fieldRight<=g.viewport+1,
       "Find remains within web viewport: "+JSON.stringify(g));
   }
+  const regenerate=dock.locator(".thebe-ai-regenerate");
+  await composer.fill("Keep this draft");
+  await regenerate.evaluate(button=>button.click());
+  assert.equal(await page.evaluate(()=>window.advisorCalls),2,"Regeneration cannot overwrite a draft or start a request");
+  assert.equal(await composer.inputValue(),"Keep this draft");
+  await composer.fill("");
+  await regenerate.evaluate(button=>button.click());
+  await page.waitForFunction(()=>window.advisorCalls===3&&document.querySelector("#thebeAiDockResponse")?.textContent.includes("Grounded test answer 3"));
+  assert.equal(await dock.locator(".thebe-aura-turn[data-role=assistant]").count(),2,"Regeneration retains the previous answer");
+  assert.equal(await page.evaluate(()=>window.advisorCalls),3,"One explicit regeneration makes one advisor request");
   await page.evaluate(()=>window.ThebeAiDock.clear());
   assert.equal(await panel.isHidden(),true,"Clearing a chat closes search");
   assert.equal(await field.inputValue(),"","Clearing a chat removes the search phrase");
@@ -124,7 +134,7 @@ try{
   assert.equal(await dock.locator("#thebeAiDockInput").inputValue(),"","Switching business clears an unsent draft");
   assert.equal(await panel.isHidden(),true,"Switching business resets in-session search");
   assert.equal(await dock.locator(".thebe-ai-find-current").count(),0);
-  assert.equal(await dock.locator("#thebeAiDockResponse").evaluate(x=>x.textContent.includes("Grounded test answer 3")),false,
+  assert.equal(await dock.locator("#thebeAiDockResponse").evaluate(x=>x.textContent.includes("Grounded test answer 4")),false,
     "Switching business removes the previous business answer");
   await page.evaluate(async()=>window.ThebeAiDock.ask("Company B private test","ask"));
   assert.equal(await page.locator(".thebe-aura-turn").count(),1);
