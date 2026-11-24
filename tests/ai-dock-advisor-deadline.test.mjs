@@ -73,3 +73,24 @@ test('archiving an answer retains its clickable research sources in the conversa
  archive();
  assert.deepEqual(archived,[{role:'assistant',answer:'Research answer',node:sources}]);
 });
+
+test('delayed attachments, saved plans and errors are checked at the workspace boundary',()=>{
+ const start=dock.indexOf('async function ask(mode,question,files=[])');
+ const end=dock.indexOf('function quickButton(',start);
+ assert.ok(start>=0&&end>start);
+ const block=dock.slice(start,end);
+ const guard='if(!shellVisible()||currentWorkspaceScope()!==requestScope)return;';
+ const attachments=block.indexOf('const attachments=await Promise.all(files.map(filePayload));');
+ const dispatch=block.indexOf('const result=await api("/api/ai/advisor"');
+ assert.ok(attachments>=0&&dispatch>attachments);
+ assert.ok(block.slice(attachments,dispatch).includes(guard),'check scope after async file conversion before dispatch');
+ for(const operation of ['const plan=await global.ThebeOwnerCommandCentre?.loadLatestPlan?.();','const plan=await global.ThebeOwnerCommandCentre.generatePlan(q);']){
+  const from=block.indexOf(operation),render=block.indexOf('renderGoalPlan(plan);',from);
+  assert.ok(from>=0&&render>from);
+  assert.ok(block.slice(from,render).includes('if(runId!==textRunId||!shellVisible()||currentWorkspaceScope()!==requestScope)return;'));
+ }
+ const caught=block.indexOf('}catch(error){');
+ const draft=block.indexOf('if(input&&!input.value){input.value=q;',caught);
+ assert.ok(caught>=0&&draft>caught);
+ assert.ok(block.slice(caught,draft).includes(guard),'do not restore a stale private draft into another workspace');
+});
