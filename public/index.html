@@ -7018,21 +7018,22 @@ renderManualBankCheckout(r,box);
 }catch(e){if(currentUser===user)notifyUser(e.message)}
 finally{creditCheckoutBusy=false;if(box)box.removeAttribute("aria-busy")}
 }
+let creditWalletLoad=0;
 async function renderAiCredits(){
-  const box=document.getElementById("aiCreditWalletBox");if(!box)return;
-  try{
-    const r=await apiJson("/api/ai/credits");
-    const w=r.wallet||{},p=r.plan||{};
-    document.getElementById("aiCreditBalance").textContent=Number(w.balance||0);
-    document.getElementById("aiMonthlyAllowance").textContent=Number(w.monthly_allowance||0);
-    document.getElementById("aiLifetimeUsed").textContent=Number(w.lifetime_used||0);
-    document.getElementById("aiLowBalance").textContent=Number(w.balance||0)<25?"Yes":"No";
-    box.safeHTML=`<div class="item"><b>${Number(w.balance||0)} credits available</b><div class="muted small">${escapeHtml(p.plan||"starter")} plan · ${Number(w.monthly_allowance||0)} monthly credits · ${Number(w.lifetime_purchased||0)} purchased lifetime</div></div>`;
-    const packs=document.getElementById("aiCreditPacks"),canBuy=currentWorkspaceRole()==="owner";
-    if(packs)packs.safeHTML=(r.packs||[]).map(x=>canBuy?`<button class="eventcard" data-bw-onclick="createAiCreditOrder('${escapeHtml(x.sku)}')"><b>${x.credits} credits</b><div class="muted small">P${x.price_bwp}</div></button>`:`<div class="eventcard"><b>${x.credits} credits</b><div class="muted small">P${x.price_bwp} · owner purchase only</div></div>`).join("");
-    const hist=document.getElementById("aiCreditHistory");
-    if(hist)hist.safeHTML=(r.ledger||[]).slice(0,12).map(x=>`<div class="item"><b>${escapeHtml(x.entry_type)}</b><div class="muted small">${x.credits>0?"+":""}${x.credits} credits${x.feature?` · ${escapeHtml(x.feature)}`:""} · ${new Date(x.occurred_at).toLocaleString()}</div></div>`).join("")||'<div class="muted small">No activity yet.</div>';
-  }catch(e){box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
+const load=++creditWalletLoad,user=currentUser,tenant=user?.tenantId;
+const isCurrent=()=>currentUser===user&&currentUser?.tenantId===tenant&&load===creditWalletLoad;
+const el=id=>document.getElementById(id),box=el("aiCreditWalletBox");if(!box)return;
+try{
+const r=await apiJson("/api/ai/credits");
+if(!isCurrent())return;
+const w=r.wallet||{},p=r.plan||{};
+for(const [id,value] of Object.entries({aiCreditBalance:Number(w.balance||0),aiMonthlyAllowance:Number(w.monthly_allowance||0),aiLifetimeUsed:Number(w.lifetime_used||0),aiLowBalance:Number(w.balance||0)<25?"Yes":"No"}))el(id).textContent=value;
+box.safeHTML=`<div class="item"><b>${escapeHtml(p.plan||"starter")} plan</b><div class="muted small">${Number(w.lifetime_purchased||0)} purchased lifetime</div></div>`;
+const packs=el("aiCreditPacks"),canBuy=currentWorkspaceRole()==="owner";
+if(packs)packs.safeHTML=(r.packs||[]).map(x=>{const tag=canBuy?"button":"div";return `<${tag} class="eventcard"${canBuy?` data-bw-onclick="createAiCreditOrder('${escapeHtml(x.sku)}')"`:""}><b>${x.credits} credits</b><div class="muted small">P${x.price_bwp}${canBuy?"":" · owner purchase only"}</div></${tag}>`}).join("");
+const hist=el("aiCreditHistory");
+if(hist)hist.safeHTML=(r.ledger||[]).slice(0,12).map(x=>`<div class="item"><b>${escapeHtml(x.entry_type)}</b><div class="muted small">${x.credits>0?"+":""}${x.credits} credits${x.feature?` · ${escapeHtml(x.feature)}`:""} · ${new Date(x.occurred_at).toLocaleString()}</div></div>`).join("")||'<div class="muted small">No activity yet.</div>';
+}catch(e){if(isCurrent())box.safeHTML=`<div class="notice bad">${escapeHtml(e.message)}</div>`}
 }
 function setAiAdvisorPrompt(mode,question){
   const m=document.getElementById("aiAdvisorMode"),q=document.getElementById("aiAdvisorQuestion");if(m)m.value=mode;if(q){q.value=question;q.focus()}
@@ -8583,13 +8584,19 @@ function renderBilling(){
  let banner=document.getElementById("billingBanner");if(banner){let days=trial?Math.max(0,Math.ceil((trial-Date.now())/86400000)):null;if(status==="trialing"){banner.style.display="flex";banner.safeHTML=`<div><b>${days} day${days===1?"":"s"} left in your free trial</b><div class="muted small">Current selection: ${planLabel(plan)} · ${moneyPlan(plan)}/month after trial when billing is activated.</div></div><button class="btn soft" data-bw-onclick="showView('billing')">View plans</button>`}else if(status==="active"){banner.style.display="flex";banner.safeHTML=`<div><b>${planLabel(plan)} plan active</b><div class="muted small">Renewal ${fmt(renew)}</div></div><button class="btn soft" data-bw-onclick="showView('billing')">Manage plan</button>`}else{banner.style.display="none"}}
 }
 async function submitManualBankPayment(paymentOrderId){
- const input=document.getElementById("manualBankReference_"+paymentOrderId),out=document.getElementById("manualBankSubmitResult_"+paymentOrderId),bankReference=String(input?.value||"").trim();
- if(!bankReference){if(out)out.safeHTML='<div class="autherror show">Enter the bank transaction reference first.</div>';return}
- try{
-   const r=await apiJson("/api/payments/manual-bank/submit",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({paymentOrderId,bankReference}),idempotencyKey:true});
-   if(out)out.safeHTML=`<div class="upgradeSuccess"><b>Payment submitted for verification.</b><br>${escapeHtml(r.message||"Activation requires verified settled funds.")}</div>`;
-   await renderPayments();
- }catch(e){if(out)out.safeHTML=`<div class="autherror show">${escapeHtml(e.message)}</div>`}
+const input=document.getElementById("manualBankReference_"+paymentOrderId),out=document.getElementById("manualBankSubmitResult_"+paymentOrderId),bankReference=String(input?.value||"").trim();
+if(!out||out.dataset.busy==="1"||currentWorkspaceRole()!=="owner")return;
+const user=currentUser,tenantId=user?.tenantId;
+const isCurrent=()=>currentUser===user&&currentUser?.tenantId===tenantId&&currentWorkspaceRole()==="owner";
+if(!bankReference){out.textContent="Enter the bank reference.";return}
+out.dataset.busy="1";
+try{
+const r=await apiJson("/api/payments/manual-bank/submit",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({paymentOrderId,bankReference}),idempotencyKey:true});
+if(!isCurrent())return;
+out.textContent=r.message||"Submitted. Awaiting settled-funds verification.";
+await renderPayments();
+}catch(e){if(isCurrent())out.textContent=e.message}
+finally{delete out.dataset.busy}
 }
 function renderManualBankCheckout(data,target){
 if(!data?.paymentOrder?.id||data.checkoutMode!=="manual_bank_transfer"||!data.bankTransfer?.reference)throw new Error("Bank-transfer instructions are unavailable. Retry.");

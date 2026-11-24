@@ -2295,3 +2295,23 @@ html body dialog#thebeVoiceScreen[open] {
 #thebeAiDock :is(.thebe-aura-turn,.thebe-ai-response).thebe-ai-find-current{
   outline:2px solid #bac7d6!important;outline-offset:-2px!important;
 }
+
+/* #2789: Neutral mobile composer focus, including later workspace overrides. */
+@media (max-width: 767px) {
+  html body #thebeAiDock .thebe-ai-compose,
+  html body #thebeAiDock .thebe-ai-compose:focus-within {
+    border-color: #454c56 !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+  html body #thebeAiDock .thebe-ai-compose textarea:focus,
+  html body #thebeAiDock .thebe-ai-compose textarea:focus-visible {
+    border: 0 !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+  html body #thebeAiDock .thebe-ai-compose:has(textarea:focus-visible) {
+    border-color: #858b94 !important;
+    box-shadow: 0 0 0 1px #858b94 !important;
+  }
+}

@@ -79,7 +79,7 @@ jobs:
           node --test tests/isolated-readiness-config.test.mjs
 
       - name: Founder AI entitlement and zero-deduction chat and voice
-        run: node --test tests/founder-ai-entitlement.test.mjs tests/founder-ai-entitlement-d1.test.mjs
+        run: node --test tests/founder-ai-entitlement.test.mjs tests/founder-ai-entitlement-d1.test.mjs tests/launch-billing-session-2735.test.mjs
 
       - name: Subscription audit rollback and POP isolation
         shell: bash

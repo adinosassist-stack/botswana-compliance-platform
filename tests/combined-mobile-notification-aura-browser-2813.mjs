@@ -131,6 +131,16 @@ try {
         "Mobile launcher opens Aura directly "+label);
       assert(await dock.locator(".thebe-aura-ribbon").isVisible(),
         "Voice-reactive Aura ribbon still mounted "+label);
+      if(width<=767){
+        await dock.locator("#thebeAiDockInput").focus();
+        const focus=await dock.locator(".thebe-ai-compose").evaluate(el=>{
+          const style=getComputedStyle(el),input=getComputedStyle(el.querySelector("textarea"));
+          return {border:style.borderTopColor,innerShadow:input.boxShadow,innerOutline:input.outlineStyle};
+        });
+        assert(["rgb(69, 76, 86)","rgb(133, 139, 148)"].includes(focus.border),"Focused composer keeps neutral border "+label);
+        assert.equal(focus.innerShadow,"none","No nested textarea focus ring "+label);
+        assert.equal(focus.innerOutline,"none","No nested textarea outline "+label);
+      }
       await page.evaluate(async()=>window.ThebeAiDock.ask("Synthetic question","ask"));
       assert(await dock.locator(".thebe-aura-turn").count()>0,
         "Fullscreen conversation has visible turns "+label);
