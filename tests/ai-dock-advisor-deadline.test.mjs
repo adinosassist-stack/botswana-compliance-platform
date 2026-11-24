@@ -94,3 +94,18 @@ test('delayed attachments, saved plans and errors are checked at the workspace b
  assert.ok(caught>=0&&draft>caught);
  assert.ok(block.slice(caught,draft).includes(guard),'do not restore a stale private draft into another workspace');
 });
+
+test('optional screen metadata cannot truncate a valid user question',()=>{
+ const start=dock.indexOf('function contextualQuestion(question)');
+ const end=dock.indexOf('function openView(',start);
+ assert.ok(start>=0&&end>start);
+ const build=new Function('clean','MAX_QUESTION','activeContext',dock.slice(start,end)+';return contextualQuestion;')(
+   (value,max)=>String(value).slice(0,max),1000,()=>({title:'Home',id:'dashboard'})
+ );
+ const short='Explain this balance.';
+ assert.match(build(short),/Current Thebe Desk screen: Home/);
+ assert.ok(build(short).endsWith(short));
+ const long='x'.repeat(980)+' FINAL QUESTION END';
+ assert.equal(build(long),long);
+ assert.ok(build(long).length<=1000);
+});
