@@ -72,7 +72,8 @@ try{
    'fullscreen does not reserve a workspace rail');
  }
  await page.setViewportSize({width:1440,height:960});
- await page.getByRole('button',{name:'Restore Thebe panel',exact:true}).click();
+ await page.getByRole('button',{name:'Minimise Thebe dock',exact:true}).click();
+ await page.locator('#thebeAiDockPill .thebe-ai-pill-open').click();
  await page.waitForFunction(()=>{
   const dock=document.getElementById('thebeAiDock').getBoundingClientRect();
   const main=document.getElementById('mainContent').getBoundingClientRect();

@@ -11,12 +11,12 @@ assert.match(workflow,/node tests\/unified-goal-flow-browser\.mjs[\s\S]*node tes
   "PR Chromium CI must run the dock browser test after the unified goal flow");
 assert.match(browserTest,/new Map\(\[\[1440,547\],\[1200,456\],\[1199,256\],\[1180,256\],\[1024,256\]\]\)/,
   "normal dock browser coverage must straddle the V253 1199/1200 breakpoint");
-assert.match(browserTest,/new Map\(\[\[1440,634\],\[1200,528\],\[1199,324\],\[1024,324\]\]\)/,
-  "expanded dock browser coverage must straddle the V253 1199/1200 breakpoint");
+assert.match(browserTest,/of \[1440,1200,1199,1024\]/,
+  "fullscreen browser coverage must straddle the V253 1199/1200 breakpoint");
 assert.match(browserTest,/unexpected dock width at \$\{width\}/,
   "browser gate must assert actual normal dock width, not only non-overlap");
-assert.match(browserTest,/unexpected expanded dock width at \$\{width\}/,
-  "browser gate must assert actual expanded dock width, not only non-overlap");
+assert.match(browserTest,/Math\.abs\(bounds\.width-innerWidth\)<=1&&Math\.abs\(bounds\.height-innerHeight\)<=1/,
+  "browser gate must assert actual fullscreen width and height");
 assert(packageJson.scripts["test:release-regressions"].includes("tests/v254-spatial-dock-pr-gate.mjs"),
   "V254 PR browser gate governance must remain inside release regressions");
 
