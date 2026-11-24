@@ -176,7 +176,7 @@ html body.thebe-voice-active #thebeAiDock:not([data-css-recovery="1"]) .thebe-ai
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"]))>.thebe-ai-compose{
   box-sizing:border-box!important;
 }
-:is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"]))[data-conversation="false"] .thebe-ai-find{display:none!important}
+/* Search remains available in an empty expanded conversation. */
 @media(max-width:380px){
   html body.thebe-voice-active #thebeAiDock:not([data-css-recovery="1"]) .thebe-ai-head-actions{gap:4px!important}
 }
