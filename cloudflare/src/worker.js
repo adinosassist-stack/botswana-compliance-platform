@@ -1,5 +1,5 @@
-import {hasFounderAiEntitlement} from "./founder-ai-entitlement.js";
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./regulatory-pack-registry.js";
+import {hasFounderAiEntitlement} from "./founder-ai-entitlement.js";
 import {createManagerLocationAdminHttp} from './manager-invitations-location-admin-http.js';
 import {createManagerOwnerDirectoryHttp} from './manager-invitations-owner-directory.js';
 import {createManagerScopedReadHttp} from './manager-invitations-scoped-read.js';
