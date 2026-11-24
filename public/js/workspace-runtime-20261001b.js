@@ -2659,7 +2659,7 @@ try{
 const admin=await apiJson("/api/platform/billing/manual-payments");
 if(load!==manualPaymentAdminLoad||!platformBillingSessionCurrent(user))return;
 if(pendingCount)pendingCount.textContent=String(admin.total??(admin.items||[]).length);
-box.safeHTML=(admin.items||[]).map(x=>`<div class="item"><div class="muted small">POP/ref is not proof. Match funds in Thebe Desk bank account before approval.</div><b>${escapeHtml(x.tenant_name||x.tenant_id)} · P${x.amount_bwp}</b><div class="muted small">${escapeHtml(platformBillingPlan(x.metadata?.plan))} · bank ref ${escapeHtml(x.bank_reference)} · submitted ${platformBillingTime(x.submitted_at)}</div><div class="row" style="margin-top:8px"><button type="button" class="btn" aria-label="Verify settled payment for ${escapeHtml(x.tenant_name||x.tenant_id)}" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','approve')">Verify & activate</button><button type="button" class="btn soft" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','reject')">Reject</button></div><div class="muted small" role="status" aria-live="polite" id="manualPaymentStatus_${escapeHtml(x.id)}"></div></div>`).join("")||'<div class="muted small">No manual payments awaiting approval.</div>';
+box.safeHTML=(admin.items||[]).map(x=>`<div class="item"><div class="muted small">POP/ref is not proof. Match funds in Thebe Desk bank account before approval.</div><b>${escapeHtml(x.tenant_name||x.tenant_id)} · P${x.amount_bwp}</b><div class="muted small">${x.order_type==="ai_credits"?escapeHtml(String(x.metadata?.credits??"")+" AI credits"):escapeHtml(platformBillingPlan(x.metadata?.plan))} · bank ref ${escapeHtml(x.bank_reference)} · submitted ${platformBillingTime(x.submitted_at)}</div><div class="row" style="margin-top:8px"><button type="button" class="btn" aria-label="Verify settled payment for ${escapeHtml(x.tenant_name||x.tenant_id)}" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','approve')">${x.order_type==="ai_credits"?"Verify & add credits":"Verify & activate"}</button><button type="button" class="btn soft" data-bw-onclick="reviewManualPayment('${escapeHtml(x.id)}','reject')">Reject</button></div><div class="muted small" role="status" aria-live="polite" id="manualPaymentStatus_${escapeHtml(x.id)}"></div></div>`).join("")||'<div class="muted small">No manual payments awaiting approval.</div>';
 }catch(e){
 if(load!==manualPaymentAdminLoad||!platformBillingSessionCurrent(user))return;
 box.textContent=e.status===403?"Platform billing access was denied. Sign out and sign in with an authorized Thebe Desk admin account.":"Could not load payments. Select Refresh approvals to retry.";
@@ -2766,8 +2766,9 @@ if(!/^[A-Z0-9][A-Z0-9._:/-]{5,127}$/.test(bankTransactionId))return;
 }else return;
 const r=await apiJson(`/api/platform/billing/manual-payments/${encodeURIComponent(id)}/${action}`,{method:"POST",body:JSON.stringify({reason,bankFundsConfirmed,bankAmountMatched,bankTransactionMatched,bankTransactionId}),idempotencyKey:true});
 if(!platformBillingSessionCurrent(user))return;
-if(r?.ok!==true||(action==="approve"?(r.status!=="approved"||r.activated!==true):r.status!=="rejected"))throw Error("Server did not confirm the decision. Refresh approvals.");
-show(action==="approve"?"Payment verified and plan activated.":"Payment submission rejected.");
+const credited=Number.isSafeInteger(r?.creditsApplied)&&r.creditsApplied>0&&r.activated===false;
+if(r?.ok!==true||(action==="approve"?(r.status!=="approved"||(!credited&&r.activated!==true)):r.status!=="rejected"))throw Error("Server did not confirm the decision. Refresh approvals.");
+show(action==="approve"?(credited?`Payment verified and ${r.creditsApplied} AI credits allocated.`:"Payment verified and plan activated."):"Payment submission rejected.");
 await refreshPlatformBillingDashboard();
 }catch(e){
 if(platformBillingSessionCurrent(user)){
