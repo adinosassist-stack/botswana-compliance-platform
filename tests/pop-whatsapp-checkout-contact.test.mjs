@@ -13,9 +13,9 @@ test('checkout POP contact is optional and validates WhatsApp number before expo
 });
 test('customer checkout shows POP WhatsApp option only for configured contact',()=>{
  const runtime=fs.readFileSync('public/js/workspace-runtime-20261001b.js','utf8');
- const segment=runtime.slice(runtime.indexOf('async function requestPlan(plan)'),runtime.indexOf('let turnstileWidgetId='));
+ const segment=runtime.slice(runtime.indexOf('function renderManualBankCheckout(data,target)'),runtime.indexOf('let turnstileWidgetId='));
  assert.match(segment,/b\.popWhatsappNumber\?/);
  assert.match(segment,/wa\.me\/\$\{b\.popWhatsappNumber\}/);
- assert.match(segment,/verify cleared funds/i);
+ assert.match(segment,/verify settled funds/i);
  assert.match(segment,/rel="noopener noreferrer"/);
 });

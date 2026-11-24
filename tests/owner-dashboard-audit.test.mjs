@@ -59,7 +59,7 @@ test('owner funds and amount confirmations plus bank ID entry are independent',a
  const body=JSON.parse(posts[0].options.body);
  assert.equal(body.bankFundsConfirmed,true);assert.equal(body.bankAmountMatched,true);
  assert.equal(body.bankTransactionMatched,true);assert.equal(body.bankTransactionId,'BANK-SETTLED-9001');
- assert.match(f.notifications.join(' '),/verified and plan activated/i);
+ assert.match(f.notifications.join(' '),/verified and purchase activated/i);
 });
 test('declining either bank check or cancelling transaction ID never sends payment mutation',async()=>{
  for(const denyAt of [1,2,3]){

@@ -117,6 +117,13 @@ async function ownerMatrix(width,{approxZoom=false}={}){
     assert.equal(await panel.isVisible(),true);
     assert.equal(await guide.isVisible(),true);
     assert.equal(await page.locator('[data-onboarding-milestone]').count(),4);
+    const titleOverflow=await page.locator('#ownerJourneyTitle').evaluate(el=>{
+      const card=el.closest('#ownerJourney').getBoundingClientRect();
+      const range=document.createRange();range.selectNodeContents(el);
+      return [...range.getClientRects()].filter(r=>r.width>0&&(r.left<card.left||r.right>card.right))
+        .map(r=>({left:r.left,right:r.right,cardRight:card.right}));
+    });
+    assert.deepEqual(titleOverflow,[],'Onboarding heading text paints outside its card at CSS '+effectiveWidth+'px');
     const overflow=await page.evaluate(()=>document.scrollingElement.scrollWidth-document.documentElement.clientWidth);
     if(overflow>1){
       const offenders=await page.evaluate(()=>[...document.querySelectorAll('*')].map(el=>{
