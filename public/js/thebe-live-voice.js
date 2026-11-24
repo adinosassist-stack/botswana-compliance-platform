@@ -816,6 +816,17 @@
     const turn=el("article","thebe-aura-turn");
     turn.dataset.role=role==="user"?"user":"assistant";
     turn.append(el("span","thebe-aura-turn-label",role==="user"?"You":"Thebe"),el("p","thebe-aura-turn-content",value));
+    if(role==="user"){
+      const edit=el("button","thebe-aura-edit-prompt","Edit & resend");
+      edit.type="button";
+      edit.setAttribute("aria-label","Edit and resend this message as a new prompt");
+      edit.addEventListener("click",()=>{
+        if(!input||textBusy||input.value.trim()||pendingFiles.length)return;
+        input.value=value.slice(0,MAX_QUESTION);
+        syncComposerHeight();syncComposerState();input.focus({preventScroll:true});
+      });
+      turn.append(edit);
+    }
     conversationHistory.append(turn);
     while(conversationHistory.children.length>TEXT_HISTORY_LIMIT)conversationHistory.firstElementChild?.remove();
     syncConversationFind();
@@ -2136,7 +2147,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       // Only the actual latest answer is searchable, not a transient status.
       if(lastAnswer)visible.push(responseBox);
       return visible.filter(node=>
-        String(node===responseBox?lastAnswer:node.textContent||"").toLocaleLowerCase().includes(needle));
+        String(node===responseBox?lastAnswer:node.querySelector(".thebe-aura-turn-content")?.textContent||"").toLocaleLowerCase().includes(needle));
     };
     syncConversationFind=()=>{
       if(findPanel.hidden)return;
