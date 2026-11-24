@@ -1798,19 +1798,16 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
         if(thread?.ok!==true||typeof thread.id!=="string"||!/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(thread.id))throw new Error("thread_create_failed");
         id=openedSavedThread=thread.id;
       }
-      for(const [role,sourceKind,content] of [["user","typed",question],["assistant","assistant",answer]]){
-        if(!current())return;
-        const idempotencyKey=global.crypto.randomUUID();
-        const saved=await api(SAVED_THREADS_PATH+"/"+encodeURIComponent(id)+"/messages",{
-          method:"POST",signal,timeoutMs:8000,idempotencyKey,
-          headers:{"content-type":"application/json"},
-          body:JSON.stringify({role,sourceKind,content,idempotencyKey})
-        });
-        if(saved?.ok!==true)throw new Error("message_save_failed");
-      }
+      const idempotencyKey=global.crypto.randomUUID();
+      const saved=await api(SAVED_THREADS_PATH+"/"+encodeURIComponent(id)+"/messages",{
+        method:"POST",signal,timeoutMs:8000,idempotencyKey,
+        headers:{"content-type":"application/json","x-thebe-conversation-exchange":"1"},
+        body:JSON.stringify({exchange:{question,answer,idempotencyKey}})
+      });
+      if(saved?.ok!==true)throw new Error("exchange_save_failed");
       if(current())saveStatus.textContent="Chat saved.";
     }catch{
-      if(current())saveStatus.textContent="Chat could not be fully saved. Your answer is still visible.";
+      if(current())saveStatus.textContent="Could not confirm the chat was saved. Your answer is still visible.";
     }
   }
   function mountSavedThreads(){

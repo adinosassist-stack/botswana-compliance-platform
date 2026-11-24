@@ -1,6 +1,6 @@
 // Unwired adapter boundary. This intentionally has NO exported HTTP route.
 // Only server-resolved trusted session and membership may construct the actor.
-import {appendConversationMessageRehearsal,listConversationMessagesRehearsal} from "./conversation-storage-rehearsal.js";
+import {appendConversationExchangeRehearsal,appendConversationMessageRehearsal,listConversationMessagesRehearsal} from "./conversation-storage-rehearsal.js";
 import {readConversationPageRehearsal} from "./conversation-page-reader-rehearsal.js";
 const deny=()=>({ok:false,error:"access_denied"});
 function trustedInput(context){
@@ -20,6 +20,7 @@ function trustedInput(context){
 export async function appendFromTrustedSession({env,context,clientBody,id}={}){
   const bound=trustedInput(context);
   if(!bound)return deny();
+  if(clientBody?.exchange)return appendConversationExchangeRehearsal({env,...bound,exchange:clientBody.exchange,id});
   // Client supplied tenant/owner identifiers are never authoritative.
   const {role,sourceKind,content,idempotencyKey}=clientBody||{};
   return appendConversationMessageRehearsal({env,...bound,message:{role,sourceKind,content,idempotencyKey},id});
