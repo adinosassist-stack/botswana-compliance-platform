@@ -1782,6 +1782,37 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     return shellVisible()&&Boolean(user.id&&user.tenantId)
       &&document.querySelector('meta[name="thebe-conversation-staging-enabled"]')?.content==="true";
   }
+  const SAVED_THREADS_PATH="/api/conversation-staging/threads";
+  async function saveCompletedTextExchange({scope,runId,signal,question,answer}){
+    const current=()=>savedThreadsAvailable()&&scope===currentWorkspaceScope()&&runId===textRunId&&!signal.aborted;
+    if(!current())return;
+    const saveStatus=el("p","thebe-ai-save-status");
+    saveStatus.setAttribute("role","status");
+    saveStatus.textContent="Saving chat…";
+    responseBox?.append(saveStatus);
+    try{
+      let id=openedSavedThread;
+      if(!id){
+        const thread=await api(SAVED_THREADS_PATH,{method:"POST",signal,timeoutMs:8000,idempotencyKey:""});
+        if(!current())return;
+        if(thread?.ok!==true||typeof thread.id!=="string"||!/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(thread.id))throw new Error("thread_create_failed");
+        id=openedSavedThread=thread.id;
+      }
+      for(const [role,sourceKind,content] of [["user","typed",question],["assistant","assistant",answer]]){
+        if(!current())return;
+        const idempotencyKey=global.crypto.randomUUID();
+        const saved=await api(SAVED_THREADS_PATH+"/"+encodeURIComponent(id)+"/messages",{
+          method:"POST",signal,timeoutMs:8000,idempotencyKey,
+          headers:{"content-type":"application/json"},
+          body:JSON.stringify({role,sourceKind,content,idempotencyKey})
+        });
+        if(saved?.ok!==true)throw new Error("message_save_failed");
+      }
+      if(current())saveStatus.textContent="Chat saved.";
+    }catch{
+      if(current())saveStatus.textContent="Chat could not be fully saved. Your answer is still visible.";
+    }
+  }
   function mountSavedThreads(){
     const section=el("details","thebe-ai-saved-threads");
     section.hidden=!savedThreadsAvailable();
@@ -1800,7 +1831,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     });
     const [refresh,open,rename,remove]=actions;
     section.append(summary,list,title,...actions,status);
-    const path="/api/conversation-staging/threads";
+    const path=SAVED_THREADS_PATH;
     let busy=false,listingScope=null;
     const stillCurrent=(scope,epoch)=>savedThreadsAvailable()&&scope===currentWorkspaceScope()&&epoch===savedThreadEpoch;
     async function load(scope,epoch){
@@ -1942,6 +1973,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     }
     const runId=++textRunId;
     const controller=new AbortController();
+    const saveAnswer=()=>saveCompletedTextExchange({scope:requestScope,runId,signal:controller.signal,question:q,answer:lastAnswer});
     textAbortController=controller;
     textBusy=true;
     lastGoal=q;
@@ -1964,12 +1996,14 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
         if(title)title.textContent="General AI response — not live verified";
         responseBox?.querySelector(".thebe-ai-run-summary")?.remove();
         retainAdvisorPair(q,result.answer);
+        await saveAnswer();
         return;
       }
       if(mode==="web_research"){
         const result=await api("/api/ai/general",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({question:"Search the web: "+q}),timeoutMs:45000,signal:controller.signal});
         if(runId!==textRunId||controller.signal.aborted||!webResearchAvailable()||requestScope!==currentWorkspaceScope())return;
         renderWebResearch(result);
+        await saveAnswer();
         return;
       }
       if(files.length&&["resume_plan","goal_plan"].includes(mode))throw new Error("Use Ask, Brief or Priorities to review attached files.");
@@ -2021,6 +2055,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
         });
         responseBox.querySelector(".thebe-ai-response-tools")?.append(retry);
       }
+      if(!attachments.length&&requestedMode==="ask")await saveAnswer();
     }catch(error){
       if(runId!==textRunId||error?.code==="aborted")return;
       if(!shellVisible()||currentWorkspaceScope()!==requestScope)return;

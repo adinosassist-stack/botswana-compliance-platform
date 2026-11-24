@@ -158,3 +158,35 @@ test('maximizing the Dock releases the workspace rail in normal and recovery vis
  assert.match(dock,/syncWorkspaceDockReservation\(workspace&&!isCollapsed\)/);
  assert.match(dock,/syncWorkspaceDockReservation\(surface==="workspace"\)/);
 });
+
+test('staging autosave writes an ordered exchange and stops after a scope switch',async()=>{
+ const start=dock.indexOf('  const SAVED_THREADS_PATH=');
+ const end=dock.indexOf('  function mountSavedThreads()',start);
+ assert.ok(start>=0&&end>start);
+ const calls=[];
+ let workspace='a', sequence=0;
+ const status={setAttribute(){}};
+ const api=async (path,options)=>{
+  calls.push({path,options});
+  if(!options.body)return {ok:true,id:'thread-a'};
+  if(calls.length===2&&workspace==='switch')workspace='b';
+  return {ok:true};
+ };
+ const build=new Function('api','currentWorkspaceScope','el','global',`
+  let openedSavedThread=null;
+  const textRunId=1,responseBox={append(){}},savedThreadsAvailable=()=>true;
+  ${dock.slice(start,end)}
+  return saveCompletedTextExchange;
+ `);
+ const global={crypto:{randomUUID:()=>String(++sequence)}};
+ const input={scope:'a',runId:1,signal:new AbortController().signal,question:'Question',answer:'Answer'};
+ await build(api,()=>workspace,()=>status,global)(input);
+ assert.equal(calls[0].options.idempotencyKey,'');
+ assert.deepEqual(calls.slice(1).map(call=>JSON.parse(call.options.body).role),['user','assistant']);
+ assert.equal(status.textContent,'Chat saved.');
+ calls.length=0;
+ workspace='switch';
+ await build(api,()=>workspace,()=>status,global)({...input,scope:'switch'});
+ assert.equal(calls.length,2);
+ assert.equal(workspace,'b');
+});
