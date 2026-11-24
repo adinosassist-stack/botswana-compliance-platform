@@ -2159,9 +2159,11 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       clearFindHighlight();
       findHighlighted=target;
       target.classList.add("thebe-ai-find-current");
-      target.tabIndex=-1;
+      autoFollowResponse=false;
+      syncLatestResponseButton();
       target.scrollIntoView({block:"center",behavior:"auto"});
-      target.focus({preventScroll:true});
+      // Keep the search input or navigation button focused so repeated searches
+      // do not dismiss the mobile keyboard or strand keyboard users in chat.
       findStatus.textContent=`${findIndex+1} of ${findTargets.length} matching messages`;
     };
     const closeFind=()=>{
