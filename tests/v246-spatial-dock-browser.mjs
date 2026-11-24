@@ -106,12 +106,15 @@ try{
  await page.waitForFunction(()=>!document.body.classList.contains('thebe-ai-dock-open')&&getComputedStyle(document.getElementById('mainContent')).visibility!=='hidden');
  assert(!(await page.locator('#thebeAiDock').isVisible()),'desktop rail collapses on entering wide mobile');
  assert(await page.locator('#thebeAiDockPill').isVisible(),'mobile launcher is available after breakpoint transition');
- await page.locator('#thebeAiDockPill').click();
+ await page.locator('#thebeAiDockPill .thebe-ai-pill-open').click();
+ await page.waitForFunction(()=>document.getElementById('thebeAiDock').dataset.expanded==='true');
+ assert(!(await page.locator('#thebeAiDockInput').evaluate(el=>el===document.activeElement)),'mobile Aura entry does not focus the keyboard');
  await page.setViewportSize({width:390,height:844});
  assert(await page.locator('#thebeAiDock').isVisible(),'explicit mobile conversation survives mobile resize');
  await page.evaluate(()=>window.ThebeAiDock.close());
  await page.waitForFunction(()=>getComputedStyle(document.getElementById('mainContent')).visibility!=='hidden');
  await page.setViewportSize({width:1024,height:844});
+ await page.waitForFunction(()=>window.ThebeAiDock.state().mobile===false);
  assert(!(await page.locator('#thebeAiDock').isVisible()),'an explicit close remains honored at desktop width');
  await page.locator('#thebeAiDockPill').click();
  await page.locator('#thebeAiDock').waitFor({state:'visible'});
@@ -120,7 +123,10 @@ try{
  await page.waitForFunction(()=>!document.body.classList.contains('thebe-ai-dock-open')&&getComputedStyle(document.getElementById('mainContent')).visibility!=='hidden');
  assert(!(await page.locator('#thebeAiDock').isVisible()),'each desktop-to-mobile crossing restores workspace visibility');
  await page.setViewportSize({width:390,height:844});await page.evaluate(()=>window.ThebeAiDock.close());
- await page.locator('#thebeAiDockPill').click();assert(await page.locator('#thebeAiDock').isVisible(),'mobile launcher opens compact conversation');
+ await page.locator('#thebeAiDockPill .thebe-ai-pill-open').click();
+ await page.waitForFunction(()=>document.getElementById('thebeAiDock').dataset.expanded==='true');
+ assert(await page.locator('#thebeAiDock').isVisible(),'mobile launcher opens Aura conversation');
+ await page.getByRole('button',{name:'Restore Thebe panel',exact:true}).click();
  await page.getByRole('button',{name:'Minimise Thebe dock'}).click();assert(!(await page.locator('#thebeAiDock').isVisible()),'mobile conversation closes');
  await page.setViewportSize({width:1440,height:960});await page.goto('http://localhost/public-page');await page.waitForSelector('#thebeAiDock');
  const publicGeometry=await page.evaluate(()=>{const m=document.querySelector('#marketingGate main'),d=document.getElementById('thebeAiDock').getBoundingClientRect();return {padding:Number.parseFloat(getComputedStyle(m).paddingRight),mainRight:m.getBoundingClientRect().right,dockLeft:d.left}});
