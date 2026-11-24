@@ -78,6 +78,9 @@ jobs:
           node --check scripts/render-isolated-readiness-config.mjs
           node --test tests/isolated-readiness-config.test.mjs
 
+      - name: Founder AI entitlement and zero-deduction chat and voice
+        run: node --test tests/founder-ai-entitlement.test.mjs tests/founder-ai-entitlement-d1.test.mjs
+
       - name: Subscription audit rollback and POP isolation
         shell: bash
         run: node --test tests/advisor-provider-contract.test.mjs tests/owner-payment-dashboard.test.mjs tests/platform-billing-controls.test.mjs tests/owner-renewal-filter.test.mjs tests/subscription-access-audit-d1.test.mjs tests/manual-bank-owner-approval-flow.test.mjs tests/manual-bank-payment-queue-scope.test.mjs tests/manual-bank-settlement-retry.test.mjs tests/manual-bank-review-audit-d1.test.mjs tests/manual-bank-resubmission-d1.test.mjs tests/payment-pop-*.test.mjs tests/pop-intake-metadata-contract.test.mjs tests/pop-whatsapp-*.test.mjs

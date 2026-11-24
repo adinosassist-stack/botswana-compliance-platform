@@ -1,3 +1,4 @@
+import {hasFounderAiEntitlement} from "./founder-ai-entitlement.js";
 import {BOTSWANA_FOUNDATION_PACK_V1,BOTSWANA_FOUNDATION_PACK_V1_HASH} from "./regulatory-pack-registry.js";
 import {createManagerLocationAdminHttp} from './manager-invitations-location-admin-http.js';
 import {createManagerOwnerDirectoryHttp} from './manager-invitations-owner-directory.js';
@@ -470,11 +471,11 @@ async function aiMonthUsage(env,tenantId){
   ).bind(tenantId).first();
   return {creditsUsed:Number(credit?.used||0),providerCostBwp:Number(cost?.cost||0)};
 }
-async function checkAiSpendGuard(env,tenantId,feature){
+async function checkAiSpendGuard(env,tenantId,feature,{creditExempt=false}={}){
   const control=await aiCostControl(env,tenantId);
   const usage=await aiMonthUsage(env,tenantId);
   const featureCost=AI_CREDIT_COSTS[feature]||0;
-  if(control.monthly_credit_cap!=null && usage.creditsUsed+featureCost>Number(control.monthly_credit_cap)){
+  if(!creditExempt && control.monthly_credit_cap!=null && usage.creditsUsed+featureCost>Number(control.monthly_credit_cap)){
     return {ok:false,error:"monthly_ai_credit_cap_reached",usage,control};
   }
   if(control.monthly_cost_cap_bwp!=null && usage.providerCostBwp>=Number(control.monthly_cost_cap_bwp)){
@@ -583,11 +584,18 @@ async function aiWallet(env,tenantId){
   }
   return r;
 }
-async function consumeAiCredits(env,tenantId,feature,referenceId=null){
+async function consumeAiCredits(env,tenantId,feature,referenceId=null,actor=null){
   const cost=AI_CREDIT_COSTS[feature];
   if(!cost) throw new Error("unknown_ai_feature");
-  const guard=await checkAiSpendGuard(env,tenantId,feature);
+  const creditExempt=feature==="business_advisor"&&actor?.tenant_id===tenantId&&
+    await hasFounderAiEntitlement(env,tenantId,actor?.user_id);
+  const guard=await checkAiSpendGuard(env,tenantId,feature,{creditExempt});
   if(!guard.ok)return guard;
+  if(creditExempt){
+    await env.DB.prepare("INSERT INTO ai_credit_ledger(tenant_id,entry_type,credits,feature,reference_id,metadata_json) VALUES(?,'usage',0,?,?,?)")
+      .bind(tenantId,feature,referenceId,JSON.stringify({funding:"founder_entitlement",actorUserId:actor.user_id})).run();
+    return {ok:true,cost:0,funding:"founder_entitlement"};
+  }
   await aiWallet(env,tenantId);
   const refundHold=await env.DB.prepare(`SELECT 1 x FROM payment_refund_requests rr
     JOIN payment_orders po ON po.id=rr.payment_order_id
@@ -2385,6 +2393,7 @@ function parseAiNarrative(result,fallback){
 }
 async function refundFailedAiCredit(env,tenantId,feature,referenceId,reason,consumption=null){
   const cost=AI_CREDIT_COSTS[feature]||0;if(!cost)return;
+  if(consumption?.funding==="founder_entitlement")return;
   if(consumption?.funding==="partner_pool"&&consumption.partnerTenantId){
     await env.DB.batch([
       env.DB.prepare("UPDATE partner_credit_pools SET balance=balance+?,updated_at=CURRENT_TIMESTAMP WHERE partner_tenant_id=?").bind(cost,consumption.partnerTenantId),
@@ -2615,9 +2624,9 @@ async function runAiAdvisor(env,a,{mode,question,attachments=[]}){
   const runId=id(),bundle=await timeStage("context",()=>buildAiAdvisorContext(env,a.tenant_id,{includeFinance:roleAllowed(a,"owner","manager"),actorRole:a.role,proposedSpendMinor})),model=String(env.AI_ADVISOR_MODEL||"@cf/zai-org/glm-4.7-flash");
   let result,generationMode="structured_fallback",status="fallback",usedModel=null,creditsUsed=0,errorCode=null,consumption=null,documents=[];
   if(env.AI){
-    consumption=await timeStage("credits",()=>consumeAiCredits(env,a.tenant_id,"business_advisor",runId));
+    consumption=await timeStage("credits",()=>consumeAiCredits(env,a.tenant_id,"business_advisor",runId,a));
     if(!consumption.ok)return {creditError:consumption};
-    creditsUsed=Number(consumption.cost||AI_CREDIT_COSTS.business_advisor);
+    creditsUsed=Number(consumption.cost??AI_CREDIT_COSTS.business_advisor);
     try{
       documents=await timeStage("attachments",()=>readAdvisorAttachments(env.AI,attachments));
       for(const document of documents){
@@ -2647,7 +2656,7 @@ async function runAiAdvisor(env,a,{mode,question,attachments=[]}){
     await timeStage("persistence",async()=>{
     await env.DB.prepare(`INSERT INTO ai_advisor_runs(id,tenant_id,user_id,mode,status,generation_mode,model,context_counts_json,source_count,credits_used,output_hash,error_code,completed_at)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)`).bind(runId,a.tenant_id,a.user_id,mode,status,generationMode,usedModel,JSON.stringify(bundle.counts),references.length,creditsUsed,outputHash,errorCode).run();
-    await writeAudit(env,a.tenant_id,a.user_id,"AI_BUSINESS_ADVISOR_RUN",{runId,mode,generationMode,contextCounts:bundle.counts,contextBytes:bundle.bytes,contextOriginalBytes:bundle.originalBytes,contextCompaction:bundle.compaction,sourceCount:references.length,attachmentCount:attachments.length,creditsUsed});
+    await writeAudit(env,a.tenant_id,a.user_id,"AI_BUSINESS_ADVISOR_RUN",{runId,mode,generationMode,contextCounts:bundle.counts,contextBytes:bundle.bytes,contextOriginalBytes:bundle.originalBytes,contextCompaction:bundle.compaction,sourceCount:references.length,attachmentCount:attachments.length,creditsUsed,creditFunding:consumption?.funding||null});
 
     });  }catch(persistenceError){
     if(creditsUsed>0&&consumption?.ok){
@@ -2660,7 +2669,7 @@ async function runAiAdvisor(env,a,{mode,question,attachments=[]}){
     }
     throw persistenceError;
   }
-  return {runId,generationMode,model:usedModel,creditsUsed,contextCounts:bundle.counts,contextAvailability:bundle.context.contextAvailability||{},contextCompaction:bundle.compaction,references,language:bundle.context.language||{},...result};
+  return {runId,generationMode,model:usedModel,creditsUsed,creditFunding:consumption?.funding||null,contextCounts:bundle.counts,contextAvailability:bundle.context.contextAvailability||{},contextCompaction:bundle.compaction,references,language:bundle.context.language||{},...result};
 }
 // v74 — auditable performance learning and notification engine.
 function isoDateDaysBefore(v,days){const d=new Date(`${v}T00:00:00Z`);d.setUTCDate(d.getUTCDate()-Number(days||0));return d.toISOString().slice(0,10)}
@@ -8183,7 +8192,7 @@ export default {
         const wallet=await aiWallet(env,a.tenant_id);
         const ledger=await env.DB.prepare("SELECT entry_type,credits,feature,reference_id,metadata_json,occurred_at FROM ai_credit_ledger WHERE tenant_id=? ORDER BY occurred_at DESC LIMIT 100").bind(a.tenant_id).all();
         const packs=await env.DB.prepare("SELECT sku,credits,price_bwp FROM ai_credit_packs WHERE active=1 ORDER BY sort_order,credits LIMIT 100").all();
-        return json({wallet,plan,featureCosts:AI_CREDIT_COSTS,packs:packs.results||[],ledger:ledger.results||[]});
+        return json({wallet,plan,chatCreditExempt:await hasFounderAiEntitlement(env,a.tenant_id,a.user_id),featureCosts:AI_CREDIT_COSTS,packs:packs.results||[],ledger:ledger.results||[]});
       }
       if(url.pathname==="/api/ai/credits/order"&&req.method==="POST"){
         return json({error:"legacy_ai_credit_order_disabled_use_payment_checkout"},410);
