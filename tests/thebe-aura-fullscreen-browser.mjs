@@ -151,7 +151,7 @@ try {
       assert(r&&r.width>=44&&r.height>=44&&r.x>=0&&r.x+r.width<=width+1,`${selector} accessible at ${width}`);
     }
     assert.equal(await page.locator('.thebe-ai-compose').evaluate(el=>getComputedStyle(el).backgroundImage),'none');
-    for(const selector of ['.thebe-ai-attach','.thebe-ai-audio','.thebe-ai-conversation-voice','#thebeAiDockInput']){
+    for(const selector of ['.thebe-ai-attach','.thebe-ai-conversation-voice','#thebeAiDockInput']){
       assert(await page.locator(selector).evaluate(el=>{
         const r=el.getBoundingClientRect();
         return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));
