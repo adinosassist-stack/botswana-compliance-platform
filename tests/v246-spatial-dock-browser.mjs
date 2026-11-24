@@ -128,7 +128,9 @@ try{
  await page.locator('#thebeAiDock').waitFor({state:'visible'});
  assert(await page.locator('#thebeAiDock').isVisible(),'the desktop launcher explicitly restores the conversation');
  await page.setViewportSize({width:1023,height:844});
- await page.waitForFunction(()=>!document.body.classList.contains('thebe-ai-dock-open')&&getComputedStyle(document.getElementById('mainContent')).visibility!=='hidden');
+ // Fullscreen already leaves the workspace visible before the resize event.
+ // Wait for the dock's collapse too, so that pre-resize state cannot pass early.
+ await page.waitForFunction(()=>document.getElementById('thebeAiDock').hidden&&!document.body.classList.contains('thebe-ai-dock-open')&&getComputedStyle(document.getElementById('mainContent')).visibility!=='hidden');
  assert(!(await page.locator('#thebeAiDock').isVisible()),'each desktop-to-mobile crossing restores workspace visibility');
  await page.setViewportSize({width:390,height:844});await page.evaluate(()=>window.ThebeAiDock.close());
  await page.locator('#thebeAiDockPill .thebe-ai-pill-open').click();
