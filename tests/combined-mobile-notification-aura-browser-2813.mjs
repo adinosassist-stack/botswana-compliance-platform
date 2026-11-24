@@ -124,10 +124,9 @@ try {
       await pillOpen.click();
       await dock.waitFor({state:"visible"});
       assert.equal(await bell.isVisible(),false,"Bell yields to open mobile AI conversation "+label);
-      await dock.locator(".thebe-ai-expand").click();
       assert.equal(await dock.getAttribute("data-expanded"),"true",
-        "Aura fullscreen expansion preserved "+label);
-      assert(await dock.locator(".thebe-aura-ribbon").count()>0,
+        "Mobile launcher opens Aura directly "+label);
+      assert(await dock.locator(".thebe-aura-ribbon").isVisible(),
         "Voice-reactive Aura ribbon still mounted "+label);
       await page.evaluate(async()=>window.ThebeAiDock.ask("Synthetic question","ask"));
       assert(await dock.locator(".thebe-aura-turn").count()>0,
