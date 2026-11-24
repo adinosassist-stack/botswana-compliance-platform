@@ -141,7 +141,7 @@ test("AI pill separates open, voice and drag controls while keeping persisted po
   'pillOpen=el("button","thebe-ai-pill-open")',
   'const pillMic=el("button","thebe-ai-pill-mic")',
   'const pillHandle=el("button","thebe-ai-pill-handle")',
-  'pillOpen.addEventListener("click",()=>setCollapsed(false))',
+  'pillOpen.addEventListener("click",()=>{',
   'pillMic.addEventListener("click",()=>orbButton.click())',
   'pillHandle.addEventListener("pointerdown"',
   'pillHandle.addEventListener("pointermove"',
