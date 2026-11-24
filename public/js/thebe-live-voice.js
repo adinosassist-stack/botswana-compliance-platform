@@ -1050,6 +1050,8 @@
   }
   function syncVisibility(){
     if(!dock||!pill)return;
+    const research=dock.querySelector(".thebe-ai-web-search");
+    if(research){research.hidden=!webResearchAvailable();research.disabled=textBusy||pendingFiles.length>0;}
     const mobile=mobileDockMode();
     // A desktop rail must become a mobile launcher instead of covering the workspace.
     // Explicitly opened mobile conversations stay open when the mobile viewport changes.
@@ -1437,6 +1439,8 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
   }
   function syncComposerState(){
     if(!sendButton)return;
+    const research=dock?.querySelector(".thebe-ai-web-search");
+    if(research){research.hidden=!webResearchAvailable();research.disabled=textBusy||pendingFiles.length>0;}
     const draft=clean(input?.value||"",MAX_QUESTION).length>0||pendingFiles.length>0;
     sendButton.hidden=!draft&&!textBusy;
     sendButton.disabled=textBusy||!draft;
@@ -1742,7 +1746,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
   }
 
   function webResearchAvailable(){
-    return shellVisible()&&document.querySelector('meta[name="thebe-general-ai-enabled"]')?.content==="true"
+    return shellVisible()&&!!workspaceUser().id&&!!workspaceUser().tenantId&&document.querySelector('meta[name="thebe-general-ai-enabled"]')?.content==="true"
       &&document.querySelector('meta[name="thebe-general-ai-research-enabled"]')?.content==="true";
   }
   function renderWebResearch(result){
@@ -1784,6 +1788,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       return;
     }
     const runId=++textRunId;
+    const researchScope=mode==="web_research"?currentWorkspaceScope():null;
     const controller=new AbortController();
     textAbortController=controller;
     textBusy=true;
@@ -1798,7 +1803,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     try{
       if(mode==="web_research"){
         const result=await api("/api/ai/general",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({question:"Search the web: "+q}),timeoutMs:45000,signal:controller.signal});
-        if(runId!==textRunId||controller.signal.aborted||!webResearchAvailable())return;
+        if(runId!==textRunId||controller.signal.aborted||!webResearchAvailable()||researchScope!==currentWorkspaceScope())return;
         renderWebResearch(result);
         return;
       }
@@ -2186,7 +2191,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const findInputRow=el("div","thebe-ai-find-input-row");
     findInputRow.append(findInput,findPrevious,findNext,findClose);
     findPanel.append(findInputRow,findStatus);findWrap.append(findToggle,findPanel);
-    const researchButton=el("button","thebe-ai-find-toggle thebe-ai-web-search","Search the web");
+    const researchButton=el("button","thebe-ai-web-search thebe-ai-open-full","Search the web");
     researchButton.type="button";
     researchButton.hidden=!webResearchAvailable();
     researchButton.addEventListener("click",()=>{
