@@ -1102,7 +1102,7 @@
       if(workspace)setPhase("idle","Talk to Thebe","What would you like to get done?");
       else if(surface==="public")setPhase("idle","Talk to Thebe","Ask about Thebe Desk or tap the particles to sample voice");
     }
-    if(input)input.placeholder=(dock?.dataset.expanded==="true"||document.body.classList.contains("thebe-voice-active"))?"Ask anything…":workspace?modeCopy[assistantMode].placeholder:"Ask about Thebe Desk…";
+    if(input)input.placeholder=(dock?.dataset.expanded==="true"||document.body.classList.contains("thebe-voice-active"))?(mobile?"Ask…":"Ask anything…"):workspace?modeCopy[assistantMode].placeholder:"Ask about Thebe Desk…";
     const planMode=modeRail?.querySelector('[data-thebe-mode="goal_plan"]');
     if(planMode)planMode.hidden=!workspace||!["owner","manager"].includes(commandCentreRole());
     syncContextBar();
@@ -1922,6 +1922,8 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     };
     appendControlIcon(muteVoice,["M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0Z","M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"]);
     appendControlIcon(endVoice,["M6 6h12v12H6Z"]);
+    minimize.textContent="";
+    appendControlIcon(minimize,["M6 6l12 12M18 6 6 18"]);
     clearButton.textContent="";
     appendControlIcon(clearButton,["M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"]);
     headActions.append(muteVoice,endVoice,attentionButton,clearButton,expand,minimize);head.append(title,headActions);

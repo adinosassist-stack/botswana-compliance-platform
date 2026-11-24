@@ -21,7 +21,7 @@ try {
   await page.route('http://aura.test/**',route=>{
     const pathname=new URL(route.request().url()).pathname;
     if(pathname==='/')return route.fulfill({contentType:'text/html',body:`<!doctype html><html><head>
-      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
       </head><body style="margin:0"><section id="marketingGate" style="display:none" hidden></section>
       <section id="appShell"><h1 id="pageTitle">Workspace</h1>
       <div class="view active" id="dashboard"></div></section></body></html>`});
@@ -72,6 +72,7 @@ try {
   });
   assert.equal(await page.locator('#thebeAiDock').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(0, 0, 0)','Aura uses the approved flat black surface');
   assert.equal(await page.locator('.thebe-ai-expand').isVisible(),false,'redundant restore control is hidden');
+  assert.equal(await page.locator('.thebe-ai-minimize svg').count(),1,'close is an encoding-independent icon');
   assert(initial.orb>=160,'fullscreen shows the large orb instead of compact pill');
   assert.equal(initial.greeting,'Hello Tester');
   assert(initial.ribbons>=4,'the orb includes luminous ribbon geometry');
@@ -149,6 +150,10 @@ try {
       assert(r&&r.width>=44&&r.height>=44&&r.x>=0&&r.x+r.width<=width+1,`${selector} accessible at ${width}`);
     }
     assert.equal(await page.locator('.thebe-ai-compose').evaluate(el=>getComputedStyle(el).backgroundImage),'none');
+    if(width===320){
+      assert.equal(await page.locator('#thebeAiDockInput').getAttribute('placeholder'),'Ask…');
+      assert((await page.locator('.thebe-ai-compose').boundingBox()).height<85,'empty narrow composer stays compact');
+    }
     const log=page.getByRole('region',{name:'Conversation history and live transcription'});
     await log.focus();
     assert(await log.evaluate(el=>el===document.activeElement),'history is keyboard reachable');
