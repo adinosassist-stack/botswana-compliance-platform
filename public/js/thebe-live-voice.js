@@ -1741,9 +1741,40 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     for(const suggestion of suggestions)quick.append(quickButton(...suggestion));
   }
 
+  function webResearchAvailable(){
+    return shellVisible()&&document.querySelector('meta[name="thebe-general-ai-enabled"]')?.content==="true"
+      &&document.querySelector('meta[name="thebe-general-ai-research-enabled"]')?.content==="true";
+  }
+  function renderWebResearch(result){
+    requireAdvisorAnswer(result);
+    if(result.ok!==true||result.researchPerformed!==true||result.verification!=="search_snippets_only")throw new Error("Live research could not be verified.");
+    const citations=[];
+    for(const item of (Array.isArray(result.citations)?result.citations:[]).slice(0,8)){
+      try{
+        const url=new URL(item.url);
+        if(url.protocol!=="https:"||url.username||url.password||url.port||/^(localhost|.*\.localhost|.*\.local|\d+\.\d+\.\d+\.\d+)$/.test(url.hostname)||url.hostname.includes(":"))continue;
+        const link=el("a","thebe-ai-open-full",clean(item.title||url.hostname,180));
+        link.href=url.href;link.target="_blank";link.rel="noopener noreferrer";
+        citations.push(link);
+      }catch{}
+    }
+    if(!citations.length)throw new Error("No usable research sources were returned.");
+    renderResult({answer:result.answer});
+    const title=responseBox?.querySelector(".thebe-ai-response-title");
+    if(title)title.textContent="Live web research";
+    responseBox?.querySelector(".thebe-ai-run-summary")?.remove();
+    const sources=el("section","thebe-ai-web-sources");
+    sources.setAttribute("aria-label","Web research sources");
+    sources.append(el("div","thebe-ai-boundary","Web search excerpts — verify original sources"),...citations);
+    if(result.notice)sources.append(el("div","thebe-ai-boundary",clean(result.notice,320)));
+    responseBox?.append(sources);
+    lastAdvisorTrust="advisory";
+    surfaceLatestResponse();
+  }
   async function ask(mode,question,files=[]){
     const q=clean(question,MAX_QUESTION)||(files.length?"Review the attached files and summarise the important points.":"");
     if(textBusy||!q.length)return;
+    if(mode==="web_research"&&(!webResearchAvailable()||files.length||pendingFiles.length))return;
     dock.dataset.conversation="true";
     archiveCurrentAnswer();
     appendConversationTurn("user",q);
@@ -1762,9 +1793,15 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     autoFollowResponse=true;
     if(latestResponseButton)latestResponseButton.hidden=true;
     syncBusyControls();
-    responseMessage(files.length?"Reading the attached files and reviewing the workspace…":"Reviewing the current workspace and this screen…","thinking");
+    responseMessage(mode==="web_research"?"Searching the web…":files.length?"Reading the attached files and reviewing the workspace…":"Reviewing the current workspace and this screen…","thinking");
     scrollResponseIntoView(true);
     try{
+      if(mode==="web_research"){
+        const result=await api("/api/ai/general",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({question:"Search the web: "+q}),timeoutMs:45000,signal:controller.signal});
+        if(runId!==textRunId||controller.signal.aborted||!webResearchAvailable())return;
+        renderWebResearch(result);
+        return;
+      }
       if(files.length&&["resume_plan","goal_plan"].includes(mode))throw new Error("Use Ask, Brief or Priorities to review attached files.");
       if(mode==="resume_plan"){
         const plan=await global.ThebeOwnerCommandCentre?.loadLatestPlan?.();
@@ -2149,6 +2186,17 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const findInputRow=el("div","thebe-ai-find-input-row");
     findInputRow.append(findInput,findPrevious,findNext,findClose);
     findPanel.append(findInputRow,findStatus);findWrap.append(findToggle,findPanel);
+    const researchButton=el("button","thebe-ai-find-toggle thebe-ai-web-search","Search the web");
+    researchButton.type="button";
+    researchButton.hidden=!webResearchAvailable();
+    researchButton.addEventListener("click",()=>{
+      if(!webResearchAvailable()||textBusy||pendingFiles.length)return;
+      const q=input?.value.trim();
+      if(!q){input?.focus();return;}
+      input.value="";syncComposerHeight();syncComposerState();
+      void ask("web_research",q);
+    });
+    findWrap.append(researchButton);
     let findIndex=-1,findTargets=[],findHighlighted=null;
     // Keep the selected match visible without replacing text or injecting HTML.
     const clearFindHighlight=()=>{
