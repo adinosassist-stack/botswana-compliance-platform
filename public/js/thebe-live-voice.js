@@ -861,6 +861,7 @@
   }
   function clearConversation(){
     if(!dock)return;
+    openedSavedThread=null;
     conversationHistory?.replaceChildren();
     advisorConversation.splice(0);
     resetConversationFind();
@@ -1075,6 +1076,8 @@
   }
   function syncVisibility(){
     if(!dock||!pill)return;
+    const saved=dock.querySelector(".thebe-ai-saved-threads");
+    if(saved)saved.hidden=!savedThreadsAvailable();
     const research=dock.querySelector(".thebe-ai-web-search");
     if(research){research.hidden=!webResearchAvailable();research.disabled=textBusy||pendingFiles.length>0;}
     const mobile=mobileDockMode();
@@ -1110,12 +1113,13 @@
       const scope=currentWorkspaceScope();
       if(lastWorkspaceScope!==null&&lastWorkspaceScope!==scope){
         closeVoiceScreen(true);
+        resetSavedThreadDirectory();
         clearConversation();
       }
       lastWorkspaceScope=scope;
     }else{
       lastWorkspaceScope=null;
-      if(dock.dataset.workspaceVisible==="1"||pendingFiles.length)clearConversation();
+      if(dock.dataset.workspaceVisible==="1"||pendingFiles.length){resetSavedThreadDirectory();clearConversation()}
     }
     syncComposerState();
     syncWorkspaceVisualInvariants();
@@ -1760,6 +1764,115 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     for(const suggestion of suggestions)quick.append(quickButton(...suggestion));
   }
 
+  let savedThreadEpoch=0, openedSavedThread=null;
+  function resetSavedThreadDirectory(){
+    savedThreadEpoch++;
+    openedSavedThread=null;
+    const section=dock?.querySelector(".thebe-ai-saved-threads");
+    if(!section)return;
+    section.open=false;
+    section.querySelector("select")?.replaceChildren();
+    const title=section.querySelector("input");
+    if(title)title.value="";
+    const status=section.querySelector('[role="status"]');
+    if(status)status.textContent="";
+  }
+  function savedThreadsAvailable(){
+    const user=workspaceUser();
+    return shellVisible()&&Boolean(user.id&&user.tenantId)
+      &&document.querySelector('meta[name="thebe-conversation-staging-enabled"]')?.content==="true";
+  }
+  function mountSavedThreads(){
+    const section=el("details","thebe-ai-saved-threads");
+    section.hidden=!savedThreadsAvailable();
+    const summary=el("summary","","Saved chats");
+    const list=el("select");
+    list.setAttribute("aria-label","Saved chat");
+    const title=el("input");
+    title.setAttribute("aria-label","New chat title");
+    title.maxLength=120;
+    const status=el("p");
+    status.setAttribute("role","status");
+    const actions=["Refresh","Open","Rename","Delete"].map(label=>{
+      const button=el("button","thebe-ai-open-full",label);
+      button.type="button";
+      return button;
+    });
+    const [refresh,open,rename,remove]=actions;
+    section.append(summary,list,title,...actions,status);
+    const path="/api/conversation-staging/threads";
+    let busy=false,listingScope=null;
+    const stillCurrent=(scope,epoch)=>savedThreadsAvailable()&&scope===currentWorkspaceScope()&&epoch===savedThreadEpoch;
+    async function load(scope,epoch){
+      const data=await api(path);
+      if(!stillCurrent(scope,epoch))return;
+      if(data?.ok!==true||!Array.isArray(data.items))throw new Error("invalid_directory");
+      list.replaceChildren();
+      for(const item of data.items){
+        if(!/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(item?.id))continue;
+        const option=el("option","",clean(item.title,120)||"Untitled chat");
+        option.value=item.id;
+        list.append(option);
+      }
+      listingScope=scope;
+      status.textContent=list.options.length?"":"No saved chats.";
+    }
+    const run=async operation=>{
+      if(busy||textBusy||!savedThreadsAvailable())return;
+      const scope=currentWorkspaceScope();
+      if(scope!==listingScope){
+        list.replaceChildren();
+        title.value="";
+      }
+      const epoch=savedThreadEpoch;
+      busy=true;
+      actions.forEach(button=>{button.disabled=true});
+      status.textContent="Loading saved chats…";
+      try{await operation(scope,epoch)}
+      catch{if(stillCurrent(scope,epoch))status.textContent="Could not update saved chats. Try again."}
+      finally{
+        busy=false;
+        actions.forEach(button=>{button.disabled=false});
+      }
+    };
+    section.addEventListener("toggle",()=>{if(section.open)void run(load)});
+    refresh.addEventListener("click",()=>void run(load));
+    open.addEventListener("click",()=>void run(async (scope,epoch)=>{
+      const id=list.value;
+      if(!id){status.textContent="Choose a saved chat.";return}
+      const runId=textRunId;
+      const data=await api(path+"/"+encodeURIComponent(id)+"/messages");
+      if(!stillCurrent(scope,epoch)||runId!==textRunId||textBusy)return;
+      if(data?.ok!==true||!Array.isArray(data.items))throw new Error("invalid_messages");
+      clearConversation();
+      for(const item of data.items.slice().reverse()){
+        if(["user","assistant"].includes(item?.role))appendConversationTurn(item.role,item.content_redacted);
+      }
+      openedSavedThread=id;
+      dock.dataset.conversation="true";
+      status.textContent="Saved chat opened.";
+    }));
+    function change(method){
+      void run(async (scope,epoch)=>{
+        const id=list.value;
+        if(!id){status.textContent="Choose a saved chat.";return}
+        const name=title.value.trim();
+        if(method==="PATCH"&&!name){status.textContent="Enter a new chat title.";return}
+        if(method==="DELETE"&&!global.confirm("Delete this saved chat?")){status.textContent="Deletion cancelled.";return}
+        const data=await api(path+"?"+new URLSearchParams({threadId:id}),{
+          method,...(method==="PATCH"?{headers:{"content-type":"application/json"},body:JSON.stringify({title:name})}:{})
+        });
+        if(!stillCurrent(scope,epoch))return;
+        if(data?.ok!==true)throw new Error("thread_change_failed");
+        if(method==="DELETE"&&openedSavedThread===id)clearConversation();
+        title.value="";
+        await load(scope,epoch);
+      });
+    }
+    rename.addEventListener("click",()=>change("PATCH"));
+    remove.addEventListener("click",()=>change("DELETE"));
+    return section;
+  }
   function webResearchAvailable(){
     return shellVisible()&&!!workspaceUser().id&&!!workspaceUser().tenantId&&document.querySelector('meta[name="thebe-general-ai-enabled"]')?.content==="true"
       &&document.querySelector('meta[name="thebe-general-ai-research-enabled"]')?.content==="true";
@@ -2240,7 +2353,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     findPanel.append(findInputRow,findStatus);
     const findActions=el("div","thebe-ai-find-actions");
     findActions.append(findToggle);
-    findWrap.append(findActions,findPanel);
+    findWrap.append(findActions,findPanel,mountSavedThreads());
     const researchButton=el("button","thebe-ai-web-search thebe-ai-open-full");
     researchButton.setAttribute("aria-label","Search the web");
     appendControlIcon(researchButton,["M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0ZM2 12h20M12 2a16 16 0 0 1 0 20 16 16 0 0 1 0-20Z"]);
