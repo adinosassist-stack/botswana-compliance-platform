@@ -136,3 +136,25 @@ test('automatic Dock routing is opt-in, conservative and never exports workspace
  assert.match(dispatch,/result.researchPerformed!==false/);
  assert.match(dispatch,/retainAdvisorPair\(q,result.answer\)/);
 });
+
+test('workspace text modes use Thinking while research and attachments keep their specific status',()=>{
+ assert.match(dock,/responseMessage\(mode==="web_research"\?"Searching the web…":files\.length\?"Reading the attached files…":"Thinking…","thinking"\)/);
+});
+
+test('maximizing the Dock releases the workspace rail in normal and recovery visibility paths',()=>{
+ const start=dock.indexOf('function syncWorkspaceDockReservation(');
+ const end=dock.indexOf('function recoverVisibility(',start);
+ assert.ok(start>=0&&end>start);
+ const updates=[];
+ const document={body:{classList:{toggle:(name,value)=>updates.push([name,value])}}};
+ const panel={dataset:{expanded:'false'}};
+ const reserve=new Function('document','dock',dock.slice(start,end)+';return syncWorkspaceDockReservation;')(document,panel);
+ reserve(true);
+ panel.dataset.expanded='true';
+ reserve(true);
+ panel.dataset.expanded='false';
+ reserve(false);
+ assert.deepEqual(updates,[['thebe-ai-dock-open',true],['thebe-ai-dock-open',false],['thebe-ai-dock-open',false]]);
+ assert.match(dock,/syncWorkspaceDockReservation\(workspace&&!isCollapsed\)/);
+ assert.match(dock,/syncWorkspaceDockReservation\(surface==="workspace"\)/);
+});

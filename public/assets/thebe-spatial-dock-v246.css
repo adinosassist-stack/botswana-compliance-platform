@@ -637,3 +637,17 @@ html body #thebeAiDock[data-surface="workspace"] .thebe-ai-compose:focus-within{
     scroll-behavior:auto!important;
   }
 }
+
+/* A maximized workspace Dock covers the viewport instead of reserving a desktop rail. */
+@media(min-width:1024px){
+  html body #thebeAiDock[data-surface="workspace"][data-expanded="true"]:not([data-css-recovery="1"]){
+    inset:0!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    height:100dvh!important;
+    min-height:0!important;
+    max-height:100dvh!important;
+    border-radius:0!important;
+  }
+}

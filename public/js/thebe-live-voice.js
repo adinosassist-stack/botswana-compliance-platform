@@ -1149,8 +1149,11 @@
     if(foot)foot.textContent=workspace
       ?"Advisory by default · governed actions still require the existing approval controls."
       :"Public sample · no workspace data · voice sample limited to 60 seconds.";
-    document.body.classList.toggle("thebe-ai-dock-open",workspace&&!isCollapsed);
+    syncWorkspaceDockReservation(workspace&&!isCollapsed);
     document.body.classList.toggle("thebe-ai-dock-yield",workspace&&yielded);
+  }
+  function syncWorkspaceDockReservation(open){
+    document.body.classList.toggle("thebe-ai-dock-open",open&&dock.dataset.expanded!=="true");
   }
   function recoverVisibility(){
     if(!dock||!pill)return;
@@ -1159,7 +1162,7 @@
     if(surface!=="hidden"&&!isCollapsed){
       dock.hidden=false;
       pill.hidden=true;
-      document.body.classList.toggle("thebe-ai-dock-open",surface==="workspace");
+      syncWorkspaceDockReservation(surface==="workspace");
     }
   }
   function setMascotState(state){
@@ -1834,7 +1837,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     autoFollowResponse=true;
     if(latestResponseButton)latestResponseButton.hidden=true;
     syncBusyControls();
-    responseMessage(mode==="web_research"?"Searching the web…":files.length?"Reading the attached files…":["ask","general","research_unavailable"].includes(mode)?"Thinking…":"Reviewing the current workspace…","thinking");
+    responseMessage(mode==="web_research"?"Searching the web…":files.length?"Reading the attached files…":"Thinking…","thinking");
     scrollResponseIntoView(true);
     try{
       if(mode==="research_unavailable")throw new Error("Live research is not available; current information cannot be verified.");
