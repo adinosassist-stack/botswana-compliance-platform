@@ -837,10 +837,13 @@
     conversationHistory.append(turn);
     while(conversationHistory.children.length>TEXT_HISTORY_LIMIT)conversationHistory.firstElementChild?.remove();
     syncConversationFind();
+    return turn;
   }
   function archiveCurrentAnswer(){
     if(!lastAnswer)return;
-    appendConversationTurn("assistant",lastAnswer);
+    const turn=appendConversationTurn("assistant",lastAnswer);
+    const sources=responseBox?.querySelector(".thebe-ai-web-sources");
+    if(turn&&sources)turn.append(sources);
     lastAnswer="";
   }
   function clearConversation(){
@@ -1775,7 +1778,11 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     if(textBusy||!q.length)return;
     if(mode==="web_research"&&(!webResearchAvailable()||files.length||pendingFiles.length))return;
     const requestScope=shellVisible()?currentWorkspaceScope():null;
-    if(requestScope!==null&&lastWorkspaceScope!==null&&requestScope!==lastWorkspaceScope)clearConversation();
+    if(requestScope!==null&&lastWorkspaceScope!==null&&requestScope!==lastWorkspaceScope){
+      clearConversation();
+      lastWorkspaceScope=requestScope;
+      return;
+    }
     if(requestScope!==null)lastWorkspaceScope=requestScope;
     const priorTurns=advisorPriorTurns();
     dock.dataset.conversation="true";

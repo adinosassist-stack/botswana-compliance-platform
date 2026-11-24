@@ -55,9 +55,14 @@ try{
  await page.evaluate(()=>{window.ThebeAiDock.clear();window.resolvePlan(window.plan)});
  await page.waitForFunction(()=>window.ThebeAiDock.state().textBusy===false);
  assert.equal(await page.locator(".thebe-ai-plan-artifact").count(),0,"cleared runs cannot repaint stale results");
- await page.evaluate(()=>{window.deferPlan=false;window.role="employee";return window.ThebeAiDock.ask("Check cash","goal_plan")});
+ const callsBeforeRoleChange=await page.evaluate(()=>window.calls.length);
+ await page.evaluate(()=>{window.deferPlan=false;window.role="employee";return window.ThebeAiDock.ask("Stale prior-role request","goal_plan")});
+ assert.equal(await page.evaluate(()=>window.calls.length),callsBeforeRoleChange,"A stale request must not cross a role boundary");
+ assert.equal(await page.locator(".thebe-ai-plan-artifact").count(),0);
+ await page.evaluate(()=>window.ThebeAiDock.ask("Check cash","goal_plan"));
  assert.match(await page.locator("#thebeAiDockResponse").innerText(),/owners and managers/);
- await page.evaluate(()=>{window.role="manager";return window.ThebeAiDock.ask("Check cash","goal_plan")});
+ assert.equal(await page.evaluate(()=>window.calls.length),callsBeforeRoleChange,"Employee cannot invoke planner");
+ await page.evaluate(()=>{window.role="manager";window.dispatchEvent(new Event("thebe:workspace-ready"));return window.ThebeAiDock.ask("Check cash","goal_plan")});
  assert.equal(await page.getByRole("button",{name:"Keep watching",exact:true}).isHidden(),true);
  await page.evaluate(()=>window.dispatchEvent(new CustomEvent("thebe:verified-task-result",{detail:{verified:false,task:{id:"task-a"},receiptId:"receipt-a"}})));
  assert.notEqual((await page.evaluate(()=>window.ThebeAiDock.state())).lastAdvisorTrust,"verified");
