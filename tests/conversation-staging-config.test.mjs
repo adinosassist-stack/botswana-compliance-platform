@@ -33,3 +33,24 @@ const mismatched=await staging.fetch(new Request("https://other.invalid/api/conv
 assert.equal(mismatched.status,403);
 const unmarked=await staging.fetch(directory,profile);
 assert.deepEqual(await unmarked.json(),{ok:false,error:"staging_database_identity_required"});
+
+const privateInput={
+ ...valid,CONVERSATION_STAGING_MODE:"private-service",
+ CONVERSATION_STAGING_ORIGIN:"https://conversation-staging.thebedesk.com",
+ CONVERSATION_STAGING_PRIVACY_APPROVED:"true",
+ CONVERSATION_STAGING_MIGRATION_QUALIFIED:"true",
+ CONVERSATION_CURSOR_SECRET:"runtime-only"
+};
+const privateConfig=conversationStagingConfig(privateInput);
+assert.deepEqual(privateConfig.routes,[]);
+assert.equal(privateConfig.workers_dev,false);
+assert.equal(privateConfig.preview_urls,false);
+assert.equal(privateConfig.vars.DEPLOYMENT_PROFILE,"conversation-staging");
+assert.equal(privateConfig.vars.CONVERSATION_STAGING_D1_ID,valid.CONVERSATION_STAGING_D1_ID);
+assert.equal(privateConfig.vars.CONVERSATION_HISTORY_STAGING_ENABLED,"true");
+assert.equal(privateConfig.vars.CONVERSATION_STAGING_ORIGIN,privateInput.CONVERSATION_STAGING_ORIGIN);
+assert.equal(Object.hasOwn(privateConfig.vars,"CONVERSATION_CURSOR_SECRET"),false);
+for(const approval of ["CONVERSATION_STAGING_PRIVACY_APPROVED","CONVERSATION_STAGING_MIGRATION_QUALIFIED"])
+ assert.throws(()=>conversationStagingConfig({...privateInput,[approval]:"false"}),/approval_required/);
+for(const invalidOrigin of ["https://thebedesk.com","https://conversation-staging.thebedesk.com/","https://conversation-staging.thebedesk.com.evil.invalid","http://conversation-staging.thebedesk.com"])
+ assert.throws(()=>conversationStagingConfig({...privateInput,CONVERSATION_STAGING_ORIGIN:invalidOrigin}),/staging_origin_required/);
