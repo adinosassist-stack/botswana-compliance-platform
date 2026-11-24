@@ -1549,25 +1549,6 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     appendAdvisorRunSummary(result);
     lastAnswer=cleanMultiline(result?.answer||"No grounded answer was returned.",3200);
     responseBox.append(responseAnswer(lastAnswer));
-    // Capture the rendered answer; later responses must not change this button's content.
-    const answerForCopy=lastAnswer;
-    if(answerForCopy){
-      const copyAnswer=el("button","thebe-ai-open-full","Copy answer");
-      copyAnswer.type="button";
-      copyAnswer.setAttribute("aria-label","Copy Thebe answer");
-      copyAnswer.addEventListener("click",async()=>{
-        try{
-          if(!global.navigator?.clipboard?.writeText)throw new Error("clipboard_unavailable");
-          await global.navigator.clipboard.writeText(answerForCopy);
-          copyAnswer.textContent="Copied";
-          copyAnswer.setAttribute("aria-label","Thebe answer copied");
-        }catch{
-          copyAnswer.textContent="Copy unavailable";
-          copyAnswer.setAttribute("aria-label","Copy unavailable; use text selection");
-        }
-      });
-      responseBox.append(copyAnswer);
-    }
     const actions=Array.isArray(result?.actions)?result.actions.slice(0,3):[];
     for(const action of actions){
       const card=el("div","thebe-ai-action");
@@ -2139,7 +2120,9 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     // Web Dock: search rendered, bounded in-memory chat only. This never calls
     // an AI endpoint, writes a transcript, or exposes another tenant's data.
     const findWrap=el("section","thebe-ai-find");
-    const findToggle=el("button","thebe-ai-find-toggle","⌕ Find in chat");
+    const findToggle=el("button","thebe-ai-find-toggle");
+    findToggle.setAttribute("aria-label","Find in chat");
+    appendControlIcon(findToggle,["M16 10a6 6 0 1 1-12 0 6 6 0 0 1 12 0ZM14.5 14.5 20 20"]);
     findToggle.type="button";
     findToggle.setAttribute("aria-controls","thebeAiFindPanel");
     findToggle.setAttribute("aria-expanded","false");

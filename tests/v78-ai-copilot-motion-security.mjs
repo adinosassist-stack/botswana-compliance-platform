@@ -44,7 +44,7 @@ sqlite.prepare("INSERT INTO tender_items(id,tenant_id,title,issuer,closing_at,st
 sqlite.prepare("INSERT INTO tender_requirements(id,tender_id,tenant_id,requirement_type,label,mandatory,status) VALUES(?,?,?,?,?,?,?)").run("tender-req-1","tender-1","tenant-1","corporate","Current company extract",1,"missing");
 
 let capturedAiInput=null,aiCalls=0;
-const AI={async run(model,input){aiCalls++;capturedAiInput={model,input};return {response:JSON.stringify({answer:"Review the high-risk obligation and tender gap first.",confidence:"high",actions:[{title:"Close the high-risk obligation",reason:"It is marked high in the tenant workspace.",priority:"high",sourceRefs:["RISK-1","SRC-1","OTHER-TENANT"]},{title:"Review tender evidence",reason:"One mandatory requirement is missing.",priority:"medium",sourceRefs:["TND-1"]}],caveats:["Management aid only."],sourceRefs:["RISK-1","SRC-1","TND-1","OTHER-TENANT"]})}}};
+const AI={async run(model,input){aiCalls++;capturedAiInput={model,input};return {response:JSON.stringify({answer:"Review the high-risk obligation first.\r\n\r\nThen review the tender gap.",confidence:"high",actions:[{title:"Close the high-risk obligation",reason:"It is marked high in the tenant workspace.",priority:"high",sourceRefs:["RISK-1","SRC-1","OTHER-TENANT"]},{title:"Review tender evidence",reason:"One mandatory requirement is missing.",priority:"medium",sourceRefs:["TND-1"]}],caveats:["Management aid only."],sourceRefs:["RISK-1","SRC-1","TND-1","OTHER-TENANT"]})}}};
 const env={DB:db,AI,SESSION_SECRET:sessionSecret,AUDIT_INTEGRITY_SECRET:auditSecret,PUBLIC_ORIGIN:"https://app.example"};
 const request=(path,options={})=>new Request(`https://app.example${path}`,{...options,headers:{cookie:`__Host-bw_session=${rawSession}`,"x-csrf-token":csrf,"content-type":"application/json",...(options.headers||{})}});
 
@@ -55,6 +55,7 @@ response=await worker.fetch(new Request("https://app.example/api/ai/advisor",{me
 response=await worker.fetch(request("/api/ai/advisor",{method:"POST",body:JSON.stringify({mode:"tender_readiness",question:injection,tenantId:"tenant-2",actorRole:"owner"})}),env,{});
 assert.equal(response.status,200);let payload=await response.json();
 assert.equal(payload.generationMode,"workers_ai");assert.equal(payload.creditsUsed,6);assert.equal(payload.confidence,"low");
+assert.equal(payload.answer,"Review the high-risk obligation first.\n\nThen review the tender gap.");
 assert.equal(payload.contextAvailability?.financeAndBusiness,"unavailable");assert.equal(payload.contextAvailability?.financeAndBusinessReason,"business_context_unavailable");assert.ok(payload.caveats.some(x=>/Live Finance, Sales, Business Memory or Analytics context was unavailable/i.test(x)));
 assert.ok(payload.references.some(x=>x.ref==="TND-1"&&x.type==="tender"));assert.ok(payload.references.some(x=>x.ref==="SRC-1"&&x.url==="https://www.cipa.co.bw/"));
 assert.ok(!payload.references.some(x=>x.ref==="OTHER-TENANT"));assert.ok(payload.actions.every(x=>!x.sourceRefs.includes("OTHER-TENANT")));
