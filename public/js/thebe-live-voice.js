@@ -816,6 +816,18 @@
     advisorConversation.push({role:"user",content:clean(question,400)},{role:"assistant",content:clean(answer,400)});
     if(advisorConversation.length>6)advisorConversation.splice(0,advisorConversation.length-6);
   }
+  // Small visible icons keep full 44px keyboard/touch targets and explicit names.
+  const appendControlIcon=(button,paths)=>{
+    const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
+    svg.setAttribute("viewBox","0 0 24 24");svg.setAttribute("aria-hidden","true");
+    svg.setAttribute("width","20");svg.setAttribute("height","20");
+    for(const d of paths){
+      const path=document.createElementNS(svg.namespaceURI,"path");
+      for(const [key,value] of Object.entries({d,fill:"none",stroke:"currentColor","stroke-width":"1.8","stroke-linecap":"round","stroke-linejoin":"round"}))path.setAttribute(key,value);
+      svg.append(path);
+    }
+    button.append(svg);button.title=button.getAttribute("aria-label");
+  };
   function appendConversationTurn(role,content){
     if(!conversationHistory)return;
     const value=cleanMultiline(content,3200);
@@ -824,9 +836,10 @@
     turn.dataset.role=role==="user"?"user":"assistant";
     turn.append(el("span","thebe-aura-turn-label",role==="user"?"You":"Thebe"),el("p","thebe-aura-turn-content",value));
     if(role==="user"){
-      const edit=el("button","thebe-aura-edit-prompt","Edit & resend");
+      const edit=el("button","thebe-aura-edit-prompt");
       edit.type="button";
       edit.setAttribute("aria-label","Edit and resend this message as a new prompt");
+      appendControlIcon(edit,["M12 20h9","M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4Z"]);
       edit.addEventListener("click",()=>{
         if(!input||textBusy||input.value.trim()||pendingFiles.length)return;
         input.value=value.slice(0,MAX_QUESTION);
@@ -2022,18 +2035,6 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const endVoice=el("button","thebe-ai-icon-btn thebe-aura-end");
     endVoice.type="button";endVoice.setAttribute("aria-label","End voice conversation");
     endVoice.addEventListener("click",()=>closeVoiceScreen(true));
-    // Small visible icons keep full 44px keyboard/touch targets and explicit names.
-    const appendControlIcon=(button,paths)=>{
-      const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
-      svg.setAttribute("viewBox","0 0 24 24");svg.setAttribute("aria-hidden","true");
-      svg.setAttribute("width","20");svg.setAttribute("height","20");
-      for(const d of paths){
-        const path=document.createElementNS(svg.namespaceURI,"path");
-        for(const [key,value] of Object.entries({d,fill:"none",stroke:"currentColor","stroke-width":"1.8","stroke-linecap":"round","stroke-linejoin":"round"}))path.setAttribute(key,value);
-        svg.append(path);
-      }
-      button.append(svg);button.title=button.getAttribute("aria-label");
-    };
     appendControlIcon(muteVoice,["M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0Z","M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"]);
     appendControlIcon(endVoice,["M6 6h12v12H6Z"]);
     minimize.textContent="";
