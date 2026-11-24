@@ -1787,6 +1787,10 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const q=clean(question,MAX_QUESTION)||(files.length?"Review the attached files and summarise the important points.":"");
     if(textBusy||!q.length)return;
     if(mode==="web_research"&&(!webResearchAvailable()||files.length||pendingFiles.length))return;
+    const requestScope=shellVisible()?currentWorkspaceScope():null;
+    if(requestScope!==null&&lastWorkspaceScope!==null&&requestScope!==lastWorkspaceScope){clearConversation();lastWorkspaceScope=requestScope;return;}
+    if(requestScope!==null)lastWorkspaceScope=requestScope;
+    const priorTurns=advisorPriorTurns();
     dock.dataset.conversation="true";
     archiveCurrentAnswer();
     appendConversationTurn("user",q);
