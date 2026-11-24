@@ -2308,7 +2308,11 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const pillMic=el("button","thebe-ai-pill-mic");
     pillMic.type="button";pillMic.title="Talk to Thebe";
     pillMic.setAttribute("aria-label","Start Thebe AI voice");
-    pillMic.append(mic.cloneNode(true));
+    const pillMicIcon=document.createElementNS(svgNS,"svg");
+    pillMicIcon.setAttribute("viewBox","0 0 24 24");pillMicIcon.setAttribute("aria-hidden","true");
+    const pillMicPath=document.createElementNS(svgNS,"path");
+    pillMicPath.setAttribute("d","M12 15a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v7a3 3 0 0 0 3 3Zm-7-4v1a7 7 0 0 0 14 0v-1M12 19v3m-4 0h8");
+    pillMicPath.setAttribute("fill","none");pillMicPath.setAttribute("stroke","currentColor");pillMicPath.setAttribute("stroke-width","1.8");pillMicPath.setAttribute("stroke-linecap","round");pillMicPath.setAttribute("stroke-linejoin","round");pillMicIcon.append(pillMicPath);pillMic.append(pillMicIcon);
     // The existing governed voice handler supplies permission and runtime checks.
     pillMic.addEventListener("click",()=>orbButton.click());
 
