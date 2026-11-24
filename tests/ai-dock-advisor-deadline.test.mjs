@@ -109,3 +109,30 @@ test('optional screen metadata cannot truncate a valid user question',()=>{
  assert.equal(build(long),long);
  assert.ok(build(long).length<=1000);
 });
+
+test('automatic Dock routing is opt-in, conservative and never exports workspace context',()=>{
+ const start=dock.indexOf('function chooseAutomaticAiRoute(');
+ const end=dock.indexOf('function automaticAiAvailable(',start);
+ assert.ok(start>=0&&end>start);
+ const choose=new Function(dock.slice(start,end)+';return chooseAutomaticAiRoute;')();
+ const enabled={enabled:true,researchEnabled:true};
+ assert.equal(choose('What is photosynthesis?'), 'ask');
+ assert.equal(choose('What is photosynthesis?',enabled),'general');
+ assert.equal(choose('What is the weather today?',enabled),'web_research');
+ assert.equal(choose('What is the weather today?',{enabled:true}),'research_unavailable');
+ for(const q of ['What is my company revenue?','What is our latest invoice?','Explain the payroll','Approve payment','What is the account password?','Look up person@example.com','What is 12345678?','Continue the prior answer']){
+  assert.equal(choose(q,enabled),'ask',q);
+ }
+ assert.equal(choose('What is photosynthesis?',{...enabled,hasContext:true}),'ask');
+ assert.match(dock,/meta\[name="thebe-ai-auto-routing-enabled"\]/);
+ assert.match(dock,/hasContext:!!\(files.length\|\|pendingFiles.length\|\|priorTurns.length\|\|lastAnswer\|\|conversationHistory\?\.children.length\)/);
+ const from=dock.indexOf('if(mode==="general"){');
+ const to=dock.indexOf('if(mode==="web_research"){',from);
+ assert.ok(from>=0&&to>from);
+ const dispatch=dock.slice(from,to);
+ assert.match(dispatch,/body:JSON.stringify\(\{question:q\}\)/);
+ assert.doesNotMatch(dispatch,/contextualQuestion|conversationHistory:|attachments:/);
+ assert.match(dispatch,/requestScope!==currentWorkspaceScope\(\)/);
+ assert.match(dispatch,/result.researchPerformed!==false/);
+ assert.match(dispatch,/retainAdvisorPair\(q,result.answer\)/);
+});
