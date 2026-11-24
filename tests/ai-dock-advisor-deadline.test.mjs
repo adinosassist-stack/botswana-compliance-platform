@@ -42,3 +42,18 @@ test('prior context is scoped, explicitly untrusted and included in idempotency 
  assert.match(worker,/req,"ai-advisor",\{mode,question,\.\.\.\(conversationHistory\.length\?\{conversationHistory\}:\{\}\)/);
  assert.match(worker,/conversationHistory.length&&\(mode!=="ask"\|\|checked.files.length\)/);
 });
+
+test('research and ordinary advisor paths both initialize conversation scope before dispatch',()=>{
+ const start=dock.indexOf('async function ask(mode,question,files=[])');
+ const end=dock.indexOf('function quickButton(',start);
+ assert.ok(start>=0&&end>start);
+ const block=dock.slice(start,end);
+ const scope=block.indexOf('const requestScope=shellVisible()?currentWorkspaceScope():null;');
+ const prior=block.indexOf('const priorTurns=advisorPriorTurns();');
+ const dispatch=block.indexOf('const result=await api("/api/ai/advisor"');
+ assert.ok(scope>=0&&prior>scope&&dispatch>prior,'scope and prior history must be declared before request');
+ assert.match(block,/if\(mode==="web_research"&&\(!webResearchAvailable\(\)\|\|files.length\|\|pendingFiles.length\)\)return;/);
+ assert.match(block,/clearConversation\(\);lastWorkspaceScope=requestScope;return;/);
+ assert.match(block,/currentWorkspaceScope\(\)!==requestScope/);
+ assert.match(block,/researchScope!==currentWorkspaceScope\(\)/);
+});
