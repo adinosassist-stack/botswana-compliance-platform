@@ -190,3 +190,13 @@ html body.thebe-voice-active #thebeAiDock:not([data-css-recovery="1"]) .thebe-ai
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-ai-compose-hint{display:none!important}
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) >.thebe-ai-compose:has(textarea:focus-visible){outline:2px solid #d9efff!important;outline-offset:3px}
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) >.thebe-ai-compose textarea:focus-visible{outline:0!important}
+
+/* Mobile focus shares the neutral composer cue without changing idle Aura. */
+@media(max-width:767px){
+  :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"]))>.thebe-ai-compose:focus-within{
+    border-color:#454c56!important;outline:none!important;box-shadow:none!important;
+  }
+  :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"]))>.thebe-ai-compose:has(textarea:focus-visible){
+    border-color:#858b94!important;outline:none!important;box-shadow:0 0 0 1px #858b94!important;
+  }
+}

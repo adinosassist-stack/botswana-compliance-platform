@@ -5,7 +5,7 @@ import vm from "node:vm";
 const runtime=fs.readFileSync("public/js/workspace-runtime-20261001b.js","utf8");
 const scheduler=runtime.slice(runtime.indexOf(" const allowedRenderViews=allowedViewsForRole(currentWorkspaceRole());"),runtime.indexOf("\n}\nfunction addDays",runtime.indexOf(" const allowedRenderViews=allowedViewsForRole(currentWorkspaceRole());")));
 assert.ok(scheduler.length>0,"workspace hydration dispatcher must be available");
-const credits=runtime.slice(runtime.indexOf("async function renderAiCredits(){"),runtime.indexOf("\nfunction setAiAdvisorPrompt",runtime.indexOf("async function renderAiCredits(){")));
+const credits=runtime.slice(runtime.indexOf("let creditWalletLoad="),runtime.indexOf("\nfunction setAiAdvisorPrompt",runtime.indexOf("async function renderAiCredits(){")));
 assert.ok(credits.length>0,"wallet renderer must be available");
 
 async function hydrate(active,permitted=true,reject=false){
@@ -29,7 +29,8 @@ async function hydrate(active,permitted=true,reject=false){
 const copilot=await hydrate("aiservices");
 assert.equal(copilot.reads,1,"opening copilot must request the actual wallet");
 assert.equal(copilot.nodes.get("aiCreditBalance").textContent,17,"copilot must show returned balance");
-assert.match(copilot.nodes.get("aiCreditWalletBox").safeHTML,/17 credits available/);
+assert.match(copilot.nodes.get("aiCreditWalletBox").safeHTML,/protect plan/);
+assert.match(copilot.nodes.get("aiCreditWalletBox").safeHTML,/0 purchased lifetime/);
 assert.doesNotMatch(copilot.nodes.get("aiCreditWalletBox").safeHTML,/Loading/);
 const controls=await hydrate("aicontrols");
 assert.equal(controls.reads,1,"credits controls must retain wallet hydration");
