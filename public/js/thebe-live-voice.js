@@ -585,7 +585,7 @@
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
   let dock=null,pill=null,pillOpen=null,pillLabel=null,pillSync=()=>{},orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,scrollRegion=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null,missionRail=null,missionLabel=null,missionMeta=null,missionAction=null,contextBar=null,contextLabel=null,modeRail=null,clearButton=null,latestResponseButton=null;
-  let attachButton=null,fileInput=null,attachmentTray=null,pendingFiles=[];
+  let conversationVoiceButton=null,attachButton=null,fileInput=null,attachmentTray=null,pendingFiles=[];
   let conversationHistory=null,immersiveGreeting=null,immersiveMute=null;
   let voiceScreen=null,voiceScreenStatus=null,voiceScreenOrb=null,voiceScreenTranscript=null,voiceReturnFocus=null;
   let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",mascotFocus="ambient",ownerCommandState=null,persistentObjectiveState=null,collapsed=false,assistantMode="ask",lastAnswer="",lastGoal="",lastAdvisorTrust="neutral",autoFollowResponse=true,responseScrollLock=false,textRunId=0,textAbortController=null;
@@ -1441,6 +1441,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     sendButton.hidden=!draft&&!textBusy;
     sendButton.disabled=textBusy||!draft;
     sendButton.setAttribute("aria-disabled",String(sendButton.disabled));
+    if(conversationVoiceButton){conversationVoiceButton.hidden=draft||textBusy;conversationVoiceButton.disabled=textBusy}
     if(attachButton){attachButton.hidden=!shellVisible();attachButton.disabled=textBusy}
     attachmentTray?.querySelectorAll("button").forEach(button=>{button.disabled=textBusy});
   }
@@ -2243,7 +2244,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     attachButton.addEventListener("click",()=>fileInput.click());
     fileInput.addEventListener("change",()=>{stageFiles(fileInput.files||[]);fileInput.value=""});
     // One composer voice control; the orb remains the other entry into the same session.
-    const conversationVoiceButton=el("button","thebe-ai-composer-action thebe-ai-conversation-voice");
+    conversationVoiceButton=el("button","thebe-ai-composer-action thebe-ai-conversation-voice");
     conversationVoiceButton.type="button";
     conversationVoiceButton.setAttribute("aria-label","Start voice conversation with Thebe");
     conversationVoiceButton.title="Voice conversation with Thebe";
