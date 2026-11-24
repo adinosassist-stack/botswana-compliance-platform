@@ -980,12 +980,12 @@
     if(typeof global.showView==="function")return global.showView(id)!==false;
     return false;
   }
-  function setCollapsed(next){
+  function setCollapsed(next,openFocus=input){
     const mobile=mobileDockMode();
     collapsed=(mobile||surfaceMode()==="workspace")?Boolean(next):false;
     safeSessionSet(STORE_KEY,collapsed?"1":"0");
     syncVisibility();
-    if(collapsed)pillOpen?.focus();else input?.focus({preventScroll:true});
+    if(collapsed)pillOpen?.focus();else openFocus?.focus({preventScroll:true});
   }
   function clearRoutineWorkspaceInlineGeometry(){
     if(!dock)return;
@@ -1880,12 +1880,14 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     minimize.addEventListener("click",()=>setCollapsed(true));
     const expand=el("button","thebe-ai-icon-btn thebe-ai-expand","⤢");
     expand.type="button";expand.setAttribute("aria-label","Expand Thebe panel");expand.setAttribute("aria-pressed","false");expand.title="Expand Thebe";
-    expand.addEventListener("click",()=>{
-      const expanded=dock.dataset.expanded!=="true";
+    const setExpanded=expanded=>{
       dock.dataset.expanded=String(expanded);
       expand.setAttribute("aria-pressed",String(expanded));
       expand.setAttribute("aria-label",expanded?"Restore Thebe panel":"Maximize Thebe panel");
       expand.title=expanded?"Restore Thebe panel":"Maximize Thebe panel";
+    };
+    expand.addEventListener("click",()=>{
+      setExpanded(dock.dataset.expanded!=="true");
       syncVisibility();
     });
     const muteVoice=el("button","thebe-ai-icon-btn thebe-aura-mute","Mute");
@@ -2245,7 +2247,12 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     pillOpen.setAttribute("aria-label","Open Thebe AI chat");
     pillLabel=el("span","thebe-ai-pill-label","Thebe");
     pillOpen.append(el("span","thebe-ai-pill-dot"),pillLabel);
-    pillOpen.addEventListener("click",()=>setCollapsed(false));
+    pillOpen.addEventListener("click",()=>{
+      if(mobileDockMode()){
+        setExpanded(true);
+        setCollapsed(false,expand);
+      }else setCollapsed(false);
+    });
 
     const pillMic=el("button","thebe-ai-pill-mic");
     pillMic.type="button";pillMic.title="Talk to Thebe";

@@ -19,6 +19,7 @@ const fixture=[
   '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">',
   '<link rel="stylesheet" href="/assets/thebe-ai-dock.css">',
   '<link rel="stylesheet" href="/assets/delivery-reminder-notifications.css">',
+  '<link rel="stylesheet" href="/assets/workspace-audit-refinements-20261013.css">',
   '<style>*{box-sizing:border-box}body{margin:0;background:#f7f9fc}',
   '#mobileRail{position:fixed;bottom:0;left:0;right:0;height:86px;background:#dce4ee}',
   '</style></head><body>',
@@ -97,6 +98,8 @@ try {
       assert(await bell.isVisible(),"Bell returns after sheet closes "+label);
       assert(await page.locator("#mobileRail").isVisible(),"Navigation returns after sheet closes "+label);
 
+      const pillBox=await pill.boundingBox();
+      assert(pillBox&&pillBox.width<=175,"Workspace launcher stays compact "+label);
       const pillOpen=pill.locator(".thebe-ai-pill-open");
       const pillMic=pill.locator(".thebe-ai-pill-mic");
       const handle=pill.locator(".thebe-ai-pill-handle");
@@ -124,10 +127,9 @@ try {
       await pillOpen.click();
       await dock.waitFor({state:"visible"});
       assert.equal(await bell.isVisible(),false,"Bell yields to open mobile AI conversation "+label);
-      await dock.locator(".thebe-ai-expand").click();
       assert.equal(await dock.getAttribute("data-expanded"),"true",
-        "Aura fullscreen expansion preserved "+label);
-      assert(await dock.locator(".thebe-aura-ribbon").count()>0,
+        "Mobile launcher opens Aura directly "+label);
+      assert(await dock.locator(".thebe-aura-ribbon").isVisible(),
         "Voice-reactive Aura ribbon still mounted "+label);
       await page.evaluate(async()=>window.ThebeAiDock.ask("Synthetic question","ask"));
       assert(await dock.locator(".thebe-aura-turn").count()>0,
