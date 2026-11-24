@@ -1772,8 +1772,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     if(!section)return;
     section.open=false;
     section.querySelector("select")?.replaceChildren();
-    const title=section.querySelector("input");
-    if(title)title.value="";
+    section.querySelectorAll("input").forEach(field=>{field.value=""});
     const status=section.querySelector('[role="status"]');
     if(status)status.textContent="";
   }
@@ -1814,6 +1813,11 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const section=el("details","thebe-ai-saved-threads");
     section.hidden=!savedThreadsAvailable();
     const summary=el("summary","","Saved chats");
+    const search=el("input");
+    search.type="search";
+    search.maxLength=120;
+    search.placeholder="Search chat titles";
+    search.setAttribute("aria-label","Search saved chat titles");
     const list=el("select");
     list.setAttribute("aria-label","Saved chat");
     const title=el("input");
@@ -1821,18 +1825,19 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     title.maxLength=120;
     const status=el("p");
     status.setAttribute("role","status");
-    const actions=["Refresh","Open","Rename","Delete"].map(label=>{
+    const actions=["Search","Open","Rename","Delete"].map(label=>{
       const button=el("button","thebe-ai-open-full",label);
       button.type="button";
       return button;
     });
-    const [refresh,open,rename,remove]=actions;
-    section.append(summary,list,title,...actions,status);
+    const [searchButton,open,rename,remove]=actions;
+    section.append(summary,search,searchButton,list,title,open,rename,remove,status);
     const path=SAVED_THREADS_PATH;
     let busy=false,listingScope=null;
     const stillCurrent=(scope,epoch)=>savedThreadsAvailable()&&scope===currentWorkspaceScope()&&epoch===savedThreadEpoch;
     async function load(scope,epoch){
-      const data=await api(path);
+      const query=search.value.trim();
+      const data=await api(query?path+"?"+new URLSearchParams({q:query}):path);
       if(!stillCurrent(scope,epoch))return;
       if(data?.ok!==true||!Array.isArray(data.items))throw new Error("invalid_directory");
       list.replaceChildren();
@@ -1843,13 +1848,15 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
         list.append(option);
       }
       listingScope=scope;
-      status.textContent=list.options.length?"":"No saved chats.";
+      status.textContent=!list.options.length?(query?"No matching chat titles.":"No saved chats."):
+        data.truncated?"Showing the first 50 chats. Search to narrow the list.":"";
     }
     const run=async operation=>{
       if(busy||textBusy||!savedThreadsAvailable())return;
       const scope=currentWorkspaceScope();
       if(scope!==listingScope){
         list.replaceChildren();
+        search.value="";
         title.value="";
       }
       const epoch=savedThreadEpoch;
@@ -1864,7 +1871,12 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       }
     };
     section.addEventListener("toggle",()=>{if(section.open)void run(load)});
-    refresh.addEventListener("click",()=>void run(load));
+    searchButton.addEventListener("click",()=>void run(load));
+    search.addEventListener("keydown",event=>{
+      if(event.key!=="Enter"||event.isComposing)return;
+      event.preventDefault();
+      void run(load);
+    });
     open.addEventListener("click",()=>void run(async (scope,epoch)=>{
       const id=list.value;
       if(!id){status.textContent="Choose a saved chat.";return}
