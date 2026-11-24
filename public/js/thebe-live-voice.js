@@ -1313,7 +1313,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     voiceChatActivity.hidden=!active&&!voiceInput&&!voiceOutput&&!voiceCompletedTurns.length;
     if(voiceChatActivity.hidden)return;
     voiceChatActivity.replaceChildren();
-    const heading=el("div","thebe-ai-voice-activity-heading","Voice conversation · "+(voicePhase==="listening"?"Listening":voicePhase==="thinking"?"Thinking":voicePhase==="speaking"?"Speaking":voicePhase==="connecting"?"Connecting":"Connected"));
+    const heading=el("div","thebe-ai-voice-activity-heading","Voice conversation · "+(voicePhase==="listening"?"Listening":voicePhase==="thinking"?"Thinking":voicePhase==="speaking"?"Speaking":voicePhase==="connecting"?"Connecting":voicePhase==="idle"?"Ended":"Connected"));
     voiceChatActivity.append(heading);
     for(const turn of voiceCompletedTurns){
       const line=el("div","thebe-ai-live-line");

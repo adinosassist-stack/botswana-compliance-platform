@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import vm from "node:vm";
 import {readFileSync} from "node:fs";
 const runtime=readFileSync(new URL("../public/js/thebe-live-voice.js",import.meta.url),"utf8");
 const css=readFileSync(new URL("../public/assets/thebe-ai-immersive-v1.css",import.meta.url),"utf8");
@@ -31,3 +32,22 @@ assert.match(css,/thebe-aura-history/,"Conversation stays readable in fullscreen
 assert.match(css,/\[data-conversation="true"\]/,"Conversation uses a compact orb layout");
 assert.doesNotMatch(runtime,/localStorage\.setItem\([^\n]*conversationHistory/,"No chat history written to localStorage");
 console.log("Thebe Aura fullscreen source invariants passed");
+
+// Exercise the production completion handler independently of partial-caption events.
+// Completed transcripts must reveal history even when a provider emits no delta.
+const retainSource=runtime.slice(runtime.indexOf('  function retainVoiceTurn('),runtime.indexOf('  let voiceChatActivity=null;'));
+const state={dock:{dataset:{conversation:'false'}},voiceCompletedTurns:[],VOICE_TURN_LIMIT:20,
+  clean:value=>String(value||'').trim(),syncVoiceChatActivity:()=>{}};
+vm.createContext(state);
+vm.runInContext(retainSource,state);
+vm.runInContext('retainVoiceTurn("user","A complete question")',state);
+assert.equal(state.dock.dataset.conversation,'true','A completed caption reveals conversation layout without a delta');
+assert.equal(state.voiceCompletedTurns[0].content,'A complete question');
+vm.runInContext('retainVoiceTurn("user","A complete question")',state);
+assert.equal(state.voiceCompletedTurns.length,1,'Repeated completion does not duplicate a turn');
+vm.runInContext('retainVoiceTurn("assistant","")',state);
+assert.equal(state.voiceCompletedTurns.length,1,'Empty completion adds no turn');
+for(let i=0;i<30;i++)vm.runInContext(`retainVoiceTurn("assistant","Answer ${i}")`,state);
+assert.equal(state.voiceCompletedTurns.length,20,'Voice history stays bounded');
+assert.equal(state.voiceCompletedTurns.at(-1).content,'Answer 29','Newest completion survives bounding');
+console.log('Aura completed-caption behavior passed');
