@@ -1815,7 +1815,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       if(files.length&&["resume_plan","goal_plan"].includes(mode))throw new Error("Use Ask, Brief or Priorities to review attached files.");
       if(mode==="resume_plan"){
         const plan=await global.ThebeOwnerCommandCentre?.loadLatestPlan?.();
-        if(runId!==textRunId)return;
+        if(runId!==textRunId||!shellVisible()||currentWorkspaceScope()!==requestScope)return;
         lastGoal=clean(plan?.run?.goal,MAX_QUESTION);
         renderGoalPlan(plan);
         return;
@@ -1825,12 +1825,13 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
         if(!["owner","manager"].includes(commandCentreRole()))throw new Error("Only owners and managers can prepare a business plan.");
         if(typeof global.ThebeOwnerCommandCentre?.generatePlan!=="function")throw new Error("The planner is still loading. Open Home and try again.");
         const plan=await global.ThebeOwnerCommandCentre.generatePlan(q);
-        if(runId!==textRunId)return;
+        if(runId!==textRunId||!shellVisible()||currentWorkspaceScope()!==requestScope)return;
         renderGoalPlan(plan);
         return;
       }
       const attachments=await Promise.all(files.map(filePayload));
       if(runId!==textRunId||controller.signal.aborted)return;
+      if(!shellVisible()||currentWorkspaceScope()!==requestScope)return;
       const result=await api("/api/ai/advisor",{
         method:"POST",
         headers:{"content-type":"application/json"},
@@ -1862,6 +1863,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       }
     }catch(error){
       if(runId!==textRunId||error?.code==="aborted")return;
+      if(!shellVisible()||currentWorkspaceScope()!==requestScope)return;
       if(input&&!input.value){input.value=q;syncComposerHeight()}
       const creditMessages={
         insufficient_ai_credits:"There are not enough AI credits for this question. Review your AI balance or ask the workspace owner to add credits.",
