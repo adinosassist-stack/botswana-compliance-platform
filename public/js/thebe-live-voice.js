@@ -1774,7 +1774,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     autoFollowResponse=true;
     if(latestResponseButton)latestResponseButton.hidden=true;
     syncBusyControls();
-    responseMessage(files.length?"Reading the attached files…":mode==="ask"?"Preparing your answer…":"Reviewing the current workspace…","thinking");
+    responseMessage(files.length?"Reading the attached files…":mode==="ask"?"Thinking…":"Reviewing the current workspace…","thinking");
     scrollResponseIntoView(true);
     try{
       if(files.length&&["resume_plan","goal_plan"].includes(mode))throw new Error("Use Ask, Brief or Priorities to review attached files.");
