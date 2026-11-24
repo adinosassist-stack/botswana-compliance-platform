@@ -122,6 +122,11 @@ try{
   await page.evaluate(()=>window.ThebeAiDock.clear());
   assert.equal(await panel.isHidden(),true,"Clearing a chat closes search");
   assert.equal(await field.inputValue(),"","Clearing a chat removes the search phrase");
+  await toggle.click();
+  assert(await field.isVisible(),"Search remains available after clearing");
+  await field.fill("not in empty chat");
+  assert.equal(await panel.locator(".thebe-ai-find-status").innerText(),"No matching messages");
+  await field.press("Escape");
   assert.equal(await page.locator(".thebe-aura-turn").count(),0,"Clearing a chat removes in-memory turns");
 
   // Company switching in one signed-in SPA must never carry private chat or
