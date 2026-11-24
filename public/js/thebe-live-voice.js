@@ -994,7 +994,8 @@
     const q=clean(question,MAX_QUESTION);
     const context=activeContext();
     const prefix=`Current Thebe Desk screen: ${context.title} (${context.id}). `;
-    return (prefix+q).slice(0,MAX_QUESTION);
+    // Never sacrifice the user's actual question to optional screen metadata.
+    return prefix.length+q.length<=MAX_QUESTION?prefix+q:q;
   }
   function openView(id){
     const button=[...document.querySelectorAll("[data-view]")].find(item=>item.dataset.view===id);
