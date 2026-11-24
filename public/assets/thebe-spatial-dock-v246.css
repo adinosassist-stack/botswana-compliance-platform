@@ -508,6 +508,8 @@ html body #thebeAiDock[data-surface="workspace"] .thebe-ai-expand{
 @media(max-width:1023px){
  html body #thebeAiDock[data-surface="workspace"]{border-radius:22px!important;}
  html body #thebeAiDock[data-surface="workspace"] .thebe-ai-expand{display:none!important;}
+ /* Idle Aura needs a restore action; active voice retains its dedicated End control. */
+ html body:not(.thebe-voice-active) #thebeAiDock[data-surface="workspace"][data-expanded="true"]:not([data-css-recovery="1"]) .thebe-ai-expand{display:inline-flex!important;}
 }
 /* Voice remains visible in workspace only: Market deliberately hides public voice card. */
 
