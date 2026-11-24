@@ -151,6 +151,41 @@ try{
   });
   assert.equal(await page.locator(".thebe-aura-turn").count(),0,"Changing authenticated global lexical identity resets the same-tab chat");
   assert.equal(await dock.locator("#thebeAiDockInput").inputValue(),"");
+  // Research remains hidden until both server-rendered gates are present.
+  const research=dock.locator(".thebe-ai-web-search");
+  assert.equal(await research.isHidden(),true);
+  await page.evaluate(()=>{
+    window.researchRequests=[];
+    const original=window.apiJson;
+    window.apiJson=async (url,options)=>{
+      if(url!=="/api/ai/general")return original(url,options);
+      window.researchRequests.push(JSON.parse(options.body));
+      return {ok:true,answer:"Synthetic cited research",researchPerformed:true,verification:"search_snippets_only",citations:[{url:"https://example.org/source",title:"Example source"},{url:"javascript:alert(1)",title:"Unsafe scheme"},{url:"https://localhost/private",title:"Private host"}]};
+    };
+    for(const name of ["thebe-general-ai-enabled","thebe-general-ai-research-enabled"]){
+      const meta=document.createElement("meta");meta.name=name;meta.content="true";document.head.append(meta);
+    }
+    window.dispatchEvent(new Event("thebe:workspace-ready"));
+  });
+  await page.evaluate(()=>window.ThebeAiDock.open());
+  assert.equal(await research.isVisible(),true);
+  await composer.fill("Public Botswana news");
+  await research.click();
+  await page.waitForFunction(()=>document.querySelector(".thebe-ai-web-sources")?.textContent.includes("Example source"));
+  assert.deepEqual(await page.evaluate(()=>window.researchRequests),[{question:"Search the web: Public Botswana news"}]);
+  const links=dock.locator(".thebe-ai-web-sources a");
+  assert.equal(await links.count(),1);
+  assert.equal(await links.getAttribute("href"),"https://example.org/source");
+  assert.equal(await links.getAttribute("rel"),"noopener noreferrer");
+  await page.evaluate(()=>{
+    document.querySelector('meta[name="thebe-general-ai-research-enabled"]').content="false";
+    window.dispatchEvent(new Event("thebe:workspace-ready"));
+  });
+  assert.equal(await research.isHidden(),true);
+  await composer.fill("Draft must survive disabled research");
+  await research.evaluate(button=>button.click());
+  assert.equal(await composer.inputValue(),"Draft must survive disabled research");
+  assert.equal(await page.evaluate(()=>window.researchRequests.length),1);
   assert.deepEqual(errors,[],"The web Dock creates no browser page errors");
   console.log("THEBE_WEB_FIND_BROWSER_PASS: local search, current response, navigation, reset, responsive geometry");
 }finally{await browser.close()}

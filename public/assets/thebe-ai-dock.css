@@ -2249,7 +2249,9 @@ html body dialog#thebeVoiceScreen[open] {
 
 /* #2830 web-only conversation find: flat charcoal, both compact & Aura fullscreen. */
 #thebeAiDock .thebe-ai-find{display:flex;flex-direction:column;gap:8px;min-width:0;flex:none;}
-#thebeAiDock .thebe-ai-find-toggle{
+#thebeAiDock .thebe-ai-find-actions{display:flex;gap:8px;}
+#thebeAiDock .thebe-ai-find-actions .thebe-ai-web-search[hidden]{display:none;}
+#thebeAiDock .thebe-ai-find-actions :is(.thebe-ai-find-toggle,.thebe-ai-web-search){
   align-self:flex-start;display:grid;place-items:center;width:44px;min-height:44px;
   border:1px solid #454c56;border-radius:12px;padding:0;background:#22252b;color:#eaf2ff;
 }
