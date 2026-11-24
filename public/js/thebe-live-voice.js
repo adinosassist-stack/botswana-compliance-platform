@@ -816,6 +816,18 @@
     advisorConversation.push({role:"user",content:clean(question,400)},{role:"assistant",content:clean(answer,400)});
     if(advisorConversation.length>6)advisorConversation.splice(0,advisorConversation.length-6);
   }
+  // Small visible icons keep full 44px keyboard/touch targets and explicit names.
+  const appendControlIcon=(button,paths)=>{
+    const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
+    svg.setAttribute("viewBox","0 0 24 24");svg.setAttribute("aria-hidden","true");
+    svg.setAttribute("width","20");svg.setAttribute("height","20");
+    for(const d of paths){
+      const path=document.createElementNS(svg.namespaceURI,"path");
+      for(const [key,value] of Object.entries({d,fill:"none",stroke:"currentColor","stroke-width":"1.8","stroke-linecap":"round","stroke-linejoin":"round"}))path.setAttribute(key,value);
+      svg.append(path);
+    }
+    button.append(svg);button.title=button.getAttribute("aria-label");
+  };
   function appendConversationTurn(role,content){
     if(!conversationHistory)return;
     const value=cleanMultiline(content,3200);
@@ -824,9 +836,10 @@
     turn.dataset.role=role==="user"?"user":"assistant";
     turn.append(el("span","thebe-aura-turn-label",role==="user"?"You":"Thebe"),el("p","thebe-aura-turn-content",value));
     if(role==="user"){
-      const edit=el("button","thebe-aura-edit-prompt","Edit & resend");
+      const edit=el("button","thebe-aura-edit-prompt");
       edit.type="button";
       edit.setAttribute("aria-label","Edit and resend this message as a new prompt");
+      appendControlIcon(edit,["M12 20h9","M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4Z"]);
       edit.addEventListener("click",()=>{
         if(!input||textBusy||input.value.trim()||pendingFiles.length)return;
         input.value=value.slice(0,MAX_QUESTION);
@@ -837,10 +850,13 @@
     conversationHistory.append(turn);
     while(conversationHistory.children.length>TEXT_HISTORY_LIMIT)conversationHistory.firstElementChild?.remove();
     syncConversationFind();
+    return turn;
   }
   function archiveCurrentAnswer(){
     if(!lastAnswer)return;
-    appendConversationTurn("assistant",lastAnswer);
+    const turn=appendConversationTurn("assistant",lastAnswer);
+    const sources=responseBox?.querySelector(".thebe-ai-web-sources");
+    if(turn&&sources)turn.append(sources);
     lastAnswer="";
   }
   function clearConversation(){
@@ -991,7 +1007,8 @@
     const q=clean(question,MAX_QUESTION);
     const context=activeContext();
     const prefix=`Current Thebe Desk screen: ${context.title} (${context.id}). `;
-    return (prefix+q).slice(0,MAX_QUESTION);
+    // Never sacrifice the user's actual question to optional screen metadata.
+    return prefix.length+q.length<=MAX_QUESTION?prefix+q:q;
   }
   function openView(id){
     const button=[...document.querySelectorAll("[data-view]")].find(item=>item.dataset.view===id);
@@ -1585,23 +1602,10 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const follow=el("button","thebe-ai-follow-up","Ask follow-up");
     follow.type="button";
     follow.addEventListener("click",()=>input?.focus({preventScroll:true}));
-    const copy=el("button","thebe-ai-copy","Copy answer");
-    copy.type="button";
-    copy.addEventListener("click",async()=>{
-      if(!lastAnswer)return;
-      try{
-        await navigator.clipboard.writeText(lastAnswer);
-        copy.textContent="Copied";
-        setTimeout(()=>{copy.textContent="Copy answer"},1200);
-      }catch{
-        copy.textContent="Copy unavailable";
-        setTimeout(()=>{copy.textContent="Copy answer"},1500);
-      }
-    });
     const open=el("button","thebe-ai-open-full","Open workspace AI");
     open.type="button";
     open.addEventListener("click",()=>{openView("automationhub");if(mobileDockMode())setCollapsed(true)});
-    tools.append(follow,copy,open);
+    tools.append(follow,open);
     responseBox.append(tools);
     surfaceLatestResponse();
   }
@@ -1783,14 +1787,35 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     lastAdvisorTrust="advisory";
     surfaceLatestResponse();
   }
+  // Automatic routing is separately gated until hosted provider and billing acceptance.
+  // Keep attachments, private context, actions and follow-ups on the workspace path.
+  function chooseAutomaticAiRoute(question,{enabled=false,researchEnabled=false,hasContext=false}={}){
+    if(!enabled||hasContext||typeof question!=="string")return "ask";
+    const q=question.trim();
+    if(/\b(my|our|mine|ours|your|workspace|tenant|thebe|client|customer|employee|invoice|payroll|account|password|secret|contract|transfer|approve|activate|delete|send|file tax|business|company)\b/i.test(q)||/@|\b\d{6,}\b/.test(q))return "ask";
+    const current=/\b(today|latest|current|recent|this week|this month|right now|now|202[6-9]|price|exchange rate|news|weather|who is|research|sources|verify|look up|search the web)\b/i.test(q);
+    if(current&&/^(?:what|who|when|where|how|research|look up|search the web|find|tell me)\b/i.test(q))return researchEnabled?"web_research":"research_unavailable";
+    if(/^(?:what (?:is|are|was|were)|who was|explain|define|how (?:does|do|did)|why (?:is|are|does|do))\b/i.test(q))return "general";
+    return "ask";
+  }
+  function automaticAiAvailable(){
+    return shellVisible()&&!!workspaceUser().id&&!!workspaceUser().tenantId
+      &&document.querySelector('meta[name="thebe-general-ai-enabled"]')?.content==="true"
+      &&document.querySelector('meta[name="thebe-ai-auto-routing-enabled"]')?.content==="true";
+  }
   async function ask(mode,question,files=[]){
     const q=clean(question,MAX_QUESTION)||(files.length?"Review the attached files and summarise the important points.":"");
     if(textBusy||!q.length)return;
     if(mode==="web_research"&&(!webResearchAvailable()||files.length||pendingFiles.length))return;
     const requestScope=shellVisible()?currentWorkspaceScope():null;
-    if(requestScope!==null&&lastWorkspaceScope!==null&&requestScope!==lastWorkspaceScope){clearConversation();lastWorkspaceScope=requestScope;return;}
+    if(requestScope!==null&&lastWorkspaceScope!==null&&requestScope!==lastWorkspaceScope){
+      clearConversation();
+      lastWorkspaceScope=requestScope;
+      return;
+    }
     if(requestScope!==null)lastWorkspaceScope=requestScope;
     const priorTurns=advisorPriorTurns();
+    if(mode==="ask")mode=chooseAutomaticAiRoute(q,{enabled:automaticAiAvailable(),researchEnabled:webResearchAvailable(),hasContext:!!(files.length||pendingFiles.length||priorTurns.length||lastAnswer||conversationHistory?.children.length)});
     dock.dataset.conversation="true";
     archiveCurrentAnswer();
     appendConversationTurn("user",q);
@@ -1800,7 +1825,6 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       return;
     }
     const runId=++textRunId;
-    const researchScope=mode==="web_research"?currentWorkspaceScope():null;
     const controller=new AbortController();
     textAbortController=controller;
     textBusy=true;
@@ -1810,19 +1834,32 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     autoFollowResponse=true;
     if(latestResponseButton)latestResponseButton.hidden=true;
     syncBusyControls();
-    responseMessage(mode==="web_research"?"Searching the web…":files.length?"Reading the attached files and reviewing the workspace…":"Reviewing the current workspace and this screen…","thinking");
+    responseMessage(mode==="web_research"?"Searching the web…":files.length?"Reading the attached files…":["ask","general","research_unavailable"].includes(mode)?"Thinking…":"Reviewing the current workspace…","thinking");
     scrollResponseIntoView(true);
     try{
+      if(mode==="research_unavailable")throw new Error("Live research is not available; current information cannot be verified.");
+      if(mode==="general"){
+        const result=await api("/api/ai/general",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({question:q}),timeoutMs:45000,signal:controller.signal});
+        if(runId!==textRunId||controller.signal.aborted||!automaticAiAvailable()||requestScope!==currentWorkspaceScope())return;
+        requireAdvisorAnswer(result);
+        if(result.ok!==true||result.researchPerformed!==false||result.verification!=="unverified")throw new Error("Thebe returned an unexpected general AI result.");
+        renderResult({answer:result.answer,caveats:result.notice?[result.notice]:[]});
+        const title=responseBox?.querySelector(".thebe-ai-response-title");
+        if(title)title.textContent="General AI response — not live verified";
+        responseBox?.querySelector(".thebe-ai-run-summary")?.remove();
+        retainAdvisorPair(q,result.answer);
+        return;
+      }
       if(mode==="web_research"){
         const result=await api("/api/ai/general",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({question:"Search the web: "+q}),timeoutMs:45000,signal:controller.signal});
-        if(runId!==textRunId||controller.signal.aborted||!webResearchAvailable()||researchScope!==currentWorkspaceScope())return;
+        if(runId!==textRunId||controller.signal.aborted||!webResearchAvailable()||requestScope!==currentWorkspaceScope())return;
         renderWebResearch(result);
         return;
       }
       if(files.length&&["resume_plan","goal_plan"].includes(mode))throw new Error("Use Ask, Brief or Priorities to review attached files.");
       if(mode==="resume_plan"){
         const plan=await global.ThebeOwnerCommandCentre?.loadLatestPlan?.();
-        if(runId!==textRunId)return;
+        if(runId!==textRunId||!shellVisible()||currentWorkspaceScope()!==requestScope)return;
         lastGoal=clean(plan?.run?.goal,MAX_QUESTION);
         renderGoalPlan(plan);
         return;
@@ -1832,12 +1869,13 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
         if(!["owner","manager"].includes(commandCentreRole()))throw new Error("Only owners and managers can prepare a business plan.");
         if(typeof global.ThebeOwnerCommandCentre?.generatePlan!=="function")throw new Error("The planner is still loading. Open Home and try again.");
         const plan=await global.ThebeOwnerCommandCentre.generatePlan(q);
-        if(runId!==textRunId)return;
+        if(runId!==textRunId||!shellVisible()||currentWorkspaceScope()!==requestScope)return;
         renderGoalPlan(plan);
         return;
       }
       const attachments=await Promise.all(files.map(filePayload));
       if(runId!==textRunId||controller.signal.aborted)return;
+      if(!shellVisible()||currentWorkspaceScope()!==requestScope)return;
       const result=await api("/api/ai/advisor",{
         method:"POST",
         headers:{"content-type":"application/json"},
@@ -1869,6 +1907,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       }
     }catch(error){
       if(runId!==textRunId||error?.code==="aborted")return;
+      if(!shellVisible()||currentWorkspaceScope()!==requestScope)return;
       if(input&&!input.value){input.value=q;syncComposerHeight()}
       const creditMessages={
         insufficient_ai_credits:"There are not enough AI credits for this question. Review your AI balance or ask the workspace owner to add credits.",
@@ -1996,18 +2035,6 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const endVoice=el("button","thebe-ai-icon-btn thebe-aura-end");
     endVoice.type="button";endVoice.setAttribute("aria-label","End voice conversation");
     endVoice.addEventListener("click",()=>closeVoiceScreen(true));
-    // Small visible icons keep full 44px keyboard/touch targets and explicit names.
-    const appendControlIcon=(button,paths)=>{
-      const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
-      svg.setAttribute("viewBox","0 0 24 24");svg.setAttribute("aria-hidden","true");
-      svg.setAttribute("width","20");svg.setAttribute("height","20");
-      for(const d of paths){
-        const path=document.createElementNS(svg.namespaceURI,"path");
-        for(const [key,value] of Object.entries({d,fill:"none",stroke:"currentColor","stroke-width":"1.8","stroke-linecap":"round","stroke-linejoin":"round"}))path.setAttribute(key,value);
-        svg.append(path);
-      }
-      button.append(svg);button.title=button.getAttribute("aria-label");
-    };
     appendControlIcon(muteVoice,["M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0Z","M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"]);
     appendControlIcon(endVoice,["M6 6h12v12H6Z"]);
     minimize.textContent="";
@@ -2181,7 +2208,9 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     // Web Dock: search rendered, bounded in-memory chat only. This never calls
     // an AI endpoint, writes a transcript, or exposes another tenant's data.
     const findWrap=el("section","thebe-ai-find");
-    const findToggle=el("button","thebe-ai-find-toggle","⌕ Find in chat");
+    const findToggle=el("button","thebe-ai-find-toggle");
+    findToggle.setAttribute("aria-label","Find in chat");
+    appendControlIcon(findToggle,["M16 10a6 6 0 1 1-12 0 6 6 0 0 1 12 0ZM14.5 14.5 20 20"]);
     findToggle.type="button";
     findToggle.setAttribute("aria-controls","thebeAiFindPanel");
     findToggle.setAttribute("aria-expanded","false");
@@ -2205,8 +2234,13 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     findClose.type="button";findClose.setAttribute("aria-label","Close conversation search");
     const findInputRow=el("div","thebe-ai-find-input-row");
     findInputRow.append(findInput,findPrevious,findNext,findClose);
-    findPanel.append(findInputRow,findStatus);findWrap.append(findToggle,findPanel);
-    const researchButton=el("button","thebe-ai-web-search thebe-ai-open-full","Search the web");
+    findPanel.append(findInputRow,findStatus);
+    const findActions=el("div","thebe-ai-find-actions");
+    findActions.append(findToggle);
+    findWrap.append(findActions,findPanel);
+    const researchButton=el("button","thebe-ai-web-search thebe-ai-open-full");
+    researchButton.setAttribute("aria-label","Search the web");
+    appendControlIcon(researchButton,["M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0ZM2 12h20M12 2a16 16 0 0 1 0 20 16 16 0 0 1 0-20Z"]);
     researchButton.type="button";
     researchButton.hidden=!webResearchAvailable();
     researchButton.addEventListener("click",()=>{
@@ -2216,7 +2250,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       input.value="";syncComposerHeight();syncComposerState();
       void ask("web_research",q);
     });
-    findWrap.append(researchButton);
+    findActions.append(researchButton);
     let findIndex=-1,findTargets=[],findHighlighted=null;
     // Keep the selected match visible without replacing text or injecting HTML.
     const clearFindHighlight=()=>{

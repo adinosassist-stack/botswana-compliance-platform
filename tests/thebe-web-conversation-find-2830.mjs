@@ -78,6 +78,12 @@ try{
 
   const composer=dock.locator("#thebeAiDockInput");
   const edit=dock.locator(".thebe-aura-turn[data-role=user] .thebe-aura-edit-prompt").first();
+  assert.equal(await edit.innerText(),"","Prompt edit uses an icon instead of a large text button");
+  assert.equal(await edit.getAttribute("aria-label"),"Edit and resend this message as a new prompt");
+  assert.equal(await edit.locator('svg[aria-hidden="true"]').count(),1,"Decorative icon is hidden from assistive technology");
+  const editGeometry=await edit.boundingBox();
+  assert(editGeometry&&editGeometry.width>=43.5&&editGeometry.height>=43.5,"Prompt edit preserves a 44px touch target");
+  assert(editGeometry.width<=60,"Prompt edit remains compact");
   await composer.fill("Unsent draft");
   await edit.click();
   assert.equal(await composer.inputValue(),"Unsent draft","Prompt reuse never overwrites an unsent draft");

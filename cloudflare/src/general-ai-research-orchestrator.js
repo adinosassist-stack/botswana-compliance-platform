@@ -51,7 +51,8 @@ export async function answerGeneralQuestion({question,model,search,researchEnabl
   });
   // The provider may cite a source that was never returned. Treat generated
   // citations as text, not verified evidence, until provenance is matched.
-  const rawAnswer=String(answer??"").slice(0,16000);
+  const rawAnswer=typeof answer==="string"?answer.slice(0,16000):"";
+  if(!rawAnswer.trim())return {ok:false,error:"model_unavailable"};
   const citedUrls=[...rawAnswer.matchAll(/https?:\/\/[^\s<>)"']+/gi)].map(match=>match[0].replace(/[.,;]+$/,""));
   const allowed=new Set(provenance.citations.map(source=>source.url));
   const unsupported=citedUrls.filter(candidate=>{

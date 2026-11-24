@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+import {DatabaseSync} from "node:sqlite";
 import {createConversationStagingIntegration} from "../cloudflare/src/conversation-staging-integration-rehearsal.js";
+import {createConversationStagingClient} from "../cloudflare/src/conversation-staging-client-rehearsal.js";
 const origin="https://conversation-staging.example.invalid";
 const path=origin+"/api/conversation-staging/threads/thread/messages";
 const envBase={APP_ENV:"staging",DEPLOYMENT_ENV:"staging",DEPLOYMENT_PROFILE:"conversation-staging",CONVERSATION_HISTORY_STAGING_ENABLED:"true",CONVERSATION_STAGING_ORIGIN:origin,CONVERSATION_STAGING_D1_ID:"95c48030-0395-44cb-aa95-622beaf4efdf"};
@@ -33,3 +36,115 @@ session={...session,csrfVerified:false};
 response=await worker.fetch(new Request(path,{method:"POST",headers:{"content-type":"application/json"},body:payload,duplex:"half"}),env);
 assert.equal(response.status,403);assert.equal(calls.filter(x=>x.sql.includes("INSERT")).length,0);
 console.log("Consolidated conversation staging authentication, tenant isolation, typed/voice storage boundary PASS");
+
+const directory=origin+"/api/conversation-staging/threads?threadId=thread";
+const deleteThread=()=>worker.fetch(new Request(directory,{method:"DELETE",headers:{origin}}),env);
+calls=[];
+assert.equal((await deleteThread()).status,403);
+assert.equal(calls.length,0,"CSRF denial must precede deletion");
+session={...session,csrfVerified:true};
+const deleted=await deleteThread();
+assert.equal(deleted.status,200);
+assert.deepEqual(await deleted.json(),{ok:true,id:"thread"});
+assert.equal(calls.length,1);
+assert.deepEqual(calls[0].params,["A","thread","A","thread","u"]);
+assert.match(calls[0].sql,/status='active'.*role='owner' AND active=1/);
+
+const sqlite=new DatabaseSync(":memory:");
+try{
+ sqlite.exec(readFileSync(new URL("../docs/rehearsals/conversation-storage-schema.sql",import.meta.url),"utf8"));
+ sqlite.exec(`CREATE TABLE thebe_conversation_staging_identity(database_uuid TEXT);
+ INSERT INTO thebe_conversation_staging_identity VALUES ('95c48030-0395-44cb-aa95-622beaf4efdf');
+ INSERT INTO thebe_conversations_rehearsal(tenant_id,id,created_by_user_id) VALUES ('A','thread','u'),('B','thread','v');
+ INSERT INTO thebe_conversation_members_rehearsal(tenant_id,conversation_id,user_id,role)
+ VALUES ('A','thread','u','owner'),('A','thread','other','member'),('B','thread','v','owner');`);
+ const database={prepare(sql){
+  const stmt=sqlite.prepare(sql);
+  return {first:()=>stmt.get(),bind:(...args)=>({
+   first:()=>stmt.get(...args),
+   run:()=>({success:true,meta:{changes:stmt.run(...args).changes}}),
+   all:()=>({success:true,results:stmt.all(...args)})
+  })};
+ }};
+ const realEnv={...env,DB:database};
+ const rename=(body)=>worker.fetch(new Request(directory,{method:"PATCH",headers:{origin,"content-type":"application/json"},body:JSON.stringify(body)}),realEnv);
+ const search=q=>worker.fetch(new Request(origin+"/api/conversation-staging/threads?"+new URLSearchParams({q})),realEnv);
+ const remove=()=>worker.fetch(new Request(directory,{method:"DELETE",headers:{origin}}),realEnv);
+ session={...session,userId:"other"};
+ assert.equal((await rename({title:"Outside scope"})).status,404);
+ assert.equal((await remove()).status,404);
+ session={...session,userId:"u",tenantId:"B"};
+ assert.equal((await rename({title:"Outside scope"})).status,404);
+ assert.equal((await remove()).status,404);
+ session={...session,tenantId:"A",csrfVerified:false};
+ assert.equal((await rename({title:"Blocked"})).status,403);
+ session={...session,csrfVerified:true};
+ assert.equal((await rename({title:"a".repeat(121)})).status,400);
+ assert.equal((await rename({title:"a".repeat(2050)})).status,413);
+ assert.equal((await rename({title:"Override",tenantId:"B"})).status,400);
+ const renamed=await rename({title:"  Quarterly planning  "});
+ assert.equal(renamed.status,200);
+ assert.deepEqual(await renamed.json(),{ok:true,id:"thread",title:"Quarterly planning"});
+ const readback=await worker.fetch(new Request(origin+"/api/conversation-staging/threads"),realEnv);
+ assert.equal((await readback.json()).items[0].title,"Quarterly planning");
+ const matches=await search("  QUARTERLY ");
+ assert.equal(matches.status,200);
+ assert.deepEqual((await matches.json()).items.map(x=>x.id),["thread"]);
+ assert.deepEqual((await (await search("%")).json()).items,[]);
+ assert.equal((await search("a".repeat(121))).status,400);
+ sqlite.prepare("UPDATE thebe_conversations_rehearsal SET title=? WHERE tenant_id='B'").run("Other tenant only");
+ assert.deepEqual((await (await search("Other tenant")).json()).items,[]);
+ sqlite.prepare("UPDATE thebe_conversations_rehearsal SET title=NULL WHERE tenant_id='B'").run();
+ // Fresh integration instances represent separate authenticated clients. No
+ // in-memory conversation cache is shared between these instances.
+ const typed={role:"user",sourceKind:"typed",content:"Synthetic restoration message",idempotencyKey:"restore-typed"};
+ const writeMessage=(client,message)=>client.fetch(new Request(path,{method:"POST",headers:{origin,"content-type":"application/json"},body:JSON.stringify(message)}),realEnv);
+ const readMessages=client=>client.fetch(new Request(path),realEnv);
+ assert.equal((await writeMessage(worker,typed)).status,200);
+ const deviceB=createConversationStagingIntegration({verifyCurrentSession:async()=>session});
+ const transport=(relative,options)=>deviceB.fetch(new Request(origin+relative,{...options,headers:{origin,...options.headers}}),realEnv);
+ const currentScope=()=>session?session.tenantId+":"+session.userId:null;
+ const client=createConversationStagingClient({transport,currentScope,enabled:true});
+ const inactive=createConversationStagingClient({transport,currentScope});
+ await assert.rejects(inactive.list(),/staging_client_disabled/);
+ assert.equal((await client.list("Quarterly")).items[0].id,"thread");
+ assert.deepEqual((await client.read("thread")).items.map(x=>x.content_redacted),[typed.content]);
+ assert.equal((await client.append("thread",typed)).duplicate,true);
+ let release;
+ const delayed=createConversationStagingClient({enabled:true,currentScope,transport:async(...args)=>{
+   const result=await transport(...args);
+   await new Promise(resolve=>{release=resolve});
+   return result;
+ }});
+ const pending=delayed.read("thread");
+ while(!release)await new Promise(resolve=>setTimeout(resolve,0));
+ delayed.invalidate();
+ release();
+ await assert.rejects(pending,/stale_conversation_response/);
+ const restored=await readMessages(deviceB);
+ assert.equal(restored.status,200);
+ assert.deepEqual((await restored.json()).items.map(x=>x.content_redacted),[typed.content]);
+ const retry=await writeMessage(deviceB,typed);
+ assert.equal(retry.status,200);
+ assert.equal((await retry.json()).duplicate,true);
+ session=null;
+ assert.equal((await readMessages(deviceB)).status,401);
+ session={authenticated:true,active:true,userId:"u",tenantId:"A",csrfVerified:true};
+ assert.equal((await readMessages(deviceB)).status,200);
+ session={...session,userId:"v",tenantId:"B"};
+ const otherTenant=await readMessages(deviceB);
+ assert.equal(otherTenant.status,200);
+ assert.deepEqual((await otherTenant.json()).items,[]);
+ session={...session,userId:"u",tenantId:"A"};
+ assert.equal((await client.remove("thread")).ok,true);
+ await assert.rejects(client.read("thread"),/conversation_request_failed_401/);
+ assert.equal((await readMessages(deviceB)).status,401);
+ assert.equal((await writeMessage(deviceB,{...typed,idempotencyKey:"after-delete"})).status,401);
+ assert.deepEqual((await (await search("Quarterly")).json()).items,[]);
+ assert.equal((await rename({title:"Deleted"})).status,404);
+ assert.equal((await remove()).status,404);
+ const list=await worker.fetch(new Request(origin+"/api/conversation-staging/threads"),realEnv);
+ assert.deepEqual((await list.json()).items,[]);
+ assert.equal(sqlite.prepare("SELECT status,title FROM thebe_conversations_rehearsal WHERE tenant_id='B'").get().status,"active");
+ assert.equal(sqlite.prepare("SELECT title FROM thebe_conversations_rehearsal WHERE tenant_id='B'").get().title,null);
+}finally{sqlite.close()}

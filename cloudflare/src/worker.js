@@ -2575,7 +2575,9 @@ function parseAiAdvisorResult(result,allowedRefs){
     try{raw=JSON.parse(cleaned)}catch{throw new Error("ai_advisor_invalid_json")}
   }
   if(!raw||typeof raw!=="object"||Array.isArray(raw))throw new Error("ai_advisor_invalid_output");
-  const answer=advisorText(raw.answer,3000);if(!answer)throw new Error("ai_advisor_answer_missing");
+  const answer=typeof raw.answer==="string"?raw.answer.replace(/\r\n?/g,"\n").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g," ").trim():"";
+  if(!answer)throw new Error("ai_advisor_answer_missing");
+  if([...answer].length>3000)throw new Error("ai_advisor_answer_too_long");
   const refs=x=>Array.isArray(x)?[...new Set(x.map(v=>String(v||"")).filter(v=>allowedRefs.has(v)))].slice(0,20):[];
   const confidence=["high","medium","low"].includes(raw.confidence)?raw.confidence:"low";
   const actions=(Array.isArray(raw.actions)?raw.actions:[]).slice(0,8).map(x=>({title:advisorText(x?.title,180),reason:advisorText(x?.reason,500),priority:["urgent","high","medium","low"].includes(x?.priority)?x.priority:"medium",sourceRefs:refs(x?.sourceRefs).slice(0,8)})).filter(x=>x.title&&x.reason);

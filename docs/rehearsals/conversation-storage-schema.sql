@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS thebe_conversations_rehearsal (
   tenant_id TEXT NOT NULL,
   id TEXT NOT NULL,
   created_by_user_id TEXT NOT NULL,
+  title TEXT CHECK(title IS NULL OR length(title) BETWEEN 1 AND 120),
   status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','deleted')),
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,

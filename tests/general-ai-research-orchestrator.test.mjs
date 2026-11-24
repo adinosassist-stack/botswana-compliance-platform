@@ -95,3 +95,16 @@ test("shared orchestrator refuses high-risk action even when caller claims autho
   assert.equal(result.error,"action_request_not_supported");
   assert.equal(modelCalls,0);
 });
+
+test("blank or malformed model output is unavailable for general answers and research",async()=>{
+  for(const answer of [undefined,""," \n ",{text:"not the provider contract"}]){
+    const model=async()=>answer;
+    const general=await answerGeneralQuestion({question:"Explain photosynthesis",model});
+    assert.deepEqual(general,{ok:false,error:"model_unavailable"});
+    const research=await answerGeneralQuestion({
+      question:"Latest Botswana news",researchEnabled:true,model,
+      search:async()=>[{url:"https://example.org/report",title:"Report",excerpt:"A sufficiently detailed source excerpt describing recent market conditions in Botswana."}]
+    });
+    assert.deepEqual(research,{ok:false,error:"model_unavailable"});
+  }
+});

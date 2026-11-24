@@ -53,7 +53,86 @@ test('research and ordinary advisor paths both initialize conversation scope bef
  const dispatch=block.indexOf('const result=await api("/api/ai/advisor"');
  assert.ok(scope>=0&&prior>scope&&dispatch>prior,'scope and prior history must be declared before request');
  assert.match(block,/if\(mode==="web_research"&&\(!webResearchAvailable\(\)\|\|files.length\|\|pendingFiles.length\)\)return;/);
- assert.match(block,/clearConversation\(\);lastWorkspaceScope=requestScope;return;/);
+ assert.match(block,/clearConversation\(\);\s*lastWorkspaceScope=requestScope;\s*return;/);
  assert.match(block,/currentWorkspaceScope\(\)!==requestScope/);
- assert.match(block,/researchScope!==currentWorkspaceScope\(\)/);
+ assert.match(block,/requestScope!==currentWorkspaceScope\(\)\)return;\s*renderWebResearch\(result\)/);
+});
+
+test('archiving an answer retains its clickable research sources in the conversation',()=>{
+ const start=dock.indexOf('function archiveCurrentAnswer()');
+ const end=dock.indexOf('function clearConversation()',start);
+ assert.ok(start>=0&&end>start);
+ const sources={links:[{href:'https://example.org/source'}]};
+ const archived=[];
+ const archive=new Function('appendConversationTurn','responseBox',
+   'let lastAnswer="Research answer";'+dock.slice(start,end)+';return archiveCurrentAnswer;')(
+   (role,answer)=>({append:node=>archived.push({role,answer,node})}),
+   {querySelector:selector=>selector==='.thebe-ai-web-sources'?sources:null}
+ );
+ archive();
+ archive();
+ assert.deepEqual(archived,[{role:'assistant',answer:'Research answer',node:sources}]);
+});
+
+test('delayed attachments, saved plans and errors are checked at the workspace boundary',()=>{
+ const start=dock.indexOf('async function ask(mode,question,files=[])');
+ const end=dock.indexOf('function quickButton(',start);
+ assert.ok(start>=0&&end>start);
+ const block=dock.slice(start,end);
+ const guard='if(!shellVisible()||currentWorkspaceScope()!==requestScope)return;';
+ const attachments=block.indexOf('const attachments=await Promise.all(files.map(filePayload));');
+ const dispatch=block.indexOf('const result=await api("/api/ai/advisor"');
+ assert.ok(attachments>=0&&dispatch>attachments);
+ assert.ok(block.slice(attachments,dispatch).includes(guard),'check scope after async file conversion before dispatch');
+ for(const operation of ['const plan=await global.ThebeOwnerCommandCentre?.loadLatestPlan?.();','const plan=await global.ThebeOwnerCommandCentre.generatePlan(q);']){
+  const from=block.indexOf(operation),render=block.indexOf('renderGoalPlan(plan);',from);
+  assert.ok(from>=0&&render>from);
+  assert.ok(block.slice(from,render).includes('if(runId!==textRunId||!shellVisible()||currentWorkspaceScope()!==requestScope)return;'));
+ }
+ const caught=block.indexOf('}catch(error){');
+ const draft=block.indexOf('if(input&&!input.value){input.value=q;',caught);
+ assert.ok(caught>=0&&draft>caught);
+ assert.ok(block.slice(caught,draft).includes(guard),'do not restore a stale private draft into another workspace');
+});
+
+test('optional screen metadata cannot truncate a valid user question',()=>{
+ const start=dock.indexOf('function contextualQuestion(question)');
+ const end=dock.indexOf('function openView(',start);
+ assert.ok(start>=0&&end>start);
+ const build=new Function('clean','MAX_QUESTION','activeContext',dock.slice(start,end)+';return contextualQuestion;')(
+   (value,max)=>String(value).slice(0,max),1000,()=>({title:'Home',id:'dashboard'})
+ );
+ const short='Explain this balance.';
+ assert.match(build(short),/Current Thebe Desk screen: Home/);
+ assert.ok(build(short).endsWith(short));
+ const long='x'.repeat(980)+' FINAL QUESTION END';
+ assert.equal(build(long),long);
+ assert.ok(build(long).length<=1000);
+});
+
+test('automatic Dock routing is opt-in, conservative and never exports workspace context',()=>{
+ const start=dock.indexOf('function chooseAutomaticAiRoute(');
+ const end=dock.indexOf('function automaticAiAvailable(',start);
+ assert.ok(start>=0&&end>start);
+ const choose=new Function(dock.slice(start,end)+';return chooseAutomaticAiRoute;')();
+ const enabled={enabled:true,researchEnabled:true};
+ assert.equal(choose('What is photosynthesis?'), 'ask');
+ assert.equal(choose('What is photosynthesis?',enabled),'general');
+ assert.equal(choose('What is the weather today?',enabled),'web_research');
+ assert.equal(choose('What is the weather today?',{enabled:true}),'research_unavailable');
+ for(const q of ['What is my company revenue?','What is our latest invoice?','Explain the payroll','Approve payment','What is the account password?','Look up person@example.com','What is 12345678?','Continue the prior answer']){
+  assert.equal(choose(q,enabled),'ask',q);
+ }
+ assert.equal(choose('What is photosynthesis?',{...enabled,hasContext:true}),'ask');
+ assert.match(dock,/meta\[name="thebe-ai-auto-routing-enabled"\]/);
+ assert.match(dock,/hasContext:!!\(files.length\|\|pendingFiles.length\|\|priorTurns.length\|\|lastAnswer\|\|conversationHistory\?\.children.length\)/);
+ const from=dock.indexOf('if(mode==="general"){');
+ const to=dock.indexOf('if(mode==="web_research"){',from);
+ assert.ok(from>=0&&to>from);
+ const dispatch=dock.slice(from,to);
+ assert.match(dispatch,/body:JSON.stringify\(\{question:q\}\)/);
+ assert.doesNotMatch(dispatch,/contextualQuestion|conversationHistory:|attachments:/);
+ assert.match(dispatch,/requestScope!==currentWorkspaceScope\(\)/);
+ assert.match(dispatch,/result.researchPerformed!==false/);
+ assert.match(dispatch,/retainAdvisorPair\(q,result.answer\)/);
 });
