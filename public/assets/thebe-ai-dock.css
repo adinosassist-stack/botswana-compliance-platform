@@ -2315,3 +2315,16 @@ html body dialog#thebeVoiceScreen[open] {
     box-shadow: 0 0 0 1px #858b94 !important;
   }
 }
+
+
+/* #2835: explicit prompt reuse, shared by compact and fullscreen Dock. */
+#thebeAiDock .thebe-aura-edit-prompt{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:44px;max-width:100%;margin-top:4px;padding:6px 12px;
+  border:1px solid #454c56;border-radius:10px;
+  background:#22252b;color:#e5e7eb;font:inherit;font-size:12px;
+  cursor:pointer;white-space:normal;
+}
+#thebeAiDock .thebe-aura-edit-prompt:focus-visible{
+  outline:2px solid #d1d5db;outline-offset:2px;
+}
