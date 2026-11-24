@@ -45,6 +45,8 @@ jobs:
           node --no-warnings tests/ai-advisor-planner-integration.mjs
           node tests/v82-idempotent-transport-fallback-runtime.mjs
       - name: Verify public and workspace composer interactions
+        env:
+          THEBE_AURA_SCREENSHOT_DIR: artifacts/aura
         run: |
           node tests/workspace-dock-cascade-browser.mjs
           node tests/dock-composer-browser.mjs
@@ -53,3 +55,11 @@ jobs:
           node tests/thebe-aura-fullscreen-browser.mjs
           node tests/thebe-web-conversation-find-2830.mjs
           node tests/public-dock-width-contract.mjs
+      - name: Preserve Aura layout evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: aura-layout-${{ github.event.pull_request.head.sha }}
+          path: artifacts/aura/
+          if-no-files-found: ignore
+          retention-days: 7
