@@ -1553,6 +1553,25 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     appendAdvisorRunSummary(result);
     lastAnswer=cleanMultiline(result?.answer||"No grounded answer was returned.",3200);
     responseBox.append(responseAnswer(lastAnswer));
+    // Capture the rendered answer; later responses must not change this button's content.
+    const answerForCopy=lastAnswer;
+    if(answerForCopy){
+      const copyAnswer=el("button","thebe-ai-open-full","Copy answer");
+      copyAnswer.type="button";
+      copyAnswer.setAttribute("aria-label","Copy Thebe answer");
+      copyAnswer.addEventListener("click",async()=>{
+        try{
+          if(!global.navigator?.clipboard?.writeText)throw new Error("clipboard_unavailable");
+          await global.navigator.clipboard.writeText(answerForCopy);
+          copyAnswer.textContent="Copied";
+          copyAnswer.setAttribute("aria-label","Thebe answer copied");
+        }catch{
+          copyAnswer.textContent="Copy unavailable";
+          copyAnswer.setAttribute("aria-label","Copy unavailable; use text selection");
+        }
+      });
+      responseBox.append(copyAnswer);
+    }
     const actions=Array.isArray(result?.actions)?result.actions.slice(0,3):[];
     for(const action of actions){
       const card=el("div","thebe-ai-action");
@@ -1566,23 +1585,10 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const follow=el("button","thebe-ai-follow-up","Ask follow-up");
     follow.type="button";
     follow.addEventListener("click",()=>input?.focus({preventScroll:true}));
-    const copy=el("button","thebe-ai-copy","Copy answer");
-    copy.type="button";
-    copy.addEventListener("click",async()=>{
-      if(!lastAnswer)return;
-      try{
-        await navigator.clipboard.writeText(lastAnswer);
-        copy.textContent="Copied";
-        setTimeout(()=>{copy.textContent="Copy answer"},1200);
-      }catch{
-        copy.textContent="Copy unavailable";
-        setTimeout(()=>{copy.textContent="Copy answer"},1500);
-      }
-    });
     const open=el("button","thebe-ai-open-full","Open workspace AI");
     open.type="button";
     open.addEventListener("click",()=>{openView("automationhub");if(mobileDockMode())setCollapsed(true)});
-    tools.append(follow,copy,open);
+    tools.append(follow,open);
     responseBox.append(tools);
     surfaceLatestResponse();
   }
