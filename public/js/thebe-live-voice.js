@@ -1795,6 +1795,19 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       requireAdvisorAnswer(result);
       pendingFiles=pendingFiles.filter(file=>!files.includes(file));renderAttachmentTray();
       renderResult(result);
+      // Only ordinary, attachment-free advisor answers may be requested again.
+      // Saved plans and public marketing responses do not receive this control.
+      if(!files.length&&requestedMode==="ask"&&responseBox){
+        const retry=el("button","thebe-ai-open-full thebe-ai-regenerate","Regenerate answer");
+        retry.type="button";
+        retry.title="Request another answer; AI credits may apply";
+        retry.setAttribute("aria-label","Regenerate answer; AI credits may apply");
+        retry.addEventListener("click",()=>{
+          if(textBusy||!shellVisible()||!retry.isConnected||input?.value.trim()||pendingFiles.length)return;
+          void ask("ask",q);
+        });
+        responseBox.querySelector(".thebe-ai-response-tools")?.append(retry);
+      }
     }catch(error){
       if(runId!==textRunId||error?.code==="aborted")return;
       if(input&&!input.value){input.value=q;syncComposerHeight()}
