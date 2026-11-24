@@ -73,3 +73,22 @@ html body #appShell :is(.nav-primary,.nav-more-tools,.btn):focus-visible{outline
 @media(prefers-reduced-motion:reduce){
  html body #appShell :is(.nav-primary,.nav-more-tools,.btn){transition:none!important;transform:none!important}
 }
+
+/* Keep the workspace launcher compact even when shell styles load after Dock CSS. */
+@media(max-width:1023px){
+  html body #thebeAiDockPill[data-surface="workspace"]{
+    width:max-content!important;
+    max-width:calc(100vw - 16px)!important;
+    padding:2px 4px!important;
+    gap:0!important;
+    background:#151b24!important;
+  }
+  html body #thebeAiDockPill[data-surface="workspace"] .thebe-ai-pill-open{
+    min-width:44px;
+    padding:0 5px;
+  }
+  html body #thebeAiDockPill[data-surface="workspace"] .thebe-ai-pill-dot{display:none}
+  html body #thebeAiDockPill[data-surface="workspace"][data-attention]::after{
+    margin:0 3px;
+  }
+}
