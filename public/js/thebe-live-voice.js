@@ -1774,6 +1774,22 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     lastAdvisorTrust="advisory";
     surfaceLatestResponse();
   }
+  // Automatic routing is separately gated until hosted provider and billing acceptance.
+  // Keep attachments, private context, actions and follow-ups on the workspace path.
+  function chooseAutomaticAiRoute(question,{enabled=false,researchEnabled=false,hasContext=false}={}){
+    if(!enabled||hasContext||typeof question!=="string")return "ask";
+    const q=question.trim();
+    if(/\b(my|our|mine|ours|your|workspace|tenant|thebe|client|customer|employee|invoice|payroll|account|password|secret|contract|transfer|approve|activate|delete|send|file tax|business|company)\b/i.test(q)||/@|\b\d{6,}\b/.test(q))return "ask";
+    const current=/\b(today|latest|current|recent|this week|this month|right now|now|202[6-9]|price|exchange rate|news|weather|who is|research|sources|verify|look up|search the web)\b/i.test(q);
+    if(current&&/^(?:what|who|when|where|how|research|look up|search the web|find|tell me)\b/i.test(q))return researchEnabled?"web_research":"research_unavailable";
+    if(/^(?:what (?:is|are|was|were)|who was|explain|define|how (?:does|do|did)|why (?:is|are|does|do))\b/i.test(q))return "general";
+    return "ask";
+  }
+  function automaticAiAvailable(){
+    return shellVisible()&&!!workspaceUser().id&&!!workspaceUser().tenantId
+      &&document.querySelector('meta[name="thebe-general-ai-enabled"]')?.content==="true"
+      &&document.querySelector('meta[name="thebe-ai-auto-routing-enabled"]')?.content==="true";
+  }
   async function ask(mode,question,files=[]){
     const q=clean(question,MAX_QUESTION)||(files.length?"Review the attached files and summarise the important points.":"");
     if(textBusy||!q.length)return;
@@ -1786,6 +1802,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     }
     if(requestScope!==null)lastWorkspaceScope=requestScope;
     const priorTurns=advisorPriorTurns();
+    if(mode==="ask")mode=chooseAutomaticAiRoute(q,{enabled:automaticAiAvailable(),researchEnabled:webResearchAvailable(),hasContext:!!(files.length||pendingFiles.length||priorTurns.length||lastAnswer||conversationHistory?.children.length)});
     dock.dataset.conversation="true";
     archiveCurrentAnswer();
     appendConversationTurn("user",q);
@@ -1804,9 +1821,22 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     autoFollowResponse=true;
     if(latestResponseButton)latestResponseButton.hidden=true;
     syncBusyControls();
-    responseMessage(mode==="web_research"?"Searching the web…":files.length?"Reading the attached files…":mode==="ask"?"Thinking…":"Reviewing the current workspace…","thinking");
+    responseMessage(mode==="web_research"?"Searching the web…":files.length?"Reading the attached files…":["ask","general","research_unavailable"].includes(mode)?"Thinking…":"Reviewing the current workspace…","thinking");
     scrollResponseIntoView(true);
     try{
+      if(mode==="research_unavailable")throw new Error("Live research is not available; current information cannot be verified.");
+      if(mode==="general"){
+        const result=await api("/api/ai/general",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({question:q}),timeoutMs:45000,signal:controller.signal});
+        if(runId!==textRunId||controller.signal.aborted||!automaticAiAvailable()||requestScope!==currentWorkspaceScope())return;
+        requireAdvisorAnswer(result);
+        if(result.ok!==true||result.researchPerformed!==false||result.verification!=="unverified")throw new Error("Thebe returned an unexpected general AI result.");
+        renderResult({answer:result.answer,caveats:result.notice?[result.notice]:[]});
+        const title=responseBox?.querySelector(".thebe-ai-response-title");
+        if(title)title.textContent="General AI response — not live verified";
+        responseBox?.querySelector(".thebe-ai-run-summary")?.remove();
+        retainAdvisorPair(q,result.answer);
+        return;
+      }
       if(mode==="web_research"){
         const result=await api("/api/ai/general",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({question:"Search the web: "+q}),timeoutMs:45000,signal:controller.signal});
         if(runId!==textRunId||controller.signal.aborted||!webResearchAvailable()||requestScope!==currentWorkspaceScope())return;
