@@ -5,7 +5,7 @@ const fail=(status,error)=>reply(status,{ok:false,error});
 export async function conversationThreadDirectory({request,env,readSession,id=()=>crypto.randomUUID()}={}){
  if(env?.APP_ENV!=="staging"||env?.DEPLOYMENT_ENV!=="staging"||env?.DEPLOYMENT_PROFILE!=="conversation-staging"||env?.CONVERSATION_HISTORY_STAGING_ENABLED!=="true")return fail(404,"not_found");
  if(!env.CONVERSATION_STAGING_ORIGIN||new URL(request.url).origin!==env.CONVERSATION_STAGING_ORIGIN)return fail(403,"origin_mismatch");
- if(!["GET","POST"].includes(request.method))return fail(405,"method_not_allowed");
+ if(!["GET","POST","DELETE"].includes(request.method))return fail(405,"method_not_allowed");
  if(env.CONVERSATION_STAGING_D1_ID!=="95c48030-0395-44cb-aa95-622beaf4efdf"||!env.DB?.prepare)return fail(503,"staging_database_identity_required");
  try{
   const marker=await env.DB.prepare("SELECT COUNT(*) AS marker_count, MIN(database_uuid) AS database_uuid FROM thebe_conversation_staging_identity").first();
@@ -23,6 +23,16 @@ export async function conversationThreadDirectory({request,env,readSession,id=()
   }
   if(session.csrfVerified!==true||request.headers.get("origin")!==env.CONVERSATION_STAGING_ORIGIN)return fail(403,"csrf_required");
   if(request.body!==null)return fail(400,"body_not_supported");
+  if(request.method==="DELETE"){
+   const thread=new URL(request.url).searchParams.get("threadId");
+   if(!valid(thread))return fail(400,"invalid_thread");
+   // Soft-delete atomically with current tenant and owner membership.
+   const result=await env.DB.prepare(
+    "UPDATE thebe_conversations_rehearsal SET status='deleted',updated_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND id=? AND status='active' AND EXISTS (SELECT 1 FROM thebe_conversation_members_rehearsal WHERE tenant_id=? AND conversation_id=? AND user_id=? AND role='owner' AND active=1)"
+   ).bind(tenantId,thread,tenantId,thread,userId).run();
+   if(result?.success!==true||!Number.isInteger(result.meta?.changes))return fail(503,"storage_unavailable");
+   return result.meta.changes===1?reply(200,{ok:true,id:thread}):fail(404,"not_found");
+  }
   if(typeof env.DB.batch!=="function")return fail(503,"storage_unavailable");
   const thread=id();
   if(!valid(thread))return fail(503,"storage_unavailable");

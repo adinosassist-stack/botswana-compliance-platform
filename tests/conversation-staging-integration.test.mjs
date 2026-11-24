@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+import {DatabaseSync} from "node:sqlite";
 import {createConversationStagingIntegration} from "../cloudflare/src/conversation-staging-integration-rehearsal.js";
 const origin="https://conversation-staging.example.invalid";
 const path=origin+"/api/conversation-staging/threads/thread/messages";
@@ -33,3 +35,45 @@ session={...session,csrfVerified:false};
 response=await worker.fetch(new Request(path,{method:"POST",headers:{"content-type":"application/json"},body:payload,duplex:"half"}),env);
 assert.equal(response.status,403);assert.equal(calls.filter(x=>x.sql.includes("INSERT")).length,0);
 console.log("Consolidated conversation staging authentication, tenant isolation, typed/voice storage boundary PASS");
+
+const directory=origin+"/api/conversation-staging/threads?threadId=thread";
+const deleteThread=()=>worker.fetch(new Request(directory,{method:"DELETE",headers:{origin}}),env);
+calls=[];
+assert.equal((await deleteThread()).status,403);
+assert.equal(calls.length,0,"CSRF denial must precede deletion");
+session={...session,csrfVerified:true};
+const deleted=await deleteThread();
+assert.equal(deleted.status,200);
+assert.deepEqual(await deleted.json(),{ok:true,id:"thread"});
+assert.equal(calls.length,1);
+assert.deepEqual(calls[0].params,["A","thread","A","thread","u"]);
+assert.match(calls[0].sql,/status='active'.*role='owner' AND active=1/);
+
+const sqlite=new DatabaseSync(":memory:");
+try{
+ sqlite.exec(readFileSync(new URL("../docs/rehearsals/conversation-storage-schema.sql",import.meta.url),"utf8"));
+ sqlite.exec(`CREATE TABLE thebe_conversation_staging_identity(database_uuid TEXT);
+ INSERT INTO thebe_conversation_staging_identity VALUES ('95c48030-0395-44cb-aa95-622beaf4efdf');
+ INSERT INTO thebe_conversations_rehearsal(tenant_id,id,created_by_user_id) VALUES ('A','thread','u'),('B','thread','v');
+ INSERT INTO thebe_conversation_members_rehearsal(tenant_id,conversation_id,user_id,role)
+ VALUES ('A','thread','u','owner'),('A','thread','other','member'),('B','thread','v','owner');`);
+ const database={prepare(sql){
+  const stmt=sqlite.prepare(sql);
+  return {first:()=>stmt.get(),bind:(...args)=>({
+   run:()=>({success:true,meta:{changes:stmt.run(...args).changes}}),
+   all:()=>({success:true,results:stmt.all(...args)})
+  })};
+ }};
+ const realEnv={...env,DB:database};
+ const remove=()=>worker.fetch(new Request(directory,{method:"DELETE",headers:{origin}}),realEnv);
+ session={...session,userId:"other"};
+ assert.equal((await remove()).status,404);
+ session={...session,userId:"u",tenantId:"B"};
+ assert.equal((await remove()).status,404);
+ session={...session,tenantId:"A"};
+ assert.equal((await remove()).status,200);
+ assert.equal((await remove()).status,404);
+ const list=await worker.fetch(new Request(origin+"/api/conversation-staging/threads"),realEnv);
+ assert.deepEqual((await list.json()).items,[]);
+ assert.equal(sqlite.prepare("SELECT status FROM thebe_conversations_rehearsal WHERE tenant_id='B'").get().status,"active");
+}finally{sqlite.close()}
