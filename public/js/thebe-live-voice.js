@@ -1880,7 +1880,12 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     attentionButton.addEventListener("click",()=>{openView("workhub");if(mobileDockMode())setCollapsed(true)});
     const minimize=el("button","thebe-ai-icon-btn thebe-ai-minimize","—");
     minimize.type="button";minimize.setAttribute("aria-label","Minimise Thebe dock");minimize.title="Minimise Thebe";
-    minimize.addEventListener("click",()=>setCollapsed(true));
+    minimize.addEventListener("click",()=>{
+      // The public desktop rail cannot collapse; close Aura back to that rail.
+      if(surfaceMode()==="public"&&!mobileDockMode())closeVoiceScreen(true);
+      setExpanded(false);
+      setCollapsed(true);
+    });
     const expand=el("button","thebe-ai-icon-btn thebe-ai-expand","⤢");
     expand.type="button";expand.setAttribute("aria-label","Expand Thebe panel");expand.setAttribute("aria-pressed","false");expand.title="Expand Thebe";
     const setExpanded=expanded=>{

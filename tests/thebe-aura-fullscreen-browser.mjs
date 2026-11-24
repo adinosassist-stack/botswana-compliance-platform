@@ -191,6 +191,17 @@ try {
   assert.equal(await page.locator('.thebe-aura-hello').textContent(),'Hello','email-only identity uses a safe greeting');
   await page.evaluate(()=>window.ThebeAiDock.clear());
   assert.equal(await page.locator('.thebe-aura-turn').count(),0,'clear deletes in-memory conversation');
+  // The public desktop rail remains present, so close must exit fullscreen.
+  await page.setViewportSize({width:1440,height:900});
+  await page.evaluate(()=>{
+    document.getElementById('appShell').style.display='none';
+    const marketing=document.getElementById('marketingGate');marketing.hidden=false;marketing.style.display='block';
+    document.getElementById('thebeAiDock').dataset.expanded='false';
+    window.ThebeAiDock.open();
+  });
+  await page.locator('.thebe-ai-expand').evaluate(button=>button.click());
+  await page.locator('.thebe-ai-minimize').click();
+  assert.equal(await page.locator('#thebeAiDock').getAttribute('data-expanded'),'false','public desktop close returns to the compact rail');
   assert.deepEqual(errors,[],'no browser runtime errors');
   console.log('THEBE_AURA_IMMERSIVE_BROWSER_PASS: responsive orb, voice amplitude and visible conversation');
 } finally {await browser.close();}
