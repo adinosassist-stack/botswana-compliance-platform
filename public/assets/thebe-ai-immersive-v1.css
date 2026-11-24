@@ -202,7 +202,7 @@ html body.thebe-voice-active #thebeAiDock:not([data-css-recovery="1"]) .thebe-ai
 
 /* Consolidated Aura refinement: one header row and a scrollable, named history. */
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-ai-head-actions{flex-wrap:nowrap!important;gap:4px!important;flex-shrink:0!important}
-:is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) :is(.thebe-ai-expand,.thebe-ai-attention){display:none!important}
+:is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-ai-dock-head .thebe-ai-head-actions :is(.thebe-ai-expand,.thebe-ai-attention){display:none!important}
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) :is(.thebe-ai-clear,.thebe-ai-minimize){
   display:inline-flex!important;align-items:center;justify-content:center;
   width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;

@@ -126,7 +126,11 @@ try{
  await page.locator('#thebeAiDockPill .thebe-ai-pill-open').click();
  await page.waitForFunction(()=>document.getElementById('thebeAiDock').dataset.expanded==='true');
  assert(await page.locator('#thebeAiDock').isVisible(),'mobile launcher opens Aura conversation');
- assert(!(await page.getByRole('button',{name:'Restore Thebe panel',exact:true}).isVisible()),'Aura omits the redundant restore control');
+ assert(!(await page.getByRole('button',{name:'Restore Thebe panel',exact:true}).isVisible()),'Aura omits the redundant restore control in the production stylesheet cascade');
+ for(const selector of ['.thebe-ai-clear','.thebe-ai-minimize']){
+  const r=await page.locator(selector).boundingBox();
+  assert(r&&r.width>=44&&r.height>=44&&r.x>=0&&r.x+r.width<=390,'Aura header controls remain accessible in the production stylesheet cascade');
+ }
  await page.getByRole('button',{name:'Minimise Thebe dock'}).click();assert(!(await page.locator('#thebeAiDock').isVisible()),'mobile conversation closes');
  await page.setViewportSize({width:1440,height:960});await page.goto('http://localhost/public-page');await page.waitForSelector('#thebeAiDock');
  const publicGeometry=await page.evaluate(()=>{const m=document.querySelector('#marketingGate main'),d=document.getElementById('thebeAiDock').getBoundingClientRect();return {padding:Number.parseFloat(getComputedStyle(m).paddingRight),mainRight:m.getBoundingClientRect().right,dockLeft:d.left}});
