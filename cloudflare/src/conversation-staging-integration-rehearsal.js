@@ -3,6 +3,8 @@
 import {createConversationStagingContextResolver} from "./conversation-staging-context-resolver-rehearsal.js";
 import {createConversationStagingRoute} from "./conversation-staging-route-rehearsal.js";
 
+import {conversationThreadDirectory} from "./conversation-thread-directory-rehearsal.js";
+
 export function createConversationStagingIntegration({verifyCurrentSession}={}){
  if(typeof verifyCurrentSession!=="function")throw new TypeError("server_session_verifier_required");
  const readSession=async({request,env})=>{
@@ -27,5 +29,9 @@ export function createConversationStagingIntegration({verifyCurrentSession}={}){
    return row?{tenantId:row.tenant_id,id:row.id,status:row.status}:null;
  };
  const resolver=createConversationStagingContextResolver({readSession,readMembership,readConversation});
- return createConversationStagingRoute(resolver);
+ const messages=createConversationStagingRoute(resolver);
+ return {async fetch(request,env){
+  if(new URL(request.url).pathname==="/api/conversation-staging/threads")return conversationThreadDirectory({request,env,readSession});
+  return messages.fetch(request,env);
+ }};
 }
