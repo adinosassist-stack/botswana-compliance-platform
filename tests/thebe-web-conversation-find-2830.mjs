@@ -59,12 +59,12 @@ try{
   assert.equal(await panel.locator(".thebe-ai-find-status").innerText(),"1 matching messages");
   await field.press("Enter");
   assert.equal(await panel.locator(".thebe-ai-find-status").innerText(),"1 of 1 matching messages");
-  assert.equal(await page.evaluate(()=>document.activeElement?.dataset?.role),"user");
+  assert.equal(await field.evaluate(el=>document.activeElement===el),true,"Keyboard navigation preserves search field focus");
   assert.equal(await dock.locator(".thebe-ai-find-current").count(),1,"The current matching message is visibly identified");
   assert.equal(await dock.locator(".thebe-ai-find").evaluate(el=>getComputedStyle(el).position),"sticky","Search controls stay in the scroll viewport");
   await field.fill("Grounded test answer 2");
   await panel.locator(".thebe-ai-find-next").click();
-  assert.equal(await page.evaluate(()=>document.activeElement?.id),"thebeAiDockResponse","Current response is searchable");
+  assert.equal(await panel.locator(".thebe-ai-find-next").evaluate(el=>document.activeElement===el),true,"Button navigation preserves control focus");
   assert.equal(await dock.locator(".thebe-ai-find-current").count(),1,"Only one matching message is highlighted");
   assert.equal(await dock.locator("#thebeAiDockResponse.thebe-ai-find-current").count(),1,"The current answer can be the active search result");
   await field.fill("no-such-message");
@@ -76,6 +76,17 @@ try{
   assert.equal(await toggle.getAttribute("aria-expanded"),"false");
   assert.equal(await dock.locator(".thebe-ai-find-current").count(),0,"Closing search removes temporary highlights");
 
+  const composer=dock.locator("#thebeAiDockInput");
+  const edit=dock.locator(".thebe-aura-turn[data-role=user] .thebe-aura-edit-prompt").first();
+  await composer.fill("Unsent draft");
+  await edit.click();
+  assert.equal(await composer.inputValue(),"Unsent draft","Prompt reuse never overwrites an unsent draft");
+  await composer.fill("");
+  await edit.click();
+  assert.equal(await composer.inputValue(),"First question","Prompt reuse restores the selected message");
+  assert.equal(await composer.evaluate(el=>document.activeElement===el),true,"Prompt reuse focuses the composer");
+  assert.equal(await page.evaluate(()=>window.advisorCalls),2,"Editing never submits a paid request");
+  await composer.fill("");
   // Search is local UI-only. There is no assistant request or persisted search text.
   assert.equal(await page.evaluate(()=>window.advisorCalls),2);
   assert.equal(await page.evaluate(()=>
@@ -93,6 +104,8 @@ try{
       const input=el.querySelector("input").getBoundingClientRect();
       return {left:rect.left,right:rect.right,fieldLeft:input.left,fieldRight:input.right,viewport:innerWidth};
     });
+    const controls=await panel.locator(".thebe-ai-find-input-row button").evaluateAll(els=>els.map(el=>({width:el.getBoundingClientRect().width,height:el.getBoundingClientRect().height})));
+    assert(controls.every(c=>c.width>=43.5&&c.height>=43.5),"Search navigation touch targets are at least 44px");
     assert(g.left>=-1&&g.right<=g.viewport+1&&g.fieldLeft>=-1&&g.fieldRight<=g.viewport+1,
       "Find remains within web viewport: "+JSON.stringify(g));
   }
