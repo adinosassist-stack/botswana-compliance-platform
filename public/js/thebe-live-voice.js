@@ -809,6 +809,13 @@
   let syncConversationFind=()=>{},resetConversationFind=()=>{};
   // In-memory conversation only: never persist text across tenants or sessions.
   const TEXT_HISTORY_LIMIT=24;
+  // Only successful, attachment-free ordinary chat pairs are eligible for model context.
+  const advisorConversation=[];
+  function advisorPriorTurns(){return advisorConversation.slice(-6).map(turn=>({role:turn.role,content:turn.content}));}
+  function retainAdvisorPair(question,answer){
+    advisorConversation.push({role:"user",content:clean(question,400)},{role:"assistant",content:clean(answer,400)});
+    if(advisorConversation.length>6)advisorConversation.splice(0,advisorConversation.length-6);
+  }
   function appendConversationTurn(role,content){
     if(!conversationHistory)return;
     const value=cleanMultiline(content,3200);
@@ -839,6 +846,7 @@
   function clearConversation(){
     if(!dock)return;
     conversationHistory?.replaceChildren();
+    advisorConversation.splice(0);
     resetConversationFind();
     voiceCompletedTurns.splice(0);syncVoiceChatActivity();
     textAbortController?.abort("conversation-cleared");
@@ -1829,14 +1837,17 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       const result=await api("/api/ai/advisor",{
         method:"POST",
         headers:{"content-type":"application/json"},
-        body:JSON.stringify({mode:requestedMode,question:contextualQuestion(q),...(attachments.length?{attachments}:{})}),
+        body:JSON.stringify({mode:requestedMode,question:contextualQuestion(q),...(attachments.length?{attachments}:requestedMode==="ask"&&priorTurns.length?{conversationHistory:priorTurns}:{})}),
         // Workspace context assembly and model inference can exceed the generic 18s API deadline.
         // Keep a bounded advisor-specific deadline; preserve transport idempotency and truthful errors.
         timeoutMs:attachments.length?120000:45000,
         signal:controller.signal
       });
       if(runId!==textRunId)return;
+      if(!shellVisible()||currentWorkspaceScope()!==requestScope)return;
       requireAdvisorAnswer(result);
+      if(requestedMode==="ask"&&result.generationMode==="structured_fallback")throw new Error(result.answer);
+      if(requestedMode==="ask"&&!attachments.length&&result.generationMode==="workers_ai")retainAdvisorPair(q,result.answer);
       pendingFiles=pendingFiles.filter(file=>!files.includes(file));renderAttachmentTray();
       renderResult(result);
       // Only ordinary, attachment-free advisor answers may be requested again.
