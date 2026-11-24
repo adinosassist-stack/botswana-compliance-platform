@@ -42,7 +42,7 @@ try{
     await page.waitForSelector('#thebeAiDock',{state:'attached'});
     if(workspace)await page.locator('#thebeAiDockPill').click();
     const dock=page.locator('#thebeAiDock'),input=page.locator('#thebeAiDockInput');
-    const audio=dock.locator('.thebe-ai-audio'),send=dock.locator('.thebe-ai-send'),plus=dock.locator('.thebe-ai-attach');
+    const audio=dock.locator('.thebe-ai-conversation-voice'),send=dock.locator('.thebe-ai-send'),plus=dock.locator('.thebe-ai-attach');
     await dock.waitFor({state:'visible'});
     if(!workspace)assert(await dock.locator('.thebe-ai-quick').isVisible(),'public shortcuts remain available');
     if(workspace){
@@ -94,7 +94,7 @@ try{
       }
     }
     await input.fill('');
-    assert(await audio.isVisible(),'idle voice is available');assert(await send.isHidden(),'idle send hidden');
+    assert.equal(await dock.locator('.thebe-ai-audio').count(),0,'duplicate composer microphone removed');assert(await audio.isVisible(),'idle voice is available');assert(await send.isHidden(),'idle send hidden');
     assert.equal(await plus.isVisible(),workspace,'files restricted to workspace');
     await input.fill('a');assert(await send.isVisible(),'one character offers send');assert(await audio.isHidden());
     await input.fill('');assert(await audio.isVisible(),'clearing restores voice');
