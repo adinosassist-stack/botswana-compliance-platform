@@ -585,7 +585,7 @@
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
   let dock=null,pill=null,pillOpen=null,pillLabel=null,pillSync=()=>{},orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,scrollRegion=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null,missionRail=null,missionLabel=null,missionMeta=null,missionAction=null,contextBar=null,contextLabel=null,modeRail=null,clearButton=null,latestResponseButton=null;
-  let audioButton=null,attachButton=null,fileInput=null,attachmentTray=null,pendingFiles=[];
+  let attachButton=null,fileInput=null,attachmentTray=null,pendingFiles=[];
   let conversationHistory=null,immersiveGreeting=null,immersiveMute=null;
   let voiceScreen=null,voiceScreenStatus=null,voiceScreenOrb=null,voiceScreenTranscript=null,voiceReturnFocus=null;
   let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",mascotFocus="ambient",ownerCommandState=null,persistentObjectiveState=null,collapsed=false,assistantMode="ask",lastAnswer="",lastGoal="",lastAdvisorTrust="neutral",autoFollowResponse=true,responseScrollLock=false,textRunId=0,textAbortController=null;
@@ -1322,17 +1322,19 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     if(!voiceChatActivity)return;
     const active=["connecting","ready","listening","thinking","speaking"].includes(voicePhase);
     voiceChatActivity.hidden=!active&&!voiceInput&&!voiceOutput&&!voiceCompletedTurns.length;
-    if(voiceChatActivity.hidden)return;
+    if(voiceChatActivity.hidden){voiceChatActivity.replaceChildren();syncConversationFind();return;}
     voiceChatActivity.replaceChildren();
     const heading=el("div","thebe-ai-voice-activity-heading","Voice conversation · "+(voicePhase==="listening"?"Listening":voicePhase==="thinking"?"Thinking":voicePhase==="speaking"?"Speaking":voicePhase==="connecting"?"Connecting":voicePhase==="idle"?"Ended":"Connected"));
     voiceChatActivity.append(heading);
     for(const turn of voiceCompletedTurns){
       const line=el("div","thebe-ai-live-line");
-      line.append(el("b","",turn.role==="user"?"You":"Thebe"),document.createTextNode(turn.content));
+      line.dataset.retainedVoice="true";
+      line.append(el("b","",turn.role==="user"?"You":"Thebe"),el("span","thebe-ai-retained-voice-content",turn.content));
       voiceChatActivity.append(line);
     }
     if(voiceInput){const line=el("div","thebe-ai-live-line");line.append(el("b","","You"),document.createTextNode(clean(voiceInput,600)));voiceChatActivity.append(line)}
     if(voiceOutput){const line=el("div","thebe-ai-live-line");line.append(el("b","","Thebe"),document.createTextNode(clean(voiceOutput,600)));voiceChatActivity.append(line)}
+    syncConversationFind();
   }
   function renderVoiceTranscript(){
     const user=clean(voiceInput,360),assistant=clean(voiceOutput,360);
@@ -1439,7 +1441,6 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     sendButton.hidden=!draft&&!textBusy;
     sendButton.disabled=textBusy||!draft;
     sendButton.setAttribute("aria-disabled",String(sendButton.disabled));
-    if(audioButton){audioButton.hidden=draft||textBusy;audioButton.disabled=textBusy}
     if(attachButton){attachButton.hidden=!shellVisible();attachButton.disabled=textBusy}
     attachmentTray?.querySelectorAll("button").forEach(button=>{button.disabled=textBusy});
   }
@@ -2156,11 +2157,11 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const findMatches=()=>{
       const needle=findInput.value.trim().toLocaleLowerCase();
       if(!needle)return [];
-      const visible=[...conversationHistory.querySelectorAll(".thebe-aura-turn")];
+      const visible=[...conversationHistory.querySelectorAll(".thebe-aura-turn"),...(!voiceChatActivity.hidden?voiceChatActivity.querySelectorAll("[data-retained-voice]"):[])];
       // Only the actual latest answer is searchable, not a transient status.
       if(lastAnswer)visible.push(responseBox);
       return visible.filter(node=>
-        String(node===responseBox?lastAnswer:node.querySelector(".thebe-aura-turn-content")?.textContent||"").toLocaleLowerCase().includes(needle));
+        String(node===responseBox?lastAnswer:node.querySelector(".thebe-aura-turn-content,.thebe-ai-retained-voice-content")?.textContent||"").toLocaleLowerCase().includes(needle));
     };
     syncConversationFind=()=>{
       if(findPanel.hidden)return;
@@ -2241,13 +2242,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     fileInput=el("input","");fileInput.type="file";fileInput.hidden=true;fileInput.multiple=true;fileInput.accept=".pdf,.docx,.xlsx,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.webp";
     attachButton.addEventListener("click",()=>fileInput.click());
     fileInput.addEventListener("change",()=>{stageFiles(fileInput.files||[]);fileInput.value=""});
-    audioButton=el("button","thebe-ai-composer-action thebe-ai-audio");audioButton.type="button";audioButton.setAttribute("aria-label","Start Thebe voice");audioButton.title="Talk to Thebe";
-    const mic=document.createElementNS(svgNS,"svg");mic.setAttribute("viewBox","0 0 24 24");mic.setAttribute("aria-hidden","true");
-    const micPath=document.createElementNS(svgNS,"path");micPath.setAttribute("d","M12 15a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v7a3 3 0 0 0 3 3Zm-7-4v1a7 7 0 0 0 14 0v-1M12 19v3m-4 0h8");
-    micPath.setAttribute("fill","none");micPath.setAttribute("stroke","currentColor");micPath.setAttribute("stroke-width","1.8");micPath.setAttribute("stroke-linecap","round");micPath.setAttribute("stroke-linejoin","round");mic.append(micPath);audioButton.append(mic);
-    audioButton.addEventListener("click",()=>orbButton.click());
-    // Dedicated conversation control beside the mic: reuse the governed
-    // full-duplex Thebe Live Voice session, including its mute/end controls.
+    // One composer voice control; the orb remains the other entry into the same session.
     const conversationVoiceButton=el("button","thebe-ai-composer-action thebe-ai-conversation-voice");
     conversationVoiceButton.type="button";
     conversationVoiceButton.setAttribute("aria-label","Start voice conversation with Thebe");
@@ -2274,7 +2269,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const composeHint=el("div","thebe-ai-compose-hint","Enter to send · Shift+Enter for a new line · Alt+T opens Thebe");
     composeBody.append(input,composeHint);
     sendButton=el("button","thebe-ai-send","↑");sendButton.type="submit";sendButton.setAttribute("aria-label","Send to Thebe");sendButton.title="Send to Thebe";
-    compose.append(attachButton,fileInput,composeBody,audioButton,conversationVoiceButton,sendButton);
+    compose.append(attachButton,fileInput,composeBody,conversationVoiceButton,sendButton);
     compose.addEventListener("submit",event=>{event.preventDefault();const value=input.value,files=[...pendingFiles];if(textBusy||(!clean(value,MAX_QUESTION).length&&!files.length))return;input.value="";syncComposerHeight();syncComposerState();void ask(assistantMode,value,files)});
     input.addEventListener("input",()=>{syncComposerHeight();syncComposerState()});
     input.setAttribute("enterkeyhint",mobileDockMode()?"enter":"send");
