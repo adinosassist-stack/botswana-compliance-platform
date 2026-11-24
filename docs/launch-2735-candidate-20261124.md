@@ -49,3 +49,9 @@ This is a prepared source candidate. A sealed production candidate cannot honest
 Automatic approval review rejected the attempt to push this local source/workflow update to `fix/founder-ai-no-deduction`: remote publication was not considered explicitly authorized. The remote PR was not updated. Explicit user authorization to push the prepared candidate is required before remote exact-head CI and independent review can begin. No alternate publishing route was used.
 
 The candidate is available as a local Git commit and a complete base-to-candidate patch. It is not a sealed or deployed production release.
+
+## Authorized publication and CI follow-up
+
+The owner subsequently authorized publication. The GitHub connection published the exact tested tree to #2851 (initial remote head `bcbe99007504813b63e55ad08b628039f8756272`), superseding the historical publication HOLD above. Independent thusico review was requested.
+
+Fresh CI detected two gaps: the older V333 wallet harness omitted the new request-counter declaration and expected duplicate summary text; the new computed-style assertion exposed immersive Aura specificity overriding mobile neutral focus. The harness now includes the real initialization and checks dedicated balance metrics plus plan/lifetime summary. The immersive stylesheet now uses neutral focus within mobile composers, retaining keyboard feedback and idle Aura appearance. Local wallet/session checks, fullscreen source invariants and all 534 bundle checks pass; fresh exact-head CI is required after these changes.
