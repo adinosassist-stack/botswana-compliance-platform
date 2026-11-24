@@ -16,10 +16,13 @@ export async function conversationStagingBoundary({env,request,context,threadId,
   if(type!=="application/json")return deny(415,"unsupported_media_type");
   // Bound bytes while reading, including chunked bodies without Content-Length.
   // The actual route must still impose platform-level request limits.
+  const exchangeRequest=request.headers.get("x-thebe-conversation-exchange")==="1";
+  if(exchangeRequest&&(!env?.CONVERSATION_STAGING_ORIGIN||request.headers.get("origin")!==env.CONVERSATION_STAGING_ORIGIN))return deny(403,"origin_mismatch");
+  const maxBytes=exchangeRequest?20_480:8192;
   const rawLength=request.headers?.get?.("content-length");
   if(rawLength!==null&&rawLength!==undefined){
     if(!/^[0-9]+$/.test(String(rawLength)))return deny(400,"invalid_content_length");
-    if(Number(rawLength)>8192)return deny(413,"payload_too_large");
+    if(Number(rawLength)>maxBytes)return deny(413,"payload_too_large");
   }
   if(!request.body?.getReader)return deny(400,"missing_body_stream");
   const reader=request.body.getReader();
@@ -31,7 +34,7 @@ export async function conversationStagingBoundary({env,request,context,threadId,
       if(done)break;
       if(!(value instanceof Uint8Array))return deny(400,"invalid_body_chunk");
       total+=value.byteLength;
-      if(total>8192){
+      if(total>maxBytes){
         await reader.cancel().catch(()=>{});
         return deny(413,"payload_too_large");
       }
@@ -43,6 +46,7 @@ export async function conversationStagingBoundary({env,request,context,threadId,
     body=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(bytes));
   }catch{return deny(400,"invalid_json")}
   finally{try{reader.releaseLock()}catch{}}
+  if(exchangeRequest!==Boolean(body?.exchange))return deny(400,"invalid_message");
   const result=await appendFromTrustedSession({env,context,clientBody:body,id});
   return {status:result.ok?200:result.error==="invalid_message"?400:result.error==="idempotency_conflict"?409:result.error==="access_denied"?403:503,body:result};
 }

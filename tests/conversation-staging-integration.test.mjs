@@ -136,6 +136,17 @@ try{
  assert.equal(otherTenant.status,200);
  assert.deepEqual((await otherTenant.json()).items,[]);
  session={...session,userId:"u",tenantId:"A"};
+ const writeExchange=exchange=>deviceB.fetch(new Request(path,{method:"POST",headers:{
+  origin,"content-type":"application/json","x-thebe-conversation-exchange":"1"
+ },body:JSON.stringify({exchange})}),realEnv);
+ const exchange={question:"Question",answer:"Answer",idempotencyKey:"exchange-1"};
+ assert.deepEqual(await (await writeExchange(exchange)).json(),{ok:true,duplicate:false});
+ assert.deepEqual(await (await writeExchange(exchange)).json(),{ok:true,duplicate:true});
+ assert.equal((await writeExchange({...exchange,answer:"Changed"})).status,409);
+ assert.equal((await writeMessage(deviceB,{...typed,idempotencyKey:"collision-answer"})).status,200);
+ assert.equal((await writeExchange({...exchange,idempotencyKey:"collision"})).status,409);
+ const rows=(await (await readMessages(deviceB)).json()).items;
+ assert.deepEqual(rows.map(row=>row.content_redacted),[typed.content,"Answer","Question",typed.content]);
  assert.equal((await client.remove("thread")).ok,true);
  await assert.rejects(client.read("thread"),/conversation_request_failed_401/);
  assert.equal((await readMessages(deviceB)).status,401);

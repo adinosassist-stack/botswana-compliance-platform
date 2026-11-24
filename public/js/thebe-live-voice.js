@@ -861,6 +861,7 @@
   }
   function clearConversation(){
     if(!dock)return;
+    openedSavedThread=null;
     conversationHistory?.replaceChildren();
     advisorConversation.splice(0);
     resetConversationFind();
@@ -1075,6 +1076,8 @@
   }
   function syncVisibility(){
     if(!dock||!pill)return;
+    const saved=dock.querySelector(".thebe-ai-saved-threads");
+    if(saved)saved.hidden=!savedThreadsAvailable();
     const research=dock.querySelector(".thebe-ai-web-search");
     if(research){research.hidden=!webResearchAvailable();research.disabled=textBusy||pendingFiles.length>0;}
     const mobile=mobileDockMode();
@@ -1110,12 +1113,13 @@
       const scope=currentWorkspaceScope();
       if(lastWorkspaceScope!==null&&lastWorkspaceScope!==scope){
         closeVoiceScreen(true);
+        resetSavedThreadDirectory();
         clearConversation();
       }
       lastWorkspaceScope=scope;
     }else{
       lastWorkspaceScope=null;
-      if(dock.dataset.workspaceVisible==="1"||pendingFiles.length)clearConversation();
+      if(dock.dataset.workspaceVisible==="1"||pendingFiles.length){resetSavedThreadDirectory();clearConversation()}
     }
     syncComposerState();
     syncWorkspaceVisualInvariants();
@@ -1149,8 +1153,11 @@
     if(foot)foot.textContent=workspace
       ?"Advisory by default · governed actions still require the existing approval controls."
       :"Public sample · no workspace data · voice sample limited to 60 seconds.";
-    document.body.classList.toggle("thebe-ai-dock-open",workspace&&!isCollapsed);
+    syncWorkspaceDockReservation(workspace&&!isCollapsed);
     document.body.classList.toggle("thebe-ai-dock-yield",workspace&&yielded);
+  }
+  function syncWorkspaceDockReservation(open){
+    document.body.classList.toggle("thebe-ai-dock-open",open&&dock.dataset.expanded!=="true");
   }
   function recoverVisibility(){
     if(!dock||!pill)return;
@@ -1159,7 +1166,7 @@
     if(surface!=="hidden"&&!isCollapsed){
       dock.hidden=false;
       pill.hidden=true;
-      document.body.classList.toggle("thebe-ai-dock-open",surface==="workspace");
+      syncWorkspaceDockReservation(surface==="workspace");
     }
   }
   function setMascotState(state){
@@ -1757,6 +1764,155 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     for(const suggestion of suggestions)quick.append(quickButton(...suggestion));
   }
 
+  let savedThreadEpoch=0, openedSavedThread=null;
+  function resetSavedThreadDirectory(){
+    savedThreadEpoch++;
+    openedSavedThread=null;
+    const section=dock?.querySelector(".thebe-ai-saved-threads");
+    if(!section)return;
+    section.open=false;
+    section.querySelector("select")?.replaceChildren();
+    section.querySelectorAll("input").forEach(field=>{field.value=""});
+    const status=section.querySelector('[role="status"]');
+    if(status)status.textContent="";
+  }
+  function savedThreadsAvailable(){
+    const user=workspaceUser();
+    return shellVisible()&&Boolean(user.id&&user.tenantId)
+      &&document.querySelector('meta[name="thebe-conversation-staging-enabled"]')?.content==="true";
+  }
+  const SAVED_THREADS_PATH="/api/conversation-staging/threads";
+  async function saveCompletedTextExchange({scope,runId,signal,question,answer}){
+    const current=()=>savedThreadsAvailable()&&scope===currentWorkspaceScope()&&runId===textRunId&&!signal.aborted;
+    if(!current())return;
+    const saveStatus=el("p","thebe-ai-save-status");
+    saveStatus.setAttribute("role","status");
+    saveStatus.textContent="Saving chat…";
+    responseBox?.append(saveStatus);
+    try{
+      let id=openedSavedThread;
+      if(!id){
+        const thread=await api(SAVED_THREADS_PATH,{method:"POST",signal,timeoutMs:8000,idempotencyKey:""});
+        if(!current())return;
+        if(thread?.ok!==true||typeof thread.id!=="string"||!/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(thread.id))throw new Error("thread_create_failed");
+        id=openedSavedThread=thread.id;
+      }
+      const idempotencyKey=global.crypto.randomUUID();
+      const saved=await api(SAVED_THREADS_PATH+"/"+encodeURIComponent(id)+"/messages",{
+        method:"POST",signal,timeoutMs:8000,idempotencyKey,
+        headers:{"content-type":"application/json","x-thebe-conversation-exchange":"1"},
+        body:JSON.stringify({exchange:{question,answer,idempotencyKey}})
+      });
+      if(saved?.ok!==true)throw new Error("exchange_save_failed");
+      if(current())saveStatus.textContent="Chat saved.";
+    }catch{
+      if(current())saveStatus.textContent="Could not confirm the chat was saved. Your answer is still visible.";
+    }
+  }
+  function mountSavedThreads(){
+    const section=el("details","thebe-ai-saved-threads");
+    section.hidden=!savedThreadsAvailable();
+    const summary=el("summary","","Saved chats");
+    const search=el("input");
+    search.type="search";
+    search.maxLength=120;
+    search.placeholder="Search chat titles";
+    search.setAttribute("aria-label","Search saved chat titles");
+    const list=el("select");
+    list.setAttribute("aria-label","Saved chat");
+    const title=el("input");
+    title.setAttribute("aria-label","New chat title");
+    title.maxLength=120;
+    const status=el("p");
+    status.setAttribute("role","status");
+    const actions=["Search","Open","Rename","Delete"].map(label=>{
+      const button=el("button","thebe-ai-open-full",label);
+      button.type="button";
+      return button;
+    });
+    const [searchButton,open,rename,remove]=actions;
+    section.append(summary,search,searchButton,list,title,open,rename,remove,status);
+    const path=SAVED_THREADS_PATH;
+    let busy=false,listingScope=null;
+    const stillCurrent=(scope,epoch)=>savedThreadsAvailable()&&scope===currentWorkspaceScope()&&epoch===savedThreadEpoch;
+    async function load(scope,epoch){
+      const query=search.value.trim();
+      const data=await api(query?path+"?"+new URLSearchParams({q:query}):path);
+      if(!stillCurrent(scope,epoch))return;
+      if(data?.ok!==true||!Array.isArray(data.items))throw new Error("invalid_directory");
+      list.replaceChildren();
+      for(const item of data.items){
+        if(!/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(item?.id))continue;
+        const option=el("option","",clean(item.title,120)||"Untitled chat");
+        option.value=item.id;
+        list.append(option);
+      }
+      listingScope=scope;
+      status.textContent=!list.options.length?(query?"No matching chat titles.":"No saved chats."):
+        data.truncated?"Showing the first 50 chats. Search to narrow the list.":"";
+    }
+    const run=async operation=>{
+      if(busy||textBusy||!savedThreadsAvailable())return;
+      const scope=currentWorkspaceScope();
+      if(scope!==listingScope){
+        list.replaceChildren();
+        search.value="";
+        title.value="";
+      }
+      const epoch=savedThreadEpoch;
+      busy=true;
+      actions.forEach(button=>{button.disabled=true});
+      status.textContent="Loading saved chats…";
+      try{await operation(scope,epoch)}
+      catch{if(stillCurrent(scope,epoch))status.textContent="Could not update saved chats. Try again."}
+      finally{
+        busy=false;
+        actions.forEach(button=>{button.disabled=false});
+      }
+    };
+    section.addEventListener("toggle",()=>{if(section.open)void run(load)});
+    searchButton.addEventListener("click",()=>void run(load));
+    search.addEventListener("keydown",event=>{
+      if(event.key!=="Enter"||event.isComposing)return;
+      event.preventDefault();
+      void run(load);
+    });
+    open.addEventListener("click",()=>void run(async (scope,epoch)=>{
+      const id=list.value;
+      if(!id){status.textContent="Choose a saved chat.";return}
+      const runId=textRunId;
+      const data=await api(path+"/"+encodeURIComponent(id)+"/messages");
+      if(!stillCurrent(scope,epoch)||runId!==textRunId||textBusy)return;
+      if(data?.ok!==true||!Array.isArray(data.items))throw new Error("invalid_messages");
+      clearConversation();
+      for(const item of data.items.slice().reverse()){
+        if(["user","assistant"].includes(item?.role))appendConversationTurn(item.role,item.content_redacted);
+      }
+      openedSavedThread=id;
+      dock.dataset.conversation="true";
+      status.textContent="Saved chat opened.";
+    }));
+    function change(method){
+      void run(async (scope,epoch)=>{
+        const id=list.value;
+        if(!id){status.textContent="Choose a saved chat.";return}
+        const name=title.value.trim();
+        if(method==="PATCH"&&!name){status.textContent="Enter a new chat title.";return}
+        if(method==="DELETE"&&!global.confirm("Delete this saved chat?")){status.textContent="Deletion cancelled.";return}
+        const data=await api(path+"?"+new URLSearchParams({threadId:id}),{
+          method,...(method==="PATCH"?{headers:{"content-type":"application/json"},body:JSON.stringify({title:name})}:{})
+        });
+        if(!stillCurrent(scope,epoch))return;
+        if(data?.ok!==true)throw new Error("thread_change_failed");
+        if(method==="DELETE"&&openedSavedThread===id)clearConversation();
+        title.value="";
+        await load(scope,epoch);
+      });
+    }
+    rename.addEventListener("click",()=>change("PATCH"));
+    remove.addEventListener("click",()=>change("DELETE"));
+    return section;
+  }
   function webResearchAvailable(){
     return shellVisible()&&!!workspaceUser().id&&!!workspaceUser().tenantId&&document.querySelector('meta[name="thebe-general-ai-enabled"]')?.content==="true"
       &&document.querySelector('meta[name="thebe-general-ai-research-enabled"]')?.content==="true";
@@ -1826,6 +1982,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     }
     const runId=++textRunId;
     const controller=new AbortController();
+    const saveAnswer=()=>saveCompletedTextExchange({scope:requestScope,runId,signal:controller.signal,question:q,answer:lastAnswer});
     textAbortController=controller;
     textBusy=true;
     lastGoal=q;
@@ -1834,7 +1991,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     autoFollowResponse=true;
     if(latestResponseButton)latestResponseButton.hidden=true;
     syncBusyControls();
-    responseMessage(mode==="web_research"?"Searching the web…":files.length?"Reading the attached files…":["ask","general","research_unavailable"].includes(mode)?"Thinking…":"Reviewing the current workspace…","thinking");
+    responseMessage(mode==="web_research"?"Searching the web…":files.length?"Reading the attached files…":"Thinking…","thinking");
     scrollResponseIntoView(true);
     try{
       if(mode==="research_unavailable")throw new Error("Live research is not available; current information cannot be verified.");
@@ -1848,12 +2005,14 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
         if(title)title.textContent="General AI response — not live verified";
         responseBox?.querySelector(".thebe-ai-run-summary")?.remove();
         retainAdvisorPair(q,result.answer);
+        await saveAnswer();
         return;
       }
       if(mode==="web_research"){
         const result=await api("/api/ai/general",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({question:"Search the web: "+q}),timeoutMs:45000,signal:controller.signal});
         if(runId!==textRunId||controller.signal.aborted||!webResearchAvailable()||requestScope!==currentWorkspaceScope())return;
         renderWebResearch(result);
+        await saveAnswer();
         return;
       }
       if(files.length&&["resume_plan","goal_plan"].includes(mode))throw new Error("Use Ask, Brief or Priorities to review attached files.");
@@ -1905,6 +2064,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
         });
         responseBox.querySelector(".thebe-ai-response-tools")?.append(retry);
       }
+      if(!attachments.length&&requestedMode==="ask")await saveAnswer();
     }catch(error){
       if(runId!==textRunId||error?.code==="aborted")return;
       if(!shellVisible()||currentWorkspaceScope()!==requestScope)return;
@@ -2237,7 +2397,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     findPanel.append(findInputRow,findStatus);
     const findActions=el("div","thebe-ai-find-actions");
     findActions.append(findToggle);
-    findWrap.append(findActions,findPanel);
+    findWrap.append(findActions,findPanel,mountSavedThreads());
     const researchButton=el("button","thebe-ai-web-search thebe-ai-open-full");
     researchButton.setAttribute("aria-label","Search the web");
     appendControlIcon(researchButton,["M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0ZM2 12h20M12 2a16 16 0 0 1 0 20 16 16 0 0 1 0-20Z"]);

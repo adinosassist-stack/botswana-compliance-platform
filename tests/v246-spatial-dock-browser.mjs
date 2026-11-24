@@ -62,15 +62,23 @@ try{
  await page.setViewportSize({width:1440,height:960});
  if(process.env.THEBE_SCREENSHOT_DIR){fs.mkdirSync(process.env.THEBE_SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.THEBE_SCREENSHOT_DIR,'dock-desktop.png')})}
  await page.getByRole('button',{name:'Expand Thebe panel',exact:true}).click();
- const expandedDockWidths=new Map([[1440,634],[1200,528],[1199,324],[1024,324]]);
- for(const [width,expectedDockWidth] of expandedDockWidths){
+ for(const width of [1440,1200,1199,1024]){
   await page.setViewportSize({width,height:960});
-  await page.waitForFunction(expected=>Math.abs(document.getElementById('thebeAiDock').getBoundingClientRect().width-expected)<=1,expectedDockWidth);
-  const geometry=await page.evaluate(()=>{const d=document.getElementById('thebeAiDock').getBoundingClientRect(),m=document.getElementById('mainContent').getBoundingClientRect();return {dock:{left:d.left,right:d.right,width:d.width},main:{left:m.left,right:m.right}}});
-  assert(Math.abs(geometry.dock.width-expectedDockWidth)<=1,`unexpected expanded dock width at ${width}: expected ${expectedDockWidth}, got ${geometry.dock.width}`);
-  assert(geometry.main.right<=geometry.dock.left,`expanded dock overlaps business content at ${width}: ${JSON.stringify(geometry)}`);
+  await page.waitForFunction(()=>{
+   const bounds=document.getElementById('thebeAiDock').getBoundingClientRect();
+   return Math.abs(bounds.width-innerWidth)<=1&&Math.abs(bounds.height-innerHeight)<=1;
+  });
+  assert.equal(await page.evaluate(()=>document.body.classList.contains('thebe-ai-dock-open')),false,
+   'fullscreen does not reserve a workspace rail');
  }
  await page.setViewportSize({width:1440,height:960});
+ await page.getByRole('button',{name:'Minimise Thebe dock',exact:true}).click();
+ await page.locator('#thebeAiDockPill .thebe-ai-pill-open').click();
+ await page.waitForFunction(()=>{
+  const dock=document.getElementById('thebeAiDock').getBoundingClientRect();
+  const main=document.getElementById('mainContent').getBoundingClientRect();
+  return Math.abs(dock.width-547)<=1&&main.right<=dock.left;
+ });
  // Business dialogs must own the interaction layer above the assistant.
  await page.evaluate(()=>{
   const modal=document.createElement('div');modal.className='modal open';modal.id='testBusinessModal';

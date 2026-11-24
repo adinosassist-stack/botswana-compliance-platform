@@ -136,3 +136,60 @@ test('automatic Dock routing is opt-in, conservative and never exports workspace
  assert.match(dispatch,/result.researchPerformed!==false/);
  assert.match(dispatch,/retainAdvisorPair\(q,result.answer\)/);
 });
+
+test('workspace text modes use Thinking while research and attachments keep their specific status',()=>{
+ assert.match(dock,/responseMessage\(mode==="web_research"\?"Searching the web…":files\.length\?"Reading the attached files…":"Thinking…","thinking"\)/);
+});
+
+test('maximizing the Dock releases the workspace rail in normal and recovery visibility paths',()=>{
+ const start=dock.indexOf('function syncWorkspaceDockReservation(');
+ const end=dock.indexOf('function recoverVisibility(',start);
+ assert.ok(start>=0&&end>start);
+ const updates=[];
+ const document={body:{classList:{toggle:(name,value)=>updates.push([name,value])}}};
+ const panel={dataset:{expanded:'false'}};
+ const reserve=new Function('document','dock',dock.slice(start,end)+';return syncWorkspaceDockReservation;')(document,panel);
+ reserve(true);
+ panel.dataset.expanded='true';
+ reserve(true);
+ panel.dataset.expanded='false';
+ reserve(false);
+ assert.deepEqual(updates,[['thebe-ai-dock-open',true],['thebe-ai-dock-open',false],['thebe-ai-dock-open',false]]);
+ assert.match(dock,/syncWorkspaceDockReservation\(workspace&&!isCollapsed\)/);
+ assert.match(dock,/syncWorkspaceDockReservation\(surface==="workspace"\)/);
+});
+
+test('staging autosave writes a single exchange and stops after a scope switch',async()=>{
+ const start=dock.indexOf('  const SAVED_THREADS_PATH=');
+ const end=dock.indexOf('  function mountSavedThreads()',start);
+ assert.ok(start>=0&&end>start);
+ const calls=[];
+ let workspace='a', sequence=0;
+ const status={setAttribute(){}};
+ const api=async (path,options)=>{
+  calls.push({path,options});
+  if(!options.body){
+   if(workspace==='switch')workspace='b';
+   return {ok:true,id:'thread-a'};
+  }
+  return {ok:true};
+ };
+ const build=new Function('api','currentWorkspaceScope','el','global',`
+  let openedSavedThread=null;
+  const textRunId=1,responseBox={append(){}},savedThreadsAvailable=()=>true;
+  ${dock.slice(start,end)}
+  return saveCompletedTextExchange;
+ `);
+ const global={crypto:{randomUUID:()=>String(++sequence)}};
+ const input={scope:'a',runId:1,signal:new AbortController().signal,question:'Question',answer:'Answer'};
+ await build(api,()=>workspace,()=>status,global)(input);
+ assert.equal(calls[0].options.idempotencyKey,'');
+ assert.equal(calls.length,2);
+ assert.deepEqual(JSON.parse(calls[1].options.body),{exchange:{question:'Question',answer:'Answer',idempotencyKey:'1'}});
+ assert.equal(status.textContent,'Chat saved.');
+ calls.length=0;
+ workspace='switch';
+ await build(api,()=>workspace,()=>status,global)({...input,scope:'switch'});
+ assert.equal(calls.length,1);
+ assert.equal(workspace,'b');
+});

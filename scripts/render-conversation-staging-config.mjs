@@ -16,6 +16,16 @@ export function conversationStagingConfig(env={}){
    throw Error("known_database_id_invalid");
  const sha=String(env.CONVERSATION_STAGING_SOURCE_SHA||"");
  if(!/^[0-9a-f]{40}$/.test(sha))throw Error("exact_source_sha_required");
+ const mode=env.CONVERSATION_STAGING_MODE??"locked";
+ if(!["locked","private-service"].includes(mode))throw Error("invalid_conversation_staging_mode");
+ const privateService=mode==="private-service";
+ const origin=env.CONVERSATION_STAGING_ORIGIN;
+ if(privateService){
+  if(env.CONVERSATION_STAGING_PRIVACY_APPROVED!=="true"||env.CONVERSATION_STAGING_MIGRATION_QUALIFIED!=="true")
+   throw Error("conversation_staging_approval_required");
+  if(typeof origin!=="string"||!/^https:\/\/[a-z0-9]+(?:-[a-z0-9]+)*-staging\.thebedesk\.com$/.test(origin))
+   throw Error("dedicated_staging_origin_required");
+ }
  return {
   name:"bw-conversation-staging",
   main:path.join(root,"cloudflare/src/conversation-staging-entry.js"),
@@ -23,10 +33,18 @@ export function conversationStagingConfig(env={}){
   workers_dev:false,preview_urls:false,keep_vars:false,
   routes:[],
   vars:{
-   APP_ENV:"staging",DEPLOYMENT_PROFILE:"conversation-staging-locked",
+   APP_ENV:"staging",DEPLOYMENT_PROFILE:privateService?"conversation-staging":"conversation-staging-locked",
    CONVERSATION_STAGING_SOURCE_SHA:sha,
-   CONVERSATION_REHEARSAL_ENABLED:"false",
-   CONVERSATION_REHEARSAL_WRITE_ENABLED:"false",
+   CONVERSATION_REHEARSAL_ENABLED:String(privateService),
+   CONVERSATION_REHEARSAL_WRITE_ENABLED:String(privateService),
+   ...(privateService?{
+    DEPLOYMENT_ENV:"staging",
+    CONVERSATION_HISTORY_STAGING_ENABLED:"true",
+    CONVERSATION_STAGING_ORIGIN:origin,
+    CONVERSATION_STAGING_D1_ID:id,
+    CONVERSATION_STAGING_PRIVACY_APPROVED:"true",
+    CONVERSATION_STAGING_MIGRATION_QUALIFIED:"true"
+   }:{}),
    AI_FEATURES_DEFAULT:"off",
    PAYMENT_PROVIDER:"none",
    THEBE_LIVE_VOICE_ENABLED:"false"
