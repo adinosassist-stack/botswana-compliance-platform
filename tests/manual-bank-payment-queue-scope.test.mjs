@@ -35,6 +35,9 @@ function fixture(){
  add('recover',{orderStatus:'paid',reviewStatus:'reviewing'});
  add('other-provider',{provider:'dpo'});
  add('credit-order',{type:'ai_credits'});
+ add('credit-cross-tenant',{type:'ai_credits',submissionTenant:'beta'});
+ add('credit-other-provider',{type:'ai_credits',provider:'dpo'});
+ add('credit-closed',{type:'ai_credits',reviewStatus:'approved'});
  add('canceled',{orderStatus:'canceled'});
  add('cross-tenant',{submissionTenant:'beta'});
  add('closed-review',{reviewStatus:'approved'});
@@ -54,15 +57,16 @@ function fixture(){
  return {db,run};
 }
 
-test('owner queue and counter show only same-tenant actionable manual-bank subscriptions',async()=>{
+test('owner queue and counter show only same-tenant actionable manual-bank subscriptions and credits',async()=>{
  const {db,run}=fixture();
  try{
    const result=await run();
    assert.equal(result.status,200);
-   assert.equal(result.body.total,2);
-   assert.deepEqual(Array.from(result.body.items,row=>row.payment_order_id).sort(),['recover','valid']);
+   assert.equal(result.body.total,3);
+   assert.deepEqual(Array.from(result.body.items,row=>row.payment_order_id).sort(),['credit-order','recover','valid']);
    assert.equal(result.body.items.find(row=>row.payment_order_id==='recover').order_status,'paid');
-   assert.equal(result.body.items[0].metadata.plan,'business');
+   assert.equal(result.body.items.find(row=>row.payment_order_id==='valid').metadata.plan,'business');
+   assert.equal(result.body.items.find(row=>row.payment_order_id==='credit-order').order_type,'ai_credits');
  }finally{db.close()}
 });
 
