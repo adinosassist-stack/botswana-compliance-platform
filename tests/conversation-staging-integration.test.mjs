@@ -66,6 +66,7 @@ try{
  }};
  const realEnv={...env,DB:database};
  const rename=(body)=>worker.fetch(new Request(directory,{method:"PATCH",headers:{origin,"content-type":"application/json"},body:JSON.stringify(body)}),realEnv);
+ const search=q=>worker.fetch(new Request(origin+"/api/conversation-staging/threads?"+new URLSearchParams({q})),realEnv);
  const remove=()=>worker.fetch(new Request(directory,{method:"DELETE",headers:{origin}}),realEnv);
  session={...session,userId:"other"};
  assert.equal((await rename({title:"Outside scope"})).status,404);
@@ -84,7 +85,16 @@ try{
  assert.deepEqual(await renamed.json(),{ok:true,id:"thread",title:"Quarterly planning"});
  const readback=await worker.fetch(new Request(origin+"/api/conversation-staging/threads"),realEnv);
  assert.equal((await readback.json()).items[0].title,"Quarterly planning");
+ const matches=await search("  QUARTERLY ");
+ assert.equal(matches.status,200);
+ assert.deepEqual((await matches.json()).items.map(x=>x.id),["thread"]);
+ assert.deepEqual((await (await search("%")).json()).items,[]);
+ assert.equal((await search("a".repeat(121))).status,400);
+ sqlite.prepare("UPDATE thebe_conversations_rehearsal SET title=? WHERE tenant_id='B'").run("Other tenant only");
+ assert.deepEqual((await (await search("Other tenant")).json()).items,[]);
+ sqlite.prepare("UPDATE thebe_conversations_rehearsal SET title=NULL WHERE tenant_id='B'").run();
  assert.equal((await remove()).status,200);
+ assert.deepEqual((await (await search("Quarterly")).json()).items,[]);
  assert.equal((await rename({title:"Deleted"})).status,404);
  assert.equal((await remove()).status,404);
  const list=await worker.fetch(new Request(origin+"/api/conversation-staging/threads"),realEnv);

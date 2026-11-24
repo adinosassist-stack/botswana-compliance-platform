@@ -7,7 +7,8 @@ const fail=(status,error)=>reply(status,{ok:false,error});
 const ownedActiveThread="tenant_id=? AND id=? AND status='active' AND EXISTS (SELECT 1 FROM thebe_conversation_members_rehearsal WHERE tenant_id=? AND conversation_id=? AND user_id=? AND role='owner' AND active=1)";
 export async function conversationThreadDirectory({request,env,readSession,id=()=>crypto.randomUUID()}={}){
  if(env?.APP_ENV!=="staging"||env?.DEPLOYMENT_ENV!=="staging"||env?.DEPLOYMENT_PROFILE!=="conversation-staging"||env?.CONVERSATION_HISTORY_STAGING_ENABLED!=="true")return fail(404,"not_found");
- if(!env.CONVERSATION_STAGING_ORIGIN||new URL(request.url).origin!==env.CONVERSATION_STAGING_ORIGIN)return fail(403,"origin_mismatch");
+ const url=new URL(request.url);
+ if(!env.CONVERSATION_STAGING_ORIGIN||url.origin!==env.CONVERSATION_STAGING_ORIGIN)return fail(403,"origin_mismatch");
  if(!["GET","POST","PATCH","DELETE"].includes(request.method))return fail(405,"method_not_allowed");
  if(env.CONVERSATION_STAGING_D1_ID!=="95c48030-0395-44cb-aa95-622beaf4efdf"||!env.DB?.prepare)return fail(503,"staging_database_identity_required");
  try{
@@ -20,14 +21,16 @@ export async function conversationThreadDirectory({request,env,readSession,id=()
  const {tenantId,userId}=session;
  try{
   if(request.method==="GET"){
-   const result=await env.DB.prepare("SELECT c.id,c.title,c.created_at,c.updated_at FROM thebe_conversations_rehearsal c JOIN thebe_conversation_members_rehearsal m ON m.tenant_id=c.tenant_id AND m.conversation_id=c.id WHERE c.tenant_id=? AND m.user_id=? AND m.active=1 AND c.status='active' AND m.role IN ('owner','admin','member','viewer') ORDER BY c.updated_at DESC,c.id DESC LIMIT 51").bind(tenantId,userId).all();
+   const search=url.searchParams.get("q")?.trim()??"";
+   if([...search].length>120||/[\u0000-\u001f\u007f-\u009f]/u.test(search))return fail(400,"invalid_search");
+   const result=await env.DB.prepare("SELECT c.id,c.title,c.created_at,c.updated_at FROM thebe_conversations_rehearsal c JOIN thebe_conversation_members_rehearsal m ON m.tenant_id=c.tenant_id AND m.conversation_id=c.id WHERE c.tenant_id=? AND m.user_id=? AND m.active=1 AND c.status='active' AND m.role IN ('owner','admin','member','viewer') AND (?='' OR instr(lower(c.title),lower(?))>0) ORDER BY c.updated_at DESC,c.id DESC LIMIT 51").bind(tenantId,userId,search,search).all();
    if(result?.success!==true||!Array.isArray(result.results))return fail(503,"storage_unavailable");
    return reply(200,{ok:true,items:result.results.slice(0,50),truncated:result.results.length>50});
   }
   if(session.csrfVerified!==true||request.headers.get("origin")!==env.CONVERSATION_STAGING_ORIGIN)return fail(403,"csrf_required");
   if(request.method!=="PATCH"&&request.body!==null)return fail(400,"body_not_supported");
   if(request.method==="PATCH"||request.method==="DELETE"){
-   const thread=new URL(request.url).searchParams.get("threadId");
+   const thread=url.searchParams.get("threadId");
    if(!valid(thread))return fail(400,"invalid_thread");
    let title;
    if(request.method==="PATCH"){
