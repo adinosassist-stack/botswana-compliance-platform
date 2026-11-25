@@ -1861,6 +1861,7 @@ async function renderDailyOperations(){
   const root=document.getElementById("dailyreports");if(!root)return;const role=currentWorkspaceRole();if(!["owner","manager"].includes(role))return;
   const setupEpoch=++opsReportingSetupEpoch,company=store.activeCompanyId;
   clearOpsDashboard("Loading reporting data…");
+  setText("opsSummaryMode","Loading");setText("opsAiSummary","Loading management summary…");
   const dateEl=document.getElementById("opsReportDate");if(dateEl&&!dateEl.value)dateEl.value=browserGaboroneDate();
   const date=dateEl?.value||browserGaboroneDate(),locationId=document.getElementById("opsLocationFilter")?.value||"";
   const requests=[
@@ -1870,7 +1871,8 @@ async function renderDailyOperations(){
     reportingAnalyticsJson(`/api/daily-reporting/dashboard?date=${encodeURIComponent(date)}${locationId?`&locationId=${encodeURIComponent(locationId)}`:""}`)
   ];
   const [locationsR,employeesR,accessR,dashboardR]=await Promise.allSettled(requests);
-  if(setupEpoch!==opsReportingSetupEpoch||company!==store.activeCompanyId||role!==currentWorkspaceRole()||date!==(dateEl?.value||browserGaboroneDate())||locationId!==(document.getElementById("opsLocationFilter")?.value||""))return;
+  if(setupEpoch!==opsReportingSetupEpoch)return;
+  if(company!==store.activeCompanyId||role!==currentWorkspaceRole()||date!==(dateEl?.value||browserGaboroneDate())||locationId!==(document.getElementById("opsLocationFilter")?.value||""))return;
   const value=(result,fallback)=>result.status==="fulfilled"?result.value:fallback;
   const reason=result=>result.status==="rejected"?result.reason:null;
   const locations=value(locationsR,{items:[]}),employees=value(employeesR,{items:[]}),access=value(accessR,{items:[]}),dashboard=value(dashboardR,{});
@@ -1900,7 +1902,8 @@ async function renderDailyOperations(){
     apiJson("/api/daily-reporting/settings"),
     reportingAnalyticsJson(`/api/daily-reporting/summaries?date=${encodeURIComponent(date)}`)
   ]);
-  if(setupEpoch!==opsReportingSetupEpoch||company!==store.activeCompanyId||role!==currentWorkspaceRole()||date!==(dateEl?.value||browserGaboroneDate())||locationId!==(document.getElementById("opsLocationFilter")?.value||""))return;
+  if(setupEpoch!==opsReportingSetupEpoch)return;
+  if(company!==store.activeCompanyId||role!==currentWorkspaceRole()||date!==(dateEl?.value||browserGaboroneDate())||locationId!==(document.getElementById("opsLocationFilter")?.value||""))return;
   const settings=value(settingsR,{}),summaries=value(summariesR,{items:[]});
   const autoSummary=document.getElementById("opsAutoSummary");if(autoSummary){autoSummary.checked=Number(settings.auto_summary_enabled||0)===1||settings.autoSummaryEnabled===true;autoSummary.disabled=settingsR.status==="rejected"}
   renderOpsNarrative(summariesR.status==="fulfilled"?opsLatestSummary(summaries.items||[],locationId):null);

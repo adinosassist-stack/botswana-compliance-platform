@@ -119,10 +119,12 @@
   }
 
   let renderEpoch=0;
+  const companyContext=()=>typeof store!=="undefined"?store.activeCompanyId:null;
+  const roleContext=()=>typeof currentWorkspaceRole==="function"?currentWorkspaceRole():null;
   async function render(panel=ensurePanel()){
     if(!panel)return;
-    const epoch=++renderEpoch,date=document.getElementById("opsReportDate")?.value,location=document.getElementById("opsLocationFilter")?.value;
-    const current=()=>epoch===renderEpoch&&date===document.getElementById("opsReportDate")?.value&&location===document.getElementById("opsLocationFilter")?.value;
+    const epoch=++renderEpoch,company=companyContext(),role=roleContext(),date=document.getElementById("opsReportDate")?.value,location=document.getElementById("opsLocationFilter")?.value;
+    const current=()=>epoch===renderEpoch&&company===companyContext()&&role===roleContext()&&panel.isConnected&&date===document.getElementById("opsReportDate")?.value&&location===document.getElementById("opsLocationFilter")?.value;
     for(const key of ["total","branches","date","fnb"])panel.querySelector("[data-report-money-"+key+"]").textContent="—";
     panel.querySelector("[data-report-money-list]").textContent="Loading reported revenue…";
     try{
