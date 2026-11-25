@@ -345,3 +345,32 @@
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",mount,{once:true});
   else mount();
 })(window);
+
+(function installDailyReportUi(global){
+"use strict";
+function renderOpsBranches(branches,{escapeHtml,moneyBwp,trendLabel}){
+ const box=document.getElementById("opsBranchPerformance");if(!box)return;
+ if(!Array.isArray(branches)){box.safeHTML='<div class="notice info">Location reporting is unavailable. Refresh to retry.</div>';return}
+ if(!branches.length){box.safeHTML='<div class="muted small">No locations returned for this filter.</div>';return}
+ const count=v=>typeof v==="number"&&Number.isSafeInteger(v)&&v>=0?v:null;
+ const value=v=>count(v)===null?"—":String(v);
+ const metric=(label,text,trend="")=>`<div class="ops-branch-metric"><small>${label}</small><b>${text}</b>${trend?'<small class="ops-trend">'+escapeHtml(trend)+'</small>':""}</div>`;
+ box.safeHTML=branches.map(b=>{
+  const expected=count(b.expected),received=count(b.submittedExpected),submitted=count(b.submitted),missing=expected!==null&&received!==null&&received<=expected?expected-received:null;
+  const coverage=expected===0?"Not expected":expected!==null&&received!==null&&received<=expected&&typeof b.coverage==="number"&&b.coverage>=0&&b.coverage<=100?String(b.coverage)+"%":"—";
+  const status=missing===null?"Reporting status unavailable":expected===0?"No reports expected":missing===0?"All expected reports received":"Reports awaiting follow-up";
+  const optional=submitted!==null&&received!==null&&submitted>=received?submitted-received:null;
+  const revenue=typeof b.revenue==="number"&&Number.isFinite(b.revenue)?escapeHtml(moneyBwp(b.revenue)):"—";
+  return `<article class="ops-branch-card" aria-label="Location report: ${escapeHtml(b.name||"Location")}"><div class="ops-branch-card-head"><div><b>${escapeHtml(b.name||"Location")}</b><small>${status}</small></div><span class="badge">${coverage}</span></div><div class="ops-branch-counts">${metric("Expected",value(expected))}${metric("Received",value(received))}${metric("Missing",value(missing))}</div><div class="muted small">Optional reports: ${value(optional)} · Not expected: ${value(b.excused)}</div><div class="ops-branch-output">${metric("Tasks",value(b.tasks),typeof b.trend?.tasks==="number"?trendLabel(b.trend.tasks):"")}${metric("Customers / jobs",value(b.customers),typeof b.trend?.customers==="number"?trendLabel(b.trend.customers):"")}${metric("Revenue",revenue,typeof b.trend?.revenue==="number"?trendLabel(b.trend.revenue,"P"):"")}${metric("Incidents",value(b.incidents))}${metric("Attention",value(b.attention))}</div></article>`;
+ }).join("");
+}
+function clearOpsDashboard(message="Reporting data unavailable. Refresh to retry.",setText){
+ if(message==="Loading reporting data…"){setText("opsSummaryMode","Loading");setText("opsAiSummary","Loading management summary…");}
+ for(const id of ["opsCoverage","opsReportsReceived","opsReportOrb","opsVisualReceived","opsVisualExpected","opsVisualFollowup","opsExpectedReports","opsLocationsReporting","opsLocationOrb","opsAttention","opsAttentionOrb","opsMissingCount"])setText(id,"—");
+ const track=document.getElementById("opsCoverageTrack");if(track)track.style.width="0%";
+ for(const id of ["opsBranchPerformance","opsMissingReports","opsReportsList","opsReportingExceptions"]){const node=document.getElementById(id);if(node)node.textContent=message}
+ const wrap=document.getElementById("opsReportingExceptionsWrap");if(wrap)wrap.style.display="none";
+}
+function opsDashboardAvailable(dashboard){return !!dashboard&&Array.isArray(dashboard.branches)&&Array.isArray(dashboard.reports)&&Array.isArray(dashboard.missing)&&Array.isArray(dashboard.exceptions)&&Number.isSafeInteger(dashboard.reportingPopulation?.expected)&&dashboard.reportingPopulation.expected>=0&&typeof dashboard.coverage==="number"&&Number.isFinite(dashboard.coverage);}
+global.BW.dailyReportUi=Object.freeze({render:renderOpsBranches,clear:clearOpsDashboard,available:opsDashboardAvailable});
+})(window);
