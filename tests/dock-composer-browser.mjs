@@ -159,6 +159,51 @@ try{
       resolveReview({mode:'ask',answer:'Sales total is P1200.',summary:'Sales total is P1200.',priorities:[],references:[{ref:'FILE-1',type:'user_attachment',label:'sales.txt'}],caveats:['User-supplied file']});
       await page.waitForFunction(()=>!window.ThebeAiDock.state().textBusy);
       assert(await dock.locator('.thebe-ai-attachments').isHidden(),'successful review clears files');assert(await audio.isVisible());
+      // Release 675 live defect: populated desktop -> maximize -> minimize ->
+      // mobile viewport. A fresh mobile load alone cannot qualify this path.
+      const launcher=page.locator('#thebeAiDockPill');
+      const launcherChat=launcher.getByRole('button',{name:'Open Thebe AI chat'});
+      await dock.locator('.thebe-ai-expand').click();
+      await page.waitForFunction(()=>document.querySelector('#thebeAiDock').dataset.expanded==='true');
+      assert((await dock.innerText()).includes('Sales total is P1200.'),'maximizing preserves populated answer');
+      await dock.locator('.thebe-ai-minimize').click();
+      await dock.waitFor({state:'hidden'});
+      await launcherChat.waitFor({state:'visible'});
+      for(const [width,height] of [[375,812],[414,896],[320,700]]){
+        await page.setViewportSize({width,height});
+        await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+        await launcherChat.waitFor({state:'visible'});
+        // Notification reading sheet intentionally owns the foreground. The
+        // live repro passed once it was closed; never override modal isolation.
+        // This fixture does not mount the notifications controller. Test its
+        // documented CSS boundary explicitly, then restore the ordinary state.
+        if(width===375){
+          await page.evaluate(()=>document.body.classList.add('thebe-delivery-sheet-open'));
+          assert.equal(await launcher.evaluate(el=>getComputedStyle(el).pointerEvents),'none','notification sheet owns the launcher touch lane');
+          await page.evaluate(()=>document.body.classList.remove('thebe-delivery-sheet-open'));
+          await launcherChat.waitFor({state:'visible'});
+        }
+        // Wait for viewport/cascade transitions without bypassing pointer hit testing.
+        await page.waitForFunction(()=>{const el=document.querySelector('#thebeAiDockPill .thebe-ai-pill-open');if(!el)return false;const r=el.getBoundingClientRect();const hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return !!hit&&el.contains(hit)},null,{timeout:2500}).catch(()=>{});
+        const geometry=await launcherChat.evaluate(el=>{
+          const r=el.getBoundingClientRect();
+          const hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
+          const describe=node=>node?{tag:node.tagName,id:node.id,classes:typeof node.className==='string'?node.className:'',zIndex:getComputedStyle(node).zIndex,pointerEvents:getComputedStyle(node).pointerEvents,visibility:getComputedStyle(node).visibility}:null;
+          const pill=el.closest('#thebeAiDockPill');
+          return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth,height:innerHeight,hit:!!hit&&el.contains(hit),target:describe(hit),button:describe(el),pill:describe(pill),bodyClasses:document.body.className,stack:document.elementsFromPoint(r.left+r.width/2,r.top+r.height/2).slice(0,8).map(describe)};
+        });
+        assert(geometry.left>=-1&&geometry.right<=width+1&&geometry.top>=-1&&geometry.bottom<=height+1&&geometry.hit,'minimized launcher must be reachable after desktop-to-mobile transition: '+JSON.stringify(geometry));
+        await launcherChat.click();
+        await dock.waitFor({state:'visible'});
+        assert((await dock.innerText()).includes('Sales total is P1200.'),'reopening preserves the populated answer');
+        await input.waitFor({state:'visible'});
+        await dock.locator('.thebe-ai-minimize').click();
+        await dock.waitFor({state:'hidden'});
+      }
+      await page.setViewportSize({width:1440,height:960});
+      await launcherChat.click();
+      await dock.waitFor({state:'visible'});
+
       await dock.locator('input[type=file]').setInputFiles(file);
       await page.evaluate(()=>{document.querySelector('#appShell').style.display='none';document.querySelector('#appShell').style.visibility='hidden';document.querySelector('#marketingGate').style.display='block';document.querySelector('#marketingGate').classList.remove('hidden')});
       await page.waitForFunction(()=>!window.ThebeAiDock.state().workspaceVisible);
