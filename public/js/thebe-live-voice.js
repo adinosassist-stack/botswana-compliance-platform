@@ -357,7 +357,7 @@
     const requestApi=api;
     const statusPath=sessionMode==="marketing"?"/api/agentic/live/marketing/status":"/api/agentic/live/status";
     const status=await requestApi(statusPath);
-    if(cancelled()){cleanup("idle");return {state:"idle",cancelled:true};}
+    if(cancelled())return {state:"idle",cancelled:true};
     if(status?.sessionCreationAllowed!==true){
       const gate=text(status?.gateCode,120);
       if(status?.runtimeKillSwitch)throw new Error("Thebe live voice is paused by the runtime safety switch.");
@@ -408,22 +408,22 @@
       dc.addEventListener("error",()=>rememberError("Thebe live data channel failed.","data_channel"));
 
       const offer=await pc.createOffer();
-      if(cancelled()){cleanup("idle");return {state:"idle",cancelled:true};}
+      if(cancelled())return {state:"idle",cancelled:true};
       await pc.setLocalDescription(offer);
-      if(cancelled()){cleanup("idle");return {state:"idle",cancelled:true};}
+      if(cancelled())return {state:"idle",cancelled:true};
       await waitForIce(pc);
-      if(cancelled()){cleanup("idle");return {state:"idle",cancelled:true};}
+      if(cancelled())return {state:"idle",cancelled:true};
       const sessionPath=sessionMode==="marketing"?"/api/agentic/live/marketing/session":"/api/agentic/live/session";
       const session=await requestApi(sessionPath,{
         method:"POST",
         body:JSON.stringify({sdp:pc.localDescription?.sdp||offer.sdp})
       });
-      if(cancelled()){cleanup("idle");return {state:"idle",cancelled:true};}
+      if(cancelled())return {state:"idle",cancelled:true};
       sessionId=text(session?.session?.id,240)||null;
       const answerSdp=String(session?.transport?.sdp||"");
       if(!answerSdp)throw new Error("Thebe live session did not return a WebRTC answer.");
       await pc.setRemoteDescription({type:"answer",sdp:answerSdp});
-      if(cancelled()){cleanup("idle");return {state:"idle",cancelled:true};}
+      if(cancelled())return {state:"idle",cancelled:true};
       const serverLimit=Number(session?.limits?.maxSessionSeconds||maxSessionSeconds);
       maxSessionSeconds=Math.max(sessionMode==="marketing"?30:60,Math.min(1800,Number.isFinite(serverLimit)?serverLimit:(sessionMode==="marketing"?60:600)));
       sessionTimer=setTimeout(()=>{
@@ -432,7 +432,7 @@
       },maxSessionSeconds*1000);
       return {state:"connecting",sessionId,maxSessionSeconds,mode:sessionMode};
     }catch(error){
-      if(cancelled()){cleanup("idle");return {state:"idle",cancelled:true};}
+      if(cancelled())return {state:"idle",cancelled:true};
       cleanup("idle",{preserveStatus:true});
       throw error;
     }
