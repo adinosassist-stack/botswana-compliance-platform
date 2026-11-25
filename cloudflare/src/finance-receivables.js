@@ -301,6 +301,7 @@ export async function handleFinanceReceivablesRequest({
       allocatedMinor:Number(row.allocated_minor||0),
       outstandingMinor:row.status==="void"?0:Math.max(0,Number(row.total_minor||0)-Number(row.allocated_minor||0)),
       currency:row.currency,status:row.status,
+      lifecycleStatus:row.status==="void"?"cancelled":Number(row.allocated_minor||0)>=Number(row.total_minor||0)?"paid":row.due_on<businessDate?"overdue":Number(row.allocated_minor||0)>0?"partially_paid":"unpaid",
       overdue:row.status==="issued"&&row.due_on<businessDate&&Number(row.total_minor||0)>Number(row.allocated_minor||0),
       createdAt:row.created_at
     }));
