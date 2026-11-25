@@ -1,3 +1,4 @@
+import {projectInvoiceLifecycle} from "../../server/essentials-invoice-lifecycle.mjs";
 import {handleCustomerRelationshipRequest} from "./customer-relationships.js";
 
 const ISO_DATE=/^\d{4}-\d{2}-\d{2}$/;
@@ -301,7 +302,7 @@ export async function handleFinanceReceivablesRequest({
       allocatedMinor:Number(row.allocated_minor||0),
       outstandingMinor:row.status==="void"?0:Math.max(0,Number(row.total_minor||0)-Number(row.allocated_minor||0)),
       currency:row.currency,status:row.status,
-      lifecycleStatus:row.status==="void"?"cancelled":Number(row.allocated_minor||0)>=Number(row.total_minor||0)?"paid":row.due_on<businessDate?"overdue":Number(row.allocated_minor||0)>0?"partially_paid":"unpaid",
+      lifecycleStatus:projectInvoiceLifecycle({tenantId:auth.tenant_id,invoice:{tenantId:auth.tenant_id,currency:row.currency,status:row.status,totalMinor:Number(row.total_minor),allocatedMinor:Number(row.allocated_minor),dueDate:row.due_on},asOf:businessDate}).status,
       overdue:row.status==="issued"&&row.due_on<businessDate&&Number(row.total_minor||0)>Number(row.allocated_minor||0),
       createdAt:row.created_at
     }));
