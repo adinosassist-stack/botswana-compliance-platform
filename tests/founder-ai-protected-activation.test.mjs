@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
-import {createD1Adapter,runBoundedOperation,verifyAuthority} from '../scripts/execute-founder-ai-protected.mjs';
+import {createD1Adapter,runBoundedOperation,verifyAuthority,verifyLiveReleaseSeal} from '../scripts/execute-founder-ai-protected.mjs';
 const identity={email:'owner@example.invalid',userId:'owner',tenantId:'tenant'};
 const approvalReference='https://github.com/adinosassist-stack/botswana-compliance-platform/actions/runs/123';
 function fixture(){
@@ -66,4 +66,32 @@ test('non-owner, non-main, non-dispatch and stale authority fail before any netw
     assert.equal(called,false);
   }
   await assert.rejects(verifyAuthority(env,async()=>({ok:true,json:async()=>({commit:{sha:'b'.repeat(40)}})})),/founder_stale_main/);
+});
+
+test('operation SHA uses exact still-live release BF-07 seal, rejects expired or mismatched evidence',async()=>{
+  const sha='a'.repeat(40),releaseSha='b'.repeat(40);
+  const manifest={release:'production',schema:1,sequence:675,sourceSha:'c'.repeat(40)};
+  const env={EXPECTED_SHA:sha,GH_TOKEN:'synthetic'};
+  let changed=false,expired=false,mismatch=false,wrongSeal=false;
+  const git=(...args)=>{
+    if(args[0]==='log')return releaseSha;
+    if(args[0]==='show')return JSON.stringify(manifest);
+    if(args[1]==='HEAD')return sha;
+    return changed&&args[1].startsWith(sha+':')?'e'.repeat(40):'d'.repeat(40);
+  };
+  const respond=async url=>{
+    let body;
+    if(url.includes('/runs?')){assert(url.includes('head_sha='+releaseSha));body={workflow_runs:[{id:123,head_sha:wrongSeal?sha:releaseSha,head_branch:'main',event:'push',head_repository:{full_name:'adinosassist-stack/botswana-compliance-platform'},status:'completed',conclusion:'success'}]}}
+    else if(url.includes('/artifacts?'))body={artifacts:[{name:'bf07-sealed-'+releaseSha,expired,expires_at:'2099-01-01T00:00:00Z',digest:'sha256:'+'1'.repeat(64)}]};
+    else if(url.endsWith('/api/version'))body={ok:true,release:'production',releaseSequence:mismatch?676:675,sourceSha:manifest.sourceSha,runtimeEntry:'release-governance-entry'};
+    else if(url.endsWith('/api/live'))body={ok:true};
+    else throw Error('unexpected URL');
+    return {ok:true,status:200,json:async()=>body,text:async()=>JSON.stringify(body)};
+  };
+  const verify=()=>verifyLiveReleaseSeal(env,{git,fetchImpl:respond});
+  assert.deepEqual(await verify(),{releaseSha,runId:123});
+  changed=true;await assert.rejects(verify(),/founder_release_entitlement_changed/);changed=false;
+  expired=true;await assert.rejects(verify(),/founder_release_seal_artifact_missing/);expired=false;
+  mismatch=true;await assert.rejects(verify(),/founder_live_release_mismatch/);mismatch=false;
+  wrongSeal=true;await assert.rejects(verify(),/founder_release_seal_missing/);
 });
