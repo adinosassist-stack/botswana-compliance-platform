@@ -11,15 +11,16 @@ const start=source.indexOf('let opsLiveRefreshInFlight=false;');
 const end=source.indexOf('async function renderPeopleReportingSetup(){',start);
 assert(start>0&&end>start,'live reporting refresh seam must be present');
 
-let active=false,visibility='visible',requests=0,applied=[],resolveRequest;
+let active=false,visibility='visible',role='owner',requests=0,applied=[],cleared=0,resolveRequest,rejectRequest;
+const store={activeCompanyId:'company-1'};
 const date={value:'2026-10-01'},location={value:''};
 const listeners={};
 const context=vm.createContext({
   document:{get visibilityState(){return visibility},getElementById(id){return id==='dailyreports'?{classList:{contains:()=>active}}:id==='opsReportDate'?date:id==='opsLocationFilter'?location:null},addEventListener(type,fn){listeners[type]=fn}},
   window:{__THEBE_WORKSPACE_READY__:true,addEventListener(type,fn){listeners[type]=fn}},
-  currentWorkspaceRole:()=> 'owner',browserGaboroneDate:()=> '2026-10-01',
-  reportingAnalyticsJson:()=>{requests++;return new Promise(resolve=>{resolveRequest=resolve})},
-  applyOpsDashboard:value=>applied.push(value),
+  store,currentWorkspaceRole:()=>role,browserGaboroneDate:()=> '2026-10-01',
+  reportingAnalyticsJson:()=>{requests++;return new Promise((resolve,reject)=>{resolveRequest=resolve;rejectRequest=reject})},
+  applyOpsDashboard:value=>applied.push(value),clearOpsDashboard:()=>cleared++,
   setInterval:(fn,ms)=>{assert.equal(ms,30000);listeners.interval=fn},
 });
 vm.runInContext('let opsReportingSetupEpoch=0;'+source.slice(start,end),context);
@@ -43,4 +44,21 @@ assert.equal(requests,3,'returning to the visible dashboard refreshes immediatel
 resolveRequest({reports:[{id:'report-2'}]});
 await new Promise(resolve=>setImmediate(resolve));
 assert.equal(applied.length,2);
-console.log('PASS: V220 live reporting refreshes an active dashboard, rejects stale filters and pauses when hidden.');
+const oldCompany=vm.runInContext('refreshLiveDailyOperations()',context);
+store.activeCompanyId='company-2';resolveRequest({reports:[{id:'old-company'}]});await oldCompany;
+assert.equal(applied.length,2,'old company responses must not update another company');
+const oldRole=vm.runInContext('refreshLiveDailyOperations()',context);
+role='employee';resolveRequest({reports:[{id:'old-role'}]});await oldRole;
+assert.equal(applied.length,2,'a response cannot restore data after a role change');
+await vm.runInContext('refreshLiveDailyOperations()',context);assert.equal(requests,5,'non-manager roles cannot poll');
+role='owner';
+const oldFailure=vm.runInContext('refreshLiveDailyOperations()',context);
+store.activeCompanyId='company-3';rejectRequest(Error('stale company failed'));await oldFailure;
+assert.equal(cleared,0,'an old company error must not clear the current company');
+const failure=vm.runInContext('refreshLiveDailyOperations()',context);
+rejectRequest(Error('offline'));await failure;
+assert.equal(cleared,1,'current failed read must replace stale reporting data');
+const recovered=vm.runInContext('refreshLiveDailyOperations()',context);
+resolveRequest({reports:[{id:'recovered'}]});await recovered;
+assert.equal(applied.length,3,'polling recovers after an error');
+console.log('PASS: V220 live reporting refreshes an active dashboard, rejects stale filters, companies and roles, clears current failures and recovers.');
