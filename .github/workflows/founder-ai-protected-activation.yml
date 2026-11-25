@@ -1,12 +1,9 @@
 name: Founder AI protected activation
 run-name: Founder AI ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'qualification' }}
 on:
+  # Every protected-main candidate needs exact-head founder qualification.
+  # Unrelated reviewed merges must not leave the activation gate unsatisfiable.
   pull_request:
-    paths:
-      - 'scripts/execute-founder-ai-protected.mjs'
-      - 'scripts/founder-ai-entitlement.mjs'
-      - 'tests/founder-ai-protected-activation.test.mjs'
-      - '.github/workflows/founder-ai-protected-activation.yml'
   workflow_dispatch:
     inputs:
       expected_sha:
