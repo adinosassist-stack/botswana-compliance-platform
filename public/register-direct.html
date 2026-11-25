@@ -17,11 +17,12 @@
 <div class="field"><label for="companyName">Business name</label><input id="companyName" name="companyName" autocomplete="organization" maxlength="160" required></div>
 <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" maxlength="254" required></div>
 <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="200" required><div class="small" style="text-align:left;margin-top:6px">Use at least 12 characters.</div></div>
+<div class="field"><label for="directLegalAccept" style="display:flex;align-items:flex-start;gap:9px;line-height:1.5"><input id="directLegalAccept" type="checkbox" required style="width:auto;margin:3px 0 0"><span>I agree to the <a href="/terms/" target="_blank" rel="noopener">Terms of Service</a> and acknowledge the <a href="/privacy/" target="_blank" rel="noopener">Privacy Notice</a> (version 2026-10-14).</span></label></div>
 <input id="website" name="website" class="trap" tabindex="-1" autocomplete="off" aria-hidden="true">
 <button id="submitBtn" type="submit">Create account</button>
 <div id="status" class="status" role="status" aria-live="polite"></div>
 </form>
-<div class="small">Already have an account? <a href="/">Return to Thebe Desk sign in</a></div>
+<div class="small">Already have an account? <a href="/auth/?mode=login">Return to Thebe Desk sign in</a></div>
 </main>
 <script src="/js/api-client.js?v=20260906-registration-post-capability-v1" defer></script>
 <script src="/js/register-direct.js?v=20260913b" defer></script>
