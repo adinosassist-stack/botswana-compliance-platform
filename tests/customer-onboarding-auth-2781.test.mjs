@@ -106,7 +106,7 @@ test("direct registration ignores repeat submits and clears busy state after a f
   const button = { disabled: false };
   const status = { setAttribute() {} };
   const elements = {
-    registerForm: form, submitBtn: button, status,
+    registerForm: form, submitBtn: button, status, directLegalAccept:{checked:true},
     companyName: { value: "Demo Business" },
     email: { value: "owner@example.test" },
     password: { value: "temporary-test-password" },
@@ -295,7 +295,7 @@ test("direct signup with uncertain response cannot submit a second account creat
  const btn={disabled:false,textContent:"Create account"};
  const status={setAttribute(){}};
  const entries={
-  registerForm:form,submitBtn:btn,status,
+  registerForm:form,submitBtn:btn,status,directLegalAccept:{checked:true},
   companyName:{value:"Synthetic Company"},
   email:{value:"owner@example.test"},
   password:{value:"a synthetic password of length 12"},
@@ -334,7 +334,7 @@ test("direct signup after confirmed creation and failed sign-in never recreates 
  const form={addEventListener:(_event,handler)=>{submit=handler},setAttribute(){},removeAttribute(){}};
  const btn={disabled:false,textContent:"Create account"};
  const status={setAttribute(){}};
- const elements={registerForm:form,submitBtn:btn,status,companyName:{value:"Synthetic Company"},email:{value:"owner@example.test"},password:{value:"synthetic password 12"},website:{value:""}};
+ const elements={registerForm:form,submitBtn:btn,status,directLegalAccept:{checked:true},companyName:{value:"Synthetic Company"},email:{value:"owner@example.test"},password:{value:"synthetic password 12"},website:{value:""}};
  vm.runInNewContext(directRegistration,{
   TextEncoder,
   document:{getElementById:id=>elements[id]},
@@ -381,4 +381,19 @@ test("registration deep links enter registration only after verified open or coh
  }
  assert.match(source,/event\.preventDefault\(\);if\(busy\|\|pendingRegistrationEntry\)return/);
  assert.match(source,/if\(registering&&\(registrationMode==="hold"\|\|registrationMode==="invalid"\)\)\{setMode\("login"\)/);
+});
+
+test("direct registration requires explicit legal consent before network or proof",async()=>{
+ let submit,requests=0,focus=0;
+ const form={addEventListener:(_event,handler)=>{submit=handler},setAttribute(){},removeAttribute(){}};
+ const btn={disabled:false,textContent:"Create account"};
+ const status={setAttribute(){}};
+ const entries={registerForm:form,submitBtn:btn,status,companyName:{value:"Synthetic Company"},email:{value:"owner@example.test"},password:{value:"synthetic password 12"},website:{value:""},directLegalAccept:{checked:false,focus(){focus++}}};
+ vm.runInNewContext(directRegistration,{TextEncoder,document:{getElementById:id=>entries[id]},window:{BW:{api:{createClient:()=>({request:async()=>{requests++;throw Error("Unexpected network request")}})}}}});
+ await submit({preventDefault(){}});
+ assert.equal(requests,0);
+ assert.equal(focus,1);
+ assert.equal(btn.disabled,false);
+ assert.match(status.textContent,/Terms of Service/);
+ assert.match(directRegistration,/legalAcceptance:\{version:"2026-10-14",accepted:true\}/);
 });
