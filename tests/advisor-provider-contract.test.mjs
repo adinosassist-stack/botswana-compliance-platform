@@ -1,13 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {advisorProviderInput,advisorProviderOutput} from '../cloudflare/src/advisor-provider-contract.js';
-test('GLM uses bounded chat completion and named strict schema without reasoning',()=>{
+test('GLM uses bounded chat completion and JSON object mode and explicit schema guidance without reasoning',()=>{
  const schema={type:'object'},r=advisorProviderInput('@cf/zai-org/glm-4.7-flash','workspace prompt',schema);
- assert.deepEqual(r.messages,[{role:'user',content:'workspace prompt'}]);
+ assert.equal(r.messages.length,1);
+ assert.equal(r.messages[0].role,'user');
+ assert.ok(r.messages[0].content.startsWith('workspace prompt\n'));
+ assert.ok(r.messages[0].content.endsWith(JSON.stringify(schema)));
+ assert.match(r.messages[0].content,/answer must be a string/);
  assert.equal(r.chat_template_kwargs.enable_thinking,false);
  assert.equal(r.max_completion_tokens,1000);
- assert.equal(r.response_format.json_schema.schema,schema);
- assert.equal(r.response_format.json_schema.strict,true);
+ assert.deepEqual(r.response_format,{type:'json_object'});
  assert.equal('prompt' in r,false);
 });
 test('chat answer is taken only from completed visible content; reasoning is never an answer',()=>{

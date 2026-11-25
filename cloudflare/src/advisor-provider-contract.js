@@ -1,9 +1,10 @@
 // Keep the provider envelope separate from the governed answer and citation validator.
 export function advisorProviderInput(model,prompt,schema){
  if(model==='@cf/zai-org/glm-4.7-flash')return {
-  messages:[{role:'user',content:prompt}],
+  messages:[{role:'user',content:prompt+'\nReturn only compact JSON matching this schema. The answer must be a string. Use empty arrays where applicable.\n'+JSON.stringify(schema)}],
   chat_template_kwargs:{enable_thinking:false},
-  response_format:{type:'json_schema',json_schema:{name:'advisor_answer',schema,strict:true}},
+  // Strict schema decoding can exhaust GLM's token budget on whitespace.
+  response_format:{type:'json_object'},
   max_completion_tokens:1000,temperature:0.1
  };
  return {prompt,response_format:{type:'json_schema',json_schema:schema},max_tokens:1000,temperature:0.1};

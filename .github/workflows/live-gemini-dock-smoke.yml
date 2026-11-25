@@ -7,6 +7,10 @@ on:
     paths:
       - '.github/workflows/live-gemini-dock-smoke.yml'
       - 'public/assets/market-thebe-gemini-v273.css'
+      - 'public/assets/thebe-ai-dock.css'
+      - 'public/assets/thebe-spatial-dock-v246.css'
+      - 'public/js/thebe-live-voice.js'
+      - 'tests/dock-composer-browser.mjs'
       - 'public/js/market-thebe-gemini-narrow-v274.js'
       - 'cloudflare/src/production-entry.js'
       - 'tests/v274-public-gemini-narrow-browser.mjs'
@@ -162,8 +166,12 @@ jobs:
             });
           }
 
-          const idleAudio=page.locator('#thebeAiDock .thebe-ai-audio');
+          // The unified composer intentionally replaced the legacy duplicate audio button.
+          const idleAudio=page.locator('#thebeAiDock[data-surface="public"] .thebe-ai-conversation-voice');
           await idleAudio.waitFor({state:'visible'});
+          assert.equal(await idleAudio.count(),1,'one unified composer voice control must exist');
+          assert.equal(await idleAudio.getAttribute('aria-label'),'Start voice conversation with Thebe','voice control must have its accessible name');
+          assert.equal(await page.locator('#thebeAiDock .thebe-ai-audio').count(),0,'legacy duplicate audio control must not return');
           assert.equal(await page.locator('#thebeAiDock .thebe-ai-send').isHidden(),true,'idle composer hides send');
           assert.equal(await page.locator('#thebeAiDock .thebe-ai-attach').isHidden(),true,'public composer hides workspace uploads');
           await page.locator('#thebeAiDockInput').fill('Check dock controls');
