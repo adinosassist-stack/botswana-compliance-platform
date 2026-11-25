@@ -56,6 +56,8 @@ form?.addEventListener("submit",async event=>{
   const proof=await solveProof();
   btn.textContent="Creating account…";
   await api("/api/auth/register",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({companyName,email,password,turnstileToken:proof})});
+  // Creation has returned successfully; any subsequent failure must retry sign-in, never registration.
+  signInCheckRequired=true;
   btn.textContent="Signing in…";
   try{
    await api("/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email,password})});
