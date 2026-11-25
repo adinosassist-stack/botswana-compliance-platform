@@ -3,6 +3,7 @@
  * Does not mount automatically, save customer data, or take payments.
  * Server independently authorizes tenant and recalculates submitted totals.
  */
+import {prepareDocumentPdf,sharePreparedDocumentPdf} from "./essentials-document-share.mjs";
 import {createQuotationDraftPreviewClient} from "./quotation-draft-api-client.mjs";
 import {prepareQuotationFormDraft,formatBwpCents,parseBwpCents} from "./quotation-draft-form-model.mjs";
 const css=[
@@ -88,13 +89,15 @@ export function mountQuotationDraftForm(root,{capability,fetchImpl,csrfToken,ini
  const footer=el("div",null,{class:"qdf-footer"});
  const save=el("a","Save PDF",{class:"qdf-download-link",download:"quotation-draft-preview.pdf",hidden:""});
  const open=el("a","Open PDF",{class:"qdf-download-link",target:"_blank",rel:"noopener",hidden:""});
- footer.append(el("span","Preview only · No customer notification",{class:"qdf-muted"}),submit,save,open);
+ const share=el("button","Share PDF (WhatsApp)",{type:"button",hidden:""});
+ share.hidden=true;share.disabled=true;
+ footer.append(el("span","Preview only · No customer notification",{class:"qdf-muted"}),submit,save,open,share);
  form.append(fieldsGrid,itemsRoot,itemTools,extra,totals,status,footer);
  section.append(title,form);root.replaceChildren(style,section);
- const items=[];let disposed=false,busy=false,preparedPdfUrl=null,draftRevision=0;
+ const items=[];let disposed=false,busy=false,preparedPdfUrl=null,preparedShareFile=null,sharing=false,draftRevision=0;
  function clearPreparedPdf(){
   if(preparedPdfUrl)URL.revokeObjectURL(preparedPdfUrl);
-  preparedPdfUrl=null;
+  preparedPdfUrl=null;preparedShareFile=null;share.hidden=true;share.disabled=true;
   for(const link of [save,open]){link.hidden=true;link.removeAttribute("href")}
  }
  const values=()=>({
@@ -160,6 +163,22 @@ export function mountQuotationDraftForm(root,{capability,fetchImpl,csrfToken,ini
    unitPrice:item.unitPrice??moneyString(item.unitPriceCents)});
  add.addEventListener("click",()=>{if(busy)return;addItem();draftRevision++;clearPreparedPdf();refresh()});
  form.addEventListener("input",()=>{draftRevision++;clearPreparedPdf();refresh()});
+ share.addEventListener("click",async()=>{
+  if(disposed||sharing||!preparedShareFile)return;
+  const file=preparedShareFile;
+  sharing=true;share.disabled=true;
+  try{
+   // Invoke share in the click gesture, with already validated PDF bytes.
+   const result=await sharePreparedDocumentPdf({navigatorApi:globalThis.navigator,file,message:{title:"Quotation draft",text:"Review attached draft PDF."}});
+   if(!disposed&&preparedShareFile===file)status.textContent=result.shared?
+    "Share sheet completed. Confirm the attachment in WhatsApp; delivery is not verified.":
+    "Native file sharing is unavailable. Tap Save PDF, then attach the downloaded PDF in WhatsApp.";
+  }catch(error){
+   if(!disposed&&preparedShareFile===file)status.textContent=error?.name==="AbortError"?
+    "Sharing cancelled. Your PDF remains available.":
+    "Unable to share this file. Tap Save PDF and attach it manually in WhatsApp.";
+  }finally{sharing=false;if(!disposed)share.disabled=!preparedShareFile}
+ });
  form.addEventListener("submit",async event=>{
   event.preventDefault();
   if(busy||disposed)return;
@@ -174,17 +193,23 @@ export function mountQuotationDraftForm(root,{capability,fetchImpl,csrfToken,ini
    if(disposed)return;
    if(!(blob instanceof Blob)||blob.type!=="application/pdf")
     throw Error("invalid_pdf_preview");
+   const ref=String(draft.quoteNumber).replace(/[^a-zA-Z0-9_-]/g,"_").slice(0,60);
+   const filename="quotation-draft-"+(ref||"preview")+".pdf";
+   const file=await prepareDocumentPdf({blob,filename});
+   if(disposed)return;
    if(requestedRevision!==draftRevision){
     status.textContent="Draft changed while preparing the PDF. Tap Download PDF preview again.";
     return;
    }
    preparedPdfUrl=URL.createObjectURL(blob);
-   save.href=preparedPdfUrl;open.href=preparedPdfUrl;
+   save.href=preparedPdfUrl;open.href=preparedPdfUrl;save.download=filename;
    save.hidden=false;open.hidden=false;
+   preparedShareFile=file;
+   share.hidden=!file;share.disabled=!file||sharing;
    // Asynchronous PDF requests can lose browser user activation on mobile.
    // Keep explicit, user-tappable links and the object URL until invalidated.
    try{save.click()}catch{}
-   status.textContent="PDF prepared. If no download appeared, tap Save PDF or Open PDF. Nothing was issued or saved.";
+   status.textContent="PDF prepared. Tap Save PDF, Open PDF or Share PDF (WhatsApp) when available. Nothing was issued or saved.";
   }catch(err){
    if(!disposed)status.textContent="Preview failed: "+(err?.message||"Unavailable")+".";
   }finally{
