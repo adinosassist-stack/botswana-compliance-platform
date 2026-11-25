@@ -54,7 +54,7 @@ try{
  };
  const env={...profile.vars,DB,SESSION_SECRET:secret,CONVERSATION_CURSOR_SECRET:"x".repeat(32)};
  const root="/api/conversation-staging/threads";
- const request=(path,{token,csrf,method="GET",body}={})=>{
+ const request=(path,{token,csrf,method="GET",body,stream}={})=>{
   const headers=new Headers({origin});
   if(token)headers.set("cookie","__Host-bw_session="+token);
   if(csrf)headers.set("x-csrf-token",csrf);
@@ -62,11 +62,14 @@ try{
    headers.set("content-type","application/json");
    if(body.exchange)headers.set("x-thebe-conversation-exchange","1");
   }
-  return staging.fetch(new Request(origin+path,{method,headers,body:body&&JSON.stringify(body)}),env);
+  return staging.fetch(new Request(origin+path,{method,headers,body:stream??(body&&JSON.stringify(body)),duplex:"half"}),env);
  };
  assert.equal((await request(root)).status,401);
  assert.equal((await request(root,{token:"alice-one",csrf:"wrong",method:"POST"})).status,403);
- const created=await request(root,{token:"alice-one",csrf:"csrf-one",method:"POST"});
+ const emptyStream=()=>new ReadableStream({start(controller){controller.close()}});
+ const nonemptyStream=()=>new ReadableStream({start(controller){controller.enqueue(Uint8Array.of(1));controller.close()}});
+ assert.equal((await request(root,{token:"alice-one",csrf:"csrf-one",method:"POST",stream:nonemptyStream()})).status,400);
+ const created=await request(root,{token:"alice-one",csrf:"csrf-one",method:"POST",stream:emptyStream()});
  assert.equal(created.status,201);
  const {id}=await created.json();
  const messages=root+"/"+id+"/messages";
@@ -98,7 +101,7 @@ try{
  assert.deepEqual((await restored.json()).items.map(row=>row.content_redacted),["Synthetic answer","Synthetic question"]);
  assert.deepEqual((await (await request(root,{token:"bob-one"})).json()).items,[]);
  assert.equal((await request(messages,{token:"bob-one"})).status,401);
- const removed=await request(root+"?"+new URLSearchParams({threadId:id}),{token:"alice-two",csrf:"csrf-two",method:"DELETE"});
+ const removed=await request(root+"?"+new URLSearchParams({threadId:id}),{token:"alice-two",csrf:"csrf-two",method:"DELETE",stream:emptyStream()});
  assert.equal(removed.status,200);
  assert.equal((await request(messages,{token:"alice-one"})).status,401);
  assert.deepEqual((await (await request(root,{token:"alice-one"})).json()).items,[]);
