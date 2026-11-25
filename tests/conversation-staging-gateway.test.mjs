@@ -3,7 +3,7 @@ import {conversationStagingGateway as gateway} from "../cloudflare/src/conversat
 const context={session:{authenticated:true,active:true,userId:"u",tenantId:"A"},workspaceMembership:{active:true,userId:"u",tenantId:"A",conversationId:"t",role:"member"},conversation:{id:"t",tenantId:"A",status:"active"},csrfVerified:true};
 let resolvers=0,queries=0;
 const resolver=async()=>{resolvers++;return context};
-const env={DEPLOYMENT_ENV:"staging",CONVERSATION_HISTORY_STAGING_ENABLED:"true",DB:{prepare(){queries++;return {bind(){return {async all(){return {results:[]}}}}}}}};
+const env={DEPLOYMENT_ENV:"staging",CONVERSATION_HISTORY_STAGING_ENABLED:"true",DB:{prepare(){queries++;return {bind(){return {async all(){return {results:[{id:null}]}}}}}}}};
 const request={method:"GET"};
 assert.equal((await gateway({env:{...env,DEPLOYMENT_ENV:"production"},request,threadId:"t",resolveAuthenticatedContext:resolver})).status,404);
 assert.equal((await gateway({env:{...env,CONVERSATION_HISTORY_STAGING_ENABLED:"false"},request,threadId:"t",resolveAuthenticatedContext:resolver})).status,404);

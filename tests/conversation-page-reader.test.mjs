@@ -3,7 +3,7 @@ import {readConversationPageRehearsal} from "../cloudflare/src/conversation-page
 const actor={authenticated:true,active:true,userId:"u",tenantId:"A"},conversation={id:"chat",tenantId:"A",status:"active"},membership={active:true,userId:"u",tenantId:"A",conversationId:"chat",role:"member"},secret="0123456789abcdef0123456789abcdef";
 let calls=[];
 const data=[{id:"m3",created_at:"2026-10-30 12:02:00"},{id:"m2",created_at:"2026-10-30 12:01:00"},{id:"m1",created_at:"2026-10-30 12:00:00"}];
-const env={DB:{prepare(sql){return {bind(...args){calls.push({sql,args});return {async all(){return {results:args.length===3?data.slice(0,3):data.slice(2)}}}}}}}};
+const env={DB:{prepare(sql){return {bind(...args){calls.push({sql,args});return {async all(){return {results:args.length===4?data.slice(0,3):data.slice(2)}}}}}}}};
 const base={env,actor,conversation,membership,secret,limit:2};
 const first=await readConversationPageRehearsal(base);
 assert.equal(first.ok,true);assert.equal(first.items.length,2);assert(first.nextCursor);

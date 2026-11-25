@@ -3,6 +3,8 @@ import {readFileSync} from "node:fs";
 import {DatabaseSync} from "node:sqlite";
 import {createConversationStagingIntegration} from "../cloudflare/src/conversation-staging-integration-rehearsal.js";
 import {createConversationStagingClient} from "../cloudflare/src/conversation-staging-client-rehearsal.js";
+import {appendConversationMessageRehearsal,appendConversationExchangeRehearsal,listConversationMessagesRehearsal} from "../cloudflare/src/conversation-storage-rehearsal.js";
+import {readConversationPageRehearsal} from "../cloudflare/src/conversation-page-reader-rehearsal.js";
 const origin="https://conversation-staging.example.invalid";
 const path=origin+"/api/conversation-staging/threads/thread/messages";
 const envBase={APP_ENV:"staging",DEPLOYMENT_ENV:"staging",DEPLOYMENT_PROFILE:"conversation-staging",CONVERSATION_HISTORY_STAGING_ENABLED:"true",CONVERSATION_STAGING_ORIGIN:origin,CONVERSATION_STAGING_D1_ID:"95c48030-0395-44cb-aa95-622beaf4efdf"};
@@ -11,7 +13,7 @@ const db={prepare(sql){if(sql.includes("thebe_conversation_staging_identity"))re
  async first(){calls.push({sql,params});if(sql.includes("conversation_members"))return {tenant_id:"A",conversation_id:"thread",user_id:"u",role:"member",active:1};
  if(sql.includes("thebe_conversations_rehearsal"))return {tenant_id:"A",id:"thread",status:"active"};
  return null},
- async all(){calls.push({sql,params});return{results:[]}},
+ async all(){calls.push({sql,params});return{results:[{id:null}]}},
  async run(){calls.push({sql,params});return{success:true,meta:{changes:1}}}
  }}}}};
 const worker=createConversationStagingIntegration({verifyCurrentSession:async()=>session});
@@ -147,6 +149,29 @@ try{
  assert.equal((await writeExchange({...exchange,idempotencyKey:"collision"})).status,409);
  const rows=(await (await readMessages(deviceB)).json()).items;
  assert.deepEqual(rows.map(row=>row.content_redacted),[typed.content,"Answer","Question",typed.content]);
+ // Reuse a previously valid actor/membership snapshot after the real D1
+ // authorization state changes. All reads and writes must fail at SQL time.
+ const stale={env:realEnv,actor:{authenticated:true,active:true,userId:"u",tenantId:"A"},
+  conversation:{id:"thread",tenantId:"A",status:"active"},
+  membership:{active:true,userId:"u",tenantId:"A",conversationId:"thread",role:"owner"}};
+ const page=await readConversationPageRehearsal({...stale,secret:"s".repeat(32),limit:1});
+ assert.equal(page.ok,true);assert.ok(page.nextCursor);
+ const denyStale=async()=>{
+  assert.equal((await listConversationMessagesRehearsal(stale)).error,"access_denied");
+  assert.equal((await readConversationPageRehearsal({...stale,secret:"s".repeat(32),cursor:page.nextCursor})).error,"access_denied");
+  assert.equal((await appendConversationMessageRehearsal({...stale,message:typed})).error,"access_denied");
+  assert.equal((await appendConversationMessageRehearsal({...stale,message:{...typed,idempotencyKey:"stale-write"}})).error,"access_denied");
+  assert.equal((await appendConversationExchangeRehearsal({...stale,exchange})).error,"access_denied");
+  assert.equal((await appendConversationExchangeRehearsal({...stale,exchange:{...exchange,idempotencyKey:"stale-exchange"}})).error,"access_denied");
+ };
+ const beforeStale=sqlite.prepare("SELECT COUNT(*) AS n FROM thebe_conversation_messages_rehearsal").get().n;
+ sqlite.exec("UPDATE thebe_conversation_members_rehearsal SET active=0 WHERE tenant_id='A' AND user_id='u'");
+ await denyStale();
+ sqlite.exec("UPDATE thebe_conversation_members_rehearsal SET active=1 WHERE tenant_id='A' AND user_id='u'");
+ sqlite.exec("UPDATE thebe_conversations_rehearsal SET status='deleted' WHERE tenant_id='A' AND id='thread'");
+ await denyStale();
+ sqlite.exec("UPDATE thebe_conversations_rehearsal SET status='active' WHERE tenant_id='A' AND id='thread'");
+ assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM thebe_conversation_messages_rehearsal").get().n,beforeStale);
  assert.equal((await client.remove("thread")).ok,true);
  await assert.rejects(client.read("thread"),/conversation_request_failed_401/);
  assert.equal((await readMessages(deviceB)).status,401);

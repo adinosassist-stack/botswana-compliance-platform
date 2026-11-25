@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {handleConversationStagingRehearsal} from "../cloudflare/src/conversation-staging-http-rehearsal.js";
 const context={session:{authenticated:true,active:true,userId:"u",tenantId:"A",csrfToken:"0123456789abcdef"},workspaceMembership:{userId:"u",tenantId:"A",conversationId:"t",active:true,role:"member"},conversation:{id:"t",tenantId:"A",status:"active"}};
 let calls=0;
-const env={DB:{prepare(){return{bind(){return{async all(){calls++;return{success:true,results:[]}},async run(){calls++;return{success:true,meta:{changes:1}}}}}}}}};
+const env={DB:{prepare(){return{bind(){return{async all(){calls++;return{success:true,results:[{id:null}]}},async run(){calls++;return{success:true,meta:{changes:1}}}}}}}}};
 const url="https://staging.invalid/api/staging/conversation-rehearsal/messages",secret="0123456789abcdef0123456789abcdef";
 const handle=(request,ctx=context)=>handleConversationStagingRehearsal({request,env,context:ctx,secret,id:()=>"id1"});
 assert.equal((await handle(new Request(url))).status,200);

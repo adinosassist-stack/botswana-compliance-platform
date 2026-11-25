@@ -4,7 +4,7 @@ const context={session:{authenticated:true,active:true,userId:"user1",tenantId:"
 const headers=new Map([["content-type","application/json"],["content-length","100"]]);
 const request=(method,body={role:"user",sourceKind:"typed",content:"Hello",idempotencyKey:"k1"})=>({method,headers:{get:key=>headers.get(key)||null},json:async()=>body});
 let queries=0;
-const env={DB:{prepare(){queries++;return{bind(){return{async run(){return{success:true,meta:{changes:1}}},async first(){return null},async all(){return{results:[]}}}}}}}};
+const env={DB:{prepare(){queries++;return{bind(){return{async run(){return{success:true,meta:{changes:1}}},async first(){return null},async all(){return{results:[{id:null}]}}}}}}}};
 for(const mutation of [
  {session:{...context.session,authenticated:false}},
  {session:{...context.session,active:false}},

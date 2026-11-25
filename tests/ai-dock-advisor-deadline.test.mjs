@@ -217,3 +217,130 @@ test('reopening a saved chat restores only complete bounded dialogue pairs',()=>
  assert.deepEqual(restore.advisorPriorTurns(),[]);
  assert.match(dock,/if\(!stillCurrent\(scope,epoch\)\|\|runId!==textRunId\|\|textBusy\)return;[\s\S]*?clearConversation\(\);[\s\S]*?restoreSavedAdvisorContext\(data.items\);\s*openedSavedThread=id;/);
 });
+
+ 
+// Exercise the real staged directory implementation with a minimal DOM and
+// controllable transport. These regressions do not mount or enable a live route.
+function savedDirectoryFixture({transport,confirm=()=>true}={}){
+ const start=dock.indexOf('  function mountSavedThreads()');
+ const end=dock.indexOf('  function webResearchAvailable()',start);
+ assert.ok(start>=0&&end>start);
+ const element=(tag,cls='',label='')=>{
+  const handlers=new Map();
+  return {tag,cls,textContent:label,children:[],value:'',disabled:false,hidden:false,open:false,
+   setAttribute(){},
+   append(...nodes){this.children.push(...nodes)},
+   replaceChildren(){this.children=[];if(tag==='select')this.value=''},
+   get options(){return this.children},
+   addEventListener(event,fn){handlers.set(event,fn)},
+   fire(event,args={}){handlers.get(event)?.(args)}
+  };
+ };
+ const state={scope:'tenant-a:owner',epoch:0,run:1,clears:0,turns:[],busyEvents:[],calls:[]};
+ const input={value:''},pendingFiles=[];
+ const api=async(path,options)=>{state.calls.push({path,options});return transport(path,options)};
+ const build=new Function('el','api','state','input','pendingFiles','global',
+  'let savedThreadBusy=false,textBusy=false,openedSavedThread=null;'+
+  'let savedThreadEpoch=state.epoch,textRunId=state.run;'+
+  'const SAVED_THREADS_PATH="/api/conversation-staging/threads",dock={dataset:{}};'+
+  'const savedThreadsAvailable=()=>true,currentWorkspaceScope=()=>state.scope,clean=(s,n)=>String(s??"").slice(0,n);'+
+  'const syncBusyControls=()=>state.busyEvents.push(savedThreadBusy);'+
+  'const clearConversation=()=>{state.clears++;openedSavedThread=null;input.value="";pendingFiles.splice(0);textRunId++};'+
+  'const appendConversationTurn=(role,content)=>state.turns.push({role,content});'+
+  'const restoreSavedAdvisorContext=()=>{};'+
+  dock.slice(start,end)+
+  ';return {section:mountSavedThreads(),busy:()=>savedThreadBusy,opened:()=>openedSavedThread,changeScope:s=>{state.scope=s;savedThreadEpoch++}};'
+ );
+ const instance=build(element,api,state,input,pendingFiles,{confirm});
+ const controls=instance.section.children;
+ return {...instance,state,input,pendingFiles,
+  button:name=>controls.find(x=>x.tag==='button'&&x.textContent===name),
+  search:controls.find(x=>x.type==='search'),
+  list:controls.find(x=>x.tag==='select'),
+  status:controls.find(x=>x.tag==='p')
+ };
+}
+const settleDirectory=()=>new Promise(resolve=>setImmediate(resolve));
+
+test('saved chat controls serialize operations and retain the first title search',async()=>{
+ let finish;
+ const f=savedDirectoryFixture({transport:()=>new Promise(resolve=>{finish=resolve})});
+ f.search.value='Cedar';
+ f.button('Search').fire('click');
+ assert.equal(f.busy(),true);
+ assert.equal(f.state.calls.length,1);
+ assert.match(f.state.calls[0].path,/\?q=Cedar$/);
+ assert.equal(f.search.disabled,true);
+ assert.equal(f.button('New chat').disabled,true);
+ f.button('Open').fire('click');
+ f.button('New chat').fire('click');
+ assert.equal(f.state.calls.length,1);
+ assert.equal(f.state.clears,0);
+ finish({ok:true,items:[{id:'thread-a',title:'Cedar'}]});
+ await settleDirectory();
+ assert.equal(f.busy(),false);
+ assert.deepEqual(f.state.busyEvents,[true,false]);
+ assert.equal(f.list.options[0].value,'thread-a');
+ assert.equal(f.search.disabled,false);
+});
+
+test('saved chat open and new chat never silently discard a pending draft',async()=>{
+ let confirmed=false;
+ const f=savedDirectoryFixture({transport:async path=>path.endsWith('/messages')
+  ?{ok:true,items:[{role:'assistant',content_redacted:'Answer'},{role:'user',content_redacted:'Question'}]}
+  :{ok:true,items:[{id:'thread-a',title:'Title'}]},confirm:()=>confirmed});
+ f.button('Search').fire('click');
+ await settleDirectory();
+ f.list.value='thread-a';
+ f.input.value='Unsent question';
+ f.pendingFiles.push({name:'file'});
+ f.button('Open').fire('click');
+ await settleDirectory();
+ assert.equal(f.state.calls.length,1);
+ assert.equal(f.state.clears,0);
+ assert.equal(f.input.value,'Unsent question');
+ assert.equal(f.pendingFiles.length,1);
+ f.button('New chat').fire('click');
+ await settleDirectory();
+ assert.equal(f.state.clears,0);
+ confirmed=true;
+ f.button('Open').fire('click');
+ await settleDirectory();
+ assert.equal(f.opened(),'thread-a');
+ assert.deepEqual(f.state.turns,[{role:'user',content:'Question'},{role:'assistant',content:'Answer'}]);
+ assert.match(f.status.textContent,/original research source links are not restored/);
+ f.button('New chat').fire('click');
+ await settleDirectory();
+ assert.equal(f.opened(),null);
+ assert.equal(f.state.clears,2);
+});
+
+test('late thread readback after scope change cannot restore the old conversation',async()=>{
+ let finish;
+ const f=savedDirectoryFixture({transport:async path=>path.endsWith('/messages')
+  ?new Promise(resolve=>{finish=resolve})
+  :{ok:true,items:[{id:'thread-a',title:'Title'}]}});
+ f.button('Search').fire('click');
+ await settleDirectory();
+ f.list.value='thread-a';
+ f.button('Open').fire('click');
+ assert.equal(f.busy(),true);
+ f.changeScope('tenant-b:owner');
+ finish({ok:true,items:[{role:'assistant',content_redacted:'Private A'}]});
+ await settleDirectory();
+ assert.equal(f.state.clears,0);
+ assert.equal(f.state.turns.length,0);
+ assert.equal(f.opened(),null);
+ assert.equal(f.busy(),false);
+});
+
+test('saved directory operation locks sends, research and text edits before clearing the composer',()=>{
+ assert.match(dock,/if\(textBusy\|\|savedThreadBusy\|\|!q.length\)return;/);
+ assert.match(dock,/if\(textBusy\|\|savedThreadBusy\|\|\(!clean\(value,MAX_QUESTION\).length&&!files.length\)\)return;input.value=""/);
+ assert.match(dock,/if\(!webResearchAvailable\(\)\|\|textBusy\|\|savedThreadBusy\|\|pendingFiles.length\)return;/);
+ assert.match(dock,/sendButton.disabled=textBusy\|\|!draft\|\|savedThreadBusy;/);
+ assert.match(dock,/input.readOnly=savedThreadBusy/);
+ assert.match(dock,/clearButton.disabled=savedThreadBusy/);
+ assert.match(dock,/if\(!input\|\|textBusy\|\|savedThreadBusy\|\|input.value.trim\(\)\|\|pendingFiles.length\)return;/);
+ assert.match(dock,/copy.setAttribute\("aria-label","Copy this Thebe answer"\)/);
+});
