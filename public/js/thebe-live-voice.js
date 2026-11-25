@@ -816,6 +816,22 @@
     advisorConversation.push({role:"user",content:clean(question,400)},{role:"assistant",content:clean(answer,400)});
     if(advisorConversation.length>6)advisorConversation.splice(0,advisorConversation.length-6);
   }
+  // Saved messages are untrusted prior dialogue, never action authority.
+  // Restore complete recent text exchanges only; ignore an unmatched page edge.
+  function restoreSavedAdvisorContext(items){
+    advisorConversation.splice(0);
+    const chronological=Array.isArray(items)?items.slice(0,50).reverse():[];
+    let question="";
+    for(const item of chronological){
+      if(item?.role==="user"&&item.source_kind==="typed"){
+        question=typeof item.content_redacted==="string"?clean(item.content_redacted,400):"";
+      }else if(item?.role==="assistant"&&item.source_kind==="assistant"){
+        const answer=typeof item.content_redacted==="string"?clean(item.content_redacted,400):"";
+        if(question&&answer)retainAdvisorPair(question,answer);
+        question="";
+      }else question="";
+    }
+  }
   // Small visible icons keep full 44px keyboard/touch targets and explicit names.
   const appendControlIcon=(button,paths)=>{
     const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
@@ -1888,6 +1904,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       for(const item of data.items.slice().reverse()){
         if(["user","assistant"].includes(item?.role))appendConversationTurn(item.role,item.content_redacted);
       }
+      restoreSavedAdvisorContext(data.items);
       openedSavedThread=id;
       dock.dataset.conversation="true";
       status.textContent="Saved chat opened.";
