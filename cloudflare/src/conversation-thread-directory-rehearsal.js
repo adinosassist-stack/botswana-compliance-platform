@@ -5,6 +5,24 @@ const valid=x=>typeof x==="string"&&/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(x);
 const reply=(status,body)=>Response.json(body,{status,headers:{"cache-control":"no-store","x-robots-tag":"noindex, nofollow"}});
 const fail=(status,error)=>reply(status,{ok:false,error});
 const ownedActiveThread="tenant_id=? AND id=? AND status='active' AND EXISTS (SELECT 1 FROM thebe_conversation_members_rehearsal WHERE tenant_id=? AND conversation_id=? AND user_id=? AND role='owner' AND active=1)";
+
+async function hasEmptyBody(request){
+ if(request.body===null)return true;
+ // Hosted Workers can represent a bodyless mutation as an empty stream.
+ const reader=request.body.getReader();
+ try{
+  while(true){
+   const {done,value}=await reader.read();
+   if(done)return true;
+   if(value.byteLength){
+    await reader.cancel().catch(()=>{});
+    return false;
+   }
+  }
+ }catch{return false}
+ finally{reader.releaseLock()}
+}
+
 export async function conversationThreadDirectory({request,env,readSession,id=()=>crypto.randomUUID()}={}){
  if(env?.APP_ENV!=="staging"||env?.DEPLOYMENT_ENV!=="staging"||env?.DEPLOYMENT_PROFILE!=="conversation-staging"||env?.CONVERSATION_HISTORY_STAGING_ENABLED!=="true")return fail(404,"not_found");
  const url=new URL(request.url);
@@ -28,7 +46,7 @@ export async function conversationThreadDirectory({request,env,readSession,id=()
    return reply(200,{ok:true,items:result.results.slice(0,50),truncated:result.results.length>50});
   }
   if(session.csrfVerified!==true||request.headers.get("origin")!==env.CONVERSATION_STAGING_ORIGIN)return fail(403,"csrf_required");
-  if(request.method!=="PATCH"&&request.body!==null)return fail(400,"body_not_supported");
+  if(request.method!=="PATCH"&&!await hasEmptyBody(request))return fail(400,"body_not_supported");
   if(request.method==="PATCH"||request.method==="DELETE"){
    const thread=url.searchParams.get("threadId");
    if(!valid(thread))return fail(400,"invalid_thread");
