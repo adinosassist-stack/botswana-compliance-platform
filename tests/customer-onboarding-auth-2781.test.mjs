@@ -326,3 +326,33 @@ test("direct signup with uncertain response cannot submit a second account creat
  assert.equal(registrations,1,"a second submission must not recreate a workspace");
  assert.deepEqual(paths,["/auth.html?mode=login"]);
 });
+
+
+test("direct signup after confirmed creation and failed sign-in never recreates a workspace",async()=>{
+ const paths=[],requests=[];
+ let submit;
+ const form={addEventListener:(_event,handler)=>{submit=handler},setAttribute(){},removeAttribute(){}};
+ const btn={disabled:false,textContent:"Create account"};
+ const status={setAttribute(){}};
+ const elements={registerForm:form,submitBtn:btn,status,companyName:{value:"Synthetic Company"},email:{value:"owner@example.test"},password:{value:"synthetic password 12"},website:{value:""}};
+ vm.runInNewContext(directRegistration,{
+  TextEncoder,
+  document:{getElementById:id=>elements[id]},
+  window:{BW:{api:{createClient:()=>({request:async path=>{
+   requests.push(path);
+   if(path==="/api/auth/registration-proof/challenge")return {token:"synthetic-challenge",difficulty:8};
+   if(path==="/api/auth/register")return {ok:true};
+   if(path==="/api/auth/login")throw Object.assign(new Error("Connection lost"),{code:"network_error"});
+   throw new Error("Unexpected request");
+  }})}}},
+  crypto:{subtle:{digest:async()=>new Uint8Array(32).buffer}},
+  location:{assign:path=>paths.push(path)}
+ });
+ const event={preventDefault(){}};
+ await submit(event);
+ assert.equal(btn.disabled,false);
+ assert.equal(btn.textContent,"Go to sign in");
+ await submit(event);
+ assert.deepEqual(requests,["/api/auth/registration-proof/challenge","/api/auth/register","/api/auth/login"]);
+ assert.deepEqual(paths,["/auth.html?mode=login"]);
+});
