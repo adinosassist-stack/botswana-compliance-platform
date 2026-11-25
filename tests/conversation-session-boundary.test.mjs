@@ -3,7 +3,7 @@ import {appendFromTrustedSession,readFromTrustedSession} from "../cloudflare/src
 const context={session:{authenticated:true,active:true,userId:"user1",tenantId:"A"},workspaceMembership:{active:true,userId:"user1",tenantId:"A",conversationId:"t1",role:"member"},conversation:{id:"t1",tenantId:"A",status:"active"}};
 const body={role:"user",sourceKind:"typed",content:"Find invoices",idempotencyKey:"k1",tenantId:"B",ownerId:"attacker"};
 let inserts=0,tenantArgs=[];
-const env={DB:{prepare(){return {bind(...args){tenantArgs.push(args);return {async run(){inserts++;return {success:true,meta:{changes:1}}},async all(){return {results:[]}},async first(){return null}}}}}}};
+const env={DB:{prepare(){return {bind(...args){tenantArgs.push(args);return {async run(){inserts++;return {success:true,meta:{changes:1}}},async all(){return {results:[{id:null}]}},async first(){return null}}}}}}};
 const saved=await appendFromTrustedSession({env,context,clientBody:body,id:()=>"msg1"});
 assert.equal(saved.ok,true);
 assert.equal(inserts,1);
