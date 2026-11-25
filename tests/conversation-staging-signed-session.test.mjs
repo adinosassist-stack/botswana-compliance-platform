@@ -60,7 +60,7 @@ try{
   if(csrf)headers.set("x-csrf-token",csrf);
   if(body){
    headers.set("content-type","application/json");
-   headers.set("x-thebe-conversation-exchange","1");
+   if(body.exchange)headers.set("x-thebe-conversation-exchange","1");
   }
   return staging.fetch(new Request(origin+path,{method,headers,body:body&&JSON.stringify(body)}),env);
  };
@@ -73,6 +73,26 @@ try{
  assert.equal((await request(messages,{token:"alice-one",csrf:"csrf-one",method:"POST",body:{
   exchange:{question:"Synthetic question",answer:"Synthetic answer",idempotencyKey:"exchange-1"}
  }})).status,200);
+ const threadUrl=root+"?"+new URLSearchParams({threadId:id});
+ const rename={title:"Synthetic 100% progress"};
+ assert.equal((await request(threadUrl,{token:"alice-two",csrf:"wrong",method:"PATCH",body:rename})).status,403);
+ assert.equal((await request(threadUrl,{token:"bob-one",csrf:"csrf-bob",method:"PATCH",body:rename})).status,404);
+ const renamed=await request(threadUrl,{token:"alice-two",csrf:"csrf-two",method:"PATCH",body:rename});
+ assert.equal(renamed.status,200);
+ assert.equal((await renamed.json()).title,rename.title);
+ const searchUrl=root+"?"+new URLSearchParams({q:"100%"});
+ const matches=await (await request(searchUrl,{token:"alice-one"})).json();
+ assert.deepEqual(matches.items.map(row=>({id:row.id,title:row.title})),[{id,title:rename.title}]);
+ assert.deepEqual((await (await request(searchUrl,{token:"bob-one"})).json()).items,[]);
+ assert.deepEqual((await (await request(root+"?"+new URLSearchParams({q:"100_"}),{token:"alice-one"})).json()).items,[]);
+ const retry=await request(messages,{token:"alice-two",csrf:"csrf-two",method:"POST",body:{
+  exchange:{question:"Synthetic question",answer:"Synthetic answer",idempotencyKey:"exchange-1"}
+ }});
+ assert.equal(retry.status,200);
+ assert.equal((await retry.json()).duplicate,true);
+ assert.equal((await request(messages,{token:"alice-two",csrf:"csrf-two",method:"POST",body:{
+  exchange:{question:"Synthetic question",answer:"Different answer",idempotencyKey:"exchange-1"}
+ }})).status,409);
  const restored=await request(messages,{token:"alice-two"});
  assert.equal(restored.status,200);
  assert.deepEqual((await restored.json()).items.map(row=>row.content_redacted),["Synthetic answer","Synthetic question"]);
@@ -82,6 +102,11 @@ try{
  assert.equal(removed.status,200);
  assert.equal((await request(messages,{token:"alice-one"})).status,401);
  assert.deepEqual((await (await request(root,{token:"alice-one"})).json()).items,[]);
+ assert.deepEqual((await (await request(searchUrl,{token:"alice-one"})).json()).items,[]);
+ assert.equal((await request(threadUrl,{token:"alice-one",csrf:"csrf-one",method:"PATCH",body:rename})).status,404);
+ assert.equal((await request(messages,{token:"alice-one",csrf:"csrf-one",method:"POST",body:{
+  exchange:{question:"Synthetic question",answer:"Synthetic answer",idempotencyKey:"exchange-1"}
+ }})).status,401);
  sqlite.exec("UPDATE users SET session_generation=2 WHERE id='alice'");
  assert.equal((await request(root,{token:"alice-two"})).status,401);
 }finally{sqlite.close()}
