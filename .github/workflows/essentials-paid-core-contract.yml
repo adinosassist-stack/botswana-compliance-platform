@@ -2,6 +2,9 @@ name: Essentials Paid-Core Contract Gate (Offline)
 on:
   pull_request:
     paths:
+      - 'server/essentials-invoice-lifecycle.mjs'
+      - 'tests/essentials-invoice-lifecycle.test.mjs'
+      - 'cloudflare/src/finance-receivables.js'
       - 'server/payments/owner-payment-evidence-policy.mjs'
       - 'server/essentials-payment-schedule.mjs'
       - 'server/essentials-invoice-transaction.mjs'
@@ -28,11 +31,11 @@ jobs:
       - name: Check changed source and test syntax
         run: |
           set -euo pipefail
-          for file in server/payments/owner-payment-evidence-policy.mjs server/essentials-payment-schedule.mjs server/essentials-invoice-transaction.mjs tests/owner-payment-evidence-policy.test.mjs tests/owner-bank-allocation-real-d1.test.mjs tests/essentials-payment-schedule.test.mjs tests/essentials-invoice-transaction.test.mjs; do node --check "$file"; done
+          for file in server/essentials-invoice-lifecycle.mjs tests/essentials-invoice-lifecycle.test.mjs cloudflare/src/finance-receivables.js server/payments/owner-payment-evidence-policy.mjs server/essentials-payment-schedule.mjs server/essentials-invoice-transaction.mjs tests/owner-payment-evidence-policy.test.mjs tests/owner-bank-allocation-real-d1.test.mjs tests/essentials-payment-schedule.test.mjs tests/essentials-invoice-transaction.test.mjs; do node --check "$file"; done
       - name: Fail-closed payment, invoice and instalment regression
         run: |
           set -euo pipefail
-          node --test tests/owner-payment-evidence-policy.test.mjs tests/essentials-payment-schedule.test.mjs tests/essentials-invoice-transaction.test.mjs
+          node --test tests/essentials-invoice-lifecycle.test.mjs tests/owner-payment-evidence-policy.test.mjs tests/essentials-payment-schedule.test.mjs tests/essentials-invoice-transaction.test.mjs
       - name: Qualify synthetic D1 allocation uniqueness locally
         run: |
           set -euo pipefail
