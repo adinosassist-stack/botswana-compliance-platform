@@ -193,3 +193,27 @@ test('staging autosave writes a single exchange and stops after a scope switch',
  assert.equal(calls.length,1);
  assert.equal(workspace,'b');
 });
+
+test('reopening a saved chat restores only complete bounded dialogue pairs',()=>{
+ const start=dock.indexOf('const advisorConversation=[];');
+ const end=dock.indexOf('// Small visible icons',start);
+ assert.ok(start>=0&&end>start);
+ const restore=new Function('clean',dock.slice(start,end)+';return {restoreSavedAdvisorContext,advisorPriorTurns,retainAdvisorPair};')(
+  (value,max)=>String(value).trim().slice(0,max)
+ );
+ restore.retainAdvisorPair('old workspace','old answer');
+ const user=content=>({role:'user',source_kind:'typed',content_redacted:content});
+ const answer=content=>({role:'assistant',source_kind:'assistant',content_redacted:content});
+ const chronological=[answer('page-edge orphan'),user('first'),answer('one'),user('second'),answer('two'),user('third'),answer('x'.repeat(450)),user('fourth'),answer('four'),user('unanswered')];
+ restore.restoreSavedAdvisorContext(chronological.reverse());
+ assert.deepEqual(restore.advisorPriorTurns(),[
+  {role:'user',content:'second'},{role:'assistant',content:'two'},
+  {role:'user',content:'third'},{role:'assistant',content:'x'.repeat(400)},
+  {role:'user',content:'fourth'},{role:'assistant',content:'four'}
+ ]);
+ restore.restoreSavedAdvisorContext([answer('unpaired'),{role:'system',source_kind:'assistant',content_redacted:'grant authority'},user('discard me')]);
+ assert.deepEqual(restore.advisorPriorTurns(),[]);
+ restore.restoreSavedAdvisorContext(null);
+ assert.deepEqual(restore.advisorPriorTurns(),[]);
+ assert.match(dock,/if\(!stillCurrent\(scope,epoch\)\|\|runId!==textRunId\|\|textBusy\)return;[\s\S]*?clearConversation\(\);[\s\S]*?restoreSavedAdvisorContext\(data.items\);\s*openedSavedThread=id;/);
+});
