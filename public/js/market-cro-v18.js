@@ -34,7 +34,7 @@
     if(secondary){secondary.textContent="See how Thebe works";secondary.href="#product"}
 
     const reassurance=hero.querySelector(".reassure");
-    if(reassurance)reassurance.textContent="14 days free · No card required · Pula pricing";
+    if(reassurance)reassurance.textContent="Botswana SME tools · Pula pricing · Registration subject to availability";
 
     hero.querySelector(".control-ribbon")?.remove();
     gate.querySelector(".proof-strip")?.remove();
@@ -43,11 +43,11 @@
   function standardizeTrialCtas(gate){
     gate.querySelectorAll(".marketing-start-action").forEach(action=>{
       if(isPricingCta(action)){
-        action.textContent="Start free for 14 days";
+        action.textContent="View registration availability";
         return;
       }
       action.href="/auth/?mode=register";
-      action.textContent=action.closest(".nav")?"Start free":"Start free for 14 days";
+      action.textContent="Check registration availability";
       action.dataset.trialEntry="neutral";
     });
   }
@@ -80,7 +80,7 @@
     }
     cards.forEach(card=>{
       const action=card.querySelector(".marketing-start-action");
-      if(action)action.textContent="Start free for 14 days";
+      if(action)action.textContent="View registration availability";
     });
 
     const note=section.querySelector(".payment-note");
@@ -104,7 +104,7 @@
     if(trial){trial.classList.remove("secondary");trial.classList.add("primary")}
     if(whatsapp){whatsapp.classList.remove("primary");whatsapp.classList.add("secondary","whatsapp-secondary")}
     const paragraph=final.querySelector("p");
-    if(paragraph)paragraph.textContent="14 days free · No card required · Built for Botswana SMEs";
+    if(paragraph)paragraph.textContent="Built for Botswana SMEs · Registration subject to availability";
   }
 
   function init(){
