@@ -173,10 +173,24 @@ try{
         await page.setViewportSize({width,height});
         await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
         await launcherChat.waitFor({state:'visible'});
+        // Notification reading sheet intentionally owns the foreground. The
+        // live repro passed once it was closed; never override modal isolation.
+        // This fixture does not mount the notifications controller. Test its
+        // documented CSS boundary explicitly, then restore the ordinary state.
+        if(width===375){
+          await page.evaluate(()=>document.body.classList.add('thebe-delivery-sheet-open'));
+          assert.equal(await launcher.evaluate(el=>getComputedStyle(el).pointerEvents),'none','notification sheet owns the launcher touch lane');
+          await page.evaluate(()=>document.body.classList.remove('thebe-delivery-sheet-open'));
+          await launcherChat.waitFor({state:'visible'});
+        }
+        // Wait for viewport/cascade transitions without bypassing pointer hit testing.
+        await page.waitForFunction(()=>{const el=document.querySelector('#thebeAiDockPill .thebe-ai-pill-open');if(!el)return false;const r=el.getBoundingClientRect();const hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return !!hit&&el.contains(hit)},null,{timeout:2500}).catch(()=>{});
         const geometry=await launcherChat.evaluate(el=>{
           const r=el.getBoundingClientRect();
           const hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
-          return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth,height:innerHeight,hit:!!hit&&el.contains(hit)};
+          const describe=node=>node?{tag:node.tagName,id:node.id,classes:typeof node.className==='string'?node.className:'',zIndex:getComputedStyle(node).zIndex,pointerEvents:getComputedStyle(node).pointerEvents,visibility:getComputedStyle(node).visibility}:null;
+          const pill=el.closest('#thebeAiDockPill');
+          return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth,height:innerHeight,hit:!!hit&&el.contains(hit),target:describe(hit),button:describe(el),pill:describe(pill),bodyClasses:document.body.className,stack:document.elementsFromPoint(r.left+r.width/2,r.top+r.height/2).slice(0,8).map(describe)};
         });
         assert(geometry.left>=-1&&geometry.right<=width+1&&geometry.top>=-1&&geometry.bottom<=height+1&&geometry.hit,'minimized launcher must be reachable after desktop-to-mobile transition: '+JSON.stringify(geometry));
         await launcherChat.click();
