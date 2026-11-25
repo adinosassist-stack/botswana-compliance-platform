@@ -21,3 +21,7 @@ assert.throws(()=>assess({...base,worker:"bw-compliance-os"}),/invalid_research_
 assert.throws(()=>assess({...base,sourceSha:"main"}),/invalid_research_staging_target/);
 assert(!JSON.stringify(ok).includes("synthetic-model"));
 console.log("Research activation metadata qualification PASS");
+
+const openaiBindings=[...bindings.filter(binding=>binding.name!=="BRAVE_SEARCH_API_KEY"),plain("THEBE_GENERAL_AI_RESEARCH_PROVIDER","openai")];
+assert.equal(assess({...base,bindings:openaiBindings}).configurationCandidate,true);
+assert.equal(assess({...base,bindings:openaiBindings.filter(binding=>binding.name!=="OPENAI_API_KEY")}).configurationCandidate,false);
