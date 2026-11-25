@@ -1,0 +1,75 @@
+name: Founder AI protected activation
+run-name: Founder AI ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'qualification' }}
+on:
+  pull_request:
+    paths:
+      - 'scripts/execute-founder-ai-protected.mjs'
+      - 'scripts/founder-ai-entitlement.mjs'
+      - 'tests/founder-ai-protected-activation.test.mjs'
+      - '.github/workflows/founder-ai-protected-activation.yml'
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact independently reviewed protected main SHA
+        required: true
+        type: string
+      mode:
+        description: Inspect only, grant, or revoke designated founder entitlement
+        required: true
+        type: choice
+        default: inspect
+        options: [inspect, grant, revoke]
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: node --check scripts/execute-founder-ai-protected.mjs
+      - run: node --test tests/founder-ai-protected-activation.test.mjs
+  activate:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.actor == 'adinosassist-stack' && github.triggering_actor == 'adinosassist-stack'
+    needs: qualify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: production
+    concurrency:
+      group: thebe-desk-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ && "$EXPECTED_SHA" == "$GITHUB_SHA" && "$(git rev-parse HEAD)" == "$EXPECTED_SHA" ]]
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]]
+      - name: Run narrowly scoped founder operation
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          MODE: ${{ inputs.mode }}
+          GH_TOKEN: ${{ github.token }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ vars.D1_DATABASE_ID }}
+          FOUNDER_AI_IDENTITY_JSON: ${{ secrets.FOUNDER_AI_IDENTITY_JSON }}
+        run: node scripts/execute-founder-ai-protected.mjs
