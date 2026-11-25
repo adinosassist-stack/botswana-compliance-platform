@@ -5,7 +5,7 @@ import {planGeneralAiRequest,researchResponseMetadata,validateResearchSources} f
  * No network requests are made here; callers must supply separately authorized,
  * server-side implementations for model and search.
  */
-export async function answerGeneralQuestion({question,model,search,researchEnabled=false,authorized=false}={}){
+export async function answerGeneralQuestion({question,model,search,nativeResearch,researchEnabled=false,authorized=false}={}){
   const plan=planGeneralAiRequest(question,{researchEnabled});
   if(!plan.ok)return {ok:false,error:plan.error};
   if(plan.businessAuthorizationRequired&&!authorized)return {ok:false,error:"authorization_required"};
@@ -13,7 +13,16 @@ export async function answerGeneralQuestion({question,model,search,researchEnabl
   if(plan.approvalRequired)return {ok:false,error:"action_request_not_supported"};
   if(typeof model!=="function")return {ok:false,error:"model_unavailable"};
   let sources=[],sourcesRaw=[],researchPerformed=false,notice=plan.message;
-  if(plan.researchRequested&&plan.researchAvailable){
+  let nativeAnswer;
+  if(plan.researchRequested&&plan.researchAvailable&&typeof nativeResearch==="function"){
+    try{
+      const result=await nativeResearch({query:question});
+      nativeAnswer=result?.answer;
+      sources=validateResearchSources(result?.sources);
+      researchPerformed=typeof nativeAnswer==="string"&&!!nativeAnswer.trim()&&sources.length>0;
+      if(!researchPerformed)notice="No verifiable research sources were returned.";
+    }catch{notice="Live research failed; current claims are not verified."}
+  }else if(plan.researchRequested&&plan.researchAvailable){
     if(typeof search!=="function")notice="Live research is unavailable; current claims are not verified.";
     else{
       try{
@@ -32,7 +41,8 @@ export async function answerGeneralQuestion({question,model,search,researchEnabl
     ok:false,error:"research_sources_unavailable",notice:notice||"Current information cannot be verified.",
     researchPerformed:false,citations:[],verification:"unverified"
   };
-  const provenance=researchResponseMetadata({researchPerformed,sources});
+  const metadata=researchResponseMetadata({researchPerformed,sources});
+  const provenance=nativeAnswer&&researchPerformed?{...metadata,verification:"provider_citations",label:"Web search citations — verify original sources"}:metadata;
   const evidence=researchPerformed?provenance.citations.map(source=>({
     ...source,
     excerpt:String(sourcesRaw.find(item=>{
@@ -41,7 +51,7 @@ export async function answerGeneralQuestion({question,model,search,researchEnabl
   })).filter(item=>item.excerpt.length>=30):[];
   // Retrieved text is intentionally not supplied by the client. The search
   // integration must supply provenance-matched, safely extracted evidence.
-  const answer=await model({
+  const answer=nativeAnswer??await model({
     question,
     mode:researchPerformed?"grounded_research":"general",
     sources:evidence,

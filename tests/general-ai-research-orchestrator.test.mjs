@@ -108,3 +108,32 @@ test("blank or malformed model output is unavailable for general answers and res
     assert.deepEqual(research,{ok:false,error:"model_unavailable"});
   }
 });
+
+test("OpenAI research uses one provider call and accepts only returned citations",async()=>{
+  const {createOpenAiResearchProvider}=await import("../cloudflare/src/general-ai-model-provider.js");
+  let calls=0;
+  const nativeResearch=createOpenAiResearchProvider({apiKey:"test",model:"gpt-5",fetchImpl:async(url,options)=>{
+    calls++;
+    assert.equal(url,"https://api.openai.com/v1/responses");
+    const body=JSON.parse(options.body);
+    assert.equal(body.store,false);
+    assert.equal(body.tools[0].type,"web_search");
+    return Response.json({status:"completed",output:[
+      {type:"web_search_call",status:"completed"},
+      {type:"message",role:"assistant",status:"completed",content:[{
+        type:"output_text",text:"See https://example.com/source and https://unverified.example/elsewhere",
+        annotations:[{type:"url_citation",url:"https://example.com/source",title:"Source"}]
+      }]}
+    ]});
+  }});
+  const result=await answerGeneralQuestion({question:"Search the web for the latest news",researchEnabled:true,
+    nativeResearch,model:()=>assert.fail("a second model call would duplicate provider work")});
+  assert.equal(calls,1);
+  assert.equal(result.ok,true);
+  assert.equal(result.verification,"provider_citations");
+  assert.deepEqual(result.citations.map(source=>source.url),["https://example.com/source"]);
+  assert.match(result.answer,/unverified link removed/);
+  const missing=await answerGeneralQuestion({question:"Search the web for the latest news",researchEnabled:true,
+    nativeResearch:async()=>({answer:"Unverified answer",sources:[]}),model:()=>assert.fail("no stale fallback")});
+  assert.equal(missing.error,"research_sources_unavailable");
+});

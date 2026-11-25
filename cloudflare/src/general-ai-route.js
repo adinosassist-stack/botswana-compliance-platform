@@ -1,7 +1,7 @@
 import {readGeneralAiJsonBody} from "./general-ai-request-body.js";
 import {answerGeneralQuestion} from "./general-ai-research-orchestrator.js";
 import {planGeneralAiRequest} from "./general-ai-research-policy.js";
-import {createGeneralAiModelProvider} from "./general-ai-model-provider.js";
+import {createGeneralAiModelProvider,createOpenAiResearchProvider} from "./general-ai-model-provider.js";
 import {createGeneralAiSearchProvider} from "./general-ai-search-provider.js";
 import {reserveAiBudget} from "./ai-budget-reservation.js";
 import {recordAiUsage} from "./ai-usage-journal.js";
@@ -35,7 +35,10 @@ export async function handleGeneralAiRoute({request,path,env,auth}={}){
   if(planned.businessAuthorizationRequired)return reply({error:"use_authorized_workspace_ai"},403);
   if(planned.approvalRequired)return reply({error:"action_request_not_supported"},403);
   // A current-information question must not spend provider quota when live search is unavailable.
-  const researchEnabled=env.THEBE_GENERAL_AI_RESEARCH_ENABLED==="true"&&!!env.BRAVE_SEARCH_API_KEY;
+  const researchProvider=env.THEBE_GENERAL_AI_RESEARCH_PROVIDER??"brave";
+  const researchCredential=researchProvider==="openai"
+    ?env.OPENAI_API_KEY:researchProvider==="brave"?env.BRAVE_SEARCH_API_KEY:null;
+  const researchEnabled=env.THEBE_GENERAL_AI_RESEARCH_ENABLED==="true"&&!!researchCredential;
   if(planned.researchRequested&&!researchEnabled)return reply({error:"research_sources_unavailable",notice:"Live research is not configured."},503);
   // An independently configured Cloudflare rate-limit binding is mandatory
   // before the feature can be enabled; absent binding fails closed.
@@ -48,8 +51,8 @@ export async function handleGeneralAiRoute({request,path,env,auth}={}){
   const amount=Number(env.THEBE_AI_BUDGET_RESERVATION_MICRO_USD);
   if(guarded&&(!env.AI_BUDGET_DB?.prepare||!Number.isSafeInteger(amount)||amount<=0))
     return reply({error:"ai_budget_unavailable"},503);
-  let model;
-  try{model=createGeneralAiModelProvider({
+  let model,nativeResearch;
+  const options={
     apiKey:env.OPENAI_API_KEY,model:env.THEBE_GENERAL_AI_MODEL,
     ...(guarded?{onUsage:async usage=>{
       await recordAiUsage(env.AI_BUDGET_DB,String(auth.tenant_id),{
@@ -57,8 +60,11 @@ export async function handleGeneralAiRoute({request,path,env,auth}={}){
       });
       usageRecorded=true;
     }}:{})
-  })}
-  catch{return reply({error:"model_unavailable"},503)}
+  };
+  try{
+    model=createGeneralAiModelProvider(options);
+    if(researchEnabled&&researchProvider==="openai")nativeResearch=createOpenAiResearchProvider(options);
+  }catch{return reply({error:"model_unavailable"},503)}
   let budgetRequestId="",usageRecorded=false;
   if(guarded){
     const period=new Date().toISOString().slice(0,7);
@@ -69,9 +75,9 @@ export async function handleGeneralAiRoute({request,path,env,auth}={}){
       });
     }catch{return reply({error:"ai_budget_denied"},429)}
   }
-  const search=researchEnabled?createGeneralAiSearchProvider({apiKey:env.BRAVE_SEARCH_API_KEY}):undefined;
+  const search=researchEnabled&&researchProvider==="brave"?createGeneralAiSearchProvider({apiKey:env.BRAVE_SEARCH_API_KEY}):undefined;
   try{
-    const result=await answerGeneralQuestion({question:body.question,model,search,researchEnabled,authorized:false});
+    const result=await answerGeneralQuestion({question:body.question,model,search,nativeResearch,researchEnabled,authorized:false});
     if(guarded&&result.ok&&!usageRecorded)return reply({error:"ai_usage_unconfirmed"},503);
     return reply(result,generalAiResultStatus(result));
   }catch{return reply({error:"ai_provider_unavailable"},503)}

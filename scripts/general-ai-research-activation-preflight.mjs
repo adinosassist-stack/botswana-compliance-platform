@@ -11,7 +11,9 @@ export function assessResearchReadiness({worker,bindings,sourceSha}={}){
  one("SESSION_SECRET","secret_text");
  one("GENERAL_AI_RATE_LIMITER","ratelimit",b=>String(b.namespace_id)==="78212078");
  one("OPENAI_API_KEY","secret_text");
- one("BRAVE_SEARCH_API_KEY","secret_text");
+ const providers=bindings.filter(b=>b?.name==="THEBE_GENERAL_AI_RESEARCH_PROVIDER");
+ if(providers.length)one("THEBE_GENERAL_AI_RESEARCH_PROVIDER","plain_text",b=>["openai","brave"].includes(b.text));
+ if(providers[0]?.text!=="openai")one("BRAVE_SEARCH_API_KEY","secret_text");
  one("THEBE_GENERAL_AI_MODEL","plain_text",b=>typeof b.text==="string"&&!!b.text.trim());
  one("THEBE_GENERAL_AI_ENABLED","plain_text",b=>b.text==="false");
  one("THEBE_GENERAL_AI_RESEARCH_ENABLED","plain_text",b=>b.text==="false");
