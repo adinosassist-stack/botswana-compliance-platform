@@ -173,3 +173,19 @@ test("compact notification cap uses actual visual viewport and never exposes the
  assert.ok(css.includes("visibility:hidden!important;pointer-events:none!important"),"foreground sheet hides the background navigation rail");
  assert.doesNotMatch(section,/thebe-delivery-sheet-open[\s\S]*visibility:visible!important/,"do not show navigation behind notification");
 });
+
+
+test("Daily Reports exposes expected, received and missing counts on each branch card and clears failed reads",()=>{
+ const js=read("../public/js/workspace-runtime-20261001b.js");
+ const html=read("../public/index.html");
+ for(const source of [js,html]){
+  assert.ok(source.includes('metric("Expected",value(expected))'));
+  assert.ok(source.includes('metric("Received",value(received))'));
+  assert.ok(source.includes('metric("Missing",value(missing))'));
+  assert.ok(source.includes('expected-received:null'));
+  assert.ok(source.includes('if(dashboardR.status==="fulfilled")applyOpsDashboard(dashboard);else clearOpsDashboard();'));
+  assert.ok(source.includes('company!==store.activeCompanyId||role!==currentWorkspaceRole()'));
+  assert.ok(source.includes('startsWith("/api/daily-reporting/dashboard?"))throw error'));
+ }
+ assert.ok(html.includes('id="ops-branch-report-cards-2715"'));
+});

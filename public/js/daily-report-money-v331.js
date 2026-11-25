@@ -16,7 +16,8 @@
   async function getDashboard(){
     const date=document.getElementById("opsReportDate")?.value||new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Gaborone",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
     if(typeof window.apiJson!=="function")throw new Error("Workspace API unavailable");
-    return window.apiJson(`/api/daily-reporting/dashboard?date=${encodeURIComponent(date)}`);
+    const locationId=document.getElementById("opsLocationFilter")?.value||"";
+    return window.apiJson(`/api/daily-reporting/dashboard?date=${encodeURIComponent(date)}${locationId?"&locationId="+encodeURIComponent(locationId):""}`);
   }
 
   async function getFinanceConnections(){
@@ -117,11 +118,18 @@
     }
   }
 
+  let renderEpoch=0;
   async function render(panel=ensurePanel()){
     if(!panel)return;
+    const epoch=++renderEpoch,date=document.getElementById("opsReportDate")?.value,location=document.getElementById("opsLocationFilter")?.value;
+    const current=()=>epoch===renderEpoch&&date===document.getElementById("opsReportDate")?.value&&location===document.getElementById("opsLocationFilter")?.value;
+    for(const key of ["total","branches","date","fnb"])panel.querySelector("[data-report-money-"+key+"]").textContent="—";
+    panel.querySelector("[data-report-money-list]").textContent="Loading reported revenue…";
     try{
       const [ops,connections]=await Promise.all([getDashboard(),getFinanceConnections()]);
-      const total=Number(ops?.totals?.revenue||0);
+      if(!current())return;
+      if(!Array.isArray(ops?.branches)||typeof ops?.totals?.revenue!=="number"||!Number.isFinite(ops.totals.revenue)||!Number.isSafeInteger(ops.locationsReporting))throw Error("Reporting data unavailable");
+      const total=ops.totals.revenue;
       panel.querySelector("[data-report-money-total]").textContent=money(total);
       panel.querySelector("[data-report-money-date]").textContent=`Reported for ${ops?.date||"selected date"}`;
       panel.querySelector("[data-report-money-branches]").textContent=String(ops?.locationsReporting||0);
@@ -131,8 +139,9 @@
       const fnb=panel.querySelector("[data-report-money-fnb]");
       if(fnbConnection)fnb.textContent=String(fnbConnection.status||"Registered").replaceAll("_"," ");
       else if(fnbProvider)fnb.textContent="Ready to connect";
-      else fnb.textContent="Not configured";
+      else fnb.textContent=connections===null?"Unavailable":"Not configured";
     }catch(error){
+      if(!current())return;
       panel.querySelector("[data-report-money-total]").textContent="Unavailable";
       const host=panel.querySelector("[data-report-money-list]");
       if(host)host.textContent=String(error?.message||"Could not load revenue roll-up.");
@@ -145,6 +154,9 @@
     const panel=ensurePanel();
     if(panel)render(panel);
   }
+  document.addEventListener("change",event=>{
+    if(["opsReportDate","opsLocationFilter"].includes(event.target?.id))mount();
+  });
   window.addEventListener("thebe:workspace-view-change",event=>{
     if(event.detail?.id==="dailyreports")mount();
   });

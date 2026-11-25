@@ -1735,7 +1735,7 @@ const reportingAnalyticsMemory=new Map();
 const recentlyRemovedEmployeeIds=new Set();
 const runtimeApiClient=STANDALONE_PREVIEW?Object.freeze({request:(url,opts={})=>BW.preview.request(url,opts)}):productionApiClient;
 async function apiJson(url,opts={}){return runtimeApiClient.request(url,opts)}
-async function reportingAnalyticsJson(url,opts={}){if(STANDALONE_PREVIEW)return runtimeApiClient.request(url,opts);try{const value=await reportingAnalyticsApiClient.request(url,opts);if(String(opts?.method||"GET").toUpperCase()==="GET")reportingAnalyticsMemory.set(String(url),{value,at:Date.now()});return value}catch(error){const cached=reportingAnalyticsMemory.get(String(url)),isTimeout=/timed out|timeout/i.test(String(error?.message||error||""));if(isTimeout&&cached&&Date.now()-cached.at<15*60*1000)return cached.value;throw error}}
+async function reportingAnalyticsJson(url,opts={}){if(STANDALONE_PREVIEW)return runtimeApiClient.request(url,opts);try{const value=await reportingAnalyticsApiClient.request(url,opts);if(String(opts?.method||"GET").toUpperCase()==="GET")reportingAnalyticsMemory.set(String(url),{value,at:Date.now()});return value}catch(error){if(String(url).startsWith("/api/daily-reporting/dashboard?"))throw error;const cached=reportingAnalyticsMemory.get(String(url)),isTimeout=/timed out|timeout/i.test(String(error?.message||error||""));if(isTimeout&&cached&&Date.now()-cached.at<15*60*1000)return cached.value;throw error}}
 function enterStandalonePreview(){if(!STANDALONE_PREVIEW)return false;document.body.classList.add("standalone-preview");const next=structuredClone(DEFAULT_STATE);next.activeRole="owner";replaceWorkspaceStore(next);currentUser={id:"preview-user",email:"preview@local",role:"owner"};marketingGate.classList.add("hidden");authGate.classList.add("hidden");revealWorkspaceShell();syncMobileRoleNav("owner");renderAll();applyRoleUi();showView("dashboard");const chip=document.querySelector(".prodchip");if(chip)chip.textContent="PREVIEW MODE";return true}
 let dailyReporterToken="";
 function browserGaboroneDate(){try{return new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Gaborone",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date())}catch{return new Date().toISOString().slice(0,10)}}
@@ -1768,7 +1768,22 @@ async function refreshOpsPerformanceLearning(){const date=document.getElementByI
 async function saveOpsPerformanceSettings(){const status=document.getElementById("opsPerformanceSettingsStatus"),payload={enabled:document.getElementById("opsPerfEnabled").checked,notifyDeterioration:document.getElementById("opsPerfDeterioration").checked,notifyImprovement:document.getElementById("opsPerfImprovement").checked,notifyReportingGap:document.getElementById("opsPerfCoverage").checked,notifyIncidents:document.getElementById("opsPerfIncidents").checked,notifyInApp:document.getElementById("opsPerfInApp").checked,notifyEmail:document.getElementById("opsPerfEmail").checked,notifyWhatsapp:document.getElementById("opsPerfWhatsapp").checked,coverageDropPoints:Number(document.getElementById("opsPerfCoverageDrop").value),metricDropPercent:Number(document.getElementById("opsPerfMetricDrop").value),improvementPercent:Number(document.getElementById("opsPerfImprovementPct").value),minBaselineDays:Number(document.getElementById("opsPerfMinDays").value)};try{if(!STANDALONE_PREVIEW)await apiJson("/api/daily-reporting/performance-settings",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});if(status)status.textContent="Saved. Future alerts use these thresholds."}catch(e){if(status)status.textContent=e.message}}
 async function sendOpsSummaryFeedback(rating){if(!currentOpsSummaryId)return;let note="",outcome="watch";if(rating==="not_useful"){const answer=await BW.dialog.prompt({title:"Improve the AI summary",message:"What should the AI improve next time? Avoid sensitive employee information.",multiline:true,maxLength:900,confirmLabel:"Save feedback"});if(answer===null)return;note=answer.trim();outcome="false_positive"}else{const answer=await BW.dialog.prompt({title:"Management feedback",message:"Optional: what was useful or what action did management take?",multiline:true,maxLength:900,confirmLabel:"Save feedback"});if(answer===null)return;note=answer.trim();outcome=note?"actioned":"watch"}const status=document.getElementById("opsFeedbackStatus");try{if(!STANDALONE_PREVIEW)await apiJson("/api/daily-reporting/feedback",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({summaryId:currentOpsSummaryId,rating,outcome,note})});if(status)status.textContent="Feedback saved into future AI context."}catch(e){if(status)status.textContent=e.message}}
 async function updateOpsInsightStatus(id,status){try{if(!STANDALONE_PREVIEW)await apiJson(`/api/daily-reporting/performance-insights/${encodeURIComponent(id)}/status`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({status})});await renderDailyOperations()}catch(e){notifyUser(e.message)}}
-function renderOpsBranches(branches){const box=document.getElementById("opsBranchPerformance");if(!box)return;if(!branches?.length){box.safeHTML='<div class="muted small">No active locations yet.</div>';return}box.safeHTML=`<div class="ops-branch ops-header"><span>Location</span><span>Coverage</span><span>Tasks</span><span>Customers/jobs</span><span>Revenue</span><span>Incidents</span><span>Attention</span></div>`+branches.map(b=>`<div class="ops-branch"><div class="ops-branch-name"><div class="mini-ring" style="--p:${Math.max(0,Math.min(100,Number(b.coverage||0)))}"><b>${Number(b.coverage||0)}%</b></div><div><b>${escapeHtml(b.name)}</b><span class="ops-trend">${Number(b.submittedExpected??b.submitted??0)}/${Number(b.expected||0)} expected${Number(b.submitted||0)>Number(b.submittedExpected??b.submitted??0)?` · ${Number(b.submitted)-Number(b.submittedExpected??b.submitted??0)} optional report`:""}${Number(b.excused||0)?` · ${Number(b.excused||0)} not expected`:""}</span></div></div><span>${Number(b.coverage||0)}%</span><span>${Number(b.tasks||0)}<small class="ops-trend">${escapeHtml(trendLabel(b.trend?.tasks||0))}</small></span><span>${Number(b.customers||0)}<small class="ops-trend">${escapeHtml(trendLabel(b.trend?.customers||0))}</small></span><span>${moneyBwp(b.revenue)}<small class="ops-trend">${escapeHtml(trendLabel(b.trend?.revenue||0,"P"))}</small></span><span>${Number(b.incidents||0)}</span><span>${Number(b.attention||0)}</span></div>`).join("")}
+function renderOpsBranches(branches){
+ const box=document.getElementById("opsBranchPerformance");if(!box)return;
+ if(!Array.isArray(branches)){box.safeHTML='<div class="notice info">Location reporting is unavailable. Refresh to retry.</div>';return}
+ if(!branches.length){box.safeHTML='<div class="muted small">No locations returned for this filter.</div>';return}
+ const count=v=>typeof v==="number"&&Number.isSafeInteger(v)&&v>=0?v:null;
+ const value=v=>count(v)===null?"—":String(v);
+ const metric=(label,text,trend="")=>`<div class="ops-branch-metric"><small>${label}</small><b>${text}</b>${trend?'<small class="ops-trend">'+escapeHtml(trend)+'</small>':""}</div>`;
+ box.safeHTML=branches.map(b=>{
+  const expected=count(b.expected),received=count(b.submittedExpected),submitted=count(b.submitted),missing=expected!==null&&received!==null&&received<=expected?expected-received:null;
+  const coverage=expected===0?"Not expected":expected!==null&&received!==null&&received<=expected&&typeof b.coverage==="number"&&b.coverage>=0&&b.coverage<=100?String(b.coverage)+"%":"—";
+  const status=missing===null?"Reporting status unavailable":expected===0?"No reports expected":missing===0?"All expected reports received":"Reports awaiting follow-up";
+  const optional=submitted!==null&&received!==null&&submitted>=received?submitted-received:null;
+  const revenue=typeof b.revenue==="number"&&Number.isFinite(b.revenue)?escapeHtml(moneyBwp(b.revenue)):"—";
+  return `<article class="ops-branch-card" aria-label="Location report: ${escapeHtml(b.name||"Location")}"><div class="ops-branch-card-head"><div><b>${escapeHtml(b.name||"Location")}</b><small>${status}</small></div><span class="badge">${coverage}</span></div><div class="ops-branch-counts">${metric("Expected",value(expected))}${metric("Received",value(received))}${metric("Missing",value(missing))}</div><div class="muted small">Optional reports: ${value(optional)} · Not expected: ${value(b.excused)}</div><div class="ops-branch-output">${metric("Tasks",value(b.tasks),typeof b.trend?.tasks==="number"?trendLabel(b.trend.tasks):"")}${metric("Customers / jobs",value(b.customers),typeof b.trend?.customers==="number"?trendLabel(b.trend.customers):"")}${metric("Revenue",revenue,typeof b.trend?.revenue==="number"?trendLabel(b.trend.revenue,"P"):"")}${metric("Incidents",value(b.incidents))}${metric("Attention",value(b.attention))}</div></article>`;
+ }).join("");
+}
 function renderOpsMissing(items){const box=document.getElementById("opsMissingReports");if(!box)return;setText("opsMissingCount",items?.length||0);box.safeHTML=items?.length?items.map(x=>`<div class="item"><div class="between row"><div><b>${escapeHtml(x.fullName)}</b><div class="muted small">${escapeHtml(x.roleTitle||"Employee")} · ${escapeHtml(x.locationName)}</div></div><button class="btn soft" type="button" data-bw-onclick="markOpsReportingException('${safeId(x.employeeId)}','${safeId(x.locationId)}')">Not expected today</button></div></div>`).join(""):'<div class="notice good"><b>All expected reporting links have a report.</b><div class="small">Coverage excludes manager-approved reporting exceptions for this date.</div></div>'}
 function renderOpsExceptions(items){const wrap=document.getElementById("opsReportingExceptionsWrap"),box=document.getElementById("opsReportingExceptions");if(!wrap||!box)return;wrap.style.display=items?.length?"block":"none";const labels={leave:"Leave",rest_day:"Rest day",field_assignment:"Field assignment",training:"Training",connectivity:"Connectivity",other:"Other approved exception"};box.safeHTML=(items||[]).map(x=>`<div class="item"><div class="between row"><div><b>${escapeHtml(x.full_name)}</b><div class="muted small">${escapeHtml(x.location_name)} · ${escapeHtml(labels[x.reason_code]||x.reason_code)}${x.note?` · ${escapeHtml(x.note)}`:""}</div></div><button class="btn alt" type="button" data-bw-onclick="removeOpsReportingException('${safeId(x.id)}')">Restore expectation</button></div></div>`).join("")}
 function renderOpsReports(items){const box=document.getElementById("opsReportsList");if(!box)return;box.safeHTML=items?.length?items.map(r=>{const k=typeof r.kpi_json==="string"?(()=>{try{return JSON.parse(r.kpi_json)}catch{return {}}})():r.kpi_json||{};return `<div class="ops-report-card ${r.needs_attention?"ops-attention":""}"><div class="between row"><div><b>${escapeHtml(r.full_name)}</b><div class="muted small">${escapeHtml(r.location_name)} · submitted ${new Date(r.submitted_at).toLocaleString()}</div></div>${r.needs_attention?'<span class="badge warn">Needs attention</span>':''}</div><div class="small" style="margin-top:8px"><b>Work:</b> ${escapeHtml(r.work_summary||"—")}</div><div class="ops-report-grid"><div class="ops-report-field"><b>Wins</b>${escapeHtml(r.wins||"—")}</div><div class="ops-report-field"><b>Blockers</b>${escapeHtml(r.blockers||"—")}</div><div class="ops-report-field"><b>Incidents / issues</b>${escapeHtml(r.incidents||"—")}</div></div><div class="muted small" style="margin-top:9px">Tasks ${Number(k.tasksCompleted||0)} · Customers/jobs ${Number(k.customersHandled||0)} · Revenue ${moneyBwp(k.revenueBwp)} · Incidents ${Number(k.incidentsCount||0)}</div></div>`}).join(""):'<div class="muted small">No reports submitted for this filter.</div>'}
@@ -1777,6 +1792,7 @@ function renderOpsAccess(items){const box=document.getElementById("opsReporterAc
 function fillSelectPreserve(select,items,labelFn,emptyLabel){if(!select)return;const old=select.value;select.safeHTML=(emptyLabel?`<option value="">${escapeHtml(emptyLabel)}</option>`:"")+(items||[]).map(x=>`<option value="${escapeHtml(x.id)}">${escapeHtml(labelFn(x))}</option>`).join("");if([...select.options].some(o=>o.value===old))select.value=old}
 let opsReportingSetupEpoch=0;
 function applyOpsDashboard(dashboard){
+  if(!opsDashboardAvailable(dashboard)){clearOpsDashboard();return}
   const received=dashboard.reports?.length||0,expected=dashboard.reportingPopulation?.expected??dashboard.accesses?.length??0,followup=dashboard.missing?.length||0,coverage=Math.max(0,Math.min(100,Number(dashboard.coverage||0)));
   setText("opsCoverage",`${coverage}%`);setText("opsReportsReceived",received);setText("opsReportOrb",received);setText("opsVisualReceived",received);setText("opsVisualExpected",expected);setText("opsVisualFollowup",followup);
   const coverageTrack=document.getElementById("opsCoverageTrack");if(coverageTrack)coverageTrack.style.width=coverage+"%";
@@ -1785,16 +1801,25 @@ function applyOpsDashboard(dashboard){
   renderOpsBranches(dashboard.branches||[]);renderOpsMissing(dashboard.missing||[]);renderOpsExceptions(dashboard.exceptions||[]);renderOpsReports(dashboard.reports||[]);
   setTimeout(()=>document.querySelectorAll('#dailyreports .metric-ring[data-ring-target]').forEach(syncMetricRing),10);
 }
+function clearOpsDashboard(message="Reporting data unavailable. Refresh to retry."){
+ for(const id of ["opsCoverage","opsReportsReceived","opsReportOrb","opsVisualReceived","opsVisualExpected","opsVisualFollowup","opsExpectedReports","opsLocationsReporting","opsLocationOrb","opsAttention","opsAttentionOrb","opsMissingCount"])setText(id,"—");
+ const track=document.getElementById("opsCoverageTrack");if(track)track.style.width="0%";
+ for(const id of ["opsBranchPerformance","opsMissingReports","opsReportsList","opsReportingExceptions"]){const node=document.getElementById(id);if(node)node.textContent=message}
+ const wrap=document.getElementById("opsReportingExceptionsWrap");if(wrap)wrap.style.display="none";
+}
+function opsDashboardAvailable(dashboard){return !!dashboard&&Array.isArray(dashboard.branches)&&Array.isArray(dashboard.reports)&&Array.isArray(dashboard.missing)&&Array.isArray(dashboard.exceptions)&&Number.isSafeInteger(dashboard.reportingPopulation?.expected)&&dashboard.reportingPopulation.expected>=0&&typeof dashboard.coverage==="number"&&Number.isFinite(dashboard.coverage);}
 let opsLiveRefreshInFlight=false;
 async function refreshLiveDailyOperations(){
   if(opsLiveRefreshInFlight||document.visibilityState!=="visible"||!window.__THEBE_WORKSPACE_READY__||!document.getElementById("dailyreports")?.classList.contains("active")||!["owner","manager"].includes(currentWorkspaceRole()))return;
-  const epoch=opsReportingSetupEpoch,date=document.getElementById("opsReportDate")?.value||browserGaboroneDate(),locationId=document.getElementById("opsLocationFilter")?.value||"";
+  const epoch=opsReportingSetupEpoch,company=store.activeCompanyId,role=currentWorkspaceRole(),date=document.getElementById("opsReportDate")?.value||browserGaboroneDate(),locationId=document.getElementById("opsLocationFilter")?.value||"";
   opsLiveRefreshInFlight=true;
   try{
     const dashboard=await reportingAnalyticsJson(`/api/daily-reporting/dashboard?date=${encodeURIComponent(date)}${locationId?`&locationId=${encodeURIComponent(locationId)}`:""}`);
-    if(epoch!==opsReportingSetupEpoch||document.visibilityState!=="visible"||!document.getElementById("dailyreports")?.classList.contains("active")||date!==(document.getElementById("opsReportDate")?.value||browserGaboroneDate())||locationId!==(document.getElementById("opsLocationFilter")?.value||""))return;
+    if(epoch!==opsReportingSetupEpoch||company!==store.activeCompanyId||role!==currentWorkspaceRole()||document.visibilityState!=="visible"||!document.getElementById("dailyreports")?.classList.contains("active")||date!==(document.getElementById("opsReportDate")?.value||browserGaboroneDate())||locationId!==(document.getElementById("opsLocationFilter")?.value||""))return;
     applyOpsDashboard(dashboard);
-  }catch(_){}
+  }catch(_){
+    if(epoch===opsReportingSetupEpoch&&company===store.activeCompanyId&&role===currentWorkspaceRole()&&date===(document.getElementById("opsReportDate")?.value||browserGaboroneDate())&&locationId===(document.getElementById("opsLocationFilter")?.value||""))clearOpsDashboard();
+  }
   finally{opsLiveRefreshInFlight=false}
 }
 setInterval(()=>void refreshLiveDailyOperations(),30000);
@@ -1834,7 +1859,8 @@ async function renderPeopleReportingSetup(){
 }
 async function renderDailyOperations(){
   const root=document.getElementById("dailyreports");if(!root)return;const role=currentWorkspaceRole();if(!["owner","manager"].includes(role))return;
-  const setupEpoch=++opsReportingSetupEpoch;
+  const setupEpoch=++opsReportingSetupEpoch,company=store.activeCompanyId;
+  clearOpsDashboard("Loading reporting data…");
   const dateEl=document.getElementById("opsReportDate");if(dateEl&&!dateEl.value)dateEl.value=browserGaboroneDate();
   const date=dateEl?.value||browserGaboroneDate(),locationId=document.getElementById("opsLocationFilter")?.value||"";
   const requests=[
@@ -1844,7 +1870,7 @@ async function renderDailyOperations(){
     reportingAnalyticsJson(`/api/daily-reporting/dashboard?date=${encodeURIComponent(date)}${locationId?`&locationId=${encodeURIComponent(locationId)}`:""}`)
   ];
   const [locationsR,employeesR,accessR,dashboardR]=await Promise.allSettled(requests);
-  if(setupEpoch!==opsReportingSetupEpoch)return;
+  if(setupEpoch!==opsReportingSetupEpoch||company!==store.activeCompanyId||role!==currentWorkspaceRole()||date!==(dateEl?.value||browserGaboroneDate())||locationId!==(document.getElementById("opsLocationFilter")?.value||""))return;
   const value=(result,fallback)=>result.status==="fulfilled"?result.value:fallback;
   const reason=result=>result.status==="rejected"?result.reason:null;
   const locations=value(locationsR,{items:[]}),employees=value(employeesR,{items:[]}),access=value(accessR,{items:[]}),dashboard=value(dashboardR,{});
@@ -1869,12 +1895,12 @@ async function renderDailyOperations(){
     if(box)box.safeHTML=planBlocked?'<div class="notice info"><b>Employee reporting is not available on the current plan.</b><div class="small">Locations still work independently. Upgrade the workspace plan to issue restricted employee reporting links.</div></div>':`<div class="notice bad">Employee reporting access could not load. ${escapeHtml(err?.message||"Retry this section.")}</div>`;
   }
 
-  applyOpsDashboard(dashboard);
+  if(dashboardR.status==="fulfilled")applyOpsDashboard(dashboard);else clearOpsDashboard();
   const [settingsR,summariesR]=await Promise.allSettled([
     apiJson("/api/daily-reporting/settings"),
     reportingAnalyticsJson(`/api/daily-reporting/summaries?date=${encodeURIComponent(date)}`)
   ]);
-  if(setupEpoch!==opsReportingSetupEpoch)return;
+  if(setupEpoch!==opsReportingSetupEpoch||company!==store.activeCompanyId||role!==currentWorkspaceRole()||date!==(dateEl?.value||browserGaboroneDate())||locationId!==(document.getElementById("opsLocationFilter")?.value||""))return;
   const settings=value(settingsR,{}),summaries=value(summariesR,{items:[]});
   const autoSummary=document.getElementById("opsAutoSummary");if(autoSummary){autoSummary.checked=Number(settings.auto_summary_enabled||0)===1||settings.autoSummaryEnabled===true;autoSummary.disabled=settingsR.status==="rejected"}
   renderOpsNarrative(summariesR.status==="fulfilled"?opsLatestSummary(summaries.items||[],locationId):null);
