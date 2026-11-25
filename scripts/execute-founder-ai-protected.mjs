@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {setFounderAiEntitlement} from './founder-ai-entitlement.mjs';
 import {checkLaunchProvenance} from './check-launch-provenance-readonly.mjs';
@@ -21,12 +22,38 @@ export async function verifyAuthority(env,fetchImpl=fetch){
   const pr=prs[0];
   const reviews=(await get('pulls/'+pr.number+'/reviews?per_page=100')).filter(r=>r.user?.login==='thusico'&&['APPROVED','CHANGES_REQUESTED','DISMISSED'].includes(r.state)).sort((a,b)=>b.id-a.id);
   assert(reviews[0]?.state==='APPROVED'&&reviews[0].commit_id===pr.head.sha,'founder_review_required');
-  for(const [workflow,head,event,branch] of [['independent-review-regressions.yml',pr.head.sha,'pull_request',pr.head.ref],['founder-ai-protected-activation.yml',pr.head.sha,'pull_request',pr.head.ref],['main-governance-guard.yml',sha,'push','main'],['recovery-ci.yml',sha,'push','main'],['bf07-seal.yml',sha,'push','main']]){
+  for(const [workflow,head,event,branch] of [['independent-review-regressions.yml',pr.head.sha,'pull_request',pr.head.ref],['founder-ai-protected-activation.yml',pr.head.sha,'pull_request',pr.head.ref],['main-governance-guard.yml',sha,'push','main'],['recovery-ci.yml',sha,'push','main']]){
     const data=await get('actions/workflows/'+workflow+'/runs?head_sha='+head+'&event='+event+'&per_page=100');
     const runs=(data.workflow_runs||[]).filter(r=>r.head_sha===head&&r.head_branch===branch&&r.event===event&&r.head_repository?.full_name===REPO).sort((a,b)=>b.id-a.id);
     assert(runs[0]?.status==='completed'&&runs[0].conclusion==='success','founder_ci_required');
   }
   return true;
+}
+// BF-07 is a release-manifest seal, not an operations-only merge seal.
+// Require the exact still-live release's seal, never a substitute from another release.
+export async function verifyLiveReleaseSeal(env,{fetchImpl=fetch,git=(...args)=>execFileSync('git',args,{encoding:'utf8'}).trim()}={}){
+  const sha=env.EXPECTED_SHA;
+  assert(SHA.test(sha||'')&&git('rev-parse','HEAD')===sha,'founder_checkout_mismatch');
+  const releaseSha=git('log','--first-parent','-1','--format=%H',sha,'--','release/production.json');
+  assert(SHA.test(releaseSha),'founder_release_seal_missing');
+  const manifest=JSON.parse(git('show',releaseSha+':release/production.json'));
+  const current=JSON.parse(git('show',sha+':release/production.json'));
+  assert(JSON.stringify(manifest)===JSON.stringify(current),'founder_release_manifest_changed');
+  // The deployed entitlement runtime and its reviewed grant helper must be unchanged.
+  for(const path of ['cloudflare/src/founder-ai-entitlement.js','scripts/founder-ai-entitlement.mjs']){
+    assert(git('rev-parse',releaseSha+':'+path)===git('rev-parse',sha+':'+path),'founder_release_entitlement_changed');
+  }
+  const get=async path=>{
+    const r=await fetchImpl('https://api.github.com/repos/'+REPO+'/'+path,{redirect:'error',signal:AbortSignal.timeout(15000),headers:{authorization:'Bearer '+env.GH_TOKEN,accept:'application/vnd.github+json'}});
+    assert(r.ok,'founder_seal_unavailable');return r.json();
+  };
+  const runs=(await get('actions/workflows/bf07-seal.yml/runs?head_sha='+releaseSha+'&event=push&per_page=100')).workflow_runs||[];
+  const run=runs.filter(r=>r.head_sha===releaseSha&&r.head_branch==='main'&&r.event==='push'&&r.head_repository?.full_name===REPO).sort((a,b)=>b.id-a.id)[0];
+  assert(run?.status==='completed'&&run.conclusion==='success','founder_release_seal_missing');
+  const artifacts=(await get('actions/runs/'+run.id+'/artifacts?per_page=100')).artifacts||[];
+  assert(artifacts.some(a=>a.name==='bf07-sealed-'+releaseSha&&a.expired===false&&Date.parse(a.expires_at)>Date.now()&&/^sha256:[a-f0-9]{64}$/.test(a.digest||'')),'founder_release_seal_artifact_missing');
+  assert((await checkLaunchProvenance(manifest,{fetchImpl})).ok,'founder_live_release_mismatch');
+  return {releaseSha,runId:run.id};
 }
 export function createD1Adapter(query){
   const make=(sql,params=[])=>({sql,params,bind(...values){return make(sql,values)},async first(){const [r]=await query([{sql,params}]);return r.results[0]??null}});
@@ -57,7 +84,7 @@ export async function execute(env=process.env,fetchImpl=fetch){
   assert(/^[a-f0-9]{32}$/.test(env.CLOUDFLARE_ACCOUNT_ID||'')&&UUID.test(env.D1_DATABASE_ID||'')&&env.CLOUDFLARE_API_TOKEN,'founder_target_invalid');
   const identity=JSON.parse(env.FOUNDER_AI_IDENTITY_JSON||'{}');
   const manifest=JSON.parse(readFileSync(new URL('../release/production.json',import.meta.url),'utf8'));
-  const recheck=async()=>{await verifyAuthority(env,fetchImpl);assert((await checkLaunchProvenance(manifest,{fetchImpl})).ok,'founder_live_release_mismatch')};
+  const recheck=async()=>{await verifyAuthority(env,fetchImpl);await verifyLiveReleaseSeal(env,{fetchImpl});assert((await checkLaunchProvenance(manifest,{fetchImpl})).ok,'founder_live_release_mismatch')};
   await recheck();
   const base='https://api.cloudflare.com/client/v4/accounts/'+env.CLOUDFLARE_ACCOUNT_ID+'/d1/database/'+env.D1_DATABASE_ID;
   const api=async(suffix,options={})=>{
