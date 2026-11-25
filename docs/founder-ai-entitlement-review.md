@@ -29,23 +29,22 @@ playback, upstream funding or a real spoken conversation.
 
 ## Activation and rollback
 
-1. Obtain fresh exact-head CI and independent thusico review. Use protected merge
-   and the existing production release qualification, exact-SHA owner authorization
-   and protected environment approval. This branch adds no deployment workflow or
-   alternate production-write path.
-2. Verify that the approved release containing the runtime code is deployed.
-3. Through private authenticated administration, re-confirm the requested account,
-   immutable user ID, tenant ID and active owner membership. Do not place the
-   account email or immutable production identifiers in this document or public
-   issue/PR comments.
-4. Separately approve the bounded production entitlement write under the existing
-   production-write process. `setFounderAiEntitlement` in
-   `scripts/founder-ai-entitlement.mjs` prepares the operation against a D1 adapter.
-   It defaults to inspect-only, requires an approval-run reference for mutations,
-   refuses another subject's override and atomically writes the override and audit.
-   A run URL is audit evidence only; the trusted executor must verify actual CI,
-   approvals and exact source before invoking it. There is deliberately no CLI,
-   automatic login grant or newly introduced production executor.
+1. Confirm the latest main merge has an independent thusico approval on its exact
+   PR head and successful independent regressions and founder qualification CI.
+   Confirm main governance and recovery CI on the exact main merge SHA.
+2. Confirm the currently deployed release has a successful BF-07 seal and that
+   its entitlement runtime and grant helper match the current main versions.
+3. Privately verify the designated account, immutable user ID, tenant ID and
+   active owner membership. Configure the verified identity through the protected
+   production environment. Keep account identifiers out of public issue and PR
+   comments and workflow logs.
+4. The owner dispatches `Founder AI protected activation` from main using the
+   exact current main SHA as `expected_sha`. Use `inspect` for read-only checks,
+   `grant` to activate, or `revoke` to withdraw the entitlement. Keep independent
+   production environment approval in the workflow. When main changes before
+   activation, verify the new exact SHA and dispatch a fresh run. The executor
+   rechecks approval, CI, the deployed release seal, and the live release before
+   invoking the bounded, audited D1 helper.
 5. Record wallet balance, lifetime usage and purchase state. Grant only this
    identity and feature; verify the zero-expiry override and grant audit, and
    re-read all captured balances to confirm they are unchanged.
