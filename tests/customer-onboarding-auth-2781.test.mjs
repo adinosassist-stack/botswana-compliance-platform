@@ -356,3 +356,29 @@ test("direct signup after confirmed creation and failed sign-in never recreates 
  assert.deepEqual(requests,["/api/auth/registration-proof/challenge","/api/auth/register","/api/auth/login"]);
  assert.deepEqual(paths,["/auth.html?mode=login"]);
 });
+
+
+test("registration deep links enter registration only after verified open or cohort policy",async()=>{
+ const from=source.indexOf("async function loadCapabilities(){");
+ const to=source.indexOf("\nasync function detectExistingSession()",from);
+ assert.ok(from>=0&&to>from);
+ for(const [policy,busy,pending,mode,expected] of [
+  ["open",false,true,"login",["register"]],
+  ["cohort",false,true,"login",["register"]],
+  ["hold",false,true,"login",["register"]],
+  ["invalid",false,false,"login",[]],
+  ["open",true,false,"login",[]],
+  ["hold",false,false,"register",["login"]]
+ ]){
+  const modes=[];
+  const ctx={api:async path=>path.endsWith("registration-policy")?{mode:policy}:{google:false,facebook:false},registrationMode:"invalid",pendingRegistrationEntry:pending,busy,mode,
+   document:{documentElement:{classList:{remove(){},add(){}}}},registerTab:{},holdNotice:{classList:{toggle(){}}},google:{},facebook:{},submit:{disabled:true},setMode:value=>modes.push(value)};
+  await vm.runInNewContext(source.slice(from,to)+"\nloadCapabilities()",ctx);
+  assert.deepEqual(modes,expected);
+  assert.equal(ctx.pendingRegistrationEntry,false);
+  assert.equal(ctx.submit.disabled,busy);
+  assert.equal(ctx.registerTab.hidden,!(policy==="open"||policy==="cohort"));
+ }
+ assert.match(source,/event\.preventDefault\(\);if\(busy\|\|pendingRegistrationEntry\)return/);
+ assert.match(source,/if\(registering&&\(registrationMode==="hold"\|\|registrationMode==="invalid"\)\)\{setMode\("login"\)/);
+});
