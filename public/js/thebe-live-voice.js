@@ -588,7 +588,7 @@
   let conversationVoiceButton=null,attachButton=null,fileInput=null,attachmentTray=null,pendingFiles=[];
   let conversationHistory=null,immersiveGreeting=null,immersiveMute=null;
   let voiceScreen=null,voiceScreenStatus=null,voiceScreenOrb=null,voiceScreenTranscript=null,voiceReturnFocus=null;
-  let textBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",mascotFocus="ambient",ownerCommandState=null,persistentObjectiveState=null,collapsed=false,assistantMode="ask",lastAnswer="",lastGoal="",lastAdvisorTrust="neutral",autoFollowResponse=true,responseScrollLock=false,textRunId=0,textAbortController=null;
+  let textBusy=false,savedThreadBusy=false,voiceInput="",voiceOutput="",voicePhase="idle",mascotState="idle",mascotContext="general",mascotFocus="ambient",ownerCommandState=null,persistentObjectiveState=null,collapsed=false,assistantMode="ask",lastAnswer="",lastGoal="",lastAdvisorTrust="neutral",autoFollowResponse=true,responseScrollLock=false,textRunId=0,textAbortController=null;
 
   const api=(url,options={})=>{
     if(typeof global.apiJson!=="function")throw new Error("The secure Thebe API transport is not available.");
@@ -857,11 +857,24 @@
       edit.setAttribute("aria-label","Edit and resend this message as a new prompt");
       appendControlIcon(edit,["M12 20h9","M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4Z"]);
       edit.addEventListener("click",()=>{
-        if(!input||textBusy||input.value.trim()||pendingFiles.length)return;
+        if(!input||textBusy||savedThreadBusy||input.value.trim()||pendingFiles.length)return;
         input.value=value.slice(0,MAX_QUESTION);
         syncComposerHeight();syncComposerState();input.focus({preventScroll:true});
       });
       turn.append(edit);
+    }else if(role==="assistant"){
+      const copy=el("button","thebe-ai-open-full","Copy answer");
+      copy.type="button";copy.setAttribute("aria-label","Copy this Thebe answer");
+      copy.addEventListener("click",async()=>{
+        try{
+          if(!global.navigator?.clipboard?.writeText)throw new Error("clipboard_unavailable");
+          await global.navigator.clipboard.writeText(value);
+          copy.textContent="Copied";copy.setAttribute("aria-label","Thebe answer copied");
+        }catch{
+          copy.textContent="Copy unavailable";copy.setAttribute("aria-label","Copy unavailable; use text selection");
+        }
+      });
+      turn.append(copy);
     }
     conversationHistory.append(turn);
     while(conversationHistory.children.length>TEXT_HISTORY_LIMIT)conversationHistory.firstElementChild?.remove();
@@ -1095,7 +1108,7 @@
     const saved=dock.querySelector(".thebe-ai-saved-threads");
     if(saved)saved.hidden=!savedThreadsAvailable();
     const research=dock.querySelector(".thebe-ai-web-search");
-    if(research){research.hidden=!webResearchAvailable();research.disabled=textBusy||pendingFiles.length>0;}
+    if(research){research.hidden=!webResearchAvailable();research.disabled=textBusy||pendingFiles.length>0||savedThreadBusy;}
     const mobile=mobileDockMode();
     // A desktop rail must become a mobile launcher instead of covering the workspace.
     // Explicitly opened mobile conversations stay open when the mobile viewport changes.
@@ -1488,22 +1501,24 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
   function syncComposerState(){
     if(!sendButton)return;
     const research=dock?.querySelector(".thebe-ai-web-search");
-    if(research){research.hidden=!webResearchAvailable();research.disabled=textBusy||pendingFiles.length>0;}
+    if(research){research.hidden=!webResearchAvailable();research.disabled=textBusy||pendingFiles.length>0||savedThreadBusy;}
     const draft=clean(input?.value||"",MAX_QUESTION).length>0||pendingFiles.length>0;
     sendButton.hidden=!draft&&!textBusy;
-    sendButton.disabled=textBusy||!draft;
+    sendButton.disabled=textBusy||!draft||savedThreadBusy;
+    if(input)input.readOnly=savedThreadBusy;
     sendButton.setAttribute("aria-disabled",String(sendButton.disabled));
-    if(conversationVoiceButton){conversationVoiceButton.hidden=draft||textBusy;conversationVoiceButton.disabled=textBusy}
-    if(attachButton){attachButton.hidden=!shellVisible();attachButton.disabled=textBusy}
-    attachmentTray?.querySelectorAll("button").forEach(button=>{button.disabled=textBusy});
+    if(conversationVoiceButton){conversationVoiceButton.hidden=draft||textBusy;conversationVoiceButton.disabled=textBusy||savedThreadBusy}
+    if(attachButton){attachButton.hidden=!shellVisible();attachButton.disabled=textBusy||savedThreadBusy}
+    attachmentTray?.querySelectorAll("button").forEach(button=>{button.disabled=textBusy||savedThreadBusy});
   }
   function syncBusyControls(){
     if(dock)dock.dataset.busy=String(textBusy);
-    quick?.querySelectorAll("button").forEach(button=>{button.disabled=textBusy});
-    modeRail?.querySelectorAll("button").forEach(button=>{button.disabled=textBusy});
+    quick?.querySelectorAll("button").forEach(button=>{button.disabled=textBusy||savedThreadBusy});
+    modeRail?.querySelectorAll("button").forEach(button=>{button.disabled=textBusy||savedThreadBusy});
     const contextAction=contextBar?.querySelector(".thebe-ai-context-action");
-    if(contextAction)contextAction.disabled=textBusy;
+    if(contextAction)contextAction.disabled=textBusy||savedThreadBusy;
     if(clearButton){
+      clearButton.disabled=savedThreadBusy;
       clearButton.title=textBusy?"Cancel request and clear conversation":"Clear conversation";
       clearButton.setAttribute("aria-label",textBusy?"Cancel current Thebe request and clear conversation":"Clear Thebe conversation");
     }
@@ -1841,15 +1856,15 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     title.maxLength=120;
     const status=el("p");
     status.setAttribute("role","status");
-    const actions=["Search","Open","Rename","Delete"].map(label=>{
+    const actions=["Search","Open","Rename","Delete","New chat"].map(label=>{
       const button=el("button","thebe-ai-open-full",label);
       button.type="button";
       return button;
     });
-    const [searchButton,open,rename,remove]=actions;
-    section.append(summary,search,searchButton,list,title,open,rename,remove,status);
+    const [searchButton,open,rename,remove,newChat]=actions;
+    section.append(summary,search,searchButton,list,title,open,rename,remove,newChat,status);
     const path=SAVED_THREADS_PATH;
-    let busy=false,listingScope=null;
+    let listingScope=null;
     const stillCurrent=(scope,epoch)=>savedThreadsAvailable()&&scope===currentWorkspaceScope()&&epoch===savedThreadEpoch;
     async function load(scope,epoch){
       const query=search.value.trim();
@@ -1868,22 +1883,24 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
         data.truncated?"Showing the first 50 chats. Search to narrow the list.":"";
     }
     const run=async operation=>{
-      if(busy||textBusy||!savedThreadsAvailable())return;
+      if(savedThreadBusy||textBusy||!savedThreadsAvailable())return;
       const scope=currentWorkspaceScope();
-      if(scope!==listingScope){
+      if(listingScope!==null&&scope!==listingScope){
         list.replaceChildren();
         search.value="";
         title.value="";
       }
       const epoch=savedThreadEpoch;
-      busy=true;
-      actions.forEach(button=>{button.disabled=true});
+      savedThreadBusy=true;
+      [...actions,search,list,title].forEach(control=>{control.disabled=true});
+      syncBusyControls();
       status.textContent="Loading saved chats…";
       try{await operation(scope,epoch)}
       catch{if(stillCurrent(scope,epoch))status.textContent="Could not update saved chats. Try again."}
       finally{
-        busy=false;
-        actions.forEach(button=>{button.disabled=false});
+        savedThreadBusy=false;
+        [...actions,search,list,title].forEach(control=>{control.disabled=false});
+        syncBusyControls();
       }
     };
     section.addEventListener("toggle",()=>{if(section.open)void run(load)});
@@ -1893,9 +1910,17 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       event.preventDefault();
       void run(load);
     });
+    const mayReplaceDraft=()=>!input?.value.trim()&&!pendingFiles.length||global.confirm("Discard the unsent draft and attachments?");
+    newChat.addEventListener("click",()=>void run(async (scope,epoch)=>{
+      if(!mayReplaceDraft()){status.textContent="New chat cancelled.";return}
+      if(!stillCurrent(scope,epoch))return;
+      clearConversation();
+      status.textContent="New chat started.";
+    }));
     open.addEventListener("click",()=>void run(async (scope,epoch)=>{
       const id=list.value;
       if(!id){status.textContent="Choose a saved chat.";return}
+      if(!mayReplaceDraft()){status.textContent="Opening chat cancelled.";return}
       const runId=textRunId;
       const data=await api(path+"/"+encodeURIComponent(id)+"/messages");
       if(!stillCurrent(scope,epoch)||runId!==textRunId||textBusy)return;
@@ -1907,7 +1932,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       restoreSavedAdvisorContext(data.items);
       openedSavedThread=id;
       dock.dataset.conversation="true";
-      status.textContent="Saved chat opened.";
+      status.textContent="Saved chat opened. Stored text only; original research source links are not restored.";
     }));
     function change(method){
       void run(async (scope,epoch)=>{
@@ -1978,7 +2003,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
   }
   async function ask(mode,question,files=[]){
     const q=clean(question,MAX_QUESTION)||(files.length?"Review the attached files and summarise the important points.":"");
-    if(textBusy||!q.length)return;
+    if(textBusy||savedThreadBusy||!q.length)return;
     if(mode==="web_research"&&(!webResearchAvailable()||files.length||pendingFiles.length))return;
     const requestScope=shellVisible()?currentWorkspaceScope():null;
     if(requestScope!==null&&lastWorkspaceScope!==null&&requestScope!==lastWorkspaceScope){
@@ -2076,7 +2101,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
         retry.title="Request another answer; AI credits may apply";
         retry.setAttribute("aria-label","Regenerate answer; AI credits may apply");
         retry.addEventListener("click",()=>{
-          if(textBusy||!shellVisible()||!retry.isConnected||input?.value.trim()||pendingFiles.length)return;
+          if(textBusy||savedThreadBusy||!shellVisible()||!retry.isConnected||input?.value.trim()||pendingFiles.length)return;
           void ask("ask",q);
         });
         responseBox.querySelector(".thebe-ai-response-tools")?.append(retry);
@@ -2114,7 +2139,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
   function quickButton(label,detail,mode,question){
     const button=el("button","",label);
     button.type="button";
-    button.disabled=textBusy;
+    button.disabled=textBusy||savedThreadBusy;
     if(detail)button.append(el("small","",detail));
     button.addEventListener("focus",()=>setMascotFocus("commands"));
     button.addEventListener("blur",()=>setMascotFocus("ambient"));
@@ -2169,7 +2194,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const headActions=el("div","thebe-ai-head-actions");
     clearButton=el("button","thebe-ai-icon-btn thebe-ai-clear","×");
     clearButton.type="button";clearButton.setAttribute("aria-label","Clear Thebe conversation");clearButton.title="Clear conversation";
-    clearButton.addEventListener("click",clearConversation);
+    clearButton.addEventListener("click",()=>{if(!savedThreadBusy)clearConversation()});
     attentionButton=el("button","thebe-ai-attention","");
     attentionButton.type="button";
     attentionButton.addEventListener("focus",()=>setMascotFocus("attention"));
@@ -2421,7 +2446,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     researchButton.type="button";
     researchButton.hidden=!webResearchAvailable();
     researchButton.addEventListener("click",()=>{
-      if(!webResearchAvailable()||textBusy||pendingFiles.length)return;
+      if(!webResearchAvailable()||textBusy||savedThreadBusy||pendingFiles.length)return;
       const q=input?.value.trim();
       if(!q){input?.focus();return;}
       input.value="";syncComposerHeight();syncComposerState();
@@ -2550,7 +2575,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     composeBody.append(input,composeHint);
     sendButton=el("button","thebe-ai-send","↑");sendButton.type="submit";sendButton.setAttribute("aria-label","Send to Thebe");sendButton.title="Send to Thebe";
     compose.append(attachButton,fileInput,composeBody,conversationVoiceButton,sendButton);
-    compose.addEventListener("submit",event=>{event.preventDefault();const value=input.value,files=[...pendingFiles];if(textBusy||(!clean(value,MAX_QUESTION).length&&!files.length))return;input.value="";syncComposerHeight();syncComposerState();void ask(assistantMode,value,files)});
+    compose.addEventListener("submit",event=>{event.preventDefault();const value=input.value,files=[...pendingFiles];if(textBusy||savedThreadBusy||(!clean(value,MAX_QUESTION).length&&!files.length))return;input.value="";syncComposerHeight();syncComposerState();void ask(assistantMode,value,files)});
     input.addEventListener("input",()=>{syncComposerHeight();syncComposerState()});
     input.setAttribute("enterkeyhint",mobileDockMode()?"enter":"send");
     input.addEventListener("focus",()=>setMascotFocus("compose"));
