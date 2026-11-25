@@ -51,11 +51,15 @@ form?.addEventListener("submit",async event=>{
  if(companyName.length<2){setStatus("Enter a business name with at least 2 characters.");document.getElementById("companyName")?.focus();return}
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){setStatus("Enter a valid email address.");document.getElementById("email")?.focus();return}
  if(password.length<12){setStatus("Create a password with at least 12 characters.");document.getElementById("password")?.focus();return}
+ const consent=document.getElementById("directLegalAccept");
+ if(!consent?.checked){setStatus("Agree to the Terms of Service and acknowledge the Privacy Notice to create a workspace.");consent?.focus();return}
  btn.disabled=true;form.setAttribute("aria-busy","true");btn.textContent="Securing registration…";
  try{
   const proof=await solveProof();
   btn.textContent="Creating account…";
-  await api("/api/auth/register",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({companyName,email,password,turnstileToken:proof})});
+  await api("/api/auth/register",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({companyName,email,password,turnstileToken:proof,legalAcceptance:{version:"2026-10-14",accepted:true}})});
+  // Creation has returned successfully; any subsequent failure must retry sign-in, never registration.
+  signInCheckRequired=true;
   btn.textContent="Signing in…";
   try{
    await api("/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email,password})});

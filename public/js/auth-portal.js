@@ -31,9 +31,13 @@ const encoder=new TextEncoder();
 const client=window.BW?.api?.createClient?.({getCsrfToken:()=>"",onUnauthorized:()=>{},onError:()=>{}});
 const params=new URLSearchParams(location.search);
 const allowedPlans=new Set(["starter","business","pro","network","partner"]);
-let mode=params.get("mode")==="register"?"register":"login";
+let mode="login";
+let pendingRegistrationEntry=params.get("mode")==="register";
 let registrationMode="invalid";
 let busy=false;
+// A deep link must not submit either mode before its registration policy is known.
+registerTab.hidden=true;
+if(pendingRegistrationEntry){submit.disabled=true;setStatus("Checking registration availability…","good")}
 function safeNext(){const raw=String(params.get("next")||"/app/").trim();if(!raw.startsWith("/")||raw.startsWith("//")||/[\\\\\u0000-\u001f\u007f]/.test(raw))return "/app/";try{const parsed=new URL(raw,location.origin);return parsed.origin===location.origin&&parsed.pathname.startsWith("/")?parsed.pathname+parsed.search+parsed.hash:"/app/"}catch{return "/app/"}}
 const next=safeNext();
 function selectedPlan(){const plan=String(params.get("plan")||"business");return allowedPlans.has(plan)?plan:"business"}
@@ -45,7 +49,7 @@ function setMode(nextMode){
  companyField.hidden=!registering;password.autocomplete=registering?"new-password":"current-password";
  if(legalWrap){legalWrap.hidden=!registering;if(!registering&&legalConsent)legalConsent.checked=false}
  heading.textContent=registering?"Create your account":"Sign in";
- intro.textContent=registering?"Start a 14-day Thebe Desk workspace trial.":"Open your private Thebe Desk workspace.";
+ intro.textContent=registering?(registrationMode==="cohort"?"Registration is limited to the approved launch cohort. Use your approved email.":"Start a 14-day Thebe Desk workspace trial."):"Open your private Thebe Desk workspace.";
  submit.textContent=registering?"Create account & workspace":"Sign in";
  loginTab.classList.toggle("active",!registering);registerTab.classList.toggle("active",registering);
  loginTab.setAttribute("aria-selected",String(!registering));registerTab.setAttribute("aria-selected",String(registering));
@@ -118,14 +122,20 @@ async function loadCapabilities(){
  document.documentElement.classList.remove("registration-hold","registration-cohort","registration-open","registration-invalid");document.documentElement.classList.add(`registration-${registrationMode}`);
  const registrationAvailable=registrationMode==="open"||registrationMode==="cohort";registerTab.hidden=!registrationAvailable;holdNotice.classList.toggle("show",!registrationAvailable);
  const providers=providersResult.status==="fulfilled"?providersResult.value:{};google.hidden=providers?.google!==true;facebook.hidden=providers?.facebook!==true;
- if(mode==="register"&&!registrationAvailable)setMode("login");else setMode(mode);
+ const enterRegistration=pendingRegistrationEntry;
+ pendingRegistrationEntry=false;
+ if(!busy){
+  submit.disabled=false;
+  if(enterRegistration)setMode("register");
+  else if(mode==="register"&&!registrationAvailable)setMode("login");
+ }
 }
 async function detectExistingSession(){
  try{const data=await api("/api/auth/me");if(data?.user){signedNotice.classList.add("show");const destination=data?.landingPath==="/manager-invite/dashboard/"?"/manager-invite/dashboard/":next;setTimeout(()=>location.replace(destination),120);return true}}catch{}
  return false;
 }
 async function submitForm(event){
- event.preventDefault();if(busy)return;clearStatus();
+ event.preventDefault();if(busy||pendingRegistrationEntry)return;clearStatus();
  const address=String(email.value||"").trim().toLowerCase(),secret=String(password.value||"");
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)){setStatus("Enter a valid email address.");email.focus();return}
  if((mode==="register"&&secret.length<12)||(mode==="login"&&!secret)){setStatus(mode==="register"?"Create a password with at least 12 characters.":"Enter your password to sign in.");password.focus();return}
@@ -145,6 +155,6 @@ async function submitForm(event){
 }
 function oauth(provider){if(!["google","facebook"].includes(provider))return;location.assign(`/api/auth/oauth/${provider}/start?next=${encodeURIComponent(next)}`)}
 const passwordToggle=$("authPasswordToggle");passwordToggle?.addEventListener("click",()=>{const showing=password.type==="text";password.type=showing?"password":"text";passwordToggle.textContent=showing?"Show":"Hide";passwordToggle.setAttribute("aria-pressed",String(!showing))});
-loginTab?.addEventListener("click",()=>setMode("login"));registerTab?.addEventListener("click",()=>setMode("register"));form?.addEventListener("submit",submitForm);google?.addEventListener("click",()=>oauth("google"));facebook?.addEventListener("click",()=>oauth("facebook"));
+loginTab?.addEventListener("click",()=>{if(busy)return;pendingRegistrationEntry=false;submit.disabled=false;setMode("login")});registerTab?.addEventListener("click",()=>{if(busy||pendingRegistrationEntry)return;setMode("register")});form?.addEventListener("submit",submitForm);google?.addEventListener("click",()=>oauth("google"));facebook?.addEventListener("click",()=>oauth("facebook"));
 (async()=>{await loadCapabilities();await detectExistingSession()})().catch(error=>setStatus(error?.message||"Authentication service is temporarily unavailable."));
 })();

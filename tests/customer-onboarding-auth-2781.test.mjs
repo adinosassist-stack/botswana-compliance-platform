@@ -106,7 +106,7 @@ test("direct registration ignores repeat submits and clears busy state after a f
   const button = { disabled: false };
   const status = { setAttribute() {} };
   const elements = {
-    registerForm: form, submitBtn: button, status,
+    registerForm: form, submitBtn: button, status, directLegalAccept:{checked:true},
     companyName: { value: "Demo Business" },
     email: { value: "owner@example.test" },
     password: { value: "temporary-test-password" },
@@ -295,7 +295,7 @@ test("direct signup with uncertain response cannot submit a second account creat
  const btn={disabled:false,textContent:"Create account"};
  const status={setAttribute(){}};
  const entries={
-  registerForm:form,submitBtn:btn,status,
+  registerForm:form,submitBtn:btn,status,directLegalAccept:{checked:true},
   companyName:{value:"Synthetic Company"},
   email:{value:"owner@example.test"},
   password:{value:"a synthetic password of length 12"},
@@ -325,4 +325,75 @@ test("direct signup with uncertain response cannot submit a second account creat
  await submit({preventDefault(){}});
  assert.equal(registrations,1,"a second submission must not recreate a workspace");
  assert.deepEqual(paths,["/auth.html?mode=login"]);
+});
+
+
+test("direct signup after confirmed creation and failed sign-in never recreates a workspace",async()=>{
+ const paths=[],requests=[];
+ let submit;
+ const form={addEventListener:(_event,handler)=>{submit=handler},setAttribute(){},removeAttribute(){}};
+ const btn={disabled:false,textContent:"Create account"};
+ const status={setAttribute(){}};
+ const elements={registerForm:form,submitBtn:btn,status,directLegalAccept:{checked:true},companyName:{value:"Synthetic Company"},email:{value:"owner@example.test"},password:{value:"synthetic password 12"},website:{value:""}};
+ vm.runInNewContext(directRegistration,{
+  TextEncoder,
+  document:{getElementById:id=>elements[id]},
+  window:{BW:{api:{createClient:()=>({request:async path=>{
+   requests.push(path);
+   if(path==="/api/auth/registration-proof/challenge")return {token:"synthetic-challenge",difficulty:8};
+   if(path==="/api/auth/register")return {ok:true};
+   if(path==="/api/auth/login")throw Object.assign(new Error("Connection lost"),{code:"network_error"});
+   throw new Error("Unexpected request");
+  }})}}},
+  crypto:{subtle:{digest:async()=>new Uint8Array(32).buffer}},
+  location:{assign:path=>paths.push(path)}
+ });
+ const event={preventDefault(){}};
+ await submit(event);
+ assert.equal(btn.disabled,false);
+ assert.equal(btn.textContent,"Go to sign in");
+ await submit(event);
+ assert.deepEqual(requests,["/api/auth/registration-proof/challenge","/api/auth/register","/api/auth/login"]);
+ assert.deepEqual(paths,["/auth.html?mode=login"]);
+});
+
+
+test("registration deep links enter registration only after verified open or cohort policy",async()=>{
+ const from=source.indexOf("async function loadCapabilities(){");
+ const to=source.indexOf("\nasync function detectExistingSession()",from);
+ assert.ok(from>=0&&to>from);
+ for(const [policy,busy,pending,mode,expected] of [
+  ["open",false,true,"login",["register"]],
+  ["cohort",false,true,"login",["register"]],
+  ["hold",false,true,"login",["register"]],
+  ["invalid",false,false,"login",[]],
+  ["open",true,false,"login",[]],
+  ["hold",false,false,"register",["login"]]
+ ]){
+  const modes=[];
+  const ctx={api:async path=>path.endsWith("registration-policy")?{mode:policy}:{google:false,facebook:false},registrationMode:"invalid",pendingRegistrationEntry:pending,busy,mode,
+   document:{documentElement:{classList:{remove(){},add(){}}}},registerTab:{},holdNotice:{classList:{toggle(){}}},google:{},facebook:{},submit:{disabled:true},setMode:value=>modes.push(value)};
+  await vm.runInNewContext(source.slice(from,to)+"\nloadCapabilities()",ctx);
+  assert.deepEqual(modes,expected);
+  assert.equal(ctx.pendingRegistrationEntry,false);
+  assert.equal(ctx.submit.disabled,busy);
+  assert.equal(ctx.registerTab.hidden,!(policy==="open"||policy==="cohort"));
+ }
+ assert.match(source,/event\.preventDefault\(\);if\(busy\|\|pendingRegistrationEntry\)return/);
+ assert.match(source,/if\(registering&&\(registrationMode==="hold"\|\|registrationMode==="invalid"\)\)\{setMode\("login"\)/);
+});
+
+test("direct registration requires explicit legal consent before network or proof",async()=>{
+ let submit,requests=0,focus=0;
+ const form={addEventListener:(_event,handler)=>{submit=handler},setAttribute(){},removeAttribute(){}};
+ const btn={disabled:false,textContent:"Create account"};
+ const status={setAttribute(){}};
+ const entries={registerForm:form,submitBtn:btn,status,companyName:{value:"Synthetic Company"},email:{value:"owner@example.test"},password:{value:"synthetic password 12"},website:{value:""},directLegalAccept:{checked:false,focus(){focus++}}};
+ vm.runInNewContext(directRegistration,{TextEncoder,document:{getElementById:id=>entries[id]},window:{BW:{api:{createClient:()=>({request:async()=>{requests++;throw Error("Unexpected network request")}})}}}});
+ await submit({preventDefault(){}});
+ assert.equal(requests,0);
+ assert.equal(focus,1);
+ assert.equal(btn.disabled,false);
+ assert.match(status.textContent,/Terms of Service/);
+ assert.match(directRegistration,/legalAcceptance:\{version:"2026-10-14",accepted:true\}/);
 });

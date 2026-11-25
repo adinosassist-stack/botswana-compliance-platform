@@ -344,3 +344,14 @@ test('saved directory operation locks sends, research and text edits before clea
  assert.match(dock,/if\(!input\|\|textBusy\|\|savedThreadBusy\|\|input.value.trim\(\)\|\|pendingFiles.length\)return;/);
  assert.match(dock,/copy.setAttribute\("aria-label","Copy this Thebe answer"\)/);
 });
+
+test('cancelled older voice starts never clean up a newer session',()=>{
+ const start=dock.indexOf('  async function start(options={})');
+ const end=dock.indexOf('  function cleanup(',start);
+ assert.ok(start>=0&&end>start);
+ const block=dock.slice(start,end);
+ assert.doesNotMatch(block,/if\(cancelled\(\)\)\{cleanup\(/,
+  'stale async continuations must not tear down shared resources belonging to a newer start');
+ assert.match(block,/if\(cancelled\(\)\)\{acquired\.getTracks\(\)\.forEach\(track=>track\.stop\(\)\)/,
+  'a cancelled microphone acquisition still releases its own local tracks');
+});
