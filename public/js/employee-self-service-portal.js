@@ -112,6 +112,10 @@ async function refreshReports(){
    }
    for(const job of item.jobs||[])card.append(element("p",null,(job.jobType==="installation"?"Installation":"Delivery")+" · "+job.jobReference+" · "+job.scheduledDate+" · "+job.jobStatus));
    card.append(element("p",null,"Submitted"+(item.needs_attention?" · Manager attention requested":"")+" · Corrections: "+Number(item.revision_count||0)));
+   const notices=(response.reviewNotices||[]).filter(n=>n.report_id===item.id&&Number(n.revision_no)===Number(item.revision_count||0));
+   const decision=notices.find(n=>n.action==="approve"||n.action==="return")||notices.find(n=>n.action==="acknowledge");
+   if(decision){card.append(element("strong",null,decision.action==="approve"?"Manager approved":decision.action==="return"?"Manager requested correction":"Manager acknowledged"));if(decision.note)card.append(element("p","thebe-staff-task__note",decision.note));}
+
    if((response.assignedLocations||[]).some(x=>x.id===item.location_id)&&item.report_date>=dates.min&&item.report_date<=dates.max){const edit=element("button","thebe-staff-secondary","Correct report");edit.type="button";edit.addEventListener("click",()=>editStaffReport(item));card.append(edit)}
    list.append(card);
   }
