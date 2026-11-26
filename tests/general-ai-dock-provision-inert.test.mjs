@@ -1,6 +1,6 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
-import {ACCOUNT,DATABASE,validateInputs,verifyInitialInventory,verifyCurrentDeployment,provisionInertResources} from "../scripts/dock-provision-inert-resources.mjs";
+import {ACCOUNT,DATABASE,validateInputs,verifyInitialInventory,verifyCurrentDeployment,provisionInertResources,verifyActivationReadiness} from "../scripts/dock-provision-inert-resources.mjs";
 import {DOCK_HOST,DOCK_WORKER,AI_WORKER} from "../scripts/dock-hosted-ingress-guard.mjs";
 const version="11111111-2222-4333-8444-555555555555", db="11111111-2222-4333-8444-666666666666", app="11111111-2222-4333-8444-777777777777", zone="a".repeat(32);
 const vars={APP_ENV:"staging",DOCK_STAGING_RESEARCH_ENABLED:"false",THEBE_GENERAL_AI_ENABLED:"false",THEBE_GENERAL_AI_RESEARCH_ENABLED:"false",AI_FEATURES_DEFAULT:"off",THEBE_INTERNAL_AUTONOMY_ENABLED:"false",AGENT_BOUNDED_TASK_EXECUTION_ENABLED:"0",THEBE_LIVE_VOICE_ENABLED:"false",THEBE_MARKETING_VOICE_ENABLED:"false",PAYMENT_PROVIDER:"none",REGISTRATION_MODE:"hold"};
@@ -66,4 +66,28 @@ test("collision stops all writes; unsafe Access policy stops domain attachment",
   assert.equal(calls.some(x=>x.method==="PUT"),false);
   if(opts.collision)assert.equal(calls.some(x=>x.method!=="GET"),false);
  }
+});
+
+test("activation preflight reads only and rejects a drifted backend binding",async()=>{
+ const {api,calls}=mock();
+ const emails=["test@example.invalid"];
+ await provisionInertResources({api,emails,expectedVersion:version,assertMain:async()=>{}});
+ calls.length=0;
+ const isolatedId="c63255cf-c589-4f6b-99c7-2d2e437566b5";
+ let bindingId=isolatedId;
+ const readApi=async(method,path)=>{
+  assert.equal(method,"GET");
+  const response=await api(method,path);
+  const endpoint=path.split("?")[0];
+  if(endpoint.endsWith("/d1/database"))return {result:[{name:DATABASE,uuid:isolatedId}]};
+  if(endpoint.endsWith("/"+AI_WORKER+"/settings")){
+   return {result:{bindings:[...response.result.bindings,{name:"DB",type:"d1",id:bindingId}]}};
+  }
+  return response;
+ };
+ const options={api:readApi,emails,expectedVersion:version};
+ assert.deepEqual(await verifyActivationReadiness(options),{ok:true,hostname:DOCK_HOST,databaseId:isolatedId,inert:true});
+ bindingId=db;
+ await assert.rejects(verifyActivationReadiness(options),/backend_database_binding_mismatch/);
+ assert.ok(calls.every(call=>call.method==="GET"));
 });

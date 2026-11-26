@@ -10,10 +10,10 @@ on:
         description: Verify policy, bootstrap a disabled Worker, or provision protected inert resources
         required: true
         type: choice
-        options: [preflight, bootstrap-inert, provision-inert-resources, bootstrap-private-backend]
+        options: [preflight, bootstrap-inert, provision-inert-resources, bootstrap-private-backend, activation-preflight]
         default: preflight
       authorization:
-        description: PREFLIGHT_ONLY, BOOTSTRAP_INERT_DOCK_STAGING, PROVISION_INERT_DOCK_STAGING or BOOTSTRAP_PRIVATE_DOCK_BACKEND
+        description: PREFLIGHT_ONLY, BOOTSTRAP_INERT_DOCK_STAGING, PROVISION_INERT_DOCK_STAGING or BOOTSTRAP_PRIVATE_DOCK_BACKEND or PREFLIGHT_DOCK_STAGING_ACTIVATION
         required: true
         type: string
 permissions:
@@ -40,7 +40,7 @@ jobs:
           [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]
           test "$GITHUB_SHA" = "$EXPECTED_SHA"
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
-          [[ "$MODE:$AUTHORIZATION" == "preflight:PREFLIGHT_ONLY" || "$MODE:$AUTHORIZATION" == "bootstrap-inert:BOOTSTRAP_INERT_DOCK_STAGING" || "$MODE:$AUTHORIZATION" == "provision-inert-resources:PROVISION_INERT_DOCK_STAGING" || "$MODE:$AUTHORIZATION" == "bootstrap-private-backend:BOOTSTRAP_PRIVATE_DOCK_BACKEND" ]]
+          [[ "$MODE:$AUTHORIZATION" == "preflight:PREFLIGHT_ONLY" || "$MODE:$AUTHORIZATION" == "bootstrap-inert:BOOTSTRAP_INERT_DOCK_STAGING" || "$MODE:$AUTHORIZATION" == "provision-inert-resources:PROVISION_INERT_DOCK_STAGING" || "$MODE:$AUTHORIZATION" == "bootstrap-private-backend:BOOTSTRAP_PRIVATE_DOCK_BACKEND" || "$MODE:$AUTHORIZATION" == "activation-preflight:PREFLIGHT_DOCK_STAGING_ACTIVATION" ]]
           api="repos/$GITHUB_REPOSITORY/environments/general-ai-private-staging"
           reviewer="$(gh api users/thusico --jq .id)"
           gh api "$api" | jq -e --argjson reviewer "$reviewer" '
@@ -209,3 +209,27 @@ jobs:
           ' "$tmp/settings" >/dev/null
           jq -e '.success == true and (.result.deployments[0].versions | length == 1) and .result.deployments[0].versions[0].percentage == 100' "$tmp/deployments" >/dev/null
           jq -r '"Private Dock backend version: " + .result.deployments[0].versions[0].version_id' "$tmp/deployments"
+
+  activation-preflight:
+    needs: verify
+    if: github.ref == 'refs/heads/main' && github.actor == 'adinosassist-stack' && inputs.mode == 'activation-preflight' && inputs.authorization == 'PREFLIGHT_DOCK_STAGING_ACTIVATION'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: general-ai-private-staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify the existing isolated Dock resources
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+          AUTHORIZATION: ${{ inputs.authorization }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.DOCK_STAGING_PROVISION_CLOUDFLARE_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.GENERAL_AI_STAGING_CLOUDFLARE_ACCOUNT_ID }}
+          DOCK_STAGING_BOOTSTRAP_VERSION_ID: ${{ vars.DOCK_STAGING_BOOTSTRAP_VERSION_ID }}
+          DOCK_STAGING_TESTER_EMAILS: ${{ secrets.DOCK_STAGING_TESTER_EMAILS }}
+        run: node scripts/dock-provision-inert-resources.mjs
