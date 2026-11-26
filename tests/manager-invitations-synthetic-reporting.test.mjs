@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {createManagerScopedReadHttp} from '../cloudflare/src/manager-invitations-scoped-read.js';
-import {createManagerDailyReportReview,managerDailyReviewEnabled,readStaffDailyReviewNotices} from '../cloudflare/src/manager-daily-report-review.js';
+import {createManagerDailyReportReview,managerDailyReviewEnabled,readStaffDailyReviewNotices,readOwnerDailyReviewOverview} from '../cloudflare/src/manager-daily-report-review.js';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const sql=read('db/drafts/manager-invitations-2578-synthetic-reporting.sql');
 function fixture(){
@@ -124,5 +124,34 @@ test('enabled manager reads and employee notices reflect only the current scoped
   assert.deepEqual(await readStaffDailyReviewNotices(db,'a','employee-a'),[]);
   result=await (await enabled(request,actor)).json();
   assert.equal(result.reports[0].review_status,'pending');
+ }finally{d.close()}
+});
+
+test('owner review oversight isolates companies, honors branch/date and counts current revisions',async()=>{
+ const {d,db}=fixture();
+ try{
+  d.exec(read('db/drafts/manager-daily-report-review.sql'));
+  d.prepare("INSERT INTO memberships(tenant_id,user_id,role,status) VALUES(?,?,'owner','active')").run('a','owner-a');
+  d.prepare("INSERT INTO memberships(tenant_id,user_id,role,status) VALUES(?,?,'owner','active')").run('b','owner-b');
+  const svc=createManagerDailyReportReview({db,id:()=>'owner-overview-review'});
+  const actor={tenantId:'a',userId:'manager-a',role:'manager'};
+  const result=await svc.decide(actor,{reportId:'report-a',expectedRevision:0,action:'return',note:'Correct the installation details'});
+  assert.equal(result.status,201);
+  const get=(extra={})=>readOwnerDailyReviewOverview(db,{tenantId:'a',userId:'owner-a',role:'owner',date:'2027-01-01',...extra});
+  const overview=await get();
+  assert.equal(overview.available,true);assert.equal(overview.total,1);
+  assert.deepEqual(overview.counts,{pending:0,acknowledged:0,approved:0,correction_requested:1});
+  assert.equal(overview.items[0].id,'report-a');assert.equal(overview.items[0].review_note,'Correct the installation details');
+  assert.equal(overview.branches[0].correction_requested,1);
+  assert.equal((await get({locationId:'location-a'})).total,1);
+  assert.equal((await get({locationId:'location-b'})).total,0);
+  assert.equal((await get({date:'2027-01-02'})).total,0);
+  assert.equal((await get({role:'manager',userId:'manager-a'})).available,false);
+  assert.equal((await get({userId:'owner-b'})).available,false);
+  d.prepare("UPDATE daily_employee_reports SET revision_count=1 WHERE id='report-a'").run();
+  const reopened=await get();
+  assert.equal(reopened.counts.pending,1);assert.equal(reopened.counts.correction_requested,0);assert.equal(reopened.items[0].review_note,null);
+  d.prepare("UPDATE memberships SET status='suspended' WHERE user_id='owner-a'").run();
+  assert.equal((await get()).available,false);
  }finally{d.close()}
 });
