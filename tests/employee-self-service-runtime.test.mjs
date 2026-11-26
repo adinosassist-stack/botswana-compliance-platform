@@ -5,6 +5,7 @@ import {DatabaseSync} from "node:sqlite";
 import {readFileSync} from "node:fs";
 import {handleStaffManager,handleStaffPublic} from "../cloudflare/src/employee-self-service.js";
 import {__v782157Test} from "../cloudflare/src/worker.js";
+import {createManagerScopedReadHttp} from "../cloudflare/src/manager-invitations-scoped-read.js";
 
 // Execute the actual Cloudflare D1 SQL against an isolated in-memory SQLite database.
 // No deployment, remote credentials or live employee data are involved.
@@ -22,7 +23,7 @@ function fixture(t){
  sql.exec("PRAGMA foreign_keys=ON;");
  sql.exec("CREATE TABLE tenants(id TEXT PRIMARY KEY,name TEXT NOT NULL);");
  sql.exec("CREATE TABLE users(id TEXT PRIMARY KEY,email TEXT NOT NULL);");
- sql.exec("CREATE TABLE employees(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL REFERENCES tenants(id),full_name TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'active');");
+ sql.exec("CREATE TABLE employees(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL REFERENCES tenants(id),full_name TEXT NOT NULL,role_title TEXT,status TEXT NOT NULL DEFAULT 'active');");
  sql.exec(readFileSync(new URL("../cloudflare/migrations/20261108_employee_self_service.sql",import.meta.url),"utf8"));
  sql.prepare("INSERT INTO tenants(id,name) VALUES(?,?)").run(IDS.tenantA,"Synthetic A");
  sql.prepare("INSERT INTO tenants(id,name) VALUES(?,?)").run(IDS.tenantB,"Synthetic B");
@@ -41,6 +42,7 @@ function fixture(t){
     async first(){return bound.get(...args)||null},
     async all(){return {results:bound.all(...args)}},
     async run(){
+     if(/^\s*SELECT\b/i.test(query))return {results:bound.all(...args),meta:{changes:0}};
      if(/\bRETURNING\b/i.test(query)){
       const rows=bound.all(...args);
       return {results:rows,meta:{changes:rows.length}};
@@ -398,6 +400,40 @@ test("direct staff daily reports create and correct canonical records with branc
  assert.equal(f.sql.prepare("SELECT count(*) n FROM daily_report_revisions WHERE report_id=?").get(created.body.reportId).n,1);
  assert.equal(f.sql.prepare("SELECT count(*) n FROM daily_employee_reports").get().n,2);
  assert.equal(f.sql.prepare("SELECT count(*) n FROM audit_events WHERE tenant_id=?").get(IDS.tenantA).n,3);
+ // Both reporting surfaces must read the canonical employee report rather than a copy.
+ const owner=await __v782157Test.dailyOpsDashboard(f.env,IDS.tenantA,today);
+ assert.equal(owner.reportingPopulation.expected,2);
+ assert.equal(owner.reportingPopulation.expectedSubmitted,1);
+ assert.equal(owner.coverage,50);
+ assert.equal(owner.totals.revenue,1250);
+ const assigned=owner.branches.find(x=>x.locationId==="assigned"),peer=owner.branches.find(x=>x.locationId==="peer");
+ assert.equal(assigned.expected,1);assert.equal(assigned.submittedExpected,1);assert.equal(assigned.coverage,100);
+ assert.equal(peer.expected,1);assert.equal(peer.submitted,0);
+ assert.equal(owner.missing[0].employeeId,IDS.employeeC);
+ assert.equal(owner.reports[0].work_summary,"Delivery signed off");
+ const filtered=await __v782157Test.dailyOpsDashboard(f.env,IDS.tenantA,today,"assigned");
+ assert.equal(filtered.coverage,100);assert.equal(filtered.branches.length,1);assert.equal(filtered.reports[0].id,created.body.reportId);
+ const otherDate=await __v782157Test.dailyOpsDashboard(f.env,IDS.tenantA,yesterday,"assigned");
+ assert.equal(otherDate.reports[0].id,nextDay.body.reportId);
+ // Deliberately malformed association must not expose another tenant's name or count.
+ f.sql.prepare("INSERT INTO daily_employee_reports(id,tenant_id,employee_id,location_id,report_date,work_summary) VALUES(?,?,?,?,?,?)").run("bad-tenant-link",IDS.tenantA,IDS.employeeB,"foreign",today,"Foreign private text");
+ const hardened=await __v782157Test.dailyOpsDashboard(f.env,IDS.tenantA,today);
+ assert.equal(hardened.reports.length,1);
+ assert.equal(hardened.totals.revenue,1250);
+ // Branch-scoped manager read service uses a separate membership/grant boundary.
+ f.sql.exec("CREATE TABLE memberships(tenant_id TEXT,user_id TEXT,role TEXT,status TEXT); CREATE TABLE workspace_manager_invites(tenant_id TEXT,accepted_by_user_id TEXT,status TEXT); CREATE TABLE workspace_manager_location_grants(tenant_id TEXT,manager_user_id TEXT,location_id TEXT,status TEXT);");
+ f.sql.prepare("INSERT INTO memberships VALUES(?,?,'manager','active')").run(IDS.tenantA,IDS.managerA);
+ f.sql.prepare("INSERT INTO workspace_manager_invites VALUES(?,?,'accepted')").run(IDS.tenantA,IDS.managerA);
+ f.sql.prepare("INSERT INTO workspace_manager_location_grants VALUES(?,?,?,'active')").run(IDS.tenantA,IDS.managerA,"assigned");
+ const scoped=createManagerScopedReadHttp({db:f.DB}),identity={role:"manager",tenantId:IDS.tenantA,userId:IDS.managerA};
+ const managerRead=async path=>{const response=await scoped(new Request("https://example.invalid"+path),identity);assert.equal(response.status,200);return response.json()};
+ const managerReports=await managerRead("/api/workspace/managers/my-reports");
+ assert.equal(managerReports.reports.length,2);assert.ok(managerReports.reports.every(r=>r.location_id==="assigned"));
+ assert.ok(managerReports.reports.some(r=>r.id===created.body.reportId&&r.work_summary==="Delivery signed off"));
+ const managerDashboard=await managerRead("/api/workspace/managers/my-dashboard");
+ assert.equal(managerDashboard.reports,2);assert.deepEqual(managerDashboard.locations.map(l=>l.id),["assigned"]);
+ f.sql.prepare("UPDATE workspace_manager_location_grants SET status='revoked'").run();
+ assert.deepEqual((await managerRead("/api/workspace/managers/my-reports")).reports,[]);
  f.sql.prepare("UPDATE employee_reporting_access SET status='revoked' WHERE id='own'").run();
  assert.equal((await submit({...input,expectedRevision:1,workSummary:"Denied"})).res.status,403);
  await f.manager(IDS.tenantA,"/api/employee-self-service/employees/"+IDS.employeeA+"/revoke","POST",{});
