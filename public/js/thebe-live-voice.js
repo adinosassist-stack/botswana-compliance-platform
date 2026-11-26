@@ -1961,7 +1961,13 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
   }
   function renderWebResearch(result){
     requireAdvisorAnswer(result);
-    if(result.ok!==true||result.researchPerformed!==true||result.verification!=="search_snippets_only")throw new Error("Live research could not be verified.");
+    const sourcesLabel={
+      search_snippets_only:"Web search excerpts — verify original sources",
+      provider_citations:"Web search citations — verify original sources"
+    };
+    if(result.ok!==true||result.researchPerformed!==true||!Object.hasOwn(sourcesLabel,result.verification)){
+      throw new Error("Live research could not be verified.");
+    }
     const citations=[];
     for(const item of (Array.isArray(result.citations)?result.citations:[]).slice(0,8)){
       try{
@@ -1979,7 +1985,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     responseBox?.querySelector(".thebe-ai-run-summary")?.remove();
     const sources=el("section","thebe-ai-web-sources");
     sources.setAttribute("aria-label","Web research sources");
-    sources.append(el("div","thebe-ai-boundary","Web search excerpts — verify original sources"),...citations);
+    sources.append(el("div","thebe-ai-boundary",sourcesLabel[result.verification]),...citations);
     if(result.notice)sources.append(el("div","thebe-ai-boundary",clean(result.notice,320)));
     responseBox?.append(sources);
     lastAdvisorTrust="advisory";
