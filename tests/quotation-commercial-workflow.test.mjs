@@ -148,3 +148,12 @@ test('account erasure cascades private defaults, documents, numbering and audit 
  for(const table of ['quotation_company_banking','quotation_commercial_documents','quotation_commercial_sequences','quotation_commercial_audit'])assert.equal((await f.db.prepare('SELECT count(*) n FROM '+table).first()).n,0);
  }finally{await f.mf.dispose()}
 });
+
+test('invoice numbering resumes beyond canonical Finance numbers and conversion supports the accepted ID limit',async()=>{
+ const f=await fixture();try{
+ await f.db.prepare("INSERT INTO finance_invoices(id,tenant_id,customer_id,invoice_number,issued_on,due_on,total_minor,created_by_user_id) VALUES('existing','a','ca','INV-000007','2026-11-01','2026-12-30',100,'owner')").run();
+ const quoteId='q'.repeat(90);await f.call('documents/'+quoteId,'PUT',{revision:0,document:draft()});await f.call('documents/'+quoteId+'/issue','POST',{revision:1});
+ const converted=await f.call('documents/'+quoteId+'/convert','POST',{customerId:'ca',dueOn:'2026-12-30'});assert.equal(converted.status,200);assert.ok(converted.data.id.length<=90);
+ const issued=await f.call('documents/'+converted.data.id+'/issue','POST',{revision:1});assert.equal(issued.status,200);assert.equal(issued.data.number,'INV-000008');
+ }finally{await f.mf.dispose()}
+});

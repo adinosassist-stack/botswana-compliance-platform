@@ -97,7 +97,8 @@ export async function handleQuotationCommercialRequest({request,env,auth}={}){
   exact(body,['customerId','dueOn']);if(row.kind!=='quote'||row.status!=='issued')throw error('issued_quote_required',409);
   if(!idOK(body.customerId)||!dateOK(body.dueOn)||body.dueOn<JSON.parse(row.document_json).issueDate)throw error('invalid_invoice_details');
   const customer=await db.prepare("SELECT id FROM finance_customers WHERE tenant_id=? AND id=? AND status='active'").bind(tenant,body.customerId).first();if(!customer)throw error('customer_not_found',404);
-  const convertedId='inv_'+docId;if(!idOK(convertedId))throw error('document_id_too_long');
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(tenant+':'+docId));
+  const convertedId='inv_'+Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
   const document=JSON.parse(row.document_json);document.quoteNumber='DRAFT';document.copy.heading='INVOICE';document.copy.quoteNumberLabel='Invoice No';
   await db.prepare("INSERT OR IGNORE INTO quotation_commercial_documents(tenant_id,id,kind,revision,document_json,source_quote_id,finance_customer_id,finance_invoice_id,due_on,total_minor,schedule_json,updated_by) VALUES(?,?,'invoice',1,?,?,?,?,?,?,?,?)")
    .bind(tenant,convertedId,JSON.stringify(document),docId,body.customerId,crypto.randomUUID(),body.dueOn,row.total_minor,row.schedule_json,actor).run();
@@ -112,8 +113,14 @@ export async function handleQuotationCommercialRequest({request,env,auth}={}){
  const document=JSON.parse(row.document_json),validated=validateQuotationCustomPage(document);
  if(validated.totalCents<=0||!document.copy.bankAccountHolder?.trim()||!document.copy.bankAccount||!/^[0-9]{1,34}$/.test(document.copy.bankAccount)||!document.termsText||/sample customer/i.test(document.customerName))throw error('complete_customer_amount_bank_and_terms');
  const eligible="EXISTS(SELECT 1 FROM quotation_commercial_documents WHERE tenant_id=? AND id=? AND revision=? AND status='draft')";
- const statements=[db.prepare(`INSERT INTO quotation_commercial_sequences(tenant_id,kind,value) SELECT ?,?,1 WHERE ${eligible} ON CONFLICT(tenant_id,kind) DO UPDATE SET value=value+1`)
-  .bind(tenant,row.kind,tenant,docId,row.revision)];
+ // Include existing canonical invoice numbers so a newly activated sequence
+ // cannot get stuck on an invoice issued through the existing Finance UI.
+ const nextInvoice="COALESCE((SELECT MAX(CAST(substr(invoice_number,5) AS INTEGER)) FROM finance_invoices WHERE tenant_id=? AND invoice_number GLOB 'INV-[0-9]*' AND substr(invoice_number,5) NOT GLOB '*[^0-9]*' AND length(invoice_number)<=13),0)+1";
+ const statements=[row.kind==='invoice'?
+  db.prepare(`INSERT INTO quotation_commercial_sequences(tenant_id,kind,value) SELECT ?,'invoice',${nextInvoice} WHERE ${eligible} ON CONFLICT(tenant_id,kind) DO UPDATE SET value=MAX(value+1,excluded.value)`)
+   .bind(tenant,tenant,tenant,docId,row.revision):
+  db.prepare(`INSERT INTO quotation_commercial_sequences(tenant_id,kind,value) SELECT ?,'quote',1 WHERE ${eligible} ON CONFLICT(tenant_id,kind) DO UPDATE SET value=value+1`)
+   .bind(tenant,tenant,docId,row.revision)];
  const prefix=row.kind==='quote'?'QT-':'INV-';
  // json_set preserves the exact document and banking snapshot; only the number
  // changes. One D1 transactional batch serializes the counter and issuance.
