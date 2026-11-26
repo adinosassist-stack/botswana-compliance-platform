@@ -89,7 +89,7 @@ async function cloudflareJson(method,path,token,body){
  const value=await r.json().catch(()=>({}));
  return {status:r.status,body:value};
 }
-export async function verifyRemote(env=process.env){
+export async function verifyRemote(env=process.env,{verifyWorker}={}){
  const expected=assertExactSource(env);
  qualifyEmployeeStagingConfig(); // Validates route-free, source unqualified, fixed staging DB and disabled logins.
  const githubRead=requireSecret(env,"STAFF_STAGING_GITHUB_READ_TOKEN");
@@ -114,8 +114,9 @@ export async function verifyRemote(env=process.env){
  if(query.status!==200||query.body?.success!==true)failure("employee_staging_d1_query_failed");
  assertIsolatedDatabase(db.body.result,query.body.result);
  const worker=await cloudflareJson("GET","/accounts/"+ACCOUNT+"/workers/scripts/"+WORKER+"/settings",cloudflare);
- assertWorkerAbsent(worker.status,worker.body);
- console.log(JSON.stringify({ok:true,exactMain:true,protectedEnvironment:true,independentReviewer:"thusico",protectedBranches:["main"],isolatedDb:STAGING_D1,stagingRecords:0,workerExists:false,productionUntouched:true}));
+ if(verifyWorker)await verifyWorker(worker);
+ else assertWorkerAbsent(worker.status,worker.body);
+ console.log(JSON.stringify({ok:true,exactMain:true,protectedEnvironment:true,independentReviewer:"thusico",protectedBranches:["main"],isolatedDb:STAGING_D1,stagingRecords:0,workerExists:worker.status===200,productionUntouched:true}));
  return true;
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
