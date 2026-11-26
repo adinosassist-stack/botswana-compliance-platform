@@ -25,6 +25,7 @@ export async function mountQuotationCommercialWorkspace(root,{capability,fetchIm
   const banking=await request('banking');openNew(banking.banking);notice('New quotation. Company banking defaults are filled in; document edits do not change those defaults.');
  }));
  button('Open saved',()=>run(async()=>{if(!selected.value)return;if(editor&&!globalThis.confirm('Replace current fields with this saved copy? Unsaved edits will be lost.'))return;open(await request('documents/'+selected.value));notice('Saved '+current.kind+' opened.')}));
+ const reviseButton=button('Revise quotation',()=>run(async()=>{if(current?.kind!=='quote'||current?.status!=='issued')return;const document=editor.getDraft();document.quoteNumber='DRAFT';current=null;clearPdf();deposit.disabled=instalments.disabled=false;render(document);notice('Revision started as a new draft. The issued quotation remains unchanged.');}));
  const saveButton=button('Save draft',()=>run(async()=>{
   const doc=editor.getDraft();if(current?.status==='issued')throw Error('Issued documents are locked. Start a new quotation.');
   const saved=await request('documents/'+(current?.id||crypto.randomUUID()),'PUT',{revision:current?.revision||0,document:doc,schedule:readSchedule()});
@@ -65,7 +66,7 @@ export async function mountQuotationCommercialWorkspace(root,{capability,fetchIm
  function money(v){if(!/^(0|[1-9]\d{0,7})(\.\d{1,2})?$/.test(v.trim()))throw Error('Enter amounts in pula, for example 500.00.');const [p,c='']=v.trim().split('.');return Number(p)*100+Number(c.padEnd(2,'0'))}
  function readSchedule(){const rows=instalments.value.trim()?instalments.value.trim().split('\n').map((line,i)=>{const [dueDate,amount,...rest]=line.trim().split(/\s+/);if(rest.length||!amount)throw Error('Use one date and amount per line, for example 2026-12-01 500.00.');return {id:'instalment-'+(i+1),dueDate,amountMinor:money(amount)}}):[];return {depositDueMinor:money(deposit.value),instalments:rows}}
  function clearPdf(){prepared=null;if(pdfUrl)URL.revokeObjectURL(pdfUrl);pdfUrl=null;}
- function paint(){for(const b of row.querySelectorAll('button'))b.disabled=busy;saveButton.disabled=busy||current?.status==='issued';issueButton.disabled=busy||!current||current.status==='issued';convertButton.disabled=busy||current?.kind!=='quote'||current?.status!=='issued';prepare.disabled=busy||current?.status!=='issued';download.disabled=busy||!pdfUrl;share.disabled=busy||!prepared;}
+ function paint(){for(const b of row.querySelectorAll('button'))b.disabled=busy;reviseButton.disabled=busy||current?.kind!=='quote'||current?.status!=='issued';saveButton.disabled=busy||current?.status==='issued';issueButton.disabled=busy||!current||current.status==='issued';convertButton.disabled=busy||current?.kind!=='quote'||current?.status!=='issued';prepare.disabled=busy||current?.status!=='issued';download.disabled=busy||!pdfUrl;share.disabled=busy||!prepared;}
  function render(document){editor?.destroy();editor=mountQuotationCustomizablePage(editorHost,{capability,issuerName,initial:document,documentMode:'customer',commercialMode:true});
   if(current?.status==='issued')for(const n of editorHost.querySelectorAll('input,textarea,button')){if(!n.textContent.startsWith('Print '))n.disabled=true}
  }

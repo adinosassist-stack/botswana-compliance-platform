@@ -19,7 +19,9 @@ try{window.editor=await mountQuotationCommercialWorkspace(document.querySelector
 test.before(async()=>{
  browser=await chromium.launch({headless:true,...(process.env.QUOTATION_CHROMIUM_EXECUTABLE?{executablePath:process.env.QUOTATION_CHROMIUM_EXECUTABLE}:{}),args:['--no-sandbox']});
  mf=new Miniflare(convertV4MiniflareOptions({modules:true,script:"export default {fetch(){return new Response('test')}}",compatibilityDate:'2026-09-03',d1Databases:{DB:'commercial-browser'}}));db=await mf.getD1Database('DB');
- await db.exec("CREATE TABLE tenants(id TEXT PRIMARY KEY); INSERT INTO tenants VALUES('a'); CREATE TABLE finance_customers(id TEXT,tenant_id TEXT,status TEXT,name TEXT); INSERT INTO finance_customers VALUES('ca','a','active','Customer A'); CREATE TABLE finance_invoices(id TEXT PRIMARY KEY,tenant_id TEXT,customer_id TEXT,invoice_number TEXT,issued_on TEXT,due_on TEXT,description TEXT,total_minor INTEGER,currency TEXT,status TEXT,created_by_user_id TEXT,UNIQUE(tenant_id,invoice_number));");
+ await db.exec("CREATE TABLE tenants(id TEXT PRIMARY KEY); INSERT INTO tenants VALUES('a'); CREATE TABLE users(id TEXT PRIMARY KEY); INSERT INTO users VALUES('owner'); CREATE TABLE finance_transactions(id TEXT PRIMARY KEY,tenant_id TEXT,amount_minor INTEGER);");
+ for(const sql of splitSqliteMigrationStatements(await readFile('cloudflare/migrations/049_v108_finance_receivables.sql','utf8')))await db.prepare(sql).run();
+ await db.exec("INSERT INTO finance_customers(id,tenant_id,status,name) VALUES('ca','a','active','Customer A');");
  for(const sql of splitSqliteMigrationStatements(await readFile('docs/sql/quotation-commercial-workflow-CANDIDATE.sql','utf8')))await db.prepare(sql).run();
  env={DB:db,QUOTATION_COMMERCIAL_ENABLED:'true',QUOTATION_PDF_RENDERER:createQuotationCommercialPdfRenderer({browser,pdfLib})};
  server=createServer(async(req,res)=>{try{
@@ -69,4 +71,20 @@ test('mobile company defaults, save/reload across browser sessions, issue, direc
  assert.equal((await db.prepare('SELECT count(*) n FROM finance_invoices').first()).n,1);
  assert.ok(await other.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
  await second.close();await context.close();
+});
+
+test('commercial controls reflow at mobile/tablet widths, landscape and 200-percent-equivalent widths',async()=>{
+ for(const [width,height] of [[320,740],[375,812],[414,896],[430,932],[768,1024],[812,375],[640,900]]){
+ const context=await browser.newContext({viewport:{width,height}});const page=await context.newPage();page.on('dialog',d=>d.accept());
+ try{
+  await ready(page);
+  await page.getByRole('button',{name:'Open saved',exact:true}).click();await page.getByRole('status').filter({hasText:/Saved (quote|invoice) opened/}).waitFor();
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'overflow at '+width+'x'+height);
+  for(const name of ['New quotation','Open saved','Prepare PDF','Company Settings — banking details']){
+   const locator=name.startsWith('Company')?page.getByText(name,{exact:true}):page.getByRole('button',{name,exact:true});
+   const box=await locator.boundingBox();assert.ok(box&&box.x>=0&&box.x+box.width<=width+1,'clipped '+name+' at '+width);
+  }
+ }finally{await context.close()}
+ }
+ // 640/320 CSS-pixel widths are reflow proxies, not native browser zoom proof.
 });

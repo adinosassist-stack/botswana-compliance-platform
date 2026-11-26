@@ -11,7 +11,9 @@ const draft=()=>{const d=quotationCustomSample();Object.assign(d,{quoteNumber:'D
 async function fixture(){
  const mf=new Miniflare(convertV4MiniflareOptions({modules:true,script:"export default {fetch(){return new Response('test')}}",compatibilityDate:'2026-09-03',d1Databases:{DB:'commercial-test'}}));
  const db=await mf.getD1Database('DB');
- await db.exec("CREATE TABLE tenants(id TEXT PRIMARY KEY); INSERT INTO tenants VALUES('a'),('b'); CREATE TABLE finance_customers(id TEXT,tenant_id TEXT,status TEXT,name TEXT); INSERT INTO finance_customers VALUES('ca','a','active','Synthetic customer'),('cb','b','active','Foreign'); CREATE TABLE finance_invoices(id TEXT PRIMARY KEY,tenant_id TEXT,customer_id TEXT,invoice_number TEXT,issued_on TEXT,due_on TEXT,description TEXT,total_minor INTEGER,currency TEXT,status TEXT,created_by_user_id TEXT,UNIQUE(tenant_id,invoice_number));");
+ await db.exec("CREATE TABLE tenants(id TEXT PRIMARY KEY); INSERT INTO tenants VALUES('a'),('b'); CREATE TABLE users(id TEXT PRIMARY KEY); INSERT INTO users VALUES('owner'); CREATE TABLE finance_transactions(id TEXT PRIMARY KEY,tenant_id TEXT,amount_minor INTEGER);");
+ for(const sql of splitSqliteMigrationStatements(await readFile('cloudflare/migrations/049_v108_finance_receivables.sql','utf8')))await db.prepare(sql).run();
+ await db.exec("INSERT INTO finance_customers(id,tenant_id,status,name) VALUES('ca','a','active','Synthetic customer'),('cb','b','active','Foreign');");
  for(const sql of splitSqliteMigrationStatements(await readFile('docs/sql/quotation-commercial-workflow-CANDIDATE.sql','utf8')))await db.prepare(sql).run();
  const env={DB:db,QUOTATION_COMMERCIAL_ENABLED:'true'};
  async function call(path,method='GET',body,auth=actor,headers={}){
@@ -124,5 +126,25 @@ test('edge adapter derives identity only from verified session and handles logic
  assert.equal((await invoke({})).status,401);
  assert.equal((await invoke(identity,new Request(request.url))).status,401);
  assert.equal((await handleQuotationCommercialRoute({request,logicalPath:'/api/other',env:f.env})),null);
+ }finally{await f.mf.dispose()}
+});
+
+test('distinct concurrent quotes receive unique consecutive numbers; revisions preserve the issued original',async()=>{
+ const f=await fixture();try{
+ await f.call('documents/q1','PUT',{revision:0,document:draft()});await f.call('documents/q2','PUT',{revision:0,document:draft()});
+ const results=await Promise.all([f.call('documents/q1/issue','POST',{revision:1}),f.call('documents/q2/issue','POST',{revision:1})]);
+ assert.deepEqual(results.map(x=>x.data.number).sort(),['QT-000001','QT-000002']);
+ const original=(await f.call('documents/q1')).data.document;
+ const amended={...original,quoteNumber:'DRAFT',customerPhone:'+267 70000000'};
+ assert.equal((await f.call('documents/revised','PUT',{revision:0,document:amended})).status,200);
+ assert.equal((await f.call('documents/q1')).data.document.customerPhone,original.customerPhone);
+ }finally{await f.mf.dispose()}
+});
+test('account erasure cascades private defaults, documents, numbering and audit without weakening issued immutability',async()=>{
+ const f=await fixture();try{
+ await f.call('banking','PUT',{revision:0,banking:bank});await f.call('documents/q1','PUT',{revision:0,document:draft()});await f.call('documents/q1/issue','POST',{revision:1});
+ await assert.rejects(f.db.prepare("DELETE FROM quotation_commercial_documents WHERE tenant_id='a'").run(),/immutable/);
+ await f.db.prepare("DELETE FROM tenants WHERE id='a'").run();
+ for(const table of ['quotation_company_banking','quotation_commercial_documents','quotation_commercial_sequences','quotation_commercial_audit'])assert.equal((await f.db.prepare('SELECT count(*) n FROM '+table).first()).n,0);
  }finally{await f.mf.dispose()}
 });

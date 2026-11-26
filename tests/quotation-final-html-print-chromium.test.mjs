@@ -151,7 +151,7 @@ test("signed-in preview loads the editor and prints two A4 pages without Browser
  const page=await browser.newPage({viewport:{width:1280,height:960}});
  try{
   await page.addInitScript(()=>{window.printCalls=0;window.print=()=>{window.printCalls++}});
-  const modules=new Set(["/js/quotation-customizable-page.mjs","/js/quotation-customizable-page-model.mjs"]);
+  const modules=new Set(["/js/essentials-document-share.mjs","/js/quotation-customizable-page.mjs","/js/quotation-customizable-page-model.mjs"]);
   await page.route(origin+"/**",async route=>{
    const requestPath=new URL(route.request().url()).pathname;
    if(requestPath===path)return route.fulfill({status:200,headers:Object.fromEntries(response.headers),body:await response.text()});
@@ -186,7 +186,7 @@ test("customer-ready browser print requires real fields and produces exactly two
  const page=await browser.newPage({viewport:{width:1280,height:960}});
  try{
   await page.addInitScript(()=>{window.printCalls=0;window.print=()=>{window.printCalls++}});
-  const modules=new Set(["/js/quotation-customizable-page.mjs","/js/quotation-customizable-page-model.mjs"]);
+  const modules=new Set(["/js/essentials-document-share.mjs","/js/quotation-customizable-page.mjs","/js/quotation-customizable-page-model.mjs"]);
   await page.route(origin+"/**",async route=>{
    const requestPath=new URL(route.request().url()).pathname;
    if(requestPath===path)return route.fulfill({status:200,headers:Object.fromEntries(response.headers),body:html});
@@ -240,6 +240,7 @@ test("320/375/390/414/430px touch Chromium matrix keeps customer-ready quotation
   assert.equal(response.status,200);
   const html=await response.text();
   const modules=new Set([
+    "/js/essentials-document-share.mjs",
     "/js/quotation-customizable-page.mjs",
     "/js/quotation-customizable-page-model.mjs"
   ]);
@@ -312,6 +313,7 @@ test("200%-equivalent reflow widths keep private quotation controls accessible a
   assert.equal(response.status,200);
   const html=await response.text();
   const modules=new Set([
+    "/js/essentials-document-share.mjs",
     "/js/quotation-customizable-page.mjs",
     "/js/quotation-customizable-page-model.mjs"
   ]);
