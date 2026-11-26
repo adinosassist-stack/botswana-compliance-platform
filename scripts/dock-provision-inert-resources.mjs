@@ -4,7 +4,7 @@
  */
 import {readFileSync} from "node:fs";
 import {pathToFileURL} from "node:url";
-import {DOCK_HOST,DOCK_WORKER,AI_WORKER,verifyDockIngress} from "./dock-hosted-ingress-guard.mjs";
+import {DOCK_HOST,DOCK_WORKER,AI_WORKER,PRIVATE_DOCK_BACKEND,verifyDockIngress} from "./dock-hosted-ingress-guard.mjs";
 export const ACCOUNT="ddd23cab31928a4bb3d4998df9b26d1d";
 const DATABASE_ID="c63255cf-c589-4f6b-99c7-2d2e437566b5";
 export const DATABASE="bw-dock-hosted-synthetic-staging";
@@ -147,7 +147,9 @@ export async function verifyActivationReadiness({api, emails, expectedVersion}){
  verifyDockIngress({...current,policies,appId,testerEmails:emails,inventoryComplete:true,phase:"after-attach"});
  const databases=current.databases.filter(database=>database.name===DATABASE);
  need(databases.length===1&&databases[0].uuid===DATABASE_ID,"staging_database_identity_mismatch");
- const settings=await result(api,account+"/workers/scripts/"+AI_WORKER+"/settings");
+ const backendSubdomain=await result(api,account+"/workers/scripts/"+PRIVATE_DOCK_BACKEND+"/subdomain");
+ need(backendSubdomain?.enabled===false&&backendSubdomain?.previews_enabled===false,"private_backend_direct_ingress_present");
+ const settings=await result(api,account+"/workers/scripts/"+PRIVATE_DOCK_BACKEND+"/settings");
  const bindings=settings?.bindings;
  need(Array.isArray(bindings)&&new Set(bindings.map(binding=>binding.name)).size===bindings.length,"backend_binding_inventory_invalid");
  const resources=bindings.filter(binding=>binding.type!=="plain_text");
