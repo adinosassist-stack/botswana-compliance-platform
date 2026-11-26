@@ -1,0 +1,147 @@
+name: Employee Cash - private staging Worker deployment
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/employee-cash-private-staging-deploy.yml'
+      - 'cloudflare/wrangler.employee-cash*.toml'
+      - 'cloudflare/src/employee-cash-*staging*.js'
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Exact reviewed current main SHA
+        required: true
+        type: string
+      authorization:
+        description: Deploy only the two private Employee Cash staging Workers
+        required: true
+        type: choice
+        default: DO_NOT_RUN
+        options:
+          - DO_NOT_RUN
+          - DEPLOY_PRIVATE_EMPLOYEE_CASH_STAGING
+
+permissions:
+  contents: read
+
+concurrency:
+  group: employee-cash-protected-staging-preflight
+  cancel-in-progress: false
+
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: npm ci --ignore-scripts
+      - run: |
+          node --test tests/employee-cash.test.mjs
+          npx --no-install wrangler deploy --dry-run --config cloudflare/wrangler.employee-cash-authenticated-staging.toml
+          npx --no-install wrangler deploy --dry-run --config cloudflare/wrangler.employee-cash-staging-acceptance.toml
+
+  deploy-private:
+    needs: offline
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      github.actor == 'adinosassist-stack' &&
+      github.triggering_actor == 'adinosassist-stack' &&
+      github.run_attempt == '1' &&
+      inputs.expected_main_sha == github.sha &&
+      inputs.authorization == 'DEPLOY_PRIVATE_EMPLOYEE_CASH_STAGING'
+    environment: employee-self-service-staging-protected
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: npm ci --ignore-scripts
+      - name: Verify exact source, staging schema and private Worker configuration
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          DEPLOY_MODE: preflight
+          AUTHORIZATION: PREFLIGHT_ONLY
+          CLOUDFLARE_ACCOUNT_ID: ddd23cab31928a4bb3d4998df9b26d1d
+          STAFF_STAGING_GITHUB_READ_TOKEN: ${{ secrets.STAFF_STAGING_GITHUB_READ_TOKEN }}
+          STAFF_STAGING_CLOUDFLARE_TOKEN: ${{ secrets.STAFF_STAGING_CLOUDFLARE_TOKEN }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN_SHA"
+          python3 - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          database = [{"binding": "DB", "database_id": "adfa3871-5ecf-4672-8d2f-be9b142d5fc1",
+                       "database_name": "bw-employee-self-service-staging"}]
+          specs = [
+              ("authenticated-staging", "bw-employee-self-service-staging", "authenticated-staging"),
+              ("staging-acceptance", "bw-employee-cash-staging-acceptance", "staging-acceptance"),
+          ]
+          for file, name, entry in specs:
+              config = tomllib.loads(Path(f"cloudflare/wrangler.employee-cash-{file}.toml").read_text())
+              allowed = {"name", "main", "compatibility_date", "workers_dev", "preview_urls", "keep_vars",
+                         "vars", "d1_databases", "ratelimits" if file == "authenticated-staging" else "services"}
+              assert set(config) == allowed
+              assert config["name"] == name and config["main"] == f"src/employee-cash-{entry}-entry.js"
+              assert all(config[key] is False for key in ("workers_dev", "preview_urls", "keep_vars"))
+              assert config["d1_databases"] == database and config["vars"]["APP_ENV"] == "staging"
+              assert config["vars"]["STAFF_STAGING_D1_ID"] == database[0]["database_id"]
+              if file == "staging-acceptance":
+                  assert config["services"] == [{"binding": "EMPLOYEE_CASH_STAGING", "service": specs[0][1]}]
+              else:
+                  assert config["vars"]["DEPLOYMENT_PROFILE"] == "employee-cash-authenticated-staging"
+                  assert config["vars"]["THEBE_EMPLOYEE_CASH_ENABLED"] == "false"
+                  assert config["vars"]["THEBE_STAFF_PORTAL_ENABLED"] == "false"
+          PY
+          node --input-type=module <<'JS'
+          import assert from "node:assert/strict";
+          import { ACCOUNT, verifyRemote } from "./scripts/employee-self-service-protected-bootstrap-guard.mjs";
+          import { STAGING_D1 } from "./scripts/employee-self-service-staging-preflight.mjs";
+          await verifyRemote();
+          const root = "https://api.cloudflare.com/client/v4/accounts/" + ACCOUNT;
+          const headers = { Authorization: "Bearer " + process.env.STAFF_STAGING_CLOUDFLARE_TOKEN };
+          const absent = await fetch(root + "/workers/scripts/bw-employee-cash-staging-acceptance/settings", { headers, redirect: "error", signal: AbortSignal.timeout(15000) });
+          assert.equal(absent.status, 404);
+          assert.ok((await absent.json()).errors?.some(error => Number(error.code) === 10007));
+          const response = await fetch(root + "/d1/database/" + STAGING_D1 + "/query", {
+            method: "POST", headers: { ...headers, "Content-Type": "application/json" },
+            redirect: "error", signal: AbortSignal.timeout(15000),
+            body: JSON.stringify({ sql: "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('auth_rate_limits','memberships','sessions','employee_cash_entries','employee_cash_counts','employee_cash_events') ORDER BY name; PRAGMA foreign_key_check" }),
+          });
+          assert.equal(response.ok, true);
+          const payload = await response.json();
+          assert.equal(payload.success, true);
+          assert.ok(payload.result.every(item => item.success === true));
+          assert.deepEqual(payload.result[0].results.map(row => row.name), ["auth_rate_limits","employee_cash_counts","employee_cash_entries","employee_cash_events","memberships","sessions"]);
+          assert.deepEqual(payload.result[1].results, []);
+          JS
+      - name: Deploy the qualified private staging Workers
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          CLOUDFLARE_ACCOUNT_ID: ddd23cab31928a4bb3d4998df9b26d1d
+          CLOUDFLARE_API_TOKEN: ${{ secrets.STAFF_STAGING_WORKERS_DEPLOY_TOKEN }}
+          WRANGLER_SEND_METRICS: "false"
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN"
+          umask 077
+          secret_file=$(mktemp)
+          trap 'rm -f "$secret_file"' EXIT
+          node -e 'process.stdout.write(JSON.stringify({SESSION_SECRET: require("node:crypto").randomBytes(48).toString("hex")}))' > "$secret_file"
+          npx --no-install wrangler deploy --config cloudflare/wrangler.employee-cash-authenticated-staging.toml \
+            --var "STAFF_STAGING_SOURCE_SHA:$EXPECTED_MAIN_SHA" \
+            --var THEBE_STAFF_PORTAL_ENABLED:true --var THEBE_EMPLOYEE_CASH_ENABLED:true \
+            --secrets-file "$secret_file"
+          npx --no-install wrangler deploy --config cloudflare/wrangler.employee-cash-staging-acceptance.toml
