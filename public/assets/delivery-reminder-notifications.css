@@ -128,6 +128,7 @@ body.thebe-voice-active .thebe-delivery-manager-popup{
    inner scroller, separate header and footer and a movable bell/sheet pair. */
 .thebe-delivery-manager-popup{
  display:flex;flex-direction:column;overflow:hidden;padding:0;
+ box-sizing:border-box;width:min(440px,calc(100vw - 28px));height:auto;
  background:#fff;color:#192b40;border:1px solid #c6d8ec;
  border-radius:16px;box-shadow:0 12px 35px #10253c26
 }
@@ -148,7 +149,7 @@ body.thebe-voice-active .thebe-delivery-manager-popup{
  font-size:17px;line-height:1.3;font-weight:800;color:#172b44;
  overflow-wrap:anywhere
 }
-.thebe-delivery-summary{margin:5px 0 0;font-size:12px;line-height:1.4;color:#58708b}
+.thebe-delivery-summary{margin:5px 0 0;font-size:13px;line-height:1.5;color:#40566e}
 .thebe-delivery-manager-popup button.thebe-delivery-dismiss{
  position:static;float:none;flex:0 0 44px;width:44px;height:44px;
  min-width:44px;min-height:44px;border:1px solid #d5e1f0;
@@ -201,7 +202,7 @@ body.thebe-voice-active .thebe-delivery-manager-popup{
 .thebe-delivery-sheet-footer{
  flex:0 0 auto;border-top:1px solid #dbe6f3;
  padding:9px 13px 11px;background:#fff;
- color:#61758b;font-size:11px;line-height:1.4
+ color:#40566e;font-size:12px;line-height:1.5
 }
 #thebeDeliveryActionStatus:not(:empty){display:block;margin-top:5px;color:#205b9c;font-weight:700}
 .thebe-delivery-manager-popup button:focus-visible,
@@ -337,4 +338,91 @@ body.thebe-voice-active .thebe-delivery-manager-popup{
  .thebe-delivery-manager-popup[data-compact-viewport="true"] .thebe-delivery-sheet-footer:has(#thebeDeliveryActionStatus:empty){
   display:none!important;
  }
+}
+
+/* Owner-approved compact notification centre; scoped away from sidebar rules. */
+.thebe-delivery-manager-popup{
+ font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+ border:1px solid #d8dde5;border-radius:16px;box-shadow:0 8px 28px #17233312;
+ color:#20242b
+}
+.thebe-delivery-sheet-header{padding:16px 18px 10px;border-bottom:0;gap:8px}
+.thebe-delivery-manager-popup .thebe-delivery-sheet-header h2{
+ display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:21px;
+ font-weight:750;line-height:1.3;color:#20242b
+}
+.thebe-delivery-count-badge{
+ display:inline-flex;align-items:center;justify-content:center;
+ min-width:26px;min-height:26px;padding:1px 7px;border-radius:20px;
+ background:#075cb9;color:#fff;font-size:14px;line-height:1.4
+}
+.thebe-delivery-summary{margin:4px 0 0;font-size:14px;color:#59616e}
+.thebe-delivery-manager-popup button.thebe-delivery-dismiss{
+ background:#fff;border:0;border-radius:8px;color:#252a33
+}
+.thebe-delivery-filters{
+ display:flex;align-items:center;flex-wrap:wrap;gap:4px 12px;
+ flex:0 0 auto;margin:0 18px;border-bottom:1px solid #d8dde5;min-width:0
+}
+.thebe-delivery-filters button{
+ appearance:none;min-height:44px;min-width:44px;padding:8px 4px;
+ background:transparent;border:0;border-bottom:2px solid transparent;
+ font:600 14px/1.3 system-ui,sans-serif;color:#59616e;cursor:pointer
+}
+.thebe-delivery-filters button[aria-pressed="true"]{color:#075cb9;border-bottom-color:#075cb9}
+.thebe-delivery-filters #thebeDeliveryMarkAll{margin-left:auto;color:#075cb9}
+.thebe-delivery-filters #thebeDeliveryMarkAll:disabled{color:#707883;cursor:default}
+.thebe-delivery-sheet-list{background:#fff;padding:4px 18px 8px}
+.thebe-delivery-group{
+ margin:14px 0 0;padding:0;font-size:12px;line-height:1.5;
+ letter-spacing:.05em;text-transform:uppercase;color:#646b76;font-weight:700
+}
+.thebe-delivery-manager-popup .thebe-delivery-reminder,
+.thebe-delivery-manager-popup .thebe-delivery-reminder[data-urgent="true"]{
+ display:block;position:relative;margin:0;padding:14px 0 12px 18px;
+ border:0;border-bottom:1px solid #e0e3e8;border-radius:0;
+ background:#fff;color:#20242b;box-shadow:none
+}
+.thebe-delivery-manager-popup .thebe-delivery-reminder::before{
+ content:"";position:absolute;left:0;top:19px;width:8px;height:8px;
+ border-radius:50%;background:#075cb9
+}
+.thebe-delivery-manager-popup .thebe-delivery-reminder[data-timing="overdue"]::before{background:#c62b32}
+.thebe-delivery-manager-popup .thebe-delivery-reminder[data-timing="today"]::before{background:#a65a0b}
+.thebe-delivery-reminder-copy{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 10px}
+.thebe-delivery-manager-popup .thebe-delivery-reminder strong{
+ grid-column:1/-1;font-size:15px;line-height:1.45;color:#20242b;font-weight:700
+}
+.thebe-delivery-reminder-timing{grid-column:1;margin:0;font-size:14px;color:#075cb9;line-height:1.5}
+.thebe-delivery-manager-popup [data-timing="overdue"] .thebe-delivery-reminder-timing{color:#b4232c}
+.thebe-delivery-manager-popup [data-timing="today"] .thebe-delivery-reminder-timing{color:#8e4c0a}
+.thebe-delivery-date{grid-column:2;font-size:13px;line-height:1.6;color:#59616e;text-align:right}
+.thebe-delivery-manager-popup .thebe-delivery-reminder small{grid-column:1/-1;margin:0;font-size:13px;color:#646b76}
+.thebe-delivery-reminder-actions{display:flex;flex-wrap:wrap;gap:8px 12px;margin-top:9px;width:100%}
+.thebe-delivery-manager-popup .thebe-delivery-reminder-actions button{
+ width:auto;min-width:0;min-height:44px;padding:9px 14px;
+ border-radius:8px;font-size:14px;line-height:1.3;font-weight:650
+}
+.thebe-delivery-manager-popup .thebe-delivery-view-task{background:#075cb9;border-color:#075cb9;color:#fff}
+.thebe-delivery-manager-popup .thebe-delivery-mark-read,
+.thebe-delivery-manager-popup .thebe-delivery-mark-read[aria-pressed="true"]{background:transparent;border:0;color:#303740}
+.thebe-delivery-manager-popup .thebe-delivery-mark-read:disabled{color:#707883;cursor:default}
+.thebe-delivery-sheet-footer{padding:10px 18px;color:#646b76;font-size:12px;border-top:0}
+.thebe-delivery-empty{font-size:14px;line-height:1.5;color:#59616e;margin:16px 0}
+.thebe-delivery-manager-bell{touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
+.thebe-delivery-manager-bell:active{cursor:grabbing}
+@media(max-width:350px){
+ .thebe-delivery-sheet-header{padding:12px 12px 8px}
+ .thebe-delivery-filters{margin:0 12px;gap:4px 8px}
+ .thebe-delivery-sheet-list{padding-left:12px;padding-right:12px}
+ .thebe-delivery-manager-popup .thebe-delivery-sheet-header h2{font-size:18px}
+ .thebe-delivery-reminder-copy{grid-template-columns:minmax(0,1fr)}
+ .thebe-delivery-date{grid-column:1;text-align:left}
+ .thebe-delivery-manager-popup .thebe-delivery-reminder-actions button{padding:8px 10px}
+}
+@media(max-height:480px){
+ .thebe-delivery-sheet-header{padding:6px 10px}
+ .thebe-delivery-summary{display:none}
+ .thebe-delivery-filters{margin:0 10px}
+ .thebe-delivery-group{margin-top:6px}
 }

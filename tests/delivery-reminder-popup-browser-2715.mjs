@@ -70,8 +70,8 @@ try{
     assert(g.railHidden,'Background mobile rail is suspended while reading notifications '+label);
     assert(g.p.bottom<=height-7,'Phone notification sheet uses full visual viewport without clipping '+label);
     assert.equal(await panel.getAttribute("aria-modal"),"true",'Mobile sheet is modal for accessibility '+label);
-    assert.equal(await panel.locator("h2").textContent(),"Notifications (12)",'Agreed notification count heading '+label);
-    assert.equal(await panel.locator(".thebe-delivery-reminder strong").first().textContent(),"Upcoming delivery & installation",'Agreed card heading '+label);
+    assert.equal(await panel.locator("h2").textContent(),"Notifications 12",'Agreed notification count heading '+label);
+    assert.equal(await panel.locator(".thebe-delivery-reminder strong").first().textContent(),"Delivery · Test location",'Agreed card heading '+label);
     const close=panel.getByRole('button',{name:'Close reminders'});
     assert(await close.isVisible(),'Sticky close remains reachable '+label);
     const closeBox=await close.boundingBox();
@@ -99,7 +99,9 @@ try{
      'Each synthetic reminder has a Mark as Read action '+label);
    const firstRead=panel.locator('.thebe-delivery-mark-read').first();
    await firstRead.click();
-   assert.equal(await firstRead.textContent(),'Read','Reading a notification updates its actual UI state '+label);
+   assert.equal(await panel.locator('.thebe-delivery-reminder').count(),11,'Unread filter removes acknowledged row '+label);
+   await panel.locator('#thebeDeliveryAll').click();
+   assert.equal(await panel.locator('.thebe-delivery-mark-read[aria-pressed="true"]').textContent(),'✓ Read','All filter retains read state '+label);
    assert.equal(await bell.getAttribute('data-count'),'11','Unread badge decreases without changing delivery status '+label);
    assert.match(await panel.locator('#thebeDeliveryActionStatus').textContent(),/does not complete/,
      'Reading a reminder cannot falsely complete the job '+label);

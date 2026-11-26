@@ -28,3 +28,29 @@ The existing logo editor remains local-preview only; this batch does not activat
 - Local Chromium execution was blocked by a missing browser binary; attempted browser download returned network 403/400. The dedicated PR workflow runs the browser journey in a pinned Playwright container and supplied the passing evidence above. The final revision also reruns a 320/375/414/430/768px, landscape and 200%-equivalent reflow matrix; native device zoom remains unverified. The legacy print fixture now serves the file-share module imported by the editor, so its existing print assertions can execute instead of failing at module loading.
 
 Independent `thusico` review, exact-head CI, BF-07 qualification, separately approved schema/service activation, authenticated hosted acceptance and physical Android WhatsApp attachment acceptance remain required. Production deployment needs separate owner approval.
+
+## Approved notification design and movable pill
+
+The shared workspace notification centre follows the owner's approved compact
+design: attention/upcoming groups, readable job and branch details, separate date
+and urgency labels, Unread/All filters, and individual/bulk read actions. Read
+actions never complete delivery or installation jobs. The notification pill can
+be dragged on desktop, tablet and mobile; saved device coordinates survive
+reload, stay within the viewport, avoid the visible AI pill and reserve the
+mobile navigation lane. Taps open the panel; dragging does not. Alt+arrows move
+the pill and Alt+Home resets it.
+
+Read acknowledgements persist on the same browser, isolated by signed-in user,
+tenant and selected company. Only SHA-256 acknowledgement/scope digests are
+stored locally, bounded to 500 entries per scope; no job details or credentials
+are cached. This is not cross-device synchronization. If browser storage is
+unavailable, the read action works for that visit and reports the limitation.
+Rescheduled jobs or a new source report require a new acknowledgement.
+
+Local verification: 47 notification, Daily Reports, persistence, controls and
+mobile integration tests pass; the 534-check bundle budget passes. Chromium
+acceptance is included in Workspace UI batch CI, covering the real workspace
+sidebar cascade, desktop pointer dragging, responsive touch targets and read
+persistence. Local browser execution remains unavailable; do not classify the
+new head's Chromium or physical Android checks as passed without fresh evidence.
+These changes remain in the same source PR; no production deployment occurs.

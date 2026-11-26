@@ -16,6 +16,9 @@ on:
       - 'public/js/delivery-reminders-manager.js'
       - 'tests/delivery-reminder-popup-browser-2715.mjs'
       - 'tests/delivery-notification-compact-feedback-browser-2837.mjs'
+      - 'tests/delivery-notification-persistence-browser.mjs'
+      - 'tests/delivery-notification-persistence.test.mjs'
+      - 'tests/delivery-notification-controls.test.mjs'
       - 'tests/combined-mobile-notification-aura-browser-2813.mjs'
       - '.github/workflows/workspace-ui-batch.yml'
   workflow_dispatch:
@@ -39,6 +42,7 @@ jobs:
           node --check public/js/workspace-infographics-v309.js
           npm run test:workspace-navigation-performance
           node tests/v312-property-solid-surfaces.mjs
+          node --test tests/delivery-notification-persistence.test.mjs tests/delivery-notification-controls.test.mjs
       - name: Install pinned browser driver
         run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
       - name: Verify integrated desktop and mobile behavior
@@ -49,4 +53,5 @@ jobs:
           node tests/v314-workspace-mobile-readability-browser.mjs
           node tests/delivery-reminder-popup-browser-2715.mjs
           node tests/delivery-notification-compact-feedback-browser-2837.mjs
+          node tests/delivery-notification-persistence-browser.mjs
           node tests/combined-mobile-notification-aura-browser-2813.mjs

@@ -79,7 +79,7 @@ try {
       assert(await sheet.isVisible(),"Approved notification sheet opens "+label);
       assert.equal(await sheet.getAttribute("aria-modal"),"true","Sheet is foreground modal "+label);
       assert.equal(await sheet.locator(".thebe-delivery-sheet-header h2").textContent(),
-        "Notifications (1)","Unread count visible "+label);
+        "Notifications 1","Unread count visible "+label);
       assert(await sheet.getByRole("button",{name:/View installation FAKE-001/}).isVisible(),
         "Real View Task control reachable "+label);
       assert(await sheet.getByRole("button",{name:"Close reminders"}).isVisible(),

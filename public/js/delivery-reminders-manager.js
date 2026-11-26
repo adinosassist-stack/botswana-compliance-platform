@@ -4,6 +4,7 @@ const byId=id=>document.getElementById(id);
 const seen=new Set();
 let dayShown="";
 let reminders=[];
+let unreadOnly=true;
 let loading=false,loadEpoch=0,lastScope=null;
 // The canonical authenticated Workspace declares lexical 'let currentUser',
 // which need not be present as window.currentUser. This UI scope stays private.
@@ -30,6 +31,44 @@ function label(item){
 }
 
 const readReminders=new Set();
+// Only opaque acknowledgement digests are persisted on this browser. Job
+// details remain in the authenticated response and are never cached here.
+const readStoragePrefix="thebe.delivery.read.v1.";
+let readStorageKey=null,readDigests=new Map(),storedReads=[];
+async function digest(value){
+ const bytes=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));
+ return Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,"0")).join("");
+}
+async function restoreReadReminders(items,scope,epoch){
+ const [user,tenant]=JSON.parse(scope);
+ let storageKey=null,entries=[],digests=new Map();
+ try{
+  if(user&&tenant){
+   storageKey=readStoragePrefix+await digest(scope);
+   digests=new Map(await Promise.all(items.map(async item=>{
+    const key=reminderKey(item);return [key,await digest(key)];
+   })));
+   const raw=localStorage.getItem(storageKey);
+   const parsed=raw?JSON.parse(raw):[];
+   if(Array.isArray(parsed))entries=parsed.filter(x=>typeof x==="string"&&/^[a-f0-9]{64}$/.test(x)).slice(-500);
+  }
+ }catch{storageKey=null;entries=[]}
+ if(epoch!==loadEpoch||scope!==reminderScope())return;
+ readStorageKey=storageKey;readDigests=digests;storedReads=entries;
+ const saved=new Set(entries);
+ for(const item of items)if(saved.has(digests.get(reminderKey(item))))readReminders.add(reminderKey(item));
+}
+function saveReadReminder(item){
+ const value=readDigests.get(reminderKey(item));
+ if(!readStorageKey||!value)return false;
+ try{
+  const parsed=JSON.parse(localStorage.getItem(readStorageKey)||"[]");
+  const existing=Array.isArray(parsed)?parsed.filter(x=>typeof x==="string"&&/^[a-f0-9]{64}$/.test(x)):[];
+  storedReads=Array.from(new Set([...existing,...storedReads,value])).slice(-500);
+  localStorage.setItem(readStorageKey,JSON.stringify(storedReads));
+  return true;
+ }catch{return false}
+}
 function reminderKey(item){
  return [item.sourceReportId||"",item.locationId||"",item.employeeId||"",item.jobType||"",item.jobReference||"",item.scheduledDate||""].join("|");
 }
@@ -38,10 +77,48 @@ function updateReminderCounts(){
  const toggle=byId("thebeDeliveryManagerBell");
  if(toggle){toggle.dataset.count=String(unread>99?"99+":unread);
   toggle.setAttribute("aria-label","Notifications: "+unread+" unread delivery and installation reminders. Open notifications")}
- const summary=byId("thebeDeliverySummary");
- if(summary)summary.textContent=unread+" unread · "+reminders.length+" scheduled reminder"+(reminders.length===1?"":"s");
- const title=byId("thebeDeliveryTitle");
- if(title)title.textContent="Notifications ("+unread+")";
+ const count=byId("thebeDeliveryCount");
+ if(count)count.textContent=String(unread);
+ const unreadFilter=byId("thebeDeliveryUnread");
+ if(unreadFilter)unreadFilter.textContent="Unread "+unread;
+ const markAll=byId("thebeDeliveryMarkAll");
+ if(markAll)markAll.disabled=unread===0;
+}
+function reminderTime(item){
+ const days=item.daysUntil;
+ return days<0?`${Math.abs(days)} day${days===-1?"":"s"} overdue`:days===0?"Today":days===1?"Tomorrow":`In ${days} days`;
+}
+function reminderDate(value){
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(value||""))return "Date unavailable";
+ const date=new Date(value+"T00:00:00Z");
+ return Number.isFinite(date.getTime())?new Intl.DateTimeFormat("en-GB",{timeZone:"UTC",day:"numeric",month:"short",year:"numeric"}).format(date):"Date unavailable";
+}
+function markRemindersRead(items,scope){
+ if(scope!==reminderScope()){refreshAfterWorkspaceChange();return}
+ let saved=true;
+ for(const item of items){readReminders.add(reminderKey(item));if(!saveReadReminder(item))saved=false}
+ updateReminderCounts();renderReminderList();updateWorkspace(reminders);
+ const status=byId("thebeDeliveryActionStatus");
+ if(status)status.textContent=(saved?"Saved as read on this browser.":"Marked as read for this visit; read status could not be saved on this browser.")+" This does not complete the delivery or installation.";
+}
+function renderReminderList(){
+ const list=byId("thebeDeliveryList");
+ if(!list)return;
+ const items=reminders.filter(item=>!unreadOnly||!readReminders.has(reminderKey(item)))
+  .sort((a,b)=>a.daysUntil-b.daysUntil||String(a.scheduledDate).localeCompare(String(b.scheduledDate)));
+ list.replaceChildren();
+ if(!items.length){
+  const empty=document.createElement("p");empty.className="thebe-delivery-empty";
+  empty.textContent=unreadOnly?"No unread reminders. Select All to view read reminders.":"No scheduled reminders.";
+  list.append(empty);return;
+ }
+ let group="";
+ for(const item of items.slice(0,12)){
+  const next=item.daysUntil<=0?"Needs attention":"Upcoming";
+  if(next!==group){const heading=document.createElement("h3");heading.className="thebe-delivery-group";heading.textContent=next;list.append(heading);group=next}
+  list.append(createReminder(item,true));
+ }
+ if(items.length>12){const more=document.createElement("p");more.className="thebe-delivery-empty";more.textContent="Showing the first 12 of "+items.length+" reminders. View Daily Reports for all jobs.";list.append(more)}
 }
 function openReminderTask(item){
  const status=byId("thebeDeliveryActionStatus");
@@ -66,31 +143,37 @@ function openReminderTask(item){
  }
 }
 function createReminder(item,withActions=false){
+ const scope=reminderScope();
  const row=document.createElement("article");row.className="thebe-delivery-reminder";
  row.dataset.urgent=String(item.daysUntil<=1);
  row.dataset.read=String(readReminders.has(reminderKey(item)));
  row.dataset.reminderKey=reminderKey(item);
+ row.dataset.timing=item.daysUntil<0?"overdue":item.daysUntil===0?"today":"upcoming";
  const copy=document.createElement("div");copy.className="thebe-delivery-reminder-copy";
- const title=document.createElement("strong");title.textContent=withActions?"Upcoming delivery & installation":label(item);
+ const title=document.createElement("strong");title.textContent=withActions?(item.jobType==="installation"?"Installation":"Delivery")+" · "+(item.locationName||"Location unavailable"):label(item);
  const detail=document.createElement("small");
- detail.textContent="Job "+(item.jobReference||"Unspecified")+" · "+(item.scheduledDate||"Date unavailable")+" · "+(item.locationName||"Location unavailable")+" · "+(item.employeeName||"Reporter unavailable");
+ detail.textContent="Job "+(item.jobReference||"Unspecified")+(withActions?"":" · "+(item.scheduledDate||"Date unavailable")+" · "+(item.locationName||"Location unavailable")+" · "+(item.employeeName||"Reporter unavailable"));
  copy.append(title);
- if(withActions){const timing=document.createElement("span");timing.className="thebe-delivery-reminder-timing";timing.textContent=label(item);copy.append(timing)}
+ if(withActions){
+  const timing=document.createElement("span");timing.className="thebe-delivery-reminder-timing";timing.textContent=reminderTime(item);
+  const date=document.createElement("time");date.className="thebe-delivery-date";date.textContent=reminderDate(item.scheduledDate);date.dateTime=item.scheduledDate||"";
+  copy.append(timing,date);
+ }
  copy.append(detail);row.append(copy);
  if(withActions){
   const actions=document.createElement("div");actions.className="thebe-delivery-reminder-actions";
   const view=document.createElement("button");view.type="button";view.className="thebe-delivery-view-task";
-  view.textContent="View Task";
+  view.textContent="View task";
   view.setAttribute("aria-label","View "+(item.jobType==="installation"?"installation":"delivery")+" "+(item.jobReference||"job")+" in Daily Reports");
   view.addEventListener("click",()=>openReminderTask(item));
   const read=document.createElement("button");read.type="button";read.className="thebe-delivery-mark-read";
   const alreadyRead=readReminders.has(reminderKey(item));
-  read.textContent=alreadyRead?"Read":"Mark as Read";read.setAttribute("aria-pressed",String(alreadyRead));
+  read.textContent=alreadyRead?"✓ Read":"✓ Mark read";read.setAttribute("aria-pressed",String(alreadyRead));
+  read.disabled=alreadyRead;
   read.addEventListener("click",()=>{
-   readReminders.add(reminderKey(item));row.dataset.read="true";
-   read.textContent="Read";read.setAttribute("aria-pressed","true");updateReminderCounts();
-   const state=byId("thebeDeliveryActionStatus");
-   if(state)state.textContent="Marked as read for this visit. This does not complete the delivery or installation.";
+   markRemindersRead([item],scope);
+   // The Unread row disappears after acknowledgement; keep focus usable.
+   (byId("thebeDeliveryList")?.querySelector(".thebe-delivery-mark-read:not([disabled])")||byId("thebeDeliveryAll"))?.focus({preventScroll:true});
   });
   actions.append(view,read);row.append(actions);
  }
@@ -99,7 +182,7 @@ function createReminder(item,withActions=false){
 function popup(){
   let panel=byId("thebeDeliveryManagerPopup");
   if(panel)return panel;
-  panel=document.createElement("aside");panel.id="thebeDeliveryManagerPopup";
+  panel=document.createElement("section");panel.id="thebeDeliveryManagerPopup";
   panel.className="thebe-delivery-manager-popup";panel.hidden=true;panel.setAttribute("role","dialog");
   panel.setAttribute("aria-label","Upcoming delivery and installation reminders");
   const dismiss=document.createElement("button");dismiss.type="button";dismiss.className="thebe-delivery-dismiss";dismiss.textContent="×";dismiss.setAttribute("aria-label","Close delivery reminders");dismiss.addEventListener("click",()=>setPopupOpen(false,true));
@@ -126,7 +209,7 @@ function setPopupOpen(open,focusChange=false){
     if(target&&!target.hidden)target.focus({preventScroll:true});
   }
 }
-// The bell is movable on small screens. Store only device-local coordinates,
+// The bell is movable on all screens. Store only device-local coordinates,
 // never reminder content, account information, or authentication details.
 const bellPositionKey="thebe.delivery.bell.position.v2";
 const mobileBell=()=>window.matchMedia("(max-width: 1000px)").matches;
@@ -162,9 +245,20 @@ function positionBell(button,x,y){
   // Bottom rail, its touch targets, and Android safe-area remain protected.
   const minX=left+8,minY=top+8;
   const maxX=Math.max(minX,left+width-w-8);
-  const maxY=Math.max(minY,top+height-h-104);
-  const px=Math.max(minX,Math.min(x,maxX));
-  const py=Math.max(minY,Math.min(y,maxY));
+  const maxY=Math.max(minY,top+height-h-(mobileBell()?104:8));
+  let px=Math.max(minX,Math.min(x,maxX));
+  let py=Math.max(minY,Math.min(y,maxY));
+  const ai=byId("thebeAiDockPill");
+  if(ai&&!ai.hidden&&ai.getClientRects().length){
+   const a=ai.getBoundingClientRect(),gap=12;
+   const overlaps=(nx,ny)=>nx<a.right+gap&&nx+w>a.left-gap&&ny<a.bottom+gap&&ny+h>a.top-gap;
+   if(overlaps(px,py)){
+    const options=[{x:a.left-w-gap,y:py},{x:a.right+gap,y:py},{x:px,y:a.top-h-gap},{x:px,y:a.bottom+gap}]
+     .filter(p=>p.x>=minX&&p.x<=maxX&&p.y>=minY&&p.y<=maxY&&!overlaps(p.x,p.y))
+     .sort((a,b)=>Math.hypot(a.x-px,a.y-py)-Math.hypot(b.x-px,b.y-py));
+    if(options[0]){px=options[0].x;py=options[0].y}
+   }
+  }
   button.style.setProperty("left",px+"px","important");
   button.style.setProperty("top",py+"px","important");
   button.style.setProperty("right","auto","important");
@@ -187,15 +281,13 @@ function enableBellDrag(button){
   const sync=()=>{
     syncReminderViewport();
     if(button.hidden)return;
-    if(!mobileBell()){
-      clearBellCoordinates(button);
-      return;
-    }
+    if(!mobileBell()&&!saved){clearBellCoordinates(button);return}
     const rect=button.getBoundingClientRect();
     const origin=saved||{x:rect.left,y:rect.top};
-    const positioned=positionBell(button,origin.x,origin.y);
+    positionBell(button,origin.x,origin.y);
     // Retain the user's preference; re-clamp it when the viewport changes.
-    if(saved)saved=positioned;
+    // Keep original coordinates so temporary keyboard/rotation clamping does
+    // not replace the user's preferred location.
     syncReminderViewport();
   };
   window.addEventListener("resize",sync);
@@ -203,7 +295,7 @@ function enableBellDrag(button){
   window.visualViewport?.addEventListener("resize",sync);
   window.visualViewport?.addEventListener("scroll",sync);
   button.addEventListener("pointerdown",event=>{
-    if(!mobileBell()||!event.isPrimary||event.button!==0)return;
+    if(!event.isPrimary||event.button!==0)return;
     start={id:event.pointerId,x:event.clientX,y:event.clientY,
       rect:button.getBoundingClientRect(),moved:false};
     button.setPointerCapture?.(event.pointerId);
@@ -228,7 +320,7 @@ function enableBellDrag(button){
     start=null;
   });
   button.addEventListener("pointercancel",event=>{
-    if(start?.id===event.pointerId){start=null;sync()}
+    if(start?.id===event.pointerId){const rect=start.rect;start=null;positionBell(button,rect.left,rect.top);syncReminderViewport()}
   });
   // Capture precedes the ordinary open handler so dragging never opens the sheet.
   button.addEventListener("click",event=>{
@@ -237,7 +329,7 @@ function enableBellDrag(button){
     }
   },true);
   button.addEventListener("keydown",event=>{
-    if(!event.altKey||!mobileBell())return;
+    if(!event.altKey)return;
     if(event.key==="Home"){
       event.preventDefault();
       persist(null);clearBellCoordinates(button);sync();
@@ -289,28 +381,47 @@ function render(items){
  panel.replaceChildren();
  const header=document.createElement("header");header.className="thebe-delivery-sheet-header";
  const headText=document.createElement("div");headText.className="thebe-delivery-sheet-heading";
- const eyebrow=document.createElement("span");eyebrow.className="thebe-delivery-eyebrow";
- eyebrow.textContent="🔔 THEBE DESK";
  const title=document.createElement("h2");title.id="thebeDeliveryTitle";
- title.textContent="Notifications (0)";
+ title.textContent="Notifications ";
+ const count=document.createElement("span");count.id="thebeDeliveryCount";count.className="thebe-delivery-count-badge";
+ title.append(count);
  const summary=document.createElement("p");summary.id="thebeDeliverySummary";summary.className="thebe-delivery-summary";
- headText.append(eyebrow,title,summary);
+ summary.textContent="Deliveries & installations";
+ headText.append(title,summary);
  const close=document.createElement("button");close.type="button";close.className="thebe-delivery-dismiss";
  close.textContent="×";close.setAttribute("aria-label","Close reminders");
  close.addEventListener("click",()=>setPopupOpen(false,true));
  header.append(headText,close);
- const list=document.createElement("div");list.className="thebe-delivery-sheet-list";
- for(const item of items.slice(0,12))list.append(createReminder(item,true));
+ const filters=document.createElement("div");filters.className="thebe-delivery-filters";
+ filters.setAttribute("role","group");filters.setAttribute("aria-label","Filter notifications");
+ for(const [id,text,onlyUnread] of [["thebeDeliveryUnread","Unread",true],["thebeDeliveryAll","All",false]]){
+  const button=document.createElement("button");button.type="button";button.id=id;button.textContent=text;
+  button.setAttribute("aria-pressed",String(unreadOnly===onlyUnread));
+  button.setAttribute("aria-controls","thebeDeliveryList");
+  button.addEventListener("click",()=>{
+   unreadOnly=onlyUnread;
+   for(const child of filters.querySelectorAll("button[aria-pressed]"))child.setAttribute("aria-pressed",String(child===button));
+   renderReminderList();
+  });filters.append(button);
+ }
+ const markAll=document.createElement("button");markAll.type="button";markAll.id="thebeDeliveryMarkAll";
+ markAll.textContent="Mark all read";
+ const scope=reminderScope();
+ markAll.addEventListener("click",()=>{
+  markRemindersRead(reminders.filter(item=>!readReminders.has(reminderKey(item))),scope);
+  byId("thebeDeliveryAll")?.focus({preventScroll:true});
+ });filters.append(markAll);
+ const list=document.createElement("div");list.id="thebeDeliveryList";list.className="thebe-delivery-sheet-list";
  const footer=document.createElement("footer");footer.className="thebe-delivery-sheet-footer";
  const note=document.createElement("span");
- note.textContent=(items.length>12?"Showing the first 12 of "+items.length+" reminders. ":"")+
-   "Read status lasts for this visit; job status changes only in Daily Reports.";
+ note.textContent="Reading a reminder does not complete the job.";
  const status=document.createElement("span");status.id="thebeDeliveryActionStatus";
  status.setAttribute("role","status");status.setAttribute("aria-live","polite");
  footer.append(note,status);
  panel.setAttribute("aria-labelledby","thebeDeliveryTitle");
- panel.append(header,list,footer);
+ panel.append(header,filters,list,footer);
  updateReminderCounts();
+ renderReminderList();
  updateWorkspace(items);
  syncBellLayout();
  syncReminderViewport();
@@ -320,6 +431,8 @@ function render(items){
 // or an out-of-date company's reminders available on screen.
 function clearRemindersAfterReadFailure(){
  reminders=[];seen.clear();readReminders.clear();dayShown="";
+ unreadOnly=true;
+ readStorageKey=null;readDigests.clear();storedReads=[];
  const panel=byId("thebeDeliveryManagerPopup");
  if(panel){panel.hidden=true;panel.replaceChildren()}
  const bell=byId("thebeDeliveryManagerBell");
@@ -352,8 +465,13 @@ async function load(){
       return;
     }
     const items=Array.isArray(data.deliveryReminders)?data.deliveryReminders:[];
-    if(dayShown!==today){seen.clear();readReminders.clear();dayShown=today}
-    const newDue=items.filter(x=>!seen.has([x.locationId,x.employeeId,x.jobType,x.jobReference,today].join("|")));
+    await restoreReadReminders(items,scope,epoch);
+    if(epoch!==loadEpoch)return;
+    if(scope!==reminderScope()){
+      clearRemindersAfterReadFailure();lastScope=reminderScope();return;
+    }
+    if(dayShown!==today){seen.clear();dayShown=today}
+    const newDue=items.filter(x=>!readReminders.has(reminderKey(x))&&!seen.has([x.locationId,x.employeeId,x.jobType,x.jobReference,today].join("|")));
     for(const x of newDue)seen.add([x.locationId,x.employeeId,x.jobType,x.jobReference,today].join("|"));
     render(items);
     if(newDue.length && !window.matchMedia("(max-width: 1000px)").matches)setPopupOpen(true);
