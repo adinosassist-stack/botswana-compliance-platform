@@ -420,6 +420,12 @@ test("direct staff daily reports create and correct canonical records with branc
  const hardened=await __v782157Test.dailyOpsDashboard(f.env,IDS.tenantA,today);
  assert.equal(hardened.reports.length,1);
  assert.equal(hardened.totals.revenue,1250);
+ // A missing employee with an approved exception is excused, not overdue.
+ f.sql.prepare("INSERT INTO daily_reporting_exceptions(id,tenant_id,employee_id,location_id,report_date,reason_code) VALUES(?,?,?,?,?,'leave')").run("excused",IDS.tenantA,IDS.employeeC,"peer",today);
+ const excused=await __v782157Test.dailyOpsDashboard(f.env,IDS.tenantA,today);
+ assert.equal(excused.reportingPopulation.expected,1);assert.equal(excused.reportingPopulation.excused,1);assert.equal(excused.missing.length,0);assert.equal(excused.coverage,100);
+ // Seed real peer and foreign reports before checking manager authorization.
+ for(const [rid,tenant,employee,loc] of [["peer-report",IDS.tenantA,IDS.employeeC,"peer"],["foreign-report",IDS.tenantB,IDS.employeeB,"foreign"]])f.sql.prepare("INSERT INTO daily_employee_reports(id,tenant_id,employee_id,location_id,report_date,work_summary) VALUES(?,?,?,?,?,?)").run(rid,tenant,employee,loc,today,"Not visible to assigned manager");
  // Branch-scoped manager read service uses a separate membership/grant boundary.
  f.sql.exec("CREATE TABLE memberships(tenant_id TEXT,user_id TEXT,role TEXT,status TEXT); CREATE TABLE workspace_manager_invites(tenant_id TEXT,accepted_by_user_id TEXT,status TEXT); CREATE TABLE workspace_manager_location_grants(tenant_id TEXT,manager_user_id TEXT,location_id TEXT,status TEXT);");
  f.sql.prepare("INSERT INTO memberships VALUES(?,?,'manager','active')").run(IDS.tenantA,IDS.managerA);
