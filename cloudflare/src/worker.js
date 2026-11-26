@@ -3,7 +3,7 @@ import {hasFounderAiEntitlement} from "./founder-ai-entitlement.js";
 import {createManagerLocationAdminHttp} from './manager-invitations-location-admin-http.js';
 import {createManagerOwnerDirectoryHttp} from './manager-invitations-owner-directory.js';
 import {createManagerScopedReadHttp} from './manager-invitations-scoped-read.js';
-import {createManagerDailyReportReview,managerDailyReviewEnabled} from './manager-daily-report-review.js';
+import {createManagerDailyReportReview,managerDailyReviewEnabled,readOwnerDailyReviewOverview} from './manager-daily-report-review.js';
 import {createManagerAccessAdminHttp} from './manager-invitations-admin-http.js';
 import {createManagerInvitationD1Service} from './manager-invitations-d1-service.js';
 import {createManagerInvitationsHttp} from './manager-invitations-http.js';
@@ -7411,7 +7411,7 @@ export default {
         return json({ok:true});
       }
       if(url.pathname==="/api/daily-reporting/dashboard"&&req.method==="GET"){
-        if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);const reportDate=String(url.searchParams.get("date")||gaboroneDate()),locationId=String(url.searchParams.get("locationId")||"")||null;if(!isoDateValid(reportDate))return json({error:"invalid_report_date"},400);const dashboard=await dailyOpsDashboard(env,a.tenant_id,reportDate,locationId);return json({...dashboard,deliveryReminders:await dueDeliveryReminders(env,{tenantId:a.tenant_id,locationId,today:gaboroneDate()})});
+        if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);const reportDate=String(url.searchParams.get("date")||gaboroneDate()),locationId=String(url.searchParams.get("locationId")||"")||null;if(!isoDateValid(reportDate))return json({error:"invalid_report_date"},400);const dashboard=await dailyOpsDashboard(env,a.tenant_id,reportDate,locationId);const reviewOverview=a.role==="owner"&&managerDailyReviewEnabled(env)?await readOwnerDailyReviewOverview(env.DB,{tenantId:a.tenant_id,userId:a.user_id,role:a.role,date:reportDate,locationId}).catch(()=>({available:false})):null;return json({...dashboard,reviewOverview,deliveryReminders:await dueDeliveryReminders(env,{tenantId:a.tenant_id,locationId,today:gaboroneDate()})});
       }
       if(url.pathname==="/api/daily-reporting/summaries"&&req.method==="GET"){
         if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);const reportDate=String(url.searchParams.get("date")||gaboroneDate());
