@@ -1,6 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
+import {createHmac} from 'node:crypto';
+import {withDockStagingFixture} from '../scripts/run-dock-staging-fixture.mjs';
 import {readFileSync} from 'node:fs';
 import {createDockFixtureAdapter} from '../cloudflare/src/general-ai-dock-fixture-adapter.js';
 const schema=readFileSync(new URL('../cloudflare/schema/dock-hosted-staging-auth-candidate.sql',import.meta.url),'utf8');
@@ -38,4 +40,24 @@ test('wrong identity, production database and non-synthetic IDs rejected',async(
   sql.exec("UPDATE dock_staging_identity SET database_id='wrong'");
   await assert.rejects(createDockFixtureAdapter(options).create(),/database_identity_unqualified/);
   assert.equal(sql.prepare('SELECT count(*) AS n FROM users').get().n,0);sql.close();
+});
+
+test('staging fixture hashes its session and is removed when hosted acceptance fails',async()=>{
+  const {sql,options}=setup();
+  try{
+    const verifiedDatabaseId='c63255cf-c589-4f6b-99c7-2d2e437566b5';
+    sql.prepare('UPDATE dock_staging_identity SET database_id=?').run(verifiedDatabaseId);
+    const sessionSecret='offline-synthetic-staging-secret-only';
+    await assert.rejects(withDockStagingFixture({db:options.db,verifiedDatabaseId,sessionSecret},async fixture=>{
+      const row=sql.prepare('SELECT token_hash,csrf_token FROM sessions WHERE user_id=?').get(fixture.userId);
+      assert.equal(row.token_hash,createHmac('sha256',sessionSecret).update(fixture.sessionToken).digest('hex'));
+      assert.equal(row.csrf_token,fixture.csrfToken);
+      assert.equal(fixture.userId,'dock-fixture-'+fixture.suffix+'-user');
+      throw new Error('hosted acceptance failed');
+    }),/hosted acceptance failed/);
+    assert.equal(sql.prepare('SELECT count(*) AS n FROM sessions').get().n,0);
+    assert.equal(sql.prepare('SELECT count(*) AS n FROM tenants').get().n,0);
+  }finally{
+    sql.close();
+  }
 });
