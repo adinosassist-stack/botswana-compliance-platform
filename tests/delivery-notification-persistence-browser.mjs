@@ -9,7 +9,7 @@ const css=fs.readFileSync('public/assets/delivery-reminder-notifications.css','u
 const runtime=fs.readFileSync('public/js/delivery-reminders-manager.js','utf8');
 const workspace=fs.readFileSync('public/index.html','utf8');
 const styles=[...workspace.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map(m=>m[1]).join('\n');
-const html=`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style><style>${styles}</style></head><body><select id="companySelect"><option value="company-A">A</option><option value="company-B">B</option></select><main id="dailyreports"></main><script>${runtime}</script></body></html>`;
+const html=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style><style>${styles}</style></head><body><select id="companySelect"><option value="company-A">A</option><option value="company-B">B</option></select><main id="dailyreports"></main><script>${runtime}</script></body></html>`;
 const executablePath=[process.env.CHROMIUM_EXECUTABLE_PATH,'/usr/bin/google-chrome','/usr/bin/google-chrome-stable','/usr/bin/chromium'].filter(Boolean).find(p=>fs.existsSync(p));
 const browser=await chromium.launch({headless:true,executablePath,args:['--no-sandbox','--disable-dev-shm-usage']});
 try{

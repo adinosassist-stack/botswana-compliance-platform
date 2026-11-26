@@ -16,7 +16,7 @@ const executablePath=[process.env.CHROMIUM_EXECUTABLE_PATH,
  .filter(Boolean).find(file=>fs.existsSync(file));
 const css=fs.readFileSync('public/assets/delivery-reminder-notifications.css','utf8');
 const runtime=fs.readFileSync('public/js/delivery-reminders-manager.js','utf8');
-const html='<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">'+
+const html='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+
  '<style>*{box-sizing:border-box}body{margin:0}#mobileRail{display:none}' +
  '@media(max-width:1000px){#mobileRail{display:block;position:fixed;bottom:0;left:0;right:0;height:86px;background:#eee}}</style>' +
  '<style>'+css+'</style></head><body><main id="dailyreports"></main><nav id="mobileRail" class="mobilebar"></nav>'+

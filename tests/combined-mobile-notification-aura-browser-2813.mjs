@@ -16,7 +16,7 @@ const executablePath=[process.env.CHROMIUM_EXECUTABLE_PATH,
   "/usr/bin/google-chrome","/usr/bin/google-chrome-stable","/usr/bin/chromium"]
   .filter(Boolean).find(p=>fs.existsSync(p));
 const fixture=[
-  '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">',
+  '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">',
   '<link rel="stylesheet" href="/assets/thebe-ai-dock.css">',
   '<link rel="stylesheet" href="/assets/delivery-reminder-notifications.css">',
   '<link rel="stylesheet" href="/assets/workspace-audit-refinements-20261013.css">',

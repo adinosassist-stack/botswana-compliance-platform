@@ -17,7 +17,7 @@ const browser=await chromium.launch({headless:true,executablePath,
  args:["--no-sandbox","--disable-dev-shm-usage"]});
 const css=fs.readFileSync("public/assets/delivery-reminder-notifications.css","utf8");
 const runtime=fs.readFileSync("public/js/delivery-reminders-manager.js","utf8");
-const html='<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">'
+const html='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
   +'<style>*{box-sizing:border-box}body{margin:0}#mobileRail{position:fixed;bottom:0;left:0;right:0;height:86px;background:#ddd}</style>'
   +'<style>'+css+'</style></head><body><main id="dailyreports"></main>'
   +'<nav id="mobileRail" class="mobilebar"></nav><script>'+runtime+'</script></body></html>';
