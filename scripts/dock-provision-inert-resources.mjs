@@ -53,7 +53,7 @@ export function verifyInitialInventory({apps,domains,routes,dns,databases,worksp
  need(!databases.some(d=>d.name===DATABASE),"database_already_exists");
  return true;
 }
-function client(token,fetchImpl=fetch){
+export function client(token,fetchImpl=fetch){
  return async(method,path,body)=>{
    const response=await fetchImpl("https://api.cloudflare.com/client/v4"+path,{method,headers:{Authorization:"Bearer "+token,...(body?{"Content-Type":"application/json"}:{})},body:body?JSON.stringify(body):undefined,redirect:"error",signal:AbortSignal.timeout(30000)});
    const data=await response.json().catch(()=>null);
@@ -149,7 +149,11 @@ export async function verifyActivationReadiness({api, emails, expectedVersion}){
  need(databases.length===1&&databases[0].uuid===DATABASE_ID,"staging_database_identity_mismatch");
  const backendSubdomain=await result(api,account+"/workers/scripts/"+PRIVATE_DOCK_BACKEND+"/subdomain");
  need(backendSubdomain?.enabled===false&&backendSubdomain?.previews_enabled===false,"private_backend_direct_ingress_present");
- const settings=await result(api,account+"/workers/scripts/"+PRIVATE_DOCK_BACKEND+"/settings");
+ const backendPath=account+"/workers/scripts/"+PRIVATE_DOCK_BACKEND;
+ const backendDeployments=await result(api,backendPath+"/deployments");
+ const backendVersion=backendDeployments?.deployments?.[0]?.versions?.[0]?.version_id;
+ verifyCurrentDeployment(backendDeployments,backendVersion);
+ const settings=await result(api,backendPath+"/settings");
  const bindings=settings?.bindings;
  need(Array.isArray(bindings)&&new Set(bindings.map(binding=>binding.name)).size===bindings.length,"backend_binding_inventory_invalid");
  const resources=bindings.filter(binding=>binding.type!=="plain_text");
@@ -157,7 +161,11 @@ export async function verifyActivationReadiness({api, emails, expectedVersion}){
  for(const name of ["THEBE_GENERAL_AI_ENABLED","THEBE_GENERAL_AI_RESEARCH_ENABLED","THEBE_LIVE_VOICE_ENABLED"]){
    need(bindings.some(binding=>binding.name===name&&binding.type==="plain_text"&&binding.text==="false"),"backend_feature_not_disabled");
  }
- return {ok:true,hostname:DOCK_HOST,databaseId:DATABASE_ID,inert:true};
+ // Confirm neither Worker changed while the inventory and bindings were checked.
+ verifyCurrentDeployment(await result(api,backendPath+"/deployments"),backendVersion);
+ verifyCurrentDeployment(await result(api,account+"/workers/scripts/"+DOCK_WORKER+"/deployments"),expectedVersion);
+ return {ok:true,hostname:DOCK_HOST,databaseId:DATABASE_ID,inert:true,
+   rollbackVersions:{workspace:expectedVersion,backend:backendVersion}};
 }
 async function main(){
  const env=process.env,emails=validateInputs(env);

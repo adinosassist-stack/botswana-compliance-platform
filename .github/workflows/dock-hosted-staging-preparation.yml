@@ -7,6 +7,7 @@ on:
       - 'cloudflare/wrangler.dock-hosted-staging-inert.toml'
       - 'cloudflare/wrangler.dock-hosted-staging-*.review.toml'
       - 'scripts/verify-dock-inert-bootstrap.py'
+      - 'scripts/build-dock-staging-research-config.py'
       - 'scripts/dock-hosted-ingress-guard.mjs'
       - 'scripts/dock-provision-inert-resources.mjs'
       - 'docs/dock-hosted-staging-provisioning.md'
@@ -87,6 +88,16 @@ jobs:
           set -euo pipefail
           for profile in workspace backend; do
             npx --no-install wrangler deploy --dry-run --config "cloudflare/wrangler.dock-hosted-staging-${profile}.review.toml" --outdir "/tmp/dock-review-${profile}"
+          done
+      - name: Bundle generated Dock research profiles without publishing
+        run: |
+          set -euo pipefail
+          temp_dir="$(mktemp -d)"
+          trap 'rm -rf "$temp_dir"' EXIT
+          for role in workspace backend; do
+            config="$temp_dir/dock-$role.json"
+            python3 scripts/build-dock-staging-research-config.py "$role" 0123456789abcdef0123456789abcdef > "$config"
+            npx --no-install wrangler deploy --dry-run --config "$config" --outdir "$temp_dir/bundle-$role"
           done
       - run: python3 tests/general-ai-staging-session-contract.py
       - run: python3 tests/dock-hosted-staging-auth-contract.py

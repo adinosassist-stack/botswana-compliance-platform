@@ -1,5 +1,6 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
+import {runDockStagingResearch} from "../scripts/run-dock-staging-research.mjs";
 import {ACCOUNT,DATABASE,validateInputs,verifyInitialInventory,verifyCurrentDeployment,provisionInertResources,verifyActivationReadiness} from "../scripts/dock-provision-inert-resources.mjs";
 import {DOCK_HOST,DOCK_WORKER,AI_WORKER,PRIVATE_DOCK_BACKEND} from "../scripts/dock-hosted-ingress-guard.mjs";
 const version="11111111-2222-4333-8444-555555555555", db="11111111-2222-4333-8444-666666666666", app="11111111-2222-4333-8444-777777777777", zone="a".repeat(32);
@@ -75,19 +76,65 @@ test("activation preflight reads only and rejects a drifted backend binding",asy
  calls.length=0;
  const isolatedId="c63255cf-c589-4f6b-99c7-2d2e437566b5";
  let bindingId=isolatedId;
+ let backendDeploymentReads=0;
+ let driftBackend=false;
  const readApi=async(method,path)=>{
   assert.equal(method,"GET");
   const response=await api(method,path);
   const endpoint=path.split("?")[0];
   if(endpoint.endsWith("/d1/database"))return {result:[{name:DATABASE,uuid:isolatedId}]};
+  if(endpoint.endsWith("/"+PRIVATE_DOCK_BACKEND+"/deployments")&&driftBackend&&++backendDeploymentReads===2){
+   return {result:{deployments:[{versions:[{version_id:db,percentage:100}]}]}};
+  }
   if(endpoint.endsWith("/"+PRIVATE_DOCK_BACKEND+"/settings")){
    return {result:{bindings:[...response.result.bindings,{name:"DB",type:"d1",id:bindingId}]}};
   }
   return response;
  };
  const options={api:readApi,emails,expectedVersion:version};
- assert.deepEqual(await verifyActivationReadiness(options),{ok:true,hostname:DOCK_HOST,databaseId:isolatedId,inert:true});
+ assert.deepEqual(await verifyActivationReadiness(options),{ok:true,hostname:DOCK_HOST,databaseId:isolatedId,inert:true,rollbackVersions:{workspace:version,backend:version}});
  bindingId=db;
  await assert.rejects(verifyActivationReadiness(options),/backend_database_binding_mismatch/);
+ bindingId=isolatedId;
+ driftBackend=true;
+ await assert.rejects(verifyActivationReadiness(options),/inert_deployment_identity_mismatch/);
  assert.ok(calls.every(call=>call.method==="GET"));
+});
+
+test("protected staging rehearsal restores both versions and removes the fixture after a failed check",async()=>{
+ const {api}=mock();
+ const emails=["test@example.invalid"];
+ await provisionInertResources({api,emails,expectedVersion:version,assertMain:async()=>{}});
+ const isolatedId="c63255cf-c589-4f6b-99c7-2d2e437566b5";
+ const events=[];
+ const rehearsalApi=async(method,path,body)=>{
+  const endpoint=path.split("?")[0];
+  if(endpoint.endsWith("/d1/database/"+isolatedId+"/query")){
+   if(body.batch){
+    events.push(body.batch[0].sql.startsWith("INSERT")?"create":"remove");
+    return {result:body.batch.map(()=>({success:true}))};
+   }
+   const row=body.sql.includes("dock_staging_identity")
+    ? {database_id:isolatedId,environment:"dock-hosted-staging"}
+    : {n:0};
+   return {result:[{success:true,results:[row]}]};
+  }
+  const response=await api(method,path,body);
+  if(endpoint.endsWith("/d1/database"))return {result:[{name:DATABASE,uuid:isolatedId}]};
+  if(endpoint.endsWith("/"+PRIVATE_DOCK_BACKEND+"/settings")){
+   return {result:{bindings:[...response.result.bindings,{name:"DB",type:"d1",id:isolatedId}]}};
+  }
+  return response;
+ };
+ await assert.rejects(runDockStagingResearch({
+  api:rehearsalApi,emails,expectedVersion:version,assertMain:async()=>{},
+  sessionSecret:"offline-staging-secret-32-characters",accessToken:"header.payload.signature",
+  activate:async()=>{events.push("activate");},
+  restore:async versions=>{
+   assert.deepEqual(versions,{workspace:version,backend:version});
+   events.push("restore");
+  },
+  fetchImpl:async()=>new Response(null,{status:503}),
+ }),/Missing session expected HTTP 401, received 503/);
+ assert.deepEqual(events,["create","activate","restore","remove"]);
 });
