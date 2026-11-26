@@ -37,6 +37,16 @@ test('real sqlite scoped dashboard and reports reject foreign and ungranted rows
   assert.deepEqual(dashboard.body.locations.map(x=>x.id),['location-a']);
   let reports=await get('/api/workspace/managers/my-reports');
   assert.deepEqual(reports.body.reports.map(x=>x.id),['report-a']);
+  assert.equal(reports.body.reports[0].employee_name,'Synthetic employee');
+  assert.equal(reports.body.reports[0].location_name,'Location a');
+  assert.equal(reports.body.reports[0].revision_count,0);
+  assert.equal(reports.body.reports[0].needs_attention,1);
+  // A corrupt cross-tenant employee association must not disclose its identity or increase totals.
+  d.prepare("INSERT INTO daily_employee_reports(id,tenant_id,employee_id,location_id,report_date,work_summary) VALUES(?,?,?,?,?,?)").run('invalid-association','a','employee-b','location-a','2027-01-02','Invalid association');
+  assert.deepEqual((await get('/api/workspace/managers/my-reports')).body.reports.map(x=>x.id),['report-a']);
+  assert.equal((await get('/api/workspace/managers/my-dashboard')).body.reports,1);
+  const denied=await handler(new Request('https://private.example.invalid/api/workspace/managers/my-reports',{method:'POST'}),identity);
+  assert.equal(denied.status,404,'review screen remains read-only');
   d.prepare("UPDATE workspace_manager_location_grants SET status='revoked' WHERE tenant_id=? AND manager_user_id=?").run('a','manager-a');
   dashboard=await get('/api/workspace/managers/my-dashboard');
   assert.equal(dashboard.body.reports,0);
