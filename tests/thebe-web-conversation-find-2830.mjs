@@ -176,7 +176,7 @@ try{
   await page.evaluate(()=>window.ThebeAiDock.open());
   assert.equal(await research.isVisible(),true);
   await composer.fill("Search the live web for Botswana’s official census total.");
-  await composer.press("Enter");
+  await dock.getByRole("button",{name:"Send to Thebe",exact:true}).click();
   await page.waitForFunction(()=>document.querySelector(".thebe-ai-web-sources")?.textContent.includes("Example source"));
   assert.deepEqual(await page.evaluate(()=>window.researchRequests),[{question:"Search the web: Search the live web for Botswana’s official census total."}]);
   await dock.getByText("Web search citations — verify original sources",{exact:true}).waitFor();
@@ -195,7 +195,7 @@ try{
   assert.equal(await page.evaluate(()=>window.researchRequests.length),1);
   const advisorCallsBefore = await page.evaluate(()=>window.advisorCalls);
   await composer.fill("Search the live web for Botswana’s official census total.");
-  await composer.press("Enter");
+  await dock.getByRole("button",{name:"Send to Thebe",exact:true}).click();
   await dock.getByText("Live research is not available; current information cannot be verified.",{exact:true}).waitFor();
   assert.equal(await page.evaluate(()=>window.advisorCalls),advisorCallsBefore);
   assert.equal(await page.evaluate(()=>window.researchRequests.length),1);
