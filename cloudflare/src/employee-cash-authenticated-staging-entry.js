@@ -71,10 +71,12 @@ async function handleSyntheticManager(request, url, env) {
   }
 }
 
+class StaffPasswordDerivationError extends Error {}
+
 function derivePassword(password, salt, iterations) {
   return new Promise((resolve, reject) => {
     pbkdf2(password, salt, iterations, 32, "sha256", (error, digest) => {
-      if (error) reject(error);
+      if (error) reject(new StaffPasswordDerivationError());
       else resolve(digest);
     });
   });
@@ -92,8 +94,10 @@ async function handleSyntheticStaffAuth(request, url, env) {
       }),
       id: () => crypto.randomUUID(),
     }) ?? error("not_found", 404);
-  } catch {
-    return error("employee_cash_staging_staff_auth_failed", 503);
+  } catch (failure) {
+    return error(failure instanceof StaffPasswordDerivationError
+      ? "employee_cash_staging_password_derivation_failed"
+      : "employee_cash_staging_staff_auth_failed", 503);
   }
 }
 
