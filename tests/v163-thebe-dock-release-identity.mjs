@@ -140,5 +140,11 @@ assert(audit.includes('const dockReleaseMatch=productionEntry.match(/const THEBE
 assert(!audit.includes('[0-9]{8}[a-z]'),'launch audit must not regress to the obsolete date-plus-letter token parser');
 assert(fullUser.includes("/^[0-9]{8}[A-Za-z0-9._-]{1,48}$/"),'full-user synthetic must accept the bounded cache-safe dock release token format');
 assert(!fullUser.includes("/^\\d{8}[a-z]$/"),'full-user synthetic must not regress to the obsolete date-plus-letter dock token parser');
+assert(fullUser.includes("const audio=document.querySelector('#thebeAiDock .thebe-ai-conversation-voice')"),'production lifecycle must inspect the current unified composer voice button');
+assert(fullUser.includes("publicDock.audioCount===1&&publicDock.legacyAudioCount===0"),'production lifecycle must reject duplicate voice controls');
+assert(fullUser.includes("publicDock.audioLabel==='Start voice conversation with Thebe'"),'production lifecycle must require the current accessible voice label');
+assert(fullUser.includes("publicVoice.isHidden()&&await publicSend.isVisible()")&&fullUser.includes("publicVoice.isVisible()&&await publicSend.isHidden()"),'production lifecycle must verify typing and clearing switch between voice and Send');
+assert(fullUser.includes("!publicDock.attachVisible&&!publicDock.quickVisible"),'production lifecycle must enforce public upload and suggestion visibility boundaries');
+assert(fullUser.includes("globalThis.ThebeLiveVoice.start({mode:'marketing'})"),'production lifecycle must retain the real marketing voice session test');
 
 console.log('PASS: V163 Thebe dock release identity, cache busting and launch-audit parser are aligned.');

@@ -2,6 +2,14 @@
 
 **Date:** 24 October 2026. **Status:** Proposed code/seed changes only. **Not an approved legal determination.**
 
+## Release 681 update — 25 November 2026 (owner local date)
+
+**HOLD: this October handoff is historical, not authority to approve the PAYE 15-day draft.** See #2766 and the independently merged fail-closed PAYE guard #2767. The newer Income Tax Act 2026 section 138(1) has been identified in #2766 as a statutory 14-day remittance review lead, conflicting with the older BURS Payments page. A genuine independent reviewer must verify primary law, commencement, transitions, payment-month semantics, applicability and any exceptions before a current rule is approved. Do not approve the old draft or infer legal signoff from this document.
+
+Release 681 Phase 0 audit [45740822967](https://github.com/adinosassist-stack/botswana-compliance-platform/actions/runs/45740822967) reports maker/checker ready, foundation v1.7 import completed, **zero verified+approved sources, zero published rules and zero open conflicts**. The regulatory gate correctly failed closed. The lifecycle audit also failed on a retired Dock microphone selector; the source repair is independent of regulatory publication.
+
+The authorized maker must obtain the current official primary-law text and immutable verified snapshot, prepare a versioned rule with reviewed effective dates and applicable timing, preserve historical provenance, and submit it through the existing regulatory review console. A distinct authorized checker must independently verify and approve source evidence, review the candidate and publish only a legally supported rule. Recheck all five regulatory activation conditions in the existing production gate. No direct database status writes, fabricated notes, bulk approvals, gate relaxation or new production deployment are authorized by this handoff. Track source/rule approval in #1392 and #2766; the present audit repair does not complete them.
+
 ## Controlling evidence and corrections
 
 | Topic | Previous seed v1.7 | Proposed seed v1.8 | Authority / reviewer check |
