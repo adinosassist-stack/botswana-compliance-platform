@@ -318,3 +318,31 @@ test("staff daily report history is own-only, tenant-scoped and read-only",async
  await f.manager(IDS.tenantA,"/api/employee-self-service/employees/"+IDS.employeeA+"/revoke","POST",{});
  assert.equal((await f.staff("/public/employee/reports","GET",undefined,{cookie})).res.status,401);
 });
+
+test("staff reminders include own jobs four days ahead and suppress completed jobs",async t=>{
+ const f=fixture(t);
+ f.sql.exec(readFileSync(new URL("../cloudflare/migrations/015_v73_daily_operations_reporting.sql",import.meta.url),"utf8"));
+ const {cookie}=await inviteAndLogin(f);
+ const today=new Date().toLocaleDateString("en-CA",{timeZone:"Africa/Gaborone"});
+ const after=n=>{const d=new Date(today+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)};
+ f.sql.prepare("INSERT INTO operating_locations(id,tenant_id,name) VALUES('branch-a',?,'Branch A')").run(IDS.tenantA);
+ f.sql.prepare("INSERT INTO operating_locations(id,tenant_id,name) VALUES('branch-b',?,'Branch B')").run(IDS.tenantB);
+ const jobs=[
+  {jobReference:"INSTALL-4",jobType:"installation",scheduledDate:after(4),jobStatus:"scheduled"},
+  {jobReference:"DELIVER-TODAY",jobType:"delivery",scheduledDate:today,jobStatus:"scheduled"},
+  {jobReference:"TOO-EARLY",jobType:"delivery",scheduledDate:after(5),jobStatus:"scheduled"},
+  {jobReference:"FINISHED",jobType:"installation",scheduledDate:today,jobStatus:"completed"}
+ ];
+ for(const [id,tenant,employee,location,items] of [["own",IDS.tenantA,IDS.employeeA,"branch-a",jobs],["peer",IDS.tenantA,IDS.employeeC,"branch-a",[{...jobs[0],jobReference:"PRIVATE-PEER"}]],["foreign",IDS.tenantB,IDS.employeeB,"branch-b",[{...jobs[0],jobReference:"PRIVATE-TENANT"}]]]){
+  f.sql.prepare("INSERT INTO daily_employee_reports(id,tenant_id,employee_id,location_id,report_date,kpi_json) VALUES(?,?,?,?,?,?)").run(id,tenant,employee,location,today,JSON.stringify({jobs:items}));
+ }
+ const result=await f.staff("/public/employee/reports","GET",undefined,{cookie});
+ assert.equal(result.res.status,200);
+ assert.equal(result.body.reportDate,today);
+ assert.deepEqual(result.body.deliveryReminders.map(x=>x.jobReference),["DELIVER-TODAY","INSTALL-4"]);
+ assert.deepEqual(result.body.deliveryReminders.map(x=>x.daysUntil),[0,4]);
+ assert.equal(result.body.items[0].jobs.length,4);
+ f.sql.prepare("UPDATE operating_locations SET active=0 WHERE id='branch-a'").run();
+ const disabled=await f.staff("/public/employee/reports","GET",undefined,{cookie});
+ assert.deepEqual(disabled.body.deliveryReminders,[]);
+});

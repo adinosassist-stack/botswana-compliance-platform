@@ -108,3 +108,20 @@ require isolated hosted qualification and independent review before activation.
 - Fresh local checks: 45 employee tests pass; route-security adversarial test
   passes 59 assertions, and route inventory passes. Broader GitHub CI must rerun
   on the new head; no hosted qualification or activation is implied.
+
+### Employee delivery and installation reminders
+
+The staff report-history response now includes structured jobs plus reminders from
+`dueDeliveryReminders`, the same service used by the private reporter and manager
+workflows. Every query is scoped to the authenticated employee and tenant before
+reading records. Active branches only; latest completion/cancellation wins.
+The dashboard shows reminders from four days before the scheduled date, due today,
+and up to seven days overdue, and includes branch, date and job reference.
+Dates use Africa/Gaborone. Historical reports retain their recorded job statuses.
+No email, push delivery, new reporting write route or migration is introduced.
+
+The clean continuation checkout started at `9d54a24`, which had 24 returned CI
+runs successful, including Recovery, audit remediation and Employee Cash. Those
+results apply to that head only. New reminder integration tests verify D-4/due-day
+visibility, D-5 and completed suppression, same-tenant peer and cross-tenant
+isolation, and inactive-branch exclusion using actual SQLite queries.

@@ -77,16 +77,23 @@ async function refreshTasks(){
  }catch(error){byId("staffTasksStatus").textContent=failure(error)}
 }
 async function refreshReports(){
- const list=byId("staffReportsList"),status=byId("staffReportsStatus");
+ const list=byId("staffReportsList"),status=byId("staffReportsStatus"),reminders=byId("staffDeliveryReminders");
+ reminders.replaceChildren();
  list.replaceChildren();status.textContent="Loading your daily reports…";
  try{
   const response=await api("/public/employee/reports");
+  for(const item of response.deliveryReminders||[]){
+   const card=element("article","thebe-staff-task"),when=item.daysUntil<0?"Overdue":item.daysUntil===0?"Due today":item.daysUntil===1?"Tomorrow":"In "+item.daysUntil+" days";
+   card.append(element("h3",null,when+" · "+(item.jobType==="installation"?"Installation":"Delivery")),element("p",null,item.jobReference+" · "+item.scheduledDate+" · "+item.locationName),element("p",null,"Submit your employee report on the delivery or installation day using your private reporting link."));
+   reminders.append(card);
+  }
   for(const item of response.items||[]){
    const card=element("article","thebe-staff-task");
    card.append(element("h3",null,item.report_date+" · "+item.location_name));
    for(const [label,value] of [["Work completed",item.work_summary],["Wins",item.wins],["Blockers",item.blockers],["Incidents",item.incidents],["Next plan",item.next_plan]]){
     if(value){card.append(element("h4",null,label),element("p","thebe-staff-task__note",value));}
    }
+   for(const job of item.jobs||[])card.append(element("p",null,(job.jobType==="installation"?"Installation":"Delivery")+" · "+job.jobReference+" · "+job.scheduledDate+" · "+job.jobStatus));
    card.append(element("p",null,"Submitted"+(item.needs_attention?" · Manager attention requested":"")+" · Corrections: "+Number(item.revision_count||0)));
    list.append(card);
   }
@@ -145,7 +152,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   const button=byId("staffSignOut");button.disabled=true;message("");
   try{
    await api("/public/employee/logout",{method:"POST",csrf:true});
-   sessionVersion++;staffCsrf="";byId("staffTasksList").replaceChildren();byId("staffReportsList").replaceChildren();byId("staffCash").replaceChildren();byId("staffProfile").textContent="";panel("staffLogin");message("Signed out.");
+   sessionVersion++;staffCsrf="";byId("staffTasksList").replaceChildren();byId("staffReportsList").replaceChildren();byId("staffDeliveryReminders").replaceChildren();byId("staffCash").replaceChildren();byId("staffProfile").textContent="";panel("staffLogin");message("Signed out.");
   }catch(error){message("Sign-out could not be confirmed. Your session may still be active; please retry.")}
   finally{button.disabled=false}
  });

@@ -1,3 +1,4 @@
+import {parseReportSchedules,dueDeliveryReminders} from "./delivery-installation-reminders.js";
 import {handleEmployeeCashStaff,handleEmployeeCashManager} from "./employee-cash.js";
 import {staffPortalEnabled,staffEmail,staffPasswordValid,staffUuidValid,staffTaskInput,staffTaskTransition,staffNote} from "./employee-self-service-policy.js";
 
@@ -106,8 +107,11 @@ export async function handleStaffPublic({request,url,env,json,readJson,requestOr
  }
  if(path==="/public/employee/reports"&&method==="GET"){
   if(!staff)return json({error:"unauthenticated"},401,{"cache-control":"no-store"});
-  const rows=await env.DB.prepare("SELECT r.id,r.report_date,r.work_summary,r.wins,r.blockers,r.incidents,r.next_plan,r.needs_attention,r.revision_count,r.submitted_at,r.updated_at,l.name location_name FROM daily_employee_reports r JOIN operating_locations l ON l.id=r.location_id AND l.tenant_id=r.tenant_id WHERE r.tenant_id=? AND r.employee_id=? ORDER BY r.report_date DESC,r.updated_at DESC,r.id DESC LIMIT 30").bind(staff.tenant_id,staff.employee_id).all();
-  return json({items:rows.results||[]},200,{"cache-control":"no-store"});
+  const rows=await env.DB.prepare("SELECT r.id,r.report_date,r.work_summary,r.wins,r.blockers,r.incidents,r.next_plan,r.kpi_json,r.needs_attention,r.revision_count,r.submitted_at,r.updated_at,l.name location_name FROM daily_employee_reports r JOIN operating_locations l ON l.id=r.location_id AND l.tenant_id=r.tenant_id WHERE r.tenant_id=? AND r.employee_id=? ORDER BY r.report_date DESC,r.updated_at DESC,r.id DESC LIMIT 30").bind(staff.tenant_id,staff.employee_id).all();
+  const reportDate=new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Gaborone",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+  const deliveryReminders=await dueDeliveryReminders(env,{tenantId:staff.tenant_id,employeeId:staff.employee_id,today:reportDate});
+  const items=(rows.results||[]).map(({kpi_json,...row})=>({...row,jobs:parseReportSchedules(kpi_json)}));
+  return json({items,reportDate,deliveryReminders},200,{"cache-control":"no-store"});
  }
  if(path==="/public/employee/tasks"&&method==="GET"){
   if(!staff)return json({error:"unauthenticated"},401);
