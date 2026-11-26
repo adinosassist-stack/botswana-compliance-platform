@@ -1,0 +1,35 @@
+import workspace from "./release-governance-entry.js";
+import {readDockResearchFixture} from "./general-ai-staging-entry.js";
+import {handleStagingDockResearch} from "./general-ai-dock-staging-entry.js";
+
+// This entrypoint is for the protected staging workspace build only.
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    if (env?.APP_ENV !== "staging" || url.origin !== env.DOCK_STAGING_WORKSPACE_ORIGIN) {
+      return new Response(null, {status: 404, headers: {"cache-control": "no-store"}});
+    }
+    if (url.pathname === "/api/ai/general") return handleStagingDockResearch(request, env);
+    const response = await workspace.fetch(request, env, ctx);
+    if (request.method !== "GET" || url.pathname !== "/app/" || !response.ok ||
+        !response.headers.get("content-type")?.toLowerCase().startsWith("text/html") ||
+        env.DOCK_STAGING_RESEARCH_ENABLED !== "true" || typeof env.STAGING_AI?.fetch !== "function") {
+      return response;
+    }
+
+    const fixture = await readDockResearchFixture(request, env).catch(() => null);
+    if (!fixture) return response;
+
+    const headers = new Headers(response.headers);
+    headers.set("cache-control", "private, no-store");
+    headers.delete("etag");
+    headers.delete("content-length");
+    const html = new Response(response.body, {status: response.status, headers});
+    return new HTMLRewriter().on("head", {
+      element(head) {
+        head.prepend('<meta name="thebe-general-ai-enabled" content="true">' +
+          '<meta name="thebe-general-ai-research-enabled" content="true">', {html: true});
+      }
+    }).transform(html);
+  }
+};

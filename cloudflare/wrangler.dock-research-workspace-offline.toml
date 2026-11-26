@@ -1,0 +1,24 @@
+# Offline bundle profile for the protected Dock research staging candidate.
+name = "bw-dock-research-workspace-offline"
+main = "src/general-ai-dock-workspace-staging-worker.js"
+compatibility_date = "2026-09-03"
+workers_dev = false
+preview_urls = false
+keep_vars = false
+
+[vars]
+APP_ENV = "staging"
+DOCK_STAGING_RESEARCH_ENABLED = "false"
+THEBE_GENERAL_AI_ENABLED = "false"
+THEBE_GENERAL_AI_RESEARCH_ENABLED = "false"
+AI_FEATURES_DEFAULT = "off"
+THEBE_INTERNAL_AUTONOMY_ENABLED = "false"
+AGENT_BOUNDED_TASK_EXECUTION_ENABLED = "0"
+THEBE_LIVE_VOICE_ENABLED = "false"
+THEBE_MARKETING_VOICE_ENABLED = "false"
+PAYMENT_PROVIDER = "none"
+
+[assets]
+directory = "../public"
+binding = "ASSETS"
+run_worker_first = true
