@@ -53,7 +53,7 @@ export function verifyInitialInventory({apps,domains,routes,dns,databases,worksp
  need(!databases.some(d=>d.name===DATABASE),"database_already_exists");
  return true;
 }
-function client(token,fetchImpl=fetch){
+export function client(token,fetchImpl=fetch){
  return async(method,path,body)=>{
    const response=await fetchImpl("https://api.cloudflare.com/client/v4"+path,{method,headers:{Authorization:"Bearer "+token,...(body?{"Content-Type":"application/json"}:{})},body:body?JSON.stringify(body):undefined,redirect:"error",signal:AbortSignal.timeout(30000)});
    const data=await response.json().catch(()=>null);
