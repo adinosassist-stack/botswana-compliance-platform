@@ -104,6 +104,11 @@ export async function handleStaffPublic({request,url,env,json,readJson,requestOr
   if(!staff)return json({error:"unauthenticated"},401);
   return json({employee:{id:staff.employee_id,name:staff.full_name,email:staff.email},tenantId:staff.tenant_id,companyName:staff.company_name,csrfToken:staff.csrf_token});
  }
+ if(path==="/public/employee/reports"&&method==="GET"){
+  if(!staff)return json({error:"unauthenticated"},401,{"cache-control":"no-store"});
+  const rows=await env.DB.prepare("SELECT r.id,r.report_date,r.work_summary,r.wins,r.blockers,r.incidents,r.next_plan,r.needs_attention,r.revision_count,r.submitted_at,r.updated_at,l.name location_name FROM daily_employee_reports r JOIN operating_locations l ON l.id=r.location_id AND l.tenant_id=r.tenant_id WHERE r.tenant_id=? AND r.employee_id=? ORDER BY r.report_date DESC,r.updated_at DESC,r.id DESC LIMIT 30").bind(staff.tenant_id,staff.employee_id).all();
+  return json({items:rows.results||[]},200,{"cache-control":"no-store"});
+ }
  if(path==="/public/employee/tasks"&&method==="GET"){
   if(!staff)return json({error:"unauthenticated"},401);
   const rows=await env.DB.prepare("SELECT t.id,t.title,t.detail,t.due_date,t.priority,t.status,t.version,t.created_at,t.updated_at,n.note latest_note,n.actor_kind latest_note_actor FROM employee_portal_tasks t LEFT JOIN employee_portal_task_events n ON n.rowid=(SELECT MAX(ev.rowid) FROM employee_portal_task_events ev WHERE ev.task_id=t.id AND ev.tenant_id=t.tenant_id AND LENGTH(TRIM(ev.note))>0) WHERE t.tenant_id=? AND t.employee_id=? ORDER BY CASE t.status WHEN 'submitted' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'assigned' THEN 2 ELSE 3 END,t.due_date,t.created_at DESC LIMIT 100").bind(staff.tenant_id,staff.employee_id).all();

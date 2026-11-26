@@ -10,10 +10,10 @@
 <meta name="bw-runtime-mode" content="staff">
 <title>My Work | Thebe Desk</title>
 <link rel="icon" href="/assets/thebe-desk-favicon-512.png">
-<link rel="stylesheet" href="/assets/employee-self-service.css?v=1">
+<link rel="stylesheet" href="/assets/employee-self-service.css?v=2">
 <script src="/js/api-client.js?v=20260920a" defer></script>
-<script src="/js/employee-cash-portal.js?v=1" defer></script>
-<script src="/js/employee-self-service-portal.js?v=1" defer></script>
+<script src="/js/employee-cash-portal.js?v=2" defer></script>
+<script src="/js/employee-self-service-portal.js?v=2" defer></script>
 </head>
 <body class="thebe-staff-page">
 <main class="thebe-staff-shell">
@@ -44,8 +44,11 @@
 <section id="staffDashboard" hidden>
 <div class="thebe-staff-topline"><div><div class="thebe-staff-kicker">YOUR ASSIGNED WORK</div><h1 id="staffWelcome">My tasks</h1><p id="staffCompany"></p></div><button id="staffSignOut" type="button" class="thebe-staff-secondary">Sign out</button></div>
 <div class="thebe-staff-counts" aria-live="polite"><div><b id="staffOpenCount">0</b><small>Open</small></div><div><b id="staffPendingCount">0</b><small>Awaiting review</small></div><div><b id="staffCompletedCount">0</b><small>Completed</small></div></div>
+<p id="staffProfile"></p>
+<h2>My tasks and assignments</h2>
 <p id="staffTasksStatus" role="status" aria-live="polite"></p>
 <div id="staffTasksList" class="thebe-staff-task-list"></div>
+<section class="thebe-staff-reports" aria-labelledby="staffReportsHeading"><h2 id="staffReportsHeading">My daily work reports</h2><button id="staffRefreshReports" type="button" class="thebe-staff-secondary">Refresh reports</button><p id="staffReportsStatus" role="status" aria-live="polite"></p><div id="staffReportsList" class="thebe-staff-task-list"></div></section>
 <section id="staffCash" class="thebe-staff-cash" hidden></section>
 <p class="thebe-staff-privacy">Only your assigned tasks are shown. Task submissions are reviewed by a manager; they do not automatically determine attendance, pay or disciplinary outcomes.</p>
 </section>

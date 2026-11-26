@@ -294,3 +294,23 @@ test("synthetic staging: origin and edge rate-limit denials happen before any da
  assert.equal(blocked.status,429);
  assert.equal((await blocked.json()).error,"too_many_requests");
 });
+
+test("staff daily report history is own-only, tenant-scoped and read-only",async t=>{
+ const f=fixture(t);
+ f.sql.exec(readFileSync(new URL("../cloudflare/migrations/015_v73_daily_operations_reporting.sql",import.meta.url),"utf8"));
+ const {cookie}=await inviteAndLogin(f);
+ for(const [location,tenant] of [["branch-a",IDS.tenantA],["branch-b",IDS.tenantB]])f.sql.prepare("INSERT INTO operating_locations(id,tenant_id,name) VALUES(?,?,?)").run(location,tenant,location);
+ for(const [rid,tenant,employee,location,summary] of [["own",IDS.tenantA,IDS.employeeA,"branch-a","Installed monument"],["peer",IDS.tenantA,IDS.employeeC,"branch-a","Private peer report"],["foreign",IDS.tenantB,IDS.employeeB,"branch-b","Private tenant report"],["bad-location",IDS.tenantA,IDS.employeeA,"branch-b","Invalid branch association"]]){
+  f.sql.prepare("INSERT INTO daily_employee_reports(id,tenant_id,employee_id,location_id,report_date,work_summary) VALUES(?,?,?,?,?,?)").run(rid,tenant,employee,location,"2026-11-26",summary);
+ }
+ const result=await f.staff("/public/employee/reports?employeeId="+IDS.employeeC,"GET",undefined,{cookie});
+ assert.equal(result.res.status,200);
+ assert.deepEqual(result.body.items.map(x=>x.id),["own"]);
+ assert.equal(result.body.items[0].work_summary,"Installed monument");
+ assert.equal(result.res.headers.get("cache-control"),"no-store");
+ assert.equal((await f.staff("/public/employee/reports")).res.status,401);
+ assert.equal((await f.staff("/public/employee/reports","POST",{workSummary:"Forged"},{cookie})).res.status,404);
+ assert.equal(f.sql.prepare("SELECT count(*) n FROM daily_employee_reports").get().n,4);
+ await f.manager(IDS.tenantA,"/api/employee-self-service/employees/"+IDS.employeeA+"/revoke","POST",{});
+ assert.equal((await f.staff("/public/employee/reports","GET",undefined,{cookie})).res.status,401);
+});

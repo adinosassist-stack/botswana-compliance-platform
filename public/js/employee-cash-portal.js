@@ -16,7 +16,7 @@
   host.hidden=false;host.replaceChildren();
   host.append(h("h2","My cash & expenses"),h("p","Record cash spent and count cash physically held. A manager must review your reports. Amounts are not yet posted to Money."));
   const status=h("p","");status.setAttribute("role","status");status.setAttribute("aria-live","polite");
-  const cards=h("div",null,"thebe-cash-cards"),tableHost=h("div",null,"thebe-cash-table-wrap");
+  const cards=h("div",null,"thebe-cash-cards"),tableHost=h("div",null,"thebe-cash-table-wrap"),countHistory=h("div",null,"thebe-cash-count-history");
   host.append(cards,status);
   const forms=h("div",null,"thebe-cash-forms");
   const expense=h("form"),category=h("select"),purpose=input("text"),amount=input("text"),receipt=input("text",false),job=input("text",false),on=input("date");
@@ -35,9 +35,9 @@
   const saveCount=h("button","Submit cash count");saveCount.type="submit";
   countForm.append(h("h3","Cash on hand"),field("Cash counted in Pula",counted),
    field("Date",countDate),field("Note",countNote),saveCount);
-  forms.append(expense,countForm);host.append(forms,h("h3","Cash activity"),tableHost);
+  forms.append(expense,countForm);host.append(forms,h("h3","Cash activity"),tableHost,h("h3","My daily cash reports"),countHistory);
   function render(data){
-   cards.replaceChildren();tableHost.replaceChildren();
+   cards.replaceChildren();tableHost.replaceChildren();countHistory.replaceChildren();
    const s=data.summary||{};
    for(const [label,number] of [["Cash issued",s.advancesMinor],["Cash used (reported)",s.reportedSpentMinor],
        ["Expected cash",s.expectedMinor],["Pending review",s.pendingReviewMinor],["Rejected — reconcile",s.rejectedReviewMinor]]){
@@ -59,11 +59,18 @@
    for(const item of data.items||[]){
     const row=h("tr");
     row.append(h("td",item.occurred_on),h("td",(item.kind==="advance"?"Cash issued":"Cash used")+" · "+item.purpose),
-      h("td",(item.kind==="expense"?"−":"+")+p(item.amount_minor)),h("td",item.status));
+      h("td",(item.kind==="expense"?"−":"+")+p(item.amount_minor)),h("td",item.status+(item.review_note?" · "+item.review_note:"")));
     tbody.append(row);
    }
    if(!tbody.children.length){const row=h("tr"),cell=h("td","No cash activity yet.");cell.colSpan=4;row.append(cell);tbody.append(row)}
    table.append(tbody);tableHost.append(table);
+   for(const item of data.counts||[]){
+    const card=h("article",null,"thebe-cash-card");
+    card.append(h("h4",item.report_date),h("p","Cash counted: "+p(item.counted_minor)),h("p","Review: "+item.status));
+    if(item.review_note)card.append(h("p","Manager note: "+item.review_note));
+    countHistory.append(card);
+   }
+   if(!countHistory.children.length)countHistory.append(h("p","No daily cash reports submitted yet."));
   }
   render(snapshot);
   async function refresh(){snapshot=await api("/public/employee/cash");render(snapshot)}

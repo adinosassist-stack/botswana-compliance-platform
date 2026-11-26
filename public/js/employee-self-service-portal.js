@@ -4,9 +4,9 @@ const byId=id=>document.getElementById(id);
 // All browser transport stays in the shared Thebe API client. The employee-only
 // page opts out of canonical production redirect for private staging acceptance;
 // the main workspace retains its normal production-canonical policy.
-const STAFF_PATH=/^\/public\/employee\/(?:accept|login|logout|me|tasks(?:\/[a-f0-9-]{32,36}\/progress)?|cash(?:\/(?:expenses|counts))?)$/i;
+const STAFF_PATH=/^\/public\/employee\/(?:accept|login|logout|me|reports|tasks(?:\/[a-f0-9-]{32,36}\/progress)?|cash(?:\/(?:expenses|counts))?)$/i;
 const client=globalThis.BW?.api?.createClient?.({timeoutMs:30000,retries:0});
-let staffCsrf="";
+let staffCsrf="",sessionVersion=0;
 const api=async(path,{method="GET",body=null,csrf=false}={})=>{
  if(!STAFF_PATH.test(String(path||"")))throw Error("Unsupported employee service route.");
  if(!client)throw Error("Unable to load the employee service.");
@@ -16,7 +16,10 @@ const api=async(path,{method="GET",body=null,csrf=false}={})=>{
  const headers={"accept":"application/json"};
  if(body!==null)headers["content-type"]="application/json";
  if(csrf)headers["x-staff-csrf"]=staffCsrf;
- return client.request(url.pathname,{method,headers,credentials:"same-origin",cache:"no-store",referrerPolicy:"no-referrer",...(body!==null?{body:JSON.stringify(body)}:{})});
+ const version=sessionVersion;
+ const response=await client.request(url.pathname,{method,headers,credentials:"same-origin",cache:"no-store",referrerPolicy:"no-referrer",...(body!==null?{body:JSON.stringify(body)}:{})});
+ if(version!==sessionVersion)throw Error("Your employee session changed. Please sign in again.");
+ return response;
 };
 const element=(tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=String(text);return el};
 const message=text=>{const n=byId("staffGlobalMessage");n.textContent=String(text||"");n.hidden=!text};
@@ -64,12 +67,30 @@ async function refreshTasks(){
   byId("staffTasksStatus").textContent=items.length?"": "No work has been assigned yet.";
  }catch(error){byId("staffTasksStatus").textContent=failure(error)}
 }
+async function refreshReports(){
+ const list=byId("staffReportsList"),status=byId("staffReportsStatus");
+ list.replaceChildren();status.textContent="Loading your daily reports…";
+ try{
+  const response=await api("/public/employee/reports");
+  for(const item of response.items||[]){
+   const card=element("article","thebe-staff-task");
+   card.append(element("h3",null,item.report_date+" · "+item.location_name));
+   for(const [label,value] of [["Work completed",item.work_summary],["Wins",item.wins],["Blockers",item.blockers],["Incidents",item.incidents],["Next plan",item.next_plan]]){
+    if(value){card.append(element("h4",null,label),element("p","thebe-staff-task__note",value));}
+   }
+   card.append(element("p",null,"Submitted"+(item.needs_attention?" · Manager attention requested":"")+" · Corrections: "+Number(item.revision_count||0)));
+   list.append(card);
+  }
+  status.textContent=list.children.length?"Latest 30 reports. Use your manager's private reporting link to submit or correct a daily report.":"No daily reports yet. Use the private reporting link provided by your manager to submit your work, delivery and installation updates.";
+ }catch{status.textContent="Your report history could not load. Try Refresh reports.";}
+}
 async function showDashboard(){
  const info=await api("/public/employee/me");staffCsrf=String(info.csrfToken||"");
  if(!staffCsrf)throw Error("Your session cannot be verified.");
  byId("staffWelcome").textContent="Hello, "+String(info.employee?.name||"employee");
  byId("staffCompany").textContent=String(info.companyName||"")+" · Personal employee workspace";
- panel("staffDashboard");await refreshTasks();
+ byId("staffProfile").textContent=String(info.employee?.name||"")+" · "+String(info.employee?.email||"");
+ panel("staffDashboard");await Promise.all([refreshTasks(),refreshReports()]);
  await globalThis.ThebeEmployeeCash?.mount?.({api});
 }
 async function bootstrap(){
@@ -81,6 +102,7 @@ async function bootstrap(){
  try{await showDashboard()}catch{panel("staffLogin")}
 }
 document.addEventListener("DOMContentLoaded",()=>{
+ byId("staffRefreshReports").addEventListener("click",async event=>{event.currentTarget.disabled=true;try{await refreshReports()}finally{byId("staffRefreshReports").disabled=false}});
  const form=byId("staffInviteForm");
  form.addEventListener("submit",async event=>{
   event.preventDefault();message("");
@@ -114,7 +136,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   const button=byId("staffSignOut");button.disabled=true;message("");
   try{
    await api("/public/employee/logout",{method:"POST",csrf:true});
-   staffCsrf="";panel("staffLogin");message("Signed out.");
+   sessionVersion++;staffCsrf="";byId("staffTasksList").replaceChildren();byId("staffReportsList").replaceChildren();byId("staffCash").replaceChildren();byId("staffProfile").textContent="";panel("staffLogin");message("Signed out.");
   }catch(error){message("Sign-out could not be confirmed. Your session may still be active; please retry.")}
   finally{button.disabled=false}
  });

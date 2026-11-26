@@ -283,6 +283,42 @@
       "pattern": "/api/auth/manager-invite/accept",
       "security": "origin_rate_limit",
       "feature": "manager_invitations_private_staging"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "kind": "exact",
+      "pattern": "/public/employee/reports",
+      "security": "staff_only_cookie_csrf_origin_rate_limit_feature_flag",
+      "feature": "employee_self_service"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "kind": "exact",
+      "pattern": "/public/employee/cash",
+      "security": "staff_only_cookie_csrf_origin_rate_limit_feature_flag",
+      "feature": "employee_self_service"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "kind": "exact",
+      "pattern": "/public/employee/cash/expenses",
+      "security": "staff_only_cookie_csrf_origin_rate_limit_feature_flag",
+      "feature": "employee_self_service"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "kind": "exact",
+      "pattern": "/public/employee/cash/counts",
+      "security": "staff_only_cookie_csrf_origin_rate_limit_feature_flag",
+      "feature": "employee_self_service"
     }
   ],
   "workspaceFeaturePrefixes": {

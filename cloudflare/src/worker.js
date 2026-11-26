@@ -5583,6 +5583,10 @@ export default {
     if(url.pathname==="/public/employee/login"&&req.method==="POST")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
     if(url.pathname==="/public/employee/logout"&&req.method==="POST")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
     if(url.pathname==="/public/employee/me"&&req.method==="GET")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
+    if(url.pathname==="/public/employee/reports"&&req.method==="GET")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
+    if(url.pathname==="/public/employee/cash"&&req.method==="GET")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
+    if(url.pathname==="/public/employee/cash/expenses"&&req.method==="POST")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
+    if(url.pathname==="/public/employee/cash/counts"&&req.method==="POST")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
     if(url.pathname==="/public/employee/tasks"&&req.method==="GET")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
     if(url.pathname.match(/^\/public\/employee\/tasks\/[a-f0-9-]{32,36}\/progress$/)&&req.method==="POST")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
     if(url.pathname==="/public/daily-reporting/access"&&req.method==="POST"){
