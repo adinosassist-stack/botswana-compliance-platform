@@ -4,12 +4,13 @@ const status=document.querySelector('#status'),locations=document.querySelector(
 const totals=document.querySelector('#totals'),reports=document.querySelector('#reports');
 const branch=document.querySelector('#reportBranch'),day=document.querySelector('#reportDay'),mode=document.querySelector('#reportMode');
 const filterStatus=document.querySelector('#reportFilterStatus'),refresh=document.querySelector('#refreshReports');
-const api=window.BW?.api?.createClient?.({retries:0});
+let sessionCsrf='',reviewEnabled=false;
+const api=window.BW?.api?.createClient?.({retries:0,getCsrfToken:()=>sessionCsrf});
 const show=(parent,value)=>{const li=document.createElement('li');li.textContent=value;parent.append(li)};
 const node=(tag,value)=>{const el=document.createElement(tag);el.textContent=String(value);return el};
 let assigned=[],items=[],epoch=0;
 const clear=()=>{
- assigned=[];items=[];locations.replaceChildren();reports.replaceChildren();totals.textContent='';filterStatus.textContent='';
+ assigned=[];items=[];reviewEnabled=false;sessionCsrf='';locations.replaceChildren();reports.replaceChildren();totals.textContent='';filterStatus.textContent='';
  branch.replaceChildren(new Option('All assigned locations',''));for(const el of [branch,day,mode])el.disabled=true;
 };
 function renderReports(){
@@ -23,6 +24,27 @@ function renderReports(){
   for(const [label,value] of [['Work completed',r.work_summary],['Wins',r.wins],['Blockers',r.blockers],['Incidents',r.incidents],['Next plan',r.next_plan]]){
    if(String(value||'').trim())card.append(node('p',label+': '+String(value)));
   }
+  if(reviewEnabled){
+   const state=r.review_status;
+   card.append(node('p','Review: '+String(state||'unavailable').replaceAll('_',' ')));
+   if(r.review_note)card.append(node('p','Correction reason: '+r.review_note));
+   if(['pending','acknowledged'].includes(state)){
+    const note=document.createElement('textarea');note.maxLength=1000;note.rows=2;note.placeholder='Correction reason (required when returning)';note.setAttribute('aria-label','Manager review note');card.append(note);
+    const actions=document.createElement('div'),feedback=node('p','');feedback.setAttribute('role','status');
+    for(const [action,label] of [['acknowledge','Acknowledge'],['approve','Approve'],['return','Request correction']]){
+     if(action==='acknowledge'&&state==='acknowledged')continue;
+     const button=node('button',label);button.type='button';
+     button.addEventListener('click',async()=>{
+      if(!reviewEnabled||!sessionCsrf)return;
+      if(action==='return'&&note.value.trim().length<5){feedback.textContent='Enter a correction reason (at least five characters).';note.focus();return}
+      const request=epoch;for(const b of actions.querySelectorAll('button'))b.disabled=true;
+      try{await api.request('/api/workspace/managers/my-reports',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({reportId:r.id,expectedRevision:Number(r.revision_count),action,note:note.value.trim()})});if(request===epoch)await load()}
+      catch{if(request===epoch){feedback.textContent='Decision not confirmed. Refresh to check the current report and your access before retrying.';}}
+     });actions.append(button);
+    }
+    card.append(actions,feedback);
+   }
+  }
   reports.append(card);
  }
  if(!filtered.length)show(reports,'No recent reports match these filters.');
@@ -33,9 +55,11 @@ async function load(){
   if(!api)throw new Error('api_unavailable');
   const session=await api.request('/api/auth/me');
   if(session?.user?.role!=='manager')throw new Error('manager_role_required');
+  if(request!==epoch)return;sessionCsrf=String(session.csrfToken||'');
   const [overview,reportData]=await Promise.all([api.request('/api/workspace/managers/my-dashboard'),api.request('/api/workspace/managers/my-reports')]);
   if(request!==epoch)return;
   if(overview?.scope!=='assigned_locations_only'||!Array.isArray(overview.locations)||!Array.isArray(reportData?.reports))throw new Error('invalid_response');
+  reviewEnabled=reportData.reviewEnabled===true&&!!sessionCsrf;
   assigned=overview.locations;
   const ids=new Set(assigned.map(l=>String(l.id)));
   items=reportData.reports.filter(r=>ids.has(String(r.location_id))).slice(0,50);
