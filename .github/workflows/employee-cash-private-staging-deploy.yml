@@ -100,9 +100,6 @@ jobs:
               if file == "staging-acceptance":
                   allowed.add("workflows")
                   assert config["workflows"] == [{"name": name, "binding": "ACCEPTANCE", "class_name": "EmployeeCashAcceptance"}]
-              if file == "authenticated-staging":
-                  allowed.add("compatibility_flags")
-                  assert config["compatibility_flags"] == ["nodejs_compat"]
               assert set(config) == allowed
               assert config["name"] == name and config["main"] == f"src/employee-cash-{entry}-entry.js"
               assert all(config[key] is False for key in ("workers_dev", "preview_urls", "keep_vars"))
@@ -151,12 +148,12 @@ jobs:
             await verifyRemote(process.env, { verifyWorker: async ({ status, body }) => {
               assert.equal(status, 200);
               assert.equal(body.success, true);
-              const bindings = await verifyPrivate(application, "d9098fbc-5577-421b-944e-0afdb1775199", body.result);
-              assert.equal(bindings.STAFF_STAGING_SOURCE_SHA?.text, "d1d56fcc04704111ec67d12daa36f1a968f7f127");
+              const bindings = await verifyPrivate(application, "ffb090e9-e507-4b79-bc1c-41c2d1cd6429", body.result);
+              assert.equal(bindings.STAFF_STAGING_SOURCE_SHA?.text, "2588a2360c3e05c8f60061f2daf4071f8807d34a");
               assert.equal(bindings.DEPLOYMENT_PROFILE?.text, "employee-cash-authenticated-staging");
             } });
             const settings = await read(workerPath(runner) + "/settings");
-            const bindings = await verifyPrivate(runner, "8b72e988-14f9-4873-89c3-072713575998", settings);
+            const bindings = await verifyPrivate(runner, "7cb338d9-acad-4337-bec9-aa3fb939b3fe", settings);
             assert.deepEqual(Object.keys(bindings).sort(), ["ACCEPTANCE", "APP_ENV", "DB", "EMPLOYEE_CASH_STAGING", "STAFF_STAGING_D1_ID"]);
             assert.equal(bindings.EMPLOYEE_CASH_STAGING?.service, application);
             assert.equal(bindings.ACCEPTANCE?.workflow_name, runner);

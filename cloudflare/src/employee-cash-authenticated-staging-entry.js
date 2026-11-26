@@ -1,4 +1,3 @@
-import { pbkdf2 } from "node:crypto";
 import app, {
   authenticateWorkspaceSession,
   __v782179Test,
@@ -73,13 +72,13 @@ async function handleSyntheticManager(request, url, env) {
 
 class StaffPasswordDerivationError extends Error {}
 
-function derivePassword(password, salt, iterations) {
-  return new Promise((resolve, reject) => {
-    pbkdf2(password, salt, iterations, 32, "sha256", (error, digest) => {
-      if (error) reject(new StaffPasswordDerivationError());
-      else resolve(digest);
-    });
-  });
+async function derivePassword(password, salt, iterations) {
+  try {
+    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+    return new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations }, key, 256));
+  } catch {
+    throw new StaffPasswordDerivationError();
+  }
 }
 
 async function handleSyntheticStaffAuth(request, url, env) {
@@ -89,6 +88,7 @@ async function handleSyntheticStaffAuth(request, url, env) {
   try {
     return await handleStaffPublic({
       request, url, env, json, readJson, requestOriginAllowed, edgeScopedRateLimit, derivePassword,
+      syntheticPasswordIterations: 100000,
       rateLimitResponse: result => json({ error: "rate_limited" }, 429, {
         "retry-after": String(result.retryAfterSeconds || 60),
       }),
