@@ -27,4 +27,32 @@ const req=new Request("https://example.test/",{headers:{cookie:"bw_session=runti
 const auth=await __v782157Test.auth(req,env);
 ok(auth?.role==="manager"&&auth?.session_role==="owner","runtime auth returns current membership role instead of stale session role");
 ok(capturedSql.some(sql=>sql.includes("m.status='active'")&&sql.includes("m.role")),"runtime auth query enforces active membership and current role");
+// Execute the exact production issuance SQL against real SQLite; no deployed writes.
+const source=fs.readFileSync(new URL("../cloudflare/src/worker.js",import.meta.url),"utf8");
+const route=source.slice(source.indexOf('if(url.pathname==="/api/daily-reporting/access"&&req.method==="POST")'));
+const updateSql=route.match(/env\.DB\.prepare\("(UPDATE employee_reporting_access SET status='revoked',last_rotated_at=CURRENT_TIMESTAMP WHERE tenant_id=\? AND employee_id=\? AND location_id=\? AND id=\? AND status='active')"\)/)?.[1];
+const insertSql=route.match(/env\.DB\.prepare\("(INSERT INTO employee_reporting_access\(id,tenant_id,employee_id,location_id,token_hash,status,expires_at\) SELECT[^"]+)"\)/)?.[1];
+ok(updateSql&&insertSql,"rotation test reads exact worker SQL");
+db.exec("CREATE TABLE employees(id TEXT,tenant_id TEXT,status TEXT); CREATE TABLE operating_locations(id TEXT,tenant_id TEXT,active INTEGER);");
+db.exec(fs.readFileSync(new URL("../cloudflare/migrations/015_v73_daily_operations_reporting.sql",import.meta.url),"utf8").match(/CREATE TABLE IF NOT EXISTS employee_reporting_access\([\s\S]+?CREATE UNIQUE INDEX IF NOT EXISTS employee_reporting_access_active_uq[^;]+;/)[0]);
+db.exec("INSERT INTO employees VALUES('e1','t1','active'),('e2','t2','active'); INSERT INTO operating_locations VALUES('l1','t1',1),('l2','t2',1);");
+function issue(expected,next,t="t1",e="e1",l="l1"){
+ db.exec("BEGIN");
+ try{
+  db.prepare(updateSql).run(t,e,l,expected);
+  const result=db.prepare(insertSql).run(next,t,e,l,"hash-"+next,"+365 days",expected,t,e,l,t,e,t,l);
+  db.exec("COMMIT");return Number(result.changes);
+ }catch(err){db.exec("ROLLBACK");throw err}
+}
+ok(issue(null,"a1")===1,"first link is created once");
+ok(issue(null,"a2")===0,"duplicate first issuance cannot replace active link");
+ok(issue("a1","a3")===1,"explicit current-link rotation succeeds");
+ok(issue("a1","a4")===0,"stale concurrent rotation cannot replace newer link");
+db.prepare("UPDATE employee_reporting_access SET status='revoked' WHERE id='a3'").run();
+ok(issue("a3","a5")===0,"a stale rotation cannot resurrect access after revocation");
+ok(issue(null,"a6","t1","e2","l1")===0,"foreign employee cannot receive a link");
+ok(issue(null,"a7","t1","e1","l2")===0,"foreign location cannot receive a link");
+ok(issue(null,"a8")===1,"explicit new issuance after revocation succeeds");
+db.exec("UPDATE employees SET status='inactive' WHERE id='e1'");
+ok(issue("a8","a9")===0,"inactive employee cannot receive replacement access");
 console.log(`V78 1.21.57 reporting/auth runtime: ${checks}/${checks} PASS`);
