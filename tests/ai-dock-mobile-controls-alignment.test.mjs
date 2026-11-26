@@ -23,5 +23,5 @@ test('change is scoped to existing dock composer and does not activate features'
  const end=css.slice(css.lastIndexOf('/* Mobile composer: authoritative hidden states'));
  assert.doesNotMatch(end,/(?:^|\n)\s*(?:body|main|aside|:root)\s*\{/);
  assert.doesNotMatch(end,/gradient\(/);
- assert.match(js,/compose\.append\(attachButton,fileInput,composeBody,conversationVoiceButton,sendButton\)/);
+ assert.match(js,/compose\.append\(attachButton,fileInput,composeBody,audioButton,conversationVoiceButton,sendButton\)/);
 });

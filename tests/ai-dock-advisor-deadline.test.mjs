@@ -336,7 +336,7 @@ test('late thread readback after scope change cannot restore the old conversatio
 
 test('saved directory operation locks sends, research and text edits before clearing the composer',()=>{
  assert.match(dock,/if\(textBusy\|\|savedThreadBusy\|\|!q.length\)return;/);
- assert.match(dock,/if\(textBusy\|\|savedThreadBusy\|\|\(!clean\(value,MAX_QUESTION\).length&&!files.length\)\)return;input.value=""/);
+ assert.match(dock,/if\(textBusy\|\|savedThreadBusy\|\|\(!clean\(value,MAX_QUESTION\).length&&!files.length\)\)return;stopDictation\(\);input.value=""/);
  assert.match(dock,/if\(!webResearchAvailable\(\)\|\|textBusy\|\|savedThreadBusy\|\|pendingFiles.length\)return;/);
  assert.match(dock,/sendButton.disabled=textBusy\|\|!draft\|\|savedThreadBusy;/);
  assert.match(dock,/input.readOnly=savedThreadBusy/);

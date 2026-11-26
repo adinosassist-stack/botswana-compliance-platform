@@ -10,7 +10,7 @@ function render(result,presentation){
  const el=(tag,className,text='')=>({tag,className,text,children:[],append(...nodes){this.children.push(...nodes)},setAttribute(){},addEventListener(){}});
  const box=el('section','response');box.dataset={};box.replaceChildren=()=>{box.children=[]};
  const context=vm.createContext({responseBox:box,el,setMascotFocus(){},setMascotState(){},appendAdvisorRunSummary(){summaries++},
-  cleanMultiline:value=>value,clean:value=>String(value),responseAnswer:text=>el('div','answer',text),surfaceLatestResponse(){}});
+  cleanMultiline:value=>value,clean:value=>String(value),responseAnswer:text=>el('div','answer',text),appendMessageTools(){},surfaceLatestResponse(){}});
  vm.runInContext(source.slice(from,to),context);
  context.renderResult(result,presentation);
  const texts=node=>[node.text,...node.children.flatMap(texts)];

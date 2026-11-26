@@ -586,6 +586,7 @@
   const MAX_QUESTION=1000;
   const MOBILE_DOCK_MAX=1023;
   let dock=null,pill=null,pillOpen=null,pillLabel=null,pillSync=()=>{},orb=null,voiceLabel=null,voiceSub=null,transcriptBox=null,responseBox=null,scrollRegion=null,input=null,sendButton=null,attentionButton=null,quick=null,foot=null,mascot=null,missionRail=null,missionLabel=null,missionMeta=null,missionAction=null,contextBar=null,contextLabel=null,modeRail=null,clearButton=null,latestResponseButton=null;
+  let audioButton=null,dictationStatus=null,dictationSession=null;
   let conversationVoiceButton=null,attachButton=null,fileInput=null,attachmentTray=null,pendingFiles=[];
   let conversationHistory=null,immersiveGreeting=null,immersiveMute=null;
   let voiceScreen=null,voiceScreenStatus=null,voiceScreenOrb=null,voiceScreenTranscript=null,voiceReturnFocus=null;
@@ -845,6 +846,59 @@
     }
     button.append(svg);button.title=button.getAttribute("aria-label");
   };
+  let readAloudUtterance=null;
+  let readAloudReset=null;
+  function stopReadAloud(){
+    if(!readAloudUtterance)return;
+    readAloudUtterance=null;
+    readAloudReset?.();readAloudReset=null;
+    try{global.speechSynthesis?.cancel()}catch{}
+  }
+  function appendMessageTools(host,answer){
+    if(!host||!answer)return;
+    const value=cleanMultiline(answer,3200);
+    const scope=currentWorkspaceScope();
+    const current=()=>scope===currentWorkspaceScope()&&!dock?.hidden;
+    const tools=el("div","thebe-ai-message-tools");
+    const status=el("span","thebe-ai-message-tool-status");
+    status.setAttribute("role","status");
+    const button=(label,paths)=>{
+      const control=el("button","thebe-ai-message-tool");
+      control.type="button";control.setAttribute("aria-label",label);
+      appendControlIcon(control,paths);tools.append(control);return control;
+    };
+    if(global.speechSynthesis&&global.SpeechSynthesisUtterance){
+      const read=button("Read this answer aloud",["M11 5 6 9H3v6h3l5 4V5Z","M15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"]);
+      let utterance=null;
+      const reset=()=>{read.setAttribute("aria-pressed","false");read.setAttribute("aria-label","Read this answer aloud");read.title="Read this answer aloud"};
+      reset();
+      read.addEventListener("click",()=>{
+        if(!current())return;
+        if(utterance&&readAloudUtterance===utterance){stopReadAloud();reset();return}
+        stopReadAloud();
+        const speech=new global.SpeechSynthesisUtterance(value);
+        utterance=speech;speech.lang=document.documentElement.lang||"en";
+        speech.onend=()=>{if(readAloudUtterance!==speech)return;readAloudUtterance=null;readAloudReset=null;reset()};
+        speech.onerror=()=>{if(readAloudUtterance!==speech)return;readAloudUtterance=null;readAloudReset=null;reset();if(current())status.textContent="Read aloud stopped. You can retry or copy the answer."};
+        try{
+          readAloudUtterance=speech;readAloudReset=reset;
+          global.speechSynthesis.speak(speech);
+          read.setAttribute("aria-pressed","true");read.setAttribute("aria-label","Stop reading this answer");read.title="Stop reading this answer";
+        }catch{readAloudUtterance=null;readAloudReset=null;reset();status.textContent="Read aloud is unavailable. You can copy the answer."}
+      });
+    }
+    if(typeof global.navigator?.share==="function"){
+      const share=button("Share this answer",["M12 16V3m-4 4 4-4 4 4","M5 12v8h14v-8"]);
+      share.addEventListener("click",async()=>{
+        if(!current()||share.disabled)return;
+        share.disabled=true;status.textContent="";
+        try{await global.navigator.share({title:"Thebe answer",text:value})}
+        catch(error){if(error?.name!=="AbortError"&&current())status.textContent="Sharing is unavailable. You can copy the answer."}
+        finally{share.disabled=false}
+      });
+    }
+    if(tools.children.length){tools.append(status);host.append(tools)}
+  }
   function appendConversationTurn(role,content){
     if(!conversationHistory)return;
     const value=cleanMultiline(content,3200);
@@ -876,6 +930,7 @@
         }
       });
       turn.append(copy);
+      appendMessageTools(turn,value);
     }
     conversationHistory.append(turn);
     while(conversationHistory.children.length>TEXT_HISTORY_LIMIT)conversationHistory.firstElementChild?.remove();
@@ -890,6 +945,8 @@
     lastAnswer="";
   }
   function clearConversation(){
+    stopDictation();
+    stopReadAloud();
     if(!dock)return;
     openedSavedThread=null;
     conversationHistory?.replaceChildren();
@@ -1267,6 +1324,8 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     document.head.append(style);
   }
   function openVoiceScreen(){
+    stopDictation();
+    stopReadAloud();
     mountFloatingVoiceStyles();
     if(!voiceScreen){
       voiceScreen=el("dialog","thebe-voice-screen");voiceScreen.id="thebeVoiceScreen";
@@ -1499,6 +1558,49 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       reader.readAsDataURL(file);
     });
   }
+  function stopDictation(){
+    const session=dictationSession;dictationSession=null;
+    try{session?.recognition.abort()}catch{}
+    if(audioButton){audioButton.setAttribute("aria-pressed","false");audioButton.setAttribute("aria-label","Dictate a message")}
+    if(dictationStatus){dictationStatus.textContent="";dictationStatus.hidden=true}
+  }
+  function startDictation(){
+    if(dictationSession){stopDictation();return}
+    const Recognition=global.SpeechRecognition||global.webkitSpeechRecognition;
+    if(!Recognition||!input||textBusy||savedThreadBusy)return;
+    if(["connecting","connected","closing"].includes(global.ThebeLiveVoice?.status?.().state)){
+      dictationStatus.textContent="End live voice before dictating a message.";dictationStatus.hidden=false;return;
+    }
+    stopReadAloud();
+    const recognition=new Recognition();
+    const session={recognition,scope:currentWorkspaceScope(),baseDraft:input.value,lastDraft:input.value};
+    dictationSession=session;
+    recognition.continuous=false;recognition.interimResults=true;
+    recognition.lang=document.documentElement.lang||"en";
+    const current=()=>dictationSession===session&&session.scope===currentWorkspaceScope();
+    recognition.onresult=event=>{
+      if(!current())return;
+      if(textBusy||savedThreadBusy||input.value!==session.lastDraft){stopDictation();return}
+      const words=Array.from(event.results||[],result=>String(result?.[0]?.transcript||"")).join(" ");
+      session.lastDraft=cleanMultiline([session.baseDraft,words].filter(Boolean).join(" "),MAX_QUESTION);
+      input.value=session.lastDraft;syncComposerHeight();syncComposerState();
+    };
+    recognition.onend=()=>{
+      if(!current())return;
+      dictationSession=null;audioButton.setAttribute("aria-pressed","false");audioButton.setAttribute("aria-label","Dictate a message");
+      dictationStatus.textContent="Review the draft before sending.";dictationStatus.hidden=false;
+    };
+    recognition.onerror=event=>{
+      if(!current())return;
+      stopDictation();
+      dictationStatus.textContent=event?.error==="not-allowed"?"Allow microphone access in your browser, then try again.":"Dictation could not finish. Your draft is still editable.";
+      dictationStatus.hidden=false;
+    };
+    try{
+      recognition.start();audioButton.setAttribute("aria-pressed","true");audioButton.setAttribute("aria-label","Stop dictation");
+      dictationStatus.textContent="Listening. Your words will appear in the draft.";dictationStatus.hidden=false;
+    }catch{stopDictation();dictationStatus.textContent="Dictation is unavailable. You can type your message.";dictationStatus.hidden=false}
+  }
   function syncComposerState(){
     if(!sendButton)return;
     const research=dock?.querySelector(".thebe-ai-web-search");
@@ -1507,6 +1609,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     sendButton.hidden=!draft&&!textBusy;
     sendButton.disabled=textBusy||!draft||savedThreadBusy;
     if(input)input.readOnly=savedThreadBusy;
+    if(audioButton)audioButton.disabled=textBusy||savedThreadBusy;
     sendButton.setAttribute("aria-disabled",String(sendButton.disabled));
     if(conversationVoiceButton){conversationVoiceButton.hidden=draft||textBusy;conversationVoiceButton.disabled=textBusy||savedThreadBusy}
     if(attachButton){attachButton.hidden=!shellVisible();attachButton.disabled=textBusy||savedThreadBusy}
@@ -1650,6 +1753,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       tools.append(open);
     }
     responseBox.append(tools);
+    appendMessageTools(responseBox,lastAnswer);
     surfaceLatestResponse();
   }
   function renderGoalPlan(plan){
@@ -2446,7 +2550,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     findPanel.append(findInputRow,findStatus);
     const findActions=el("div","thebe-ai-find-actions");
     findActions.append(findToggle);
-    findWrap.append(findActions,findPanel,mountSavedThreads());
+    findWrap.append(findPanel,mountSavedThreads());
     const researchButton=el("button","thebe-ai-web-search thebe-ai-open-full");
     researchButton.setAttribute("aria-label","Search the web");
     appendControlIcon(researchButton,["M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0ZM2 12h20M12 2a16 16 0 0 1 0 20 16 16 0 0 1 0-20Z"]);
@@ -2460,6 +2564,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       void ask("web_research",q);
     });
     findActions.append(researchButton);
+    head.prepend(findActions);
     let findIndex=-1,findTargets=[],findHighlighted=null;
     // Keep the selected match visible without replacing text or injecting HTML.
     const clearFindHighlight=()=>{
@@ -2576,14 +2681,20 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       }
       orbButton.click();
     });
+    audioButton=el("button","thebe-ai-composer-action thebe-ai-dictate");
+    audioButton.type="button";audioButton.setAttribute("aria-label","Dictate a message");audioButton.setAttribute("aria-pressed","false");
+    audioButton.hidden=!(global.SpeechRecognition||global.webkitSpeechRecognition);
+    appendControlIcon(audioButton,["M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0Z","M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"]);
+    audioButton.addEventListener("click",startDictation);
+    dictationStatus=el("div","thebe-ai-dictation-status");dictationStatus.setAttribute("role","status");dictationStatus.hidden=true;
     const composeBody=el("div","thebe-ai-compose-body");
     input=document.createElement("textarea");input.id="thebeAiDockInput";input.maxLength=MAX_QUESTION;input.rows=1;input.placeholder=modeCopy[assistantMode].placeholder;input.setAttribute("aria-label","Ask Thebe anything");
     const composeHint=el("div","thebe-ai-compose-hint","Enter to send · Shift+Enter for a new line · Alt+T opens Thebe");
     composeBody.append(input,composeHint);
     sendButton=el("button","thebe-ai-send","↑");sendButton.type="submit";sendButton.setAttribute("aria-label","Send to Thebe");sendButton.title="Send to Thebe";
-    compose.append(attachButton,fileInput,composeBody,conversationVoiceButton,sendButton);
-    compose.addEventListener("submit",event=>{event.preventDefault();const value=input.value,files=[...pendingFiles];if(textBusy||savedThreadBusy||(!clean(value,MAX_QUESTION).length&&!files.length))return;input.value="";syncComposerHeight();syncComposerState();void ask(assistantMode,value,files)});
-    input.addEventListener("input",()=>{syncComposerHeight();syncComposerState()});
+    compose.append(attachButton,fileInput,composeBody,audioButton,conversationVoiceButton,sendButton);
+    compose.addEventListener("submit",event=>{event.preventDefault();const value=input.value,files=[...pendingFiles];if(textBusy||savedThreadBusy||(!clean(value,MAX_QUESTION).length&&!files.length))return;stopDictation();input.value="";syncComposerHeight();syncComposerState();void ask(assistantMode,value,files)});
+    input.addEventListener("input",()=>{if(dictationSession)stopDictation();syncComposerHeight();syncComposerState()});
     input.setAttribute("enterkeyhint",mobileDockMode()?"enter":"send");
     input.addEventListener("focus",()=>setMascotFocus("compose"));
     input.addEventListener("blur",()=>setMascotFocus("ambient"));
@@ -2597,7 +2708,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     syncComposerState();
 
     foot=el("div","thebe-ai-foot","Thebe can analyse, brief and prepare next steps. Governed actions remain behind the existing approval controls.");
-    dock.append(head,scroll,latestResponseButton,attachmentTray,compose,foot);
+    dock.append(head,scroll,latestResponseButton,attachmentTray,dictationStatus,compose,foot);
 
     // #2813: the compact launcher is a group of independent, accessible controls.
     // Keep the grab handle separate from both chat and microphone actions.

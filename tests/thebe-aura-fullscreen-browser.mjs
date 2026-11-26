@@ -78,6 +78,8 @@ try {
   assert.equal(initial.greeting,'Hello Tester');
   assert.equal(initial.ribbons,0,'the approved orb has no dominant ribbon');
   assert.equal(initial.spheres,1,'one clean blue sphere is mounted');
+  assert.equal(await page.locator('.thebe-ai-find').evaluate(el=>getComputedStyle(el).display),'contents','closed search leaves no empty body strip');
+  assert.equal(await page.locator('.thebe-ai-find-toggle').evaluate(el=>!!el.closest('.thebe-ai-dock-head')),true,'find lives in the compact header');
   await page.locator('.thebe-ai-dock-scroll').focus();
   await capture('welcome-390');
   const voiceButton=page.getByRole('button',{name:'Start voice conversation with Thebe'});
@@ -120,6 +122,8 @@ try {
   assert(conversation.turns.some(x=>x.includes('Grounded test answer 1')),'previous answer is retained');
   assert(conversation.turns.some(x=>x.includes('Second question')),'second question is retained');
   assert(conversation.latest.includes('Grounded test answer 2'),'newest answer is readable');
+  assert.equal(await page.locator('.thebe-aura-turn[data-role="user"]').first().evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(48, 50, 54)','user messages use neutral charcoal');
+  assert.equal(await page.locator('.thebe-aura-turn[data-role="assistant"]').first().evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)','assistant messages remain plain');
   assert.equal(conversation.phase,'listening');
   assert(conversation.level>1.05,'inactive output must not undo microphone response');
   assert(conversation.tilt>0,'measured spectral brightness remains available to the audio renderer');
