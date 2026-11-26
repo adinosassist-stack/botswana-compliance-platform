@@ -96,9 +96,9 @@ export async function provisionInertResources({api,emails,assertMain}){
  const empty=(await api("POST",path+"/query",{sql:"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> '_cf_KV'"})).result;
  need(empty?.length===1&&empty[0].success===true&&empty[0].results?.length===0,"new_database_not_empty");
  await assertMain();
- const statements=schema.split(";").map(sql=>sql.trim()).filter(Boolean).filter(sql=>!sql.includes("PRAGMA foreign_keys=ON"));
+ const statements=schema.replace(/^\s*--[^\n]*$/gm,"").split(";").map(sql=>sql.trim()).filter(Boolean).filter(sql=>sql!=="PRAGMA foreign_keys=ON");
  // The schema is checked in and offline-qualified. Never accept arbitrary SQL.
- // Comments preceding the first PRAGMA are omitted; remaining statements are retained.
+ // Strip checked-in line comments and omit PRAGMA; D1 enforces foreign keys.
  const q=(await api("POST",path+"/query",{batch:statements.map(sql=>({sql})).concat([{sql:"INSERT INTO dock_staging_identity(id,database_id,environment) VALUES(1,?,'dock-hosted-staging')",params:[database]}])})).result;
  need(Array.isArray(q)&&q.length===statements.length+1&&q.every(x=>x.success===true),"schema_apply_unconfirmed");
  const check=(await api("POST",path+"/query",{batch:[{sql:"SELECT database_id,environment FROM dock_staging_identity WHERE id=1"},{sql:"SELECT (SELECT COUNT(*) FROM users) AS users,(SELECT COUNT(*) FROM tenants) AS tenants,(SELECT COUNT(*) FROM sessions) AS sessions"},{sql:"PRAGMA foreign_key_check"}]})).result;
