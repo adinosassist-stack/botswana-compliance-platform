@@ -15,6 +15,7 @@ const allowed = new Set([
   "GET /public/employee/cash",
   "POST /public/employee/cash/expenses",
   "POST /public/employee/cash/counts",
+  "POST /api/employee-self-service/invitations",
   "GET /api/employee-self-service/cash",
   "POST /api/employee-self-service/cash/advances",
 ]);
