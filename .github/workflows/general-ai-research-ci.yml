@@ -9,6 +9,7 @@ on:
       - '.github/workflows/general-ai-private-staging-qualification.yml'
       - 'cloudflare/wrangler.toml'
       - 'cloudflare/wrangler.general-ai-staging.toml'
+      - 'cloudflare/wrangler.dock-research-workspace-offline.toml'
       - 'cloudflare/schema/general-ai-staging-auth.sql'
       - 'docs/general-ai-staging-handoff.md'
       - 'scripts/general-ai-staging-preflight.mjs'
@@ -36,3 +37,6 @@ jobs:
         run: |
           npm ci --ignore-scripts
           npx wrangler deploy --dry-run --config cloudflare/wrangler.general-ai-staging.toml --outdir /tmp/thebe-general-ai-staging-build
+
+      - name: Bundle the offline Dock staging workspace without deploying
+        run: npx --no-install wrangler deploy --dry-run --config cloudflare/wrangler.dock-research-workspace-offline.toml --outdir /tmp/thebe-dock-research-workspace-build
