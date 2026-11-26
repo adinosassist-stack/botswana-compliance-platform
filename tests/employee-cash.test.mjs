@@ -157,7 +157,8 @@ test("separate reporting module cannot write canonical Money or execute payments
  assert.match(source,/THEBE_EMPLOYEE_CASH_ENABLED==="true"/);
  assert.match(source,/tenant_id=\?/);
  const config=readFileSync(new URL("../cloudflare/wrangler.toml",import.meta.url),"utf8");
- assert.match(config,/THEBE_EMPLOYEE_CASH_ENABLED = "false"/);
+ assert.match(config,/^THEBE_STAFF_PORTAL_ENABLED = "true"$/m);
+ assert.match(config,/^THEBE_EMPLOYEE_CASH_ENABLED = "true"$/m);
 });
 
 test("rejected expense remains a cash outflow pending a separately documented recovery",async t=>{
