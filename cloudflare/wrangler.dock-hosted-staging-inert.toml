@@ -1,0 +1,26 @@
+# Inert, route-free Dock workspace bootstrap. No DB, service, provider or session binding.
+# Deploy only through protected Dock staging bootstrap after independent approval.
+name = "bw-dock-research-workspace-staging"
+main = "src/general-ai-dock-workspace-staging-worker.js"
+compatibility_date = "2026-09-03"
+workers_dev = false
+preview_urls = false
+keep_vars = false
+
+[vars]
+APP_ENV = "staging"
+DOCK_STAGING_RESEARCH_ENABLED = "false"
+THEBE_GENERAL_AI_ENABLED = "false"
+THEBE_GENERAL_AI_RESEARCH_ENABLED = "false"
+AI_FEATURES_DEFAULT = "off"
+THEBE_INTERNAL_AUTONOMY_ENABLED = "false"
+AGENT_BOUNDED_TASK_EXECUTION_ENABLED = "0"
+THEBE_LIVE_VOICE_ENABLED = "false"
+THEBE_MARKETING_VOICE_ENABLED = "false"
+PAYMENT_PROVIDER = "none"
+REGISTRATION_MODE = "hold"
+
+[assets]
+directory = "../public"
+binding = "ASSETS"
+run_worker_first = true
