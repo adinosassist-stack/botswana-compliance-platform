@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import worker from "../cloudflare/src/general-ai-staging-entry.js";
-import {verifyPrivateAiDisabled} from "../cloudflare/src/general-ai-private-acceptance.js";
+import {verifyPrivateAiDisabled,verifyPrivateAiResearch} from "../cloudflare/src/general-ai-private-acceptance.js";
 
 const env = {APP_ENV:"staging", THEBE_GENERAL_AI_ENABLED:"false"};
 const service = {fetch:request=>worker.fetch(request, env)};
@@ -56,4 +56,29 @@ test("service invocation carries no cookies or authorization headers or prompt b
   assert.equal(captured.headers.has("cookie"),false);
   assert.equal(captured.headers.has("authorization"),false);
   assert.equal(await captured.text(),"");
+});
+
+test("research helper checks the guards before one cited request and returns counts only",async()=>{
+  const sessionToken="a".repeat(64),csrfToken="b".repeat(64);
+  const statuses=[401,403,200];
+  let calls=0;
+  const service={fetch:async request=>{
+    assert.equal(request.url,"https://ai-staging.thebedesk.com/api/ai/general");
+    assert.equal(request.headers.get("cookie"),calls===0?null:"__Host-bw_session="+sessionToken);
+    assert.equal(request.headers.get("x-csrf-token"),[null,"invalid",csrfToken][calls]);
+    const status=statuses[calls++];
+    return Response.json({ok:true,researchPerformed:true,verification:"provider_citations",
+      answer:"Private response",citations:[{url:"https://example.com/reference"}]},{status});
+  }};
+  assert.deepEqual(await verifyPrivateAiResearch({service,sessionToken,csrfToken}),
+    {ok:true,scope:"private-research",statuses,citationCount:1});
+  assert.equal(calls,3);
+});
+
+test("research helper fails closed on an unexpected authentication status",async()=>{
+  let calls=0;
+  const service={fetch:async()=>{calls++;return new Response(null,{status:200})}};
+  await assert.rejects(()=>verifyPrivateAiResearch({service,sessionToken:"a".repeat(64),csrfToken:"b".repeat(64)}),
+    /private_research_boundary_mismatch/);
+  assert.equal(calls,1);
 });

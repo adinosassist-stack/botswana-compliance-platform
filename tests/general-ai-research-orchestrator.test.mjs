@@ -117,6 +117,7 @@ test("OpenAI research uses one provider call and accepts only returned citations
     assert.equal(url,"https://api.openai.com/v1/responses");
     const body=JSON.parse(options.body);
     assert.equal(body.store,false);
+    assert.deepEqual(body.reasoning,{effort:"low"});
     assert.equal(body.tools[0].type,"web_search");
     return Response.json({status:"completed",output:[
       {type:"web_search_call",status:"completed"},
