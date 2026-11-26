@@ -19,6 +19,7 @@ export function validateInputs(env){
   need(/^[a-f0-9]{40}$/.test(env.EXPECTED_SHA||"")&&env.GITHUB_SHA===env.EXPECTED_SHA,"exact_sha_required");
   need(env.AUTHORIZATION==="PROVISION_INERT_DOCK_STAGING","explicit_scope_required");
   need(env.CLOUDFLARE_ACCOUNT_ID===ACCOUNT&&!!env.CLOUDFLARE_API_TOKEN,"dedicated_account_credentials_required");
+  need(UUID.test(env.DOCK_STAGING_BOOTSTRAP_VERSION_ID||""),"reviewed_inert_version_required");
   const emails=(env.DOCK_STAGING_TESTER_EMAILS||"").split(",").map(s=>s.trim().toLowerCase()).filter(Boolean);
   need(emails.length>=1&&emails.length<=5&&new Set(emails).size===emails.length&&emails.every(e=>safeEmail.test(e)),"reviewed_tester_allowlist_required");
   return emails;
@@ -33,6 +34,11 @@ export function verifyInertSettings(settings){
  const expected={APP_ENV:"staging",DOCK_STAGING_RESEARCH_ENABLED:"false",THEBE_GENERAL_AI_ENABLED:"false",THEBE_GENERAL_AI_RESEARCH_ENABLED:"false",AI_FEATURES_DEFAULT:"off",THEBE_INTERNAL_AUTONOMY_ENABLED:"false",AGENT_BOUNDED_TASK_EXECUTION_ENABLED:"0",THEBE_LIVE_VOICE_ENABLED:"false",THEBE_MARKETING_VOICE_ENABLED:"false",PAYMENT_PROVIDER:"none",REGISTRATION_MODE:"hold"};
  need(bs.every(b=>b.type==="assets"&&b.name==="ASSETS"||b.type==="plain_text"&&Object.hasOwn(expected,b.name)&&b.text===expected[b.name]),"unexpected_inert_binding");
  for(const [name,value] of Object.entries(expected))need(bs.some(b=>b.name===name&&b.type==="plain_text"&&b.text===value),"inert_variable_missing");
+ return true;
+}
+export function verifyCurrentDeployment(deployments,expectedVersion){
+ const versions=deployments?.deployments?.[0]?.versions;
+ need(UUID.test(expectedVersion||"")&&Array.isArray(versions)&&versions.length===1&&versions[0].version_id===expectedVersion&&versions[0].percentage===100,"inert_deployment_identity_mismatch");
  return true;
 }
 export function verifyInitialInventory({apps,domains,routes,dns,databases,workspaceSubdomain,backendSubdomain,settings}){
@@ -81,11 +87,13 @@ async function inventory(api,zone){
  backendSubdomain:await result(api,account+"/workers/scripts/"+AI_WORKER+"/subdomain"),
  settings:await result(api,account+"/workers/scripts/"+DOCK_WORKER+"/settings")};
 }
-export async function provisionInertResources({api,emails,assertMain}){
+export async function provisionInertResources({api,emails,assertMain,expectedVersion}){
  const account="/accounts/"+ACCOUNT;
  const zones=await list(api,"/zones?name=thebedesk.com&account.id="+ACCOUNT);
  need(zones.length===1&&zones[0].name==="thebedesk.com"&&zones[0].account?.id===ACCOUNT&&hex.test(zones[0].id||"")&&zones[0].status==="active","zone_identity_mismatch");
  const zone=zones[0].id;
+ const verifyVersion=async()=>verifyCurrentDeployment(await result(api,account+"/workers/scripts/"+DOCK_WORKER+"/deployments"),expectedVersion);
+ await verifyVersion();
  verifyInitialInventory(await inventory(api,zone));
  await assertMain();
  const created=(await api("POST",account+"/d1/database",{name:DATABASE})).result;
@@ -113,11 +121,13 @@ export async function provisionInertResources({api,emails,assertMain}){
  const policies=await list(api,appPath+"/policies");
  verifyDockIngress({...before,policies,appId:app.id,testerEmails:emails,inventoryComplete:true,phase:"before-attach"});
  need(!before.dns.some(d=>coveringHost(d.name)),"dns_drift_before_attach");
+ await verifyVersion();
  await assertMain();
  // The Worker is still inert: no origin, DB, session, service or provider binding.
  const domain=(await api("PUT",account+"/workers/domains",{hostname:DOCK_HOST,service:DOCK_WORKER,zone_id:zone,enabled:true,previews_enabled:false})).result;
  need(domain?.hostname===DOCK_HOST&&domain.service===DOCK_WORKER&&typeof domain.id==="string","domain_attachment_unconfirmed");
  const after=await inventory(api,zone);
+ await verifyVersion();
  verifyInertSettings(after.settings);
  verifyDockIngress({...after,policies:await list(api,appPath+"/policies"),appId:app.id,testerEmails:emails,inventoryComplete:true,phase:"after-attach"});
  return {ok:true,databaseId:database,accessAppId:app.id,domainId:domain.id,hostname:DOCK_HOST,inert:true,productionUntouched:true};
@@ -129,7 +139,7 @@ async function main(){
    const response=await fetch("https://api.github.com/repos/"+REPO+"/git/ref/heads/main",{headers:{Authorization:"Bearer "+env.GH_TOKEN,Accept:"application/vnd.github+json"},redirect:"error",signal:AbortSignal.timeout(15000)});
    need(response.ok&&(await response.json()).object?.sha===env.EXPECTED_SHA,"protected_main_drift");
  };
- const report=await provisionInertResources({api:client(env.CLOUDFLARE_API_TOKEN),emails,assertMain});
+ const report=await provisionInertResources({api:client(env.CLOUDFLARE_API_TOKEN),emails,assertMain,expectedVersion:env.DOCK_STAGING_BOOTSTRAP_VERSION_ID});
  console.log(JSON.stringify(report));
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
