@@ -1,10 +1,13 @@
+import { pbkdf2 } from "node:crypto";
 import app, {
   authenticateWorkspaceSession,
   __v782179Test,
+  __v782178Test,
   __v782195Test,
 } from "./worker.js";
-import { handleStaffManager } from "./employee-self-service.js";
+import { handleStaffManager, handleStaffPublic } from "./employee-self-service.js";
 
+const { edgeScopedRateLimit } = __v782178Test;
 const { readJson } = __v782179Test;
 const { requestOriginAllowed } = __v782195Test;
 
@@ -68,6 +71,32 @@ async function handleSyntheticManager(request, url, env) {
   }
 }
 
+function derivePassword(password, salt, iterations) {
+  return new Promise((resolve, reject) => {
+    pbkdf2(password, salt, iterations, 32, "sha256", (error, digest) => {
+      if (error) reject(error);
+      else resolve(digest);
+    });
+  });
+}
+
+async function handleSyntheticStaffAuth(request, url, env) {
+  const json = (body, status = 200, headers = {}) => Response.json(body, {
+    status, headers: { ...headers, "cache-control": "no-store" },
+  });
+  try {
+    return await handleStaffPublic({
+      request, url, env, json, readJson, requestOriginAllowed, edgeScopedRateLimit, derivePassword,
+      rateLimitResponse: result => json({ error: "rate_limited" }, 429, {
+        "retry-after": String(result.retryAfterSeconds || 60),
+      }),
+      id: () => crypto.randomUUID(),
+    }) ?? error("not_found", 404);
+  } catch {
+    return error("employee_cash_staging_staff_auth_failed", 503);
+  }
+}
+
 export function createEmployeeCashStagingEntry(application = app) {
   return {
     async fetch(request, env, ctx) {
@@ -102,6 +131,9 @@ export function createEmployeeCashStagingEntry(application = app) {
 
       if (url.pathname.startsWith("/api/employee-self-service/")) {
         return handleSyntheticManager(request, url, env);
+      }
+      if (url.pathname === "/public/employee/accept" || url.pathname === "/public/employee/login") {
+        return handleSyntheticStaffAuth(request, url, env);
       }
       return application.fetch(request, env, ctx);
     },
