@@ -49,3 +49,27 @@ export async function readStaffDailyReviewNotices(db,tenantId,employeeId){
  const result=await db.prepare("SELECT v.report_id,v.revision_no,v.action,v.note,v.created_at FROM daily_report_manager_reviews v JOIN daily_employee_reports r ON r.id=v.report_id AND r.tenant_id=v.tenant_id AND r.revision_count=v.revision_no JOIN operating_locations l ON l.id=r.location_id AND l.tenant_id=r.tenant_id WHERE r.tenant_id=? AND r.employee_id=? ORDER BY v.created_at DESC,v.id DESC LIMIT 90").bind(tenantId,employeeId).all();
  return result.results||[];
 }
+
+export async function readOwnerDailyReviewOverview(db,{tenantId,userId,role,date,locationId=null}={}){
+ if(role!=="owner"||!tenantId||!userId||typeof date!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(date))return {available:false};
+ const membership=await db.prepare("SELECT 1 ok FROM memberships WHERE tenant_id=? AND user_id=? AND role='owner' AND status='active' LIMIT 1").bind(tenantId,userId).first();
+ if(!membership?.ok)return {available:false};
+ const rows=await db.prepare(`SELECT r.id,r.report_date,r.location_id,l.name location_name,e.full_name employee_name,r.revision_count,
+ CASE WHEN EXISTS(SELECT 1 FROM daily_report_manager_reviews v WHERE v.tenant_id=r.tenant_id AND v.report_id=r.id AND v.revision_no=r.revision_count AND v.action='approve') THEN 'approved'
+ WHEN EXISTS(SELECT 1 FROM daily_report_manager_reviews v WHERE v.tenant_id=r.tenant_id AND v.report_id=r.id AND v.revision_no=r.revision_count AND v.action='return') THEN 'correction_requested'
+ WHEN EXISTS(SELECT 1 FROM daily_report_manager_reviews v WHERE v.tenant_id=r.tenant_id AND v.report_id=r.id AND v.revision_no=r.revision_count AND v.action='acknowledge') THEN 'acknowledged'
+ ELSE 'pending' END review_status,
+ (SELECT v.note FROM daily_report_manager_reviews v WHERE v.tenant_id=r.tenant_id AND v.report_id=r.id AND v.revision_no=r.revision_count AND v.action='return' LIMIT 1) review_note
+ FROM daily_employee_reports r JOIN employees e ON e.id=r.employee_id AND e.tenant_id=r.tenant_id
+ JOIN operating_locations l ON l.id=r.location_id AND l.tenant_id=r.tenant_id
+ WHERE r.tenant_id=? AND r.report_date=? AND (? IS NULL OR r.location_id=?)
+ AND EXISTS (SELECT 1 FROM memberships m WHERE m.tenant_id=r.tenant_id AND m.user_id=? AND m.role='owner' AND m.status='active')
+ ORDER BY l.name,e.full_name,r.id`).bind(tenantId,date,locationId,locationId,userId).all();
+ const items=rows.results||[],counts={pending:0,acknowledged:0,approved:0,correction_requested:0},branches=new Map();
+ for(const r of items){
+  counts[r.review_status]++;
+  if(!branches.has(r.location_id))branches.set(r.location_id,{locationId:r.location_id,name:r.location_name,pending:0,acknowledged:0,approved:0,correction_requested:0});
+  branches.get(r.location_id)[r.review_status]++;
+ }
+ return {available:true,date,locationId,counts,branches:[...branches.values()],total:items.length,items:items.slice(0,100),truncated:items.length>100};
+}
