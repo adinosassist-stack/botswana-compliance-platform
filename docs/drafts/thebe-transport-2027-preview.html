@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Thebe Transport · 2027 draft prototype (synthetic only)</title>
+<style>
+:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:#1d2530;background:#f3f6fa;font-size:14px}
+*{box-sizing:border-box}body{margin:0}button{font:inherit;cursor:pointer}button:focus-visible,select:focus-visible{outline:3px solid #71a5fa;outline-offset:3px}
+.shell{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100vh}.side{background:#1b2735;color:#fff;padding:25px 15px;display:flex;flex-direction:column;gap:24px}.brand{display:flex;align-items:center;gap:10px;font-weight:750;font-size:19px;padding:0 12px}.logo{width:37px;height:37px;display:grid;place-items:center;background:#2875d8;border-radius:12px;font-size:22px}.muted-dark{color:#adbdcb}.side small{font-size:11px;letter-spacing:.075em;text-transform:uppercase;padding:0 12px}.nav{display:grid;gap:5px}.nav button{background:none;border:0;color:#cbd5df;padding:12px;text-align:left;border-radius:10px;display:flex;align-items:center;gap:10px}.nav button[aria-selected=true]{background:#2c435e;color:#fff;font-weight:700}.sidefoot{margin-top:auto;padding:14px 12px;border:1px solid #475e72;border-radius:11px;color:#c6d5e1;font-size:12px;line-height:1.6}
+main{min-width:0;padding:28px 31px 36px;max-width:1480px;width:100%;margin:auto}.top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:22px}.eyebrow{text-transform:uppercase;color:#55708c;letter-spacing:.09em;font-size:11px;font-weight:750}.title{font-size:clamp(23px,2.3vw,33px);line-height:1.15;margin:6px 0}.subtitle{color:#64768a;margin:0;font-size:13px}.stamp{border:1px solid #aac4e8;background:#e6f0ff;color:#21599a;border-radius:20px;padding:9px 13px;font-size:12px;white-space:nowrap;font-weight:750}.banner{background:#e8f1ff;color:#254b7a;border:1px solid #c4d9f5;border-radius:12px;padding:12px 14px;line-height:1.5;margin-bottom:20px;font-size:12px}.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-bottom:16px}.metric{background:white;border:1px solid #dde5ec;border-radius:14px;padding:17px;min-width:0}.metric .label{color:#6a7787;font-size:12px}.metric strong{display:block;font-size:25px;letter-spacing:-.03em;margin:7px 0}.metric .info{color:#73849a;font-size:11px}.layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(265px,1fr);gap:16px}.panel{border:1px solid #dde5ec;background:white;border-radius:14px;padding:19px;margin-bottom:16px;min-width:0}.panel h2{font-size:16px;margin:0 0 5px}.panel p.hint{color:#758294;margin:0 0 17px;font-size:12px}.flex{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}.btn{background:#256fd3;color:white;border:0;border-radius:9px;padding:10px 12px;font-weight:650}.btn.secondary{background:#f3f7fe;color:#2a578f;border:1px solid #cfdeee}.btn:disabled{cursor:not-allowed;background:#e8edf3;color:#718294}.pills{display:flex;gap:7px;flex-wrap:wrap}.pill{border:1px solid #cfdae5;border-radius:999px;background:white;color:#405c7d;padding:7px 10px;font-size:12px}.pill[aria-pressed=true]{background:#e8f1ff;color:#1954a0;border-color:#a4c6eb;font-weight:700}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:480px;text-align:left}th{font-size:11px;color:#708295;font-weight:700;background:#f7f9fb}td,th{padding:12px 10px;border-bottom:1px solid #e8edf2;white-space:nowrap}td{font-size:12px}tr:last-child td{border-bottom:0}.badge{font-size:11px;border-radius:40px;padding:5px 9px;background:#eaf5ed;color:#23754b;font-weight:650}.badge.warn{background:#fff4df;color:#8f6115}.badge.grey{background:#edf0f5;color:#5f7183}.line{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}.line:last-child{margin-bottom:0}.line small{color:#708093}.route{padding:13px 0;border-bottom:1px solid #e8edf2}.route:last-child{border:0}.track{margin-top:7px;background:#edf2f8;height:7px;border-radius:20px;overflow:hidden}.track span{display:block;background:#3776cf;height:100%;border-radius:20px}.alert{display:flex;gap:11px;align-items:flex-start;padding:13px;border:1px solid #f0dbb3;background:#fffaf0;border-radius:10px;margin-bottom:9px}.alert-icon{width:25px;height:25px;display:grid;place-items:center;background:#fce7bc;border-radius:8px;flex-shrink:0}.alert strong{font-size:12px}.alert p{color:#7e6f57;font-size:11px;margin:5px 0 0;line-height:1.5}.note{padding:12px;border-radius:10px;background:#f7f9fc;border:1px dashed #cad5e3;color:#52657b;font-size:12px;line-height:1.5}.empty{color:#657789;font-size:13px;padding:25px 12px;text-align:center}.hidden{display:none!important}.field{display:grid;gap:6px;margin-bottom:11px}.field label{font-size:12px;font-weight:700}.field input,.field select{width:100%;padding:10px;border:1px solid #c8d4e0;border-radius:8px;background:white;color:#273b51;font:inherit}.receipt{background:#f4f8ff;border:1px solid #b7d4f4;border-radius:12px;padding:14px;display:grid;gap:8px}.receipt strong{font-size:24px}footer{color:#8492a2;font-size:11px;margin-top:18px;text-align:center}
+@media(max-width:1050px){.layout{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.shell{display:block}.side{padding:13px;gap:10px}.brand{font-size:17px}.nav{display:flex;overflow-x:auto}.nav button{white-space:nowrap;font-size:12px;padding:10px}.side small,.sidefoot{display:none}main{padding:18px 13px}.top{align-items:flex-start}.stamp{font-size:10px;padding:7px}.metric{padding:13px}.metric strong{font-size:21px}.panel{padding:15px}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="side">
+ <div class="brand"><div class="logo">T</div><span>Thebe <span style="color:#90bfff">Transport</span></span></div>
+ <small>Workspace · 2027 draft</small>
+ <div class="nav" role="tablist" aria-label="Prototype sections">
+  <button data-tab="overview" role="tab" aria-selected="true">▣ Overview</button>
+  <button data-tab="trips" role="tab" aria-selected="false">▤ Trips</button>
+  <button data-tab="cash" role="tab" aria-selected="false">◈ Collections</button>
+  <button data-tab="fleet" role="tab" aria-selected="false">▧ Fleet</button>
+ </div>
+ <div class="sidefoot"><b>Isolated prototype</b><div class="muted-dark">Synthetic information only. No API, real payments, persistence, GPS or deployment.</div></div>
+</aside>
+<main>
+ <header class="top"><div><div class="eyebrow">Thebe Desk · Industry workspace</div><h1 class="title" id="page-title">Transport command centre</h1><p class="subtitle">Demo operator · Gaborone · Mock business day</p></div><span class="stamp">DRAFT · 2027</span></header>
+ <div class="banner" role="status">Preview only: all figures are invented for design testing. They are not live transactions, bank-confirmed receipts or actual Botswana routes/departures. Nothing here submits to a server.</div>
+ <section id="overview" class="tab">
+  <div class="kpis">
+   <article class="metric"><span class="label">Vehicles on register</span><strong>3</strong><span class="info">Demo operator only</span></article>
+   <article class="metric"><span class="label">Trips declared today</span><strong>6</strong><span class="info">3 completed · 3 scheduled</span></article>
+   <article class="metric"><span class="label">Declared fares</span><strong>P 3,420</strong><span class="info">Self-reported · unverified</span></article>
+   <article class="metric"><span class="label">Outstanding variance</span><strong>P 180</strong><span class="info">Requires manager investigation</span></article>
+  </div>
+  <div class="layout">
+   <div>
+    <section class="panel"><div class="flex"><div><h2>Trip declarations</h2><p class="hint">The pilot separates fares declared from cash physically received.</p></div><button class="btn secondary" data-open="cash">Review cash</button></div><div class="table-wrap"><table><thead><tr><th>Trip</th><th>Vehicle</th><th>Declared</th><th>Status</th></tr></thead><tbody><tr><td>Trip 001</td><td>BUS-01</td><td>P 1,200</td><td><span class="badge">Completed</span></td></tr><tr><td>Trip 002</td><td>BUS-03</td><td>P 1,080</td><td><span class="badge warn">Review cash</span></td></tr><tr><td>Trip 003</td><td>BUS-02</td><td>P 1,140</td><td><span class="badge">Completed</span></td></tr></tbody></table></div></section>
+    <section class="panel"><h2>Route performance</h2><p class="hint">Illustrative declared fares, not audited route profitability.</p><div class="route"><div class="line"><b>Route A</b><span>P 1,560 declared</span></div><div class="track"><span style="width:100%"></span></div></div><div class="route"><div class="line"><b>Route B</b><span>P 1,120 declared</span></div><div class="track"><span style="width:72%"></span></div></div><div class="route"><div class="line"><b>Route C</b><span>P 740 declared</span></div><div class="track"><span style="width:47%"></span></div></div></section>
+   </div>
+   <div>
+    <section class="panel"><h2>Needs owner attention</h2><p class="hint">Exceptions are not evidence of misconduct.</p><div class="alert"><span class="alert-icon">!</span><div><strong>Trip 002: P180 variance</strong><p>Cash received was lower than declared fares. Manager review pending.</p></div></div><div class="alert"><span class="alert-icon">!</span><div><strong>BUS-03: service due</strong><p>Demo service date is approaching. No automated notification.</p></div></div><div class="note">No AI actions, customer messaging or payment-provider activity in this draft.</div></section>
+    <section class="panel"><h2>Five-customer business model</h2><p class="hint">Commercial target for Thebe Transport, not this operator's fleet size.</p><div class="line"><span>5 companies × P499/month</span><b>P 2,495</b></div><div class="line"><span>Illustrative variable costs</span><b>P 500</b></div><div class="line"><span>Illustrative fixed costs</span><b>P 1,000</b></div><hr style="border:0;border-top:1px solid #dde6ee"><div class="line"><b>Monthly contribution</b><b>P 995</b></div><p class="hint">Before build cost, taxes and travel.</p></section>
+   </div>
+  </div>
+ </section>
+ <section id="trips" class="tab hidden"><div class="panel"><h2>Trip board</h2><p class="hint">Example draft/assigned/completed transport runs. No live schedules.</p><div class="flex" style="margin-bottom:13px"><div class="pills" role="group" aria-label="Filter trip status"><button class="pill" data-status="all" aria-pressed="true">All</button><button class="pill" data-status="completed" aria-pressed="false">Completed</button><button class="pill" data-status="scheduled" aria-pressed="false">Scheduled</button></div><button class="btn secondary" disabled title="Draft does not create trips">+ New trip (2027)</button></div><div class="table-wrap"><table><thead><tr><th>Run</th><th>Vehicle</th><th>Driver</th><th>Route</th><th>State</th></tr></thead><tbody id="trip-rows"></tbody></table></div></div></section>
+ <section id="cash" class="tab hidden"><div class="layout"><div class="panel"><h2>Conductor → manager handover</h2><p class="hint">Work out a discrepancy using synthetic BWP. No approval, bank confirmation or submission.</p><div class="field"><label for="declared">Declared fares (P)</label><input id="declared" type="number" min="0" max="100000" step="1" value="1080"></div><div class="field"><label for="received">Cash physically counted (P)</label><input id="received" type="number" min="0" max="100000" step="1" value="900"></div><button class="btn" id="calculate">Calculate variance locally</button><div style="height:13px"></div><div class="receipt" aria-live="polite"><span>Cash received − fares declared</span><strong id="variance">−P 180</strong><small id="variance-desc">Shortfall to investigate; not evidence of theft.</small></div></div><div class="panel"><h2>Reconciliation control</h2><p class="hint">The eventual live workflow must be independently reviewed.</p><div class="note">Only a manager independent of the conductor can close a cash handover. Any correction will be an append-only record with a reason, timestamp and actor. A closed shift will not be silently edited.</div><div style="height:16px"></div><button class="btn secondary" disabled title="No live approval or cash-writing API exists in this preview">Approve handover (disabled)</button></div></div></section>
+ <section id="fleet" class="tab hidden"><div class="panel"><div class="flex"><div><h2>Fleet and maintenance</h2><p class="hint">Three example vehicles. Corporate Assets integration is NOT active in this preview.</p></div><button class="btn secondary" disabled>Register vehicle (2027)</button></div><div class="table-wrap"><table><thead><tr><th>Vehicle</th><th>Type</th><th>Assigned route</th><th>Maintenance</th></tr></thead><tbody><tr><td>BUS-01</td><td>Coach</td><td>Route A</td><td><span class="badge">Up to date</span></td></tr><tr><td>BUS-02</td><td>Coach</td><td>Route B</td><td><span class="badge grey">Review records</span></td></tr><tr><td>BUS-03</td><td>Minibus</td><td>Route C</td><td><span class="badge warn">Service due</span></td></tr></tbody></table></div></div></section>
+ <footer>Thebe Transport · draft for a possible 2027 release · no real operator, passengers, bank, staff, permits or vehicle records.</footer>
+</main></div>
+<script>
+(()=>{'use strict';
+const sections=['overview','trips','cash','fleet'];
+const titles={overview:'Transport command centre',trips:'Trip and dispatch board',cash:'Daily cash reconciliation',fleet:'Fleet and services'};
+const show=(name)=>{
+ if(!sections.includes(name))return;
+ sections.forEach(n=>{document.getElementById(n).classList.toggle('hidden',n!==name);
+ const button=document.querySelector('[data-tab="'+n+'"]');button.setAttribute('aria-selected',String(n===name))});
+ document.getElementById('page-title').textContent=titles[name];
+};
+document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>show(b.dataset.tab)));
+document.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',()=>show(b.dataset.open)));
+const trips=[
+ ['Trip 001','BUS-01','Driver A','Route A','completed'],
+ ['Trip 002','BUS-03','Driver B','Route C','completed'],
+ ['Trip 003','BUS-02','Driver C','Route B','completed'],
+ ['Trip 004','BUS-01','Driver A','Route A','scheduled'],
+ ['Trip 005','BUS-02','Driver C','Route B','scheduled'],
+ ['Trip 006','BUS-03','Driver B','Route C','scheduled']
+];
+const tbody=document.getElementById('trip-rows');
+const renderTrip=(filter)=>{tbody.replaceChildren();
+ trips.filter(x=>filter==='all'||x[4]===filter).forEach(x=>{const row=document.createElement('tr');
+ x.forEach((cell,i)=>{const td=document.createElement('td');
+ if(i===4){const tag=document.createElement('span');tag.className='badge '+(cell==='scheduled'?'grey':'');tag.textContent=cell;td.append(tag)}
+ else td.textContent=cell;row.append(td)});tbody.append(row)});
+};
+renderTrip('all');
+document.querySelectorAll('[data-status]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-status]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));renderTrip(b.dataset.status)}));
+document.getElementById('calculate').addEventListener('click',()=>{
+ const declared=Number(document.getElementById('declared').value);
+ const received=Number(document.getElementById('received').value);
+ const out=document.getElementById('variance'),detail=document.getElementById('variance-desc');
+ if(!Number.isSafeInteger(declared)||!Number.isSafeInteger(received)||declared<0||received<0||declared>100000||received>100000){
+  out.textContent='Unavailable';detail.textContent='Enter valid whole-Pula amounts between 0 and 100,000.';return;
+ }
+ const v=received-declared;out.textContent=(v<0?'−':v>0?'+':'')+'P '+Math.abs(v).toLocaleString('en-BW');
+ detail.textContent=v===0?'No variance in this calculation; not bank-verified.':v<0?'Shortfall to investigate; not evidence of theft.':'Excess to investigate; not evidence of profit.';
+});
+})();
+</script>
+</body></html>
