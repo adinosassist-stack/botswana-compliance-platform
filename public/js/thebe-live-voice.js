@@ -356,21 +356,22 @@
     sessionMode=String(options?.mode||"workspace")==="marketing"?"marketing":"workspace";
     const requestApi=api;
     const statusPath=sessionMode==="marketing"?"/api/agentic/live/marketing/status":"/api/agentic/live/status";
-    const status=await requestApi(statusPath);
-    if(cancelled())return {state:"idle",cancelled:true};
-    if(status?.sessionCreationAllowed!==true){
-      const gate=text(status?.gateCode,120);
-      if(status?.runtimeKillSwitch)throw new Error("Thebe live voice is paused by the runtime safety switch.");
-      if(gate==="tenant_session_rate_limited"||gate==="user_session_rate_limited"||gate==="marketing_session_rate_limited")throw new Error("Thebe voice session limit has been reached temporarily.");
-      if(gate==="live_failure_circuit_open")throw new Error("Thebe voice is temporarily paused after repeated provider failures.");
-      throw new Error(sessionMode==="marketing"?"The public Thebe voice sample is not available right now.":"Thebe live voice is not enabled for this workspace.");
-    }
-
+    // Reserve the start before awaiting the gate so repeated taps cannot race.
     setState("connecting");
-    inputTranscript="";outputTranscript="";sessionId=null;transcriptRevision=0;lastError=null;
-    const minimum=sessionMode==="marketing"?30:60;
-    maxSessionSeconds=Math.max(minimum,Math.min(1800,Number(status?.maxSessionSeconds||(sessionMode==="marketing"?60:600))));
     try{
+      const status=await requestApi(statusPath);
+      if(cancelled())return {state:"idle",cancelled:true};
+      if(status?.sessionCreationAllowed!==true){
+        const gate=text(status?.gateCode,120);
+        if(status?.runtimeKillSwitch)throw new Error("Thebe live voice is paused by the runtime safety switch.");
+        if(gate==="tenant_session_rate_limited"||gate==="user_session_rate_limited"||gate==="marketing_session_rate_limited")throw new Error("Thebe voice session limit has been reached temporarily.");
+        if(gate==="live_failure_circuit_open")throw new Error("Thebe voice is temporarily paused after repeated provider failures.");
+        throw new Error(sessionMode==="marketing"?"The public Thebe voice sample is not available right now.":"Thebe live voice is not enabled for this workspace.");
+      }
+
+      inputTranscript="";outputTranscript="";sessionId=null;transcriptRevision=0;lastError=null;
+      const minimum=sessionMode==="marketing"?30:60;
+      maxSessionSeconds=Math.max(minimum,Math.min(1800,Number(status?.maxSessionSeconds||(sessionMode==="marketing"?60:600))));
       const acquired=await navigator.mediaDevices.getUserMedia({audio:true});
       if(cancelled()){acquired.getTracks().forEach(track=>track.stop());return {state:"idle",cancelled:true}}
       media=acquired;
@@ -1597,15 +1598,16 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     }
     return result;
   }
-  function renderResult(result){
+  function renderResult(result,presentation="workspace"){
     setMascotFocus("response");
     setMascotState("success");
     if(!responseBox)return;
     responseBox.dataset.state="ready";
     responseBox.setAttribute("aria-busy","false");
     responseBox.replaceChildren();
-    responseBox.append(el("div","thebe-ai-response-title",result?.generationMode==="workers_ai"?"Grounded workspace response":"Thebe workspace response"));
-    appendAdvisorRunSummary(result);
+    const workspaceResponse=presentation!=="general";
+    responseBox.append(el("div","thebe-ai-response-title",!workspaceResponse?"Thebe":result?.generationMode==="workers_ai"?"Grounded workspace response":"Thebe workspace response"));
+    if(workspaceResponse)appendAdvisorRunSummary(result);
     lastAnswer=cleanMultiline(result?.answer||"No grounded answer was returned.",3200);
     responseBox.append(responseAnswer(lastAnswer));
     // Capture the rendered answer; later responses must not change this button's content.
@@ -1640,10 +1642,13 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const follow=el("button","thebe-ai-follow-up","Ask follow-up");
     follow.type="button";
     follow.addEventListener("click",()=>input?.focus({preventScroll:true}));
-    const open=el("button","thebe-ai-open-full","Open workspace AI");
-    open.type="button";
-    open.addEventListener("click",()=>{openView("automationhub");if(mobileDockMode())setCollapsed(true)});
-    tools.append(follow,open);
+    tools.append(follow);
+    if(workspaceResponse){
+      const open=el("button","thebe-ai-open-full","Open workspace AI");
+      open.type="button";
+      open.addEventListener("click",()=>{openView("automationhub");if(mobileDockMode())setCollapsed(true)});
+      tools.append(open);
+    }
     responseBox.append(tools);
     surfaceLatestResponse();
   }
@@ -1979,7 +1984,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       }catch{}
     }
     if(!citations.length)throw new Error("No usable research sources were returned.");
-    renderResult({answer:result.answer});
+    renderResult({answer:result.answer},"general");
     const title=responseBox?.querySelector(".thebe-ai-response-title");
     if(title)title.textContent="Live web research";
     responseBox?.querySelector(".thebe-ai-run-summary")?.remove();
@@ -1996,15 +2001,18 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
   function chooseAutomaticAiRoute(question,{enabled=false,researchEnabled=false,hasContext=false}={}){
     if(typeof question!=="string")return "ask";
     const q=question.trim();
-    if(/\b(my|our|mine|ours|your|workspace|tenant|thebe|client|customer|employee|invoice|payroll|account|password|secret|contract|transfer|approve|activate|delete|send|file tax|business|company)\b/i.test(q)||/@|\b\d{6,}\b/.test(q))return "ask";
+    if(/\b(my|our|mine|ours|your|workspace|tenant|thebe|client|customer|employee|invoice|payroll|account|password|secret|contract|transfer|approve|activate|delete|send|file tax)\b/i.test(q)||/@|\b\d{6,}\b/.test(q))return "ask";
     // Explicit public research must never fall back to an ungrounded advisory answer.
     if(/^(?:please\s+)?(?:search the (?:live )?web|look up online|browse the web)\b/i.test(q)){
       return researchEnabled&&!hasContext?"web_research":"research_unavailable";
     }
     if(!enabled||hasContext)return "ask";
+    // Exact conversational prompts carry no workspace data; mixed requests still
+    // pass through the private/action guard above.
+    if(/^(?:hi|hello|hey|good (?:morning|afternoon|evening)|what can you do|how can you help)[!?.,\s]*$/i.test(q))return "general";
     const current=/\b(today|latest|current|recent|this week|this month|right now|now|202[6-9]|price|exchange rate|news|weather|who is|research|sources|verify|look up|search the web)\b/i.test(q);
     if(current&&/^(?:what|who|when|where|how|research|look up|search the web|find|tell me)\b/i.test(q))return researchEnabled?"web_research":"research_unavailable";
-    if(/^(?:what (?:is|are|was|were)|who was|explain|define|how (?:does|do|did)|why (?:is|are|does|do))\b/i.test(q))return "general";
+    if(/^(?:what (?:is|are|was|were)|who was|explain|define|how (?:does|do|did|can (?:a|an)\b)|why (?:is|are|does|do))\b/i.test(q))return "general";
     return "ask";
   }
   function automaticAiAvailable(){
@@ -2053,7 +2061,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
         if(runId!==textRunId||controller.signal.aborted||!automaticAiAvailable()||requestScope!==currentWorkspaceScope())return;
         requireAdvisorAnswer(result);
         if(result.ok!==true||result.researchPerformed!==false||result.verification!=="unverified")throw new Error("Thebe returned an unexpected general AI result.");
-        renderResult({answer:result.answer,caveats:result.notice?[result.notice]:[]});
+        renderResult({answer:result.answer,caveats:result.notice?[result.notice]:[]},"general");
         const title=responseBox?.querySelector(".thebe-ai-response-title");
         if(title)title.textContent="General AI response — not live verified";
         responseBox?.querySelector(".thebe-ai-run-summary")?.remove();
@@ -2311,10 +2319,10 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     const core=el("span","thebe-particle-core");
     // V181: keep the Talk to Thebe voice field character-free. The public mascot now belongs only to the marketing hero.
     mascot=null;
-    // Original, layered ribbon sphere: SVG paths rather than a static picture.
+    // Approved clean glass sphere; no stripe, rings or particles in immersive mode.
     // Audio meter events drive its scale and glow; phase drives the motion.
     const ribbon=document.createElementNS(svgNS,"svg");
-    ribbon.classList.add("thebe-aura-ribbon");
+    ribbon.classList.add("thebe-aura-ribbon","thebe-aura-sphere");
     ribbon.setAttribute("viewBox","0 0 240 240");
     ribbon.setAttribute("aria-hidden","true");
     const defs=document.createElementNS(svgNS,"defs");
@@ -2332,13 +2340,10 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
       ["0%","#01030f",.96],["57%","#04102c",.85],["84%","#0a255c",.9],["100%","#1751a3",.8]
     ]);
     gradient("linearGradient","thebeAuraStroke",{x1:"4%",y1:"24%",x2:"98%",y2:"65%"},[
-      ["0%","#3b92eb",.82],["38%","#3187ff",.38],["73%","#625cff",.62],["100%","#deffff"]
+      ["0%","#299bdf",.7],["38%","#54d6ff",.48],["73%","#238fd6",.62],["100%","#b9f5ff",.9]
     ]);
-    gradient("radialGradient","thebeAuraSilk",{cx:"98%",cy:"55%",r:"91%"},[
-      ["0%","#efffff"],["19%","#73edff",.96],["38%","#2eacff",.72],["70%","#2354ee",.32],["100%","#503bf5",.09]
-    ]);
-    gradient("linearGradient","thebeAuraFold",{x1:"12%",y1:"95%",x2:"82%",y2:"19%"},[
-      ["0%","#a4f9ff",.88],["25%","#5447ef",.47],["62%","#2444e7",.12],["100%","#081c59",0]
+    gradient("radialGradient","thebeAuraGlow",{cx:"38%",cy:"32%",r:"68%"},[
+      ["0%","#65cfff",.24],["40%","#267aff",.12],["100%","#06132c",0]
     ]);
     const clip=svgNode("clipPath",{id:"thebeAuraSphereClip"},defs);
     svgNode("circle",{cx:120,cy:120,r:92},clip);
@@ -2346,16 +2351,7 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
     svgNode("circle",{cx:120,cy:120,r:92,fill:"url(#thebeAuraSphere)"},ribbon);
     const clipped=svgNode("g",{"clip-path":"url(#thebeAuraSphereClip)"},ribbon);
     const surface=svgNode("g",{class:"thebe-aura-surface"},clipped);
-    svgNode("path",{d:"M29 111 C39 68 79 55 100 56 C123 55 128 31 145 31 C124 81 84 92 52 94 C40 96 33 102 29 111Z",fill:"url(#thebeAuraFold)",opacity:.33},surface);
-    svgNode("path",{d:"M115 28 C149 27 191 49 206 91 C226 151 203 174 161 173 C111 170 75 185 84 205 C48 190 80 176 117 163 C167 145 194 116 190 85 C187 57 152 33 115 28Z",fill:"url(#thebeAuraSilk)"},surface);
-    svgNode("path",{d:"M200 127 C193 163 174 174 138 173 C108 171 81 186 84 199 C88 208 104 211 115 212 C85 214 58 200 68 187 C86 167 124 170 149 161 C170 154 192 142 200 127Z",fill:"url(#thebeAuraFold)"},surface);
-    const curves=[
-      ["M115 28 C149 30 188 53 190 85 C194 116 167 145 117 163 C76 178 54 190 84 205",1.65,1],
-      ["M200 127 C193 163 174 174 138 173 C108 171 72 188 84 205",1.25,.82],
-      ["M35 101 C53 77 85 99 113 77 C132 62 137 42 150 34",.9,.32],
-      ["M196 112 C181 143 155 155 125 166 C95 177 79 190 93 207",.85,.52]
-    ];
-    for(const [d,width,opacity] of curves)svgNode("path",{d,fill:"none",stroke:"url(#thebeAuraStroke)","stroke-width":width,opacity,class:"thebe-aura-curve"},surface);
+    svgNode("circle",{cx:120,cy:120,r:91,fill:"url(#thebeAuraGlow)"},surface);
     svgNode("circle",{cx:120,cy:120,r:92,fill:"none",stroke:"url(#thebeAuraStroke)","stroke-width":1.2},ribbon);
     orb.append(wave,core);
     orb.append(ribbon);

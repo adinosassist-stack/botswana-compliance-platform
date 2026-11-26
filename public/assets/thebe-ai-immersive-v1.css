@@ -2,7 +2,7 @@
    Uses the existing authenticated voice/audio events; never simulates audio. */
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])){
   /* Do not claim the compact/spatial CSS passed its health check. */
-  background:#000!important;
+  background:#202124!important;
   border:0!important;outline:0!important;box-shadow:none!important;box-sizing:border-box!important;
   color:#f5f7ff!important;color-scheme:dark!important;font-family:system-ui,sans-serif!important;
 }
@@ -44,18 +44,19 @@
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-aura-ribbon{
   display:block!important;width:100%;height:100%;overflow:visible;
   transform:scale(var(--thebe-audio-scale,1));
-  filter:drop-shadow(9px 0 11px #267aff8c) drop-shadow(17px -5px 21px #0864e447);
+  filter:drop-shadow(0 0 12px #267aff66) drop-shadow(0 0 22px #0864e433);
   transform-origin:center;transition:transform .12s ease-out;
 }
 #thebeAiDock .thebe-aura-surface{
   transform-origin:120px 120px;
-  transform:rotate(var(--thebe-aura-tilt,0deg));
+  transform:scale(1);
   transition:transform .15s ease-out;
   opacity:calc(.91 + .09 * var(--thebe-aura-energy,0));
 }
 #thebeAiDock [data-phase="thinking"] .thebe-aura-surface{animation:thebe-aura-light-flow 2.4s ease-in-out infinite}
 #thebeAiDock :is([data-phase="idle"],[data-phase="ready"]) .thebe-aura-surface{animation:thebe-aura-light-flow 5s ease-in-out infinite}
-#thebeAiDock :is([data-phase="listening"],[data-phase="speaking"]) .thebe-aura-ribbon{filter:drop-shadow(9px 0 16px #398dffb0)}
+#thebeAiDock :is([data-phase="listening"],[data-phase="speaking"]) .thebe-aura-ribbon{filter:drop-shadow(0 0 16px #398dff88)}
+#thebeAiDock [data-phase="listening"] .thebe-aura-surface{animation:thebe-aura-light-flow 1.8s ease-in-out infinite}
 @keyframes thebe-aura-light-flow{0%,100%{opacity:.74}50%{opacity:1}}
 #thebeAiDock .thebe-aura-welcome{display:none}
 :is(html body #thebeAiDock[data-expanded="true"].thebe-ai-dock:not([data-css-recovery="1"]),html body.thebe-voice-active #thebeAiDock.thebe-ai-dock:not([data-css-recovery="1"])) .thebe-aura-welcome{

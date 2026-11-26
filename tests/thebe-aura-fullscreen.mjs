@@ -5,8 +5,9 @@ const runtime=readFileSync(new URL("../public/js/thebe-live-voice.js",import.met
 const css=readFileSync(new URL("../public/assets/thebe-ai-immersive-v1.css",import.meta.url),"utf8");
 
 // Source-level invariants; authenticated Android/keyboard/voice testing is separate.
-assert.match(runtime,/thebe-aura-ribbon/,"The original SVG ribbon orb is mounted");
-assert.match(runtime,/thebeAuraStroke/,"The orb uses independent luminous ribbons");
+assert.match(runtime,/thebe-aura-sphere/,"The approved clean blue sphere is mounted");
+assert.doesNotMatch(runtime,/thebe-aura-curve|thebeAuraSilk|thebeAuraFold/,"The superseded dominant stripe is not generated");
+assert.match(runtime,/thebeAuraStroke/,"The orb retains its thin illuminated rim");
 assert.match(runtime,/thebe-live-audio-level/,"The real audio event remains wired");
 assert.match(runtime,/--thebe-aura-energy/,"The orb receives measured voice energy");
 assert.match(runtime,/channel==="input"/,"Listening responds to microphone levels");

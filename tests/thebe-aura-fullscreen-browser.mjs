@@ -67,15 +67,17 @@ try {
       orb:dock.querySelector('.thebe-ai-orb-button').getBoundingClientRect().width,
       greeting:dock.querySelector('.thebe-aura-hello').textContent,
       question:getComputedStyle(dock.querySelector('.thebe-aura-question')).display,
-      ribbons:dock.querySelectorAll('.thebe-aura-curve').length
+      ribbons:dock.querySelectorAll('.thebe-aura-curve').length,
+      spheres:dock.querySelectorAll('.thebe-aura-sphere').length
     };
   });
-  assert.equal(await page.locator('#thebeAiDock').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(0, 0, 0)','Aura uses the approved flat black surface');
+  assert.equal(await page.locator('#thebeAiDock').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(32, 33, 36)','Aura uses the approved charcoal surface');
   assert.equal(await page.locator('.thebe-ai-expand').isVisible(),false,'redundant restore control is hidden');
   assert.equal(await page.locator('.thebe-ai-minimize svg').count(),1,'close is an encoding-independent icon');
   assert(initial.orb>=160,'fullscreen shows the large orb instead of compact pill');
   assert.equal(initial.greeting,'Hello Tester');
-  assert(initial.ribbons>=4,'the orb includes luminous ribbon geometry');
+  assert.equal(initial.ribbons,0,'the approved orb has no dominant ribbon');
+  assert.equal(initial.spheres,1,'one clean blue sphere is mounted');
   await page.locator('.thebe-ai-dock-scroll').focus();
   await capture('welcome-390');
   const voiceButton=page.getByRole('button',{name:'Start voice conversation with Thebe'});
@@ -120,7 +122,7 @@ try {
   assert(conversation.latest.includes('Grounded test answer 2'),'newest answer is readable');
   assert.equal(conversation.phase,'listening');
   assert(conversation.level>1.05,'inactive output must not undo microphone response');
-  assert(conversation.tilt>0,'measured spectral brightness changes ribbon angle');
+  assert(conversation.tilt>0,'measured spectral brightness remains available to the audio renderer');
   await page.evaluate(()=>{
     dispatchEvent(new CustomEvent('thebe-live-event',{detail:{event:{type:'response.output_audio_transcript.delta',delta:'Speaking now'}}}));
     dispatchEvent(new CustomEvent('thebe-live-audio-level',{detail:{channel:'output',level:0.9}}));
