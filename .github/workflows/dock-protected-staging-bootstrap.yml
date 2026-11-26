@@ -7,13 +7,13 @@ on:
         required: true
         type: string
       mode:
-        description: Verify policy or bootstrap a new route-free disabled Worker
+        description: Verify policy, bootstrap disabled Worker, or provision protected inert resources
         required: true
         type: choice
-        options: [preflight, bootstrap-inert]
+        options: [preflight, bootstrap-inert, provision-inert-resources]
         default: preflight
       authorization:
-        description: PREFLIGHT_ONLY or BOOTSTRAP_INERT_DOCK_STAGING
+        description: PREFLIGHT_ONLY, BOOTSTRAP_INERT_DOCK_STAGING or PROVISION_INERT_DOCK_STAGING
         required: true
         type: string
 permissions:
@@ -40,7 +40,7 @@ jobs:
           [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]
           test "$GITHUB_SHA" = "$EXPECTED_SHA"
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
-          [[ "$MODE:$AUTHORIZATION" == "preflight:PREFLIGHT_ONLY" || "$MODE:$AUTHORIZATION" == "bootstrap-inert:BOOTSTRAP_INERT_DOCK_STAGING" ]]
+          [[ "$MODE:$AUTHORIZATION" == "preflight:PREFLIGHT_ONLY" || "$MODE:$AUTHORIZATION" == "bootstrap-inert:BOOTSTRAP_INERT_DOCK_STAGING" || "$MODE:$AUTHORIZATION" == "provision-inert-resources:PROVISION_INERT_DOCK_STAGING" ]]
           api="repos/$GITHUB_REPOSITORY/environments/general-ai-private-staging"
           reviewer="$(gh api users/thusico --jq .id)"
           gh api "$api" | jq -e --argjson reviewer "$reviewer" '
@@ -105,3 +105,26 @@ jobs:
           jq -e '.success==true and ([.result.bindings[]|select(.type!="plain_text" and .type!="assets")]|length==0) and
             ([.result.bindings[]|select(.name=="DOCK_STAGING_RESEARCH_ENABLED" and .text=="false")]|length==1)' "$tmp/settings" >/dev/null
           echo "Inert staging Worker created; no hostname, database or provider binding qualified by this job."
+
+  provision-inert-resources:
+    needs: verify
+    if: github.ref == 'refs/heads/main' && github.actor == 'adinosassist-stack' && inputs.mode == 'provision-inert-resources' && inputs.authorization == 'PROVISION_INERT_DOCK_STAGING'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: general-ai-private-staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Provision new isolated database and protect hostname before attachment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+          AUTHORIZATION: ${{ inputs.authorization }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.DOCK_STAGING_PROVISION_CLOUDFLARE_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.GENERAL_AI_STAGING_CLOUDFLARE_ACCOUNT_ID }}
+          DOCK_STAGING_TESTER_EMAILS: ${{ secrets.DOCK_STAGING_TESTER_EMAILS }}
+        run: node scripts/dock-provision-inert-resources.mjs
