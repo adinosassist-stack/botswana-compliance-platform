@@ -1,0 +1,24 @@
+# Dock hosted staging provisioning — consolidated candidate (not executable yet)
+
+Tracker #2735; owner authorization is staging-only and conditional on independent protected thusico approval. This branch is deliberately draft until the executable protected configuration and schema/fixture qualification are complete.
+
+## Target isolation
+- Proposed workspace service `bw-dock-research-workspace-staging` and hostname `dock-staging.thebedesk.com` (subject to collision and zone checks). Protect with a dedicated Zero Trust Access application and explicit authorized tester policy **before** attaching the hostname. No workers.dev, previews, wildcard routes, bypass policy or public fallback.
+- Reuse the existing private `bw-general-ai-staging` backend with fixed internal origin `https://ai-staging.thebedesk.com` and internal service binding `STAGING_AI`; do not expose it publicly.
+- Existing `bw-general-ai-auth-staging` is empty and contains only users, sessions, memberships. It satisfies the research fixture verifier but is not a complete workspace database. Do not bind it as the full workspace DB without proof. Qualify a dedicated schema-only workspace database and compatible shared session authority; do not copy production data or secrets, or repurpose another staging module's database. Test the exact workspace login and API contract offline first. Bind both sides to the same reviewed synthetic session authority (including HMAC generation and CSRF).
+- Generate run-scoped synthetic .invalid user and tenant, least privilege, bounded session lifetime, distinct staging-only session secret; no session material in CI evidence. Keep all AI, voice, registration and agent execution flags fail-closed until individually qualified.
+- Store restricted staging provider secret solely on the backend Worker; separate project/limits and hard application request cap. No production key reuse. Review the provider configuration against current code before enabling research or voice.
+
+## Protection requirements before any mutation
+Verify the existing `general-ai-private-staging` environment configuration independently (required thusico reviewer, prevent self-review, main-only, no admin bypass), owner-initiated exact-SHA workflow, required CI and BF-07 governance. Do not auto-create an environment by referencing an unverified name in an executing job. A reviewed deployment workflow must check exact resource IDs, schema-only migration plan, no production bindings, staging credential scope, Access configuration, rollback and run cleanup. No resource creation, routing, migration, secret creation, deployment or live tests are performed by the accompanying offline preparation workflow. Its output is not protected approval or hosted acceptance.
+
+## Hosted acceptance and cleanup
+After approval, qualify negative origin, missing/expired/revoked session, incorrect CSRF, cross-tenant and unavailable-provider cases before any live research. Test official 2022 Botswana census prompt and require 2,359,609 plus clickable official Statistics Botswana HTTPS citation. Test mobile and desktop, voice (separate staging provider scope), persistence across refresh/login/devices and tenant isolation. Keep request budget bounded; record exact source and deployed identities, test outcomes and citation URLs without secret values or customer data. Revert run-owned flags, remove synthetic fixtures and temporary credentials, verify no bypass or public route remains. Production and unrelated staging services are out of scope.
+
+## Outstanding before draft is ready
+- Implement and validate the complete workspace schema/session authority contract and the staging resource binding profile.
+- Implement the independently protected executable provisioning/acceptance workflow after environment policy verification.
+- Verify existing provider credential scope, staging-specific voice configuration and cleanup.
+- Independent code review plus protected staging approval, then actual hosted tests.
+
+The offline CI workflow only prepares reproducible evidence for the review; it intentionally cannot provision resources or deploy.
