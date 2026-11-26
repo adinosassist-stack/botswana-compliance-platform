@@ -4,6 +4,7 @@ import {randomUUID} from "node:crypto";
 import {DatabaseSync} from "node:sqlite";
 import {readFileSync} from "node:fs";
 import {handleStaffManager,handleStaffPublic} from "../cloudflare/src/employee-self-service.js";
+import {__v782157Test} from "../cloudflare/src/worker.js";
 
 // Execute the actual Cloudflare D1 SQL against an isolated in-memory SQLite database.
 // No deployment, remote credentials or live employee data are involved.
@@ -70,7 +71,7 @@ function fixture(t){
  const json=(object,status=200,headers={})=>new Response(JSON.stringify(object),{status,headers:{"content-type":"application/json",...headers}});
  const readJson=async req=>req.json();
  const options={
-  env,json,readJson,id:randomUUID,
+  env,json,readJson,id:randomUUID,submitDailyReport:__v782157Test.submitDailyEmployeeReport,
   requestOriginAllowed:()=>true,
   edgeScopedRateLimit:async()=>({ok:true}),
   rateLimitResponse:()=>json({error:"rate_limit"},429)
@@ -299,7 +300,7 @@ test("synthetic staging: origin and edge rate-limit denials happen before any da
  assert.equal((await blocked.json()).error,"too_many_requests");
 });
 
-test("staff daily report history is own-only, tenant-scoped and read-only",async t=>{
+test("staff daily report history is own-only and unauthorized report writes are denied",async t=>{
  const f=fixture(t);
  f.sql.exec(readFileSync(new URL("../cloudflare/migrations/015_v73_daily_operations_reporting.sql",import.meta.url),"utf8"));
  const {cookie}=await inviteAndLogin(f);
@@ -313,7 +314,7 @@ test("staff daily report history is own-only, tenant-scoped and read-only",async
  assert.equal(result.body.items[0].work_summary,"Installed monument");
  assert.equal(result.res.headers.get("cache-control"),"no-store");
  assert.equal((await f.staff("/public/employee/reports")).res.status,401);
- assert.equal((await f.staff("/public/employee/reports","POST",{workSummary:"Forged"},{cookie})).res.status,404);
+ assert.equal((await f.staff("/public/employee/reports","POST",{workSummary:"Forged"},{cookie})).res.status,403);
  assert.equal(f.sql.prepare("SELECT count(*) n FROM daily_employee_reports").get().n,4);
  await f.manager(IDS.tenantA,"/api/employee-self-service/employees/"+IDS.employeeA+"/revoke","POST",{});
  assert.equal((await f.staff("/public/employee/reports","GET",undefined,{cookie})).res.status,401);
@@ -353,4 +354,52 @@ test("staff reminders enforce D-4 through D+7, tenant scope and latest job statu
  f.sql.prepare("UPDATE operating_locations SET active=0 WHERE id='branch-a'").run();
  const disabled=await f.staff("/public/employee/reports","GET",undefined,{cookie});
  assert.deepEqual(disabled.body.deliveryReminders,[]);
+});
+
+test("direct staff daily reports create and correct canonical records with branch/session/revision controls",async t=>{
+ const f=fixture(t);
+ f.sql.exec(readFileSync(new URL("../cloudflare/migrations/015_v73_daily_operations_reporting.sql",import.meta.url),"utf8"));
+ f.sql.exec(readFileSync(new URL("../cloudflare/migrations/040_v78_authorization_reporting_concurrency.sql",import.meta.url),"utf8"));
+ f.sql.exec(`CREATE TABLE subscriptions(tenant_id TEXT,plan TEXT,status TEXT);
+ CREATE TABLE entitlement_overrides(tenant_id TEXT,feature_key TEXT,enabled INTEGER,limit_value INTEGER,expires_at TEXT);
+ CREATE TABLE plan_entitlements(plan TEXT,feature_key TEXT,enabled INTEGER,limit_value INTEGER);
+ CREATE TABLE audit_chain_state(tenant_id TEXT PRIMARY KEY,last_event_id TEXT,last_hash TEXT,event_count INTEGER,updated_at TEXT);
+ CREATE TABLE audit_events(tenant_id TEXT,actor_user_id TEXT,event_type TEXT,entity_type TEXT,entity_id TEXT,event_data TEXT,occurred_at TEXT,tenant_seq INTEGER,prev_hash TEXT,event_hash TEXT,integrity_version INTEGER,write_source TEXT,UNIQUE(tenant_id,tenant_seq));
+ INSERT INTO plan_entitlements VALUES('starter','operating_locations',1,NULL);`);
+ f.env.AUDIT_INTEGRITY_SECRET="isolated-synthetic-audit-key";
+ const {cookie,csrf}=await inviteAndLogin(f);
+ const headers={cookie,"x-staff-csrf":csrf};
+ const today=new Date().toLocaleDateString("en-CA",{timeZone:"Africa/Gaborone"});
+ const previous=new Date(today+"T00:00:00Z");previous.setUTCDate(previous.getUTCDate()-1);
+ const yesterday=previous.toISOString().slice(0,10);
+ for(const [loc,tenant] of [["assigned",IDS.tenantA],["peer",IDS.tenantA],["foreign",IDS.tenantB]])f.sql.prepare("INSERT INTO operating_locations(id,tenant_id,name) VALUES(?,?,?)").run(loc,tenant,loc);
+ for(const [access,tenant,employee,loc] of [["own",IDS.tenantA,IDS.employeeA,"assigned"],["peer",IDS.tenantA,IDS.employeeC,"peer"],["foreign",IDS.tenantB,IDS.employeeB,"foreign"]])f.sql.prepare("INSERT INTO employee_reporting_access(id,tenant_id,employee_id,location_id,token_hash,expires_at) VALUES(?,?,?,?,?,datetime('now','+365 days'))").run(access,tenant,employee,loc,"hash-"+access);
+ const get=await f.staff("/public/employee/reports","GET",undefined,{cookie});
+ assert.deepEqual(get.body.assignedLocations.map(x=>x.id),["assigned"]);
+ const input={locationId:"assigned",reportDate:today,expectedRevision:null,workSummary:"Delivery complete"};
+ const submit=(body,h=headers)=>f.staff("/public/employee/reports","POST",body,h);
+ assert.equal((await submit(input,{})).res.status,401);
+ assert.equal((await submit(input,{cookie})).res.status,403);
+ assert.equal((await submit({...input,employeeId:IDS.employeeC})).res.status,400);
+ assert.equal((await submit({...input,locationId:"peer"})).res.status,403);
+ assert.equal((await submit({...input,locationId:"foreign"})).res.status,403);
+ const created=await submit(input);assert.equal(created.res.status,201);
+ assert.equal((await submit(input)).body.idempotent,true);
+ const nextDay=await submit({...input,reportDate:yesterday});assert.equal(nextDay.res.status,201);
+ assert.notEqual(created.body.reportId,nextDay.body.reportId);
+ // Existing job data must survive text-only staff corrections.
+ const jobs=JSON.stringify({jobReference:"JOB-1",jobType:"delivery",scheduledDate:today,jobStatus:"completed",revenueBwp:1250});
+ f.sql.prepare("UPDATE daily_employee_reports SET kpi_json=? WHERE id=?").run(jobs,created.body.reportId);
+ assert.equal((await submit({...input,workSummary:"Stale text"})).res.status,409);
+ const corrected=await submit({...input,expectedRevision:0,workSummary:"Delivery signed off"});
+ assert.equal(corrected.res.status,200);assert.equal(corrected.body.revision,1);
+ const row=f.sql.prepare("SELECT work_summary,kpi_json,revision_count FROM daily_employee_reports WHERE id=?").get(created.body.reportId);
+ assert.equal(row.work_summary,"Delivery signed off");assert.equal(JSON.parse(row.kpi_json).jobReference,"JOB-1");assert.equal(JSON.parse(row.kpi_json).revenueBwp,1250);
+ assert.equal(f.sql.prepare("SELECT count(*) n FROM daily_report_revisions WHERE report_id=?").get(created.body.reportId).n,1);
+ assert.equal(f.sql.prepare("SELECT count(*) n FROM daily_employee_reports").get().n,2);
+ assert.equal(f.sql.prepare("SELECT count(*) n FROM audit_events WHERE tenant_id=?").get(IDS.tenantA).n,3);
+ f.sql.prepare("UPDATE employee_reporting_access SET status='revoked' WHERE id='own'").run();
+ assert.equal((await submit({...input,expectedRevision:1,workSummary:"Denied"})).res.status,403);
+ await f.manager(IDS.tenantA,"/api/employee-self-service/employees/"+IDS.employeeA+"/revoke","POST",{});
+ assert.equal((await submit(input)).res.status,401);
 });
