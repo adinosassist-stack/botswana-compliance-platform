@@ -24,6 +24,8 @@ jobs:
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
+      - name: Install locked test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Workspace navigation and freeze budgets
         run: node --test tests/workspace-navigation-freeze-budget.test.mjs tests/workspace-navigation-render-budget.test.mjs tests/workspace-navigation-performance-evidence.test.mjs tests/workspace-route-recovery-navigation.test.mjs tests/v551-workspace-navigation-speed.mjs
       - name: AI dock response integrity (offline)
