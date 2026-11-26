@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - '.github/workflows/dock-hosted-staging-preparation.yml'
+      - '.github/workflows/dock-protected-staging-bootstrap.yml'
+      - 'cloudflare/wrangler.dock-hosted-staging-inert.toml'
+      - 'scripts/verify-dock-inert-bootstrap.py'
       - 'docs/dock-hosted-staging-provisioning.md'
       - 'cloudflare/schema/dock-hosted-staging-auth-candidate.sql'
       - 'tests/dock-hosted-staging-auth-contract.py'
@@ -48,6 +51,9 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: python3 tests/general-ai-staging-session-contract.py
       - run: python3 tests/dock-hosted-staging-auth-contract.py
+      - run: python3 scripts/verify-dock-inert-bootstrap.py
+      - name: Bundle route-free bootstrap candidate without publishing
+        run: npx --no-install wrangler deploy --dry-run --config cloudflare/wrangler.dock-hosted-staging-inert.toml --outdir /tmp/dock-inert-preflight
       - run: node --test tests/general-ai-*.test.mjs
       - name: Build offline only
         run: npx --no-install wrangler deploy --dry-run --config cloudflare/wrangler.dock-research-workspace-offline.toml --outdir /tmp/dock-preflight
