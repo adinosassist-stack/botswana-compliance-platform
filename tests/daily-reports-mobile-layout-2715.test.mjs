@@ -82,11 +82,11 @@ test("agreed notification design has movable bell, independent readable action s
  for(const token of ["--thebe-vv-top","--thebe-vv-bottom","--thebe-vv-left","--thebe-vv-right"]){
   assert.ok(css.includes(token)&&js.includes(token),"viewport-fixed sheet must use "+token);
  }
- assert.ok(js.includes('view.textContent="View Task"'),"View Task opens existing Daily Reports");
- assert.ok(js.includes('read.textContent=alreadyRead?"Read":"Mark as Read"'),"Mark as Read is a real control");
+ assert.ok(js.includes('view.textContent="View task"'),"View Task opens existing Daily Reports");
+ assert.ok(js.includes('read.textContent=alreadyRead?"✓ Read":"✓ Mark read"'),"Mark as Read is a real control");
  assert.ok(js.includes('window.showView("dailyreports")'),"View Task uses existing workspace router");
  assert.ok(js.includes("readReminders.add(reminderKey(item))"),"read action updates unread count");
- assert.ok(js.includes("job status changes only in Daily Reports"),"read must not pretend a job was completed");
+ assert.ok(js.includes("Reading a reminder does not complete the job."),"read must not pretend a job was completed");
 });
 
 test("notification bell and dismiss keep keyboard navigation and accessible state",()=>{
@@ -128,8 +128,8 @@ test("foreground mobile reminder sheet respects keyboard visual viewport and res
  assert.ok(js.includes('panel.setAttribute("aria-modal",String(sheetOpen))'));
  assert.ok(js.includes("panel.dataset.compactViewport=String(height<420)"));
  assert.ok(css.includes('data-compact-viewport="true"'));
- assert.ok(js.includes('title.textContent="Notifications ("+unread+")'));
- assert.ok(js.includes('title.textContent=withActions?"Upcoming delivery & installation":label(item)'));
+ assert.ok(js.includes('count.textContent=String(unread)'));
+ assert.ok(js.includes('title.textContent=withActions?(item.jobType==="installation"?"Installation":"Delivery")'));
  assert.ok(js.includes('if(event.key!=="Tab"||panel.hidden||!mobileBell())return'));
 });
 

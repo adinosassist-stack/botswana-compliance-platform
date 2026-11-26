@@ -1,3 +1,4 @@
+import {handleQuotationCommercialRoute} from "./quotation-commercial-workflow.js";
 import {handleCompanyLogoRoute,companyLogoRoute} from "./company-logo-settings.js";
 import {quotationBrowserPreview} from "./quotation-browser-preview.js";
 import worker from "./worker.js";
@@ -537,6 +538,8 @@ async function fetchWithTurnstileCspRepair(request,env,ctx){
    const companyLogo=await handleCompanyLogoRoute({request:normalizedCompanyLogoRequest(request),
     env,fetchSession:inner=>worker.fetch(inner,env,ctx)});
    if(companyLogo)return companyLogo;
+  const quotationCommercial=await handleQuotationCommercialRoute({request,logicalPath:logicalRequestPath(request),env,fetchSession:inner=>worker.fetch(inner,env,ctx)});
+  if(quotationCommercial)return quotationCommercial;
   const quotationPreview=await quotationBrowserPreview(request,env,inner=>worker.fetch(inner,env,ctx));
   if(quotationPreview)return quotationPreview;
   const agenticResponse=await handleAgenticRequest({

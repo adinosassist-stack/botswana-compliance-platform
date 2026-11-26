@@ -28,6 +28,9 @@ export const QUOTATION_CUSTOM_DEFAULT_COPY=Object.freeze({
  bankName:"First National Bank",
  bankBranch:"Riverwalk Plaza",
  bankAccount:"",
+ bankAccountHolder:"",
+ bankBranchCode:"",
+ bankPaymentReference:"",
  paymentMethod:"Bank transfer",
  note:"Thanks for your business!",
  termsHeading:"General terms and conditions",
@@ -119,7 +122,7 @@ export function validateQuotationCustomPage(value){
     invalid("unsupported_quotation_custom_copy_field");
  const copy={};
  for(const key of Object.keys(QUOTATION_CUSTOM_DEFAULT_COPY)){
-  const optional=["bankAccount","footerEmail","footerPhone"].includes(key);
+  const optional=["bankAccount","bankAccountHolder","bankBranchCode","bankPaymentReference","footerEmail","footerPhone"].includes(key);
   copy[key]=validateText(value.copy[key]??QUOTATION_CUSTOM_DEFAULT_COPY[key],240,{allowBlank:optional});
  }
  const termsText=validateText(value.termsText??"",7500,{allowBlank:true,multiline:true});

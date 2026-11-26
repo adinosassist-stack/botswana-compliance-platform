@@ -1,0 +1,44 @@
+name: Consolidated Quotation Invoice Banking
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/src/quotation-commercial-workflow.js'
+      - 'cloudflare/src/quotation-browser-preview.js'
+      - 'cloudflare/src/production-entry.js'
+      - 'public/js/quotation-commercial-workspace.mjs'
+      - 'public/js/quotation-customizable-page*.mjs'
+      - 'server/quotation-commercial-pdf-renderer.mjs'
+      - 'server/quotation-final-html-print.mjs'
+      - 'docs/sql/quotation-commercial-workflow-CANDIDATE.sql'
+      - 'tests/quotation-commercial-*.test.mjs'
+      - '.github/workflows/quotation-commercial-batch.yml'
+permissions:
+  contents: read
+jobs:
+  commercial-local-d1-and-chromium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Install locked runtime and isolated browser
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm install --prefix "$RUNNER_TEMP/commercial-browser" --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright@1.56.1
+      - name: Check syntax, persistence, isolation, financial math and rollback
+        run: |
+          node --check cloudflare/src/production-entry.js
+          node --check cloudflare/src/quotation-commercial-workflow.js
+          node --check public/js/quotation-commercial-workspace.mjs
+          node --test tests/quotation-commercial-workflow.test.mjs tests/quotation-browser-preview.test.mjs tests/quotation-customizable-page-model.test.mjs tests/quotation-final-html-private-pdf.test.mjs tests/essentials-invoice-lifecycle.test.mjs tests/essentials-payment-schedule.test.mjs
+      - name: Real mobile browser, separate session, PDF and file share acceptance
+        env:
+          QUOTATION_BROWSER_ENGINE_ROOT: ${{ runner.temp }}/commercial-browser
+        run: node --test tests/quotation-commercial-browser.test.mjs

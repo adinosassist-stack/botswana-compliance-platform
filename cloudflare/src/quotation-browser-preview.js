@@ -37,13 +37,14 @@ export async function quotationBrowserPreview(request,env,fetchSession){
   const nonce=crypto.randomUUID();
   headers["content-type"]="text/html; charset=utf-8";
   headers["content-security-policy"]="default-src 'none'; script-src 'self' 'nonce-"+nonce+
-    "'; style-src 'unsafe-inline'; img-src blob:; base-uri 'none'; frame-ancestors 'none'";
+    "'; style-src 'unsafe-inline'; connect-src 'self'; img-src blob:; base-uri 'none'; frame-ancestors 'none'";
+  const commercial=customerReady&&env.QUOTATION_COMMERCIAL_ENABLED==='true';
   const html='<!doctype html><html lang="en"><meta charset="utf-8">'+
     '<meta name="viewport" content="width=device-width, initial-scale=1">'+
     '<title>'+(customerReady?'Customer quotation':'Quotation preview')+' | Thebe Desk</title><main id="quotation-preview"></main>'+
     '<script type="module" nonce="'+nonce+'">'+
-    'import {mountQuotationCustomizablePage} from "/js/quotation-customizable-page.mjs";'+
-    'const preview=mountQuotationCustomizablePage(document.getElementById("quotation-preview"),'+
+    (commercial?'import {mountQuotationCommercialWorkspace} from "/js/quotation-commercial-workspace.mjs";':'import {mountQuotationCustomizablePage} from "/js/quotation-customizable-page.mjs";')+
+    'const preview='+(commercial?'await mountQuotationCommercialWorkspace':'mountQuotationCustomizablePage')+'(document.getElementById("quotation-preview"),'+
     '{issuerName:"Lovely Stones PTY LTD",defaultBankAccount:'+JSON.stringify(bankAccount)+','+
     'documentMode:"'+(customerReady?'customer':'preview')+'",'+
     'capability:{enabled:true,authenticated:true,canEditQuotations:true,canCustomizeQuotationPreview:true,'+

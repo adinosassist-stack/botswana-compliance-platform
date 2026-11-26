@@ -16,7 +16,7 @@ const executablePath=[process.env.CHROMIUM_EXECUTABLE_PATH,
  .filter(Boolean).find(file=>fs.existsSync(file));
 const css=fs.readFileSync('public/assets/delivery-reminder-notifications.css','utf8');
 const runtime=fs.readFileSync('public/js/delivery-reminders-manager.js','utf8');
-const html='<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">'+
+const html='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+
  '<style>*{box-sizing:border-box}body{margin:0}#mobileRail{display:none}' +
  '@media(max-width:1000px){#mobileRail{display:block;position:fixed;bottom:0;left:0;right:0;height:86px;background:#eee}}</style>' +
  '<style>'+css+'</style></head><body><main id="dailyreports"></main><nav id="mobileRail" class="mobilebar"></nav>'+
@@ -70,8 +70,8 @@ try{
     assert(g.railHidden,'Background mobile rail is suspended while reading notifications '+label);
     assert(g.p.bottom<=height-7,'Phone notification sheet uses full visual viewport without clipping '+label);
     assert.equal(await panel.getAttribute("aria-modal"),"true",'Mobile sheet is modal for accessibility '+label);
-    assert.equal(await panel.locator("h2").textContent(),"Notifications (12)",'Agreed notification count heading '+label);
-    assert.equal(await panel.locator(".thebe-delivery-reminder strong").first().textContent(),"Upcoming delivery & installation",'Agreed card heading '+label);
+    assert.equal(await panel.locator("h2").textContent(),"Notifications 12",'Agreed notification count heading '+label);
+    assert.equal(await panel.locator(".thebe-delivery-reminder strong").first().textContent(),"Delivery · Test location",'Agreed card heading '+label);
     const close=panel.getByRole('button',{name:'Close reminders'});
     assert(await close.isVisible(),'Sticky close remains reachable '+label);
     const closeBox=await close.boundingBox();
@@ -99,7 +99,9 @@ try{
      'Each synthetic reminder has a Mark as Read action '+label);
    const firstRead=panel.locator('.thebe-delivery-mark-read').first();
    await firstRead.click();
-   assert.equal(await firstRead.textContent(),'Read','Reading a notification updates its actual UI state '+label);
+   assert.equal(await panel.locator('.thebe-delivery-reminder').count(),11,'Unread filter removes acknowledged row '+label);
+   await panel.locator('#thebeDeliveryAll').click();
+   assert.equal(await panel.locator('.thebe-delivery-mark-read[aria-pressed="true"]').textContent(),'✓ Read','All filter retains read state '+label);
    assert.equal(await bell.getAttribute('data-count'),'11','Unread badge decreases without changing delivery status '+label);
    assert.match(await panel.locator('#thebeDeliveryActionStatus').textContent(),/does not complete/,
      'Reading a reminder cannot falsely complete the job '+label);

@@ -25,3 +25,38 @@ export function previewInvoicePayments({invoiceTotalMinor,depositDueMinor=0,inst
  if(paid>total)throw new TypeError("overpayment");
  return Object.freeze({currency:"BWP",invoiceTotalMinor:total,depositDueMinor:deposit,scheduledMinor:scheduled,unscheduledMinor:total-scheduled,settledMinor:paid,outstandingMinor:total-paid,instalments:Object.freeze(schedule),previewOnly:true});
 }
+
+/** Read-only schedule projection from an already verified canonical invoice net
+ * allocation. Never stores a schedule or accepts a payment claim from a customer.
+ * Deposits are allocated first, then instalments by due date and stable ID.
+ * Allocation here is a display convention, not a ledger posting.
+ */
+export function projectInvoiceSchedule({invoiceTotalMinor,allocatedMinor,depositDueMinor=0,depositDueDate,instalments=[],asOf}={}){
+ const today=validScheduleDate(asOf),paid=amount(allocatedMinor,"allocated");
+ const base=previewInvoicePayments({invoiceTotalMinor,depositDueMinor,instalments});
+ if(paid>base.invoiceTotalMinor)throw new TypeError("overpayment");
+ if(depositDueMinor>0)validScheduleDate(depositDueDate);
+ if(base.instalments.some(row=>row.amountMinor===0))throw new TypeError("invalid_zero_instalment");
+ let available=paid;
+ const rows=[];
+ const allocate=(kind,id,dueDate,amountMinor)=>{
+  const coveredMinor=Math.min(available,amountMinor);
+  available-=coveredMinor;
+  const remainingMinor=amountMinor-coveredMinor;
+  rows.push(Object.freeze({kind,id,dueDate,amountMinor,coveredMinor,remainingMinor,
+   status:remainingMinor===0?"paid":dueDate<today?"overdue":coveredMinor>0?"partially_paid":"unpaid"}));
+ };
+ if(depositDueMinor>0)allocate("deposit",null,depositDueDate,depositDueMinor);
+ for(const row of [...base.instalments].sort((a,b)=>a.dueDate<b.dueDate?-1:a.dueDate>b.dueDate?1:a.id<b.id?-1:a.id>b.id?1:0))
+  allocate("instalment",row.id,row.dueDate,row.amountMinor);
+ const outstandingMinor=base.invoiceTotalMinor-paid;
+ const unscheduledOutstandingMinor=base.unscheduledMinor-available;
+ return Object.freeze({currency:"BWP",outstandingMinor,unscheduledOutstandingMinor,
+  scheduledOutstandingMinor:outstandingMinor-unscheduledOutstandingMinor,
+  overdueMinor:rows.reduce((sum,row)=>sum+(row.status==="overdue"?row.remainingMinor:0),0),
+  rows:Object.freeze(rows),previewOnly:true});
+}
+function validScheduleDate(v){
+ if(typeof v!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(v)||!Number.isFinite(Date.parse(v))||new Date(v).toISOString().slice(0,10)!==v)throw new TypeError("invalid_schedule_date");
+ return v;
+}

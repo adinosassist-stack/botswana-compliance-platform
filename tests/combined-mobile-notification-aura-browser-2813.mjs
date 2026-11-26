@@ -16,7 +16,7 @@ const executablePath=[process.env.CHROMIUM_EXECUTABLE_PATH,
   "/usr/bin/google-chrome","/usr/bin/google-chrome-stable","/usr/bin/chromium"]
   .filter(Boolean).find(p=>fs.existsSync(p));
 const fixture=[
-  '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">',
+  '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">',
   '<link rel="stylesheet" href="/assets/thebe-ai-dock.css">',
   '<link rel="stylesheet" href="/assets/delivery-reminder-notifications.css">',
   '<link rel="stylesheet" href="/assets/workspace-audit-refinements-20261013.css">',
@@ -79,7 +79,7 @@ try {
       assert(await sheet.isVisible(),"Approved notification sheet opens "+label);
       assert.equal(await sheet.getAttribute("aria-modal"),"true","Sheet is foreground modal "+label);
       assert.equal(await sheet.locator(".thebe-delivery-sheet-header h2").textContent(),
-        "Notifications (1)","Unread count visible "+label);
+        "Notifications 1","Unread count visible "+label);
       assert(await sheet.getByRole("button",{name:/View installation FAKE-001/}).isVisible(),
         "Real View Task control reachable "+label);
       assert(await sheet.getByRole("button",{name:"Close reminders"}).isVisible(),

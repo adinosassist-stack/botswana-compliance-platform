@@ -1,3 +1,4 @@
+import {projectInvoiceLifecycle} from "../../server/essentials-invoice-lifecycle.mjs";
 import {handleCustomerRelationshipRequest} from "./customer-relationships.js";
 
 const ISO_DATE=/^\d{4}-\d{2}-\d{2}$/;
@@ -21,6 +22,17 @@ function gaboroneBusinessDate(value=new Date()){
   }catch{
     return value.toISOString().slice(0,10);
   }
+}
+
+// All callers use rows returned by tenant-scoped Finance Core queries.
+// Keep the canonical net allocation as the sole source of paid/outstanding state.
+function lifecycleFields(row,tenantId,businessDate,{openOnly=false}={}){
+  const p=projectInvoiceLifecycle({tenantId,invoice:{
+    tenantId,currency:openOnly?"BWP":row.currency,status:openOnly?"issued":row.status,
+    totalMinor:Number(row.total_minor),allocatedMinor:Number(row.allocated_minor),dueDate:row.due_on
+  },asOf:businessDate});
+  return {totalMinor:p.totalMinor,allocatedMinor:p.allocatedMinor,outstandingMinor:p.outstandingMinor,
+    lifecycleStatus:p.status,overdue:p.overdue,partiallyPaid:p.partiallyPaid,reminderEligible:p.reminderEligible};
 }
 
 function invoiceAllocationPath(pathname){
@@ -141,10 +153,7 @@ export async function financeReceivablesSummary(env,tenantId,{businessDate=gabor
       invoiceNumber:text(row.invoice_number,80),
       issuedOn:row.issued_on||null,
       dueOn:row.due_on||null,
-      totalMinor:Number(row.total_minor||0),
-      allocatedMinor:Number(row.allocated_minor||0),
-      outstandingMinor:Number(row.outstanding_minor||0),
-      overdue:Number(row.overdue||0)===1
+      ...lifecycleFields(row,tenantId,businessDate,{openOnly:true})
     }))),
     authority:Object.freeze({
       canonical:true,
@@ -218,10 +227,7 @@ export async function financeReceivableCustomerLookup(env,tenantId,{customerQuer
       invoiceNumber:text(row.invoice_number,80),
       issuedOn:row.issued_on||null,
       dueOn:row.due_on||null,
-      totalMinor:Number(row.total_minor||0),
-      allocatedMinor:Number(row.allocated_minor||0),
-      outstandingMinor:Number(row.outstanding_minor||0),
-      overdue:Number(row.overdue||0)===1
+      ...lifecycleFields(row,tenantId,businessDate,{openOnly:true})
     }))),
     authority
   });
@@ -297,11 +303,9 @@ export async function handleFinanceReceivablesRequest({
     const businessDate=gaboroneBusinessDate();
     const items=(rows.results||[]).map(row=>({
       id:row.id,customerId:row.customer_id,customerName:row.customer_name,invoiceNumber:row.invoice_number,
-      issuedOn:row.issued_on,dueOn:row.due_on,description:row.description,totalMinor:Number(row.total_minor||0),
-      allocatedMinor:Number(row.allocated_minor||0),
-      outstandingMinor:row.status==="void"?0:Math.max(0,Number(row.total_minor||0)-Number(row.allocated_minor||0)),
+      issuedOn:row.issued_on,dueOn:row.due_on,description:row.description,
       currency:row.currency,status:row.status,
-      overdue:row.status==="issued"&&row.due_on<businessDate&&Number(row.total_minor||0)>Number(row.allocated_minor||0),
+      ...lifecycleFields(row,auth.tenant_id,businessDate),
       createdAt:row.created_at
     }));
     return json({
