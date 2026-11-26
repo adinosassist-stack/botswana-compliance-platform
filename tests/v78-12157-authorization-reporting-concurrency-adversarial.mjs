@@ -16,9 +16,12 @@ ok(migration.includes("CREATE TRIGGER IF NOT EXISTS daily_employee_reports_revis
 ok(schema.includes("daily_report_revisions_report_revision_uq")&&schema.includes("daily_employee_reports_revision_snapshot"),"fresh schema includes reporting concurrency constraints");
 const reportStart=worker.indexOf('if(url.pathname==="/public/daily-reporting/submit"');
 const reportEnd=worker.indexOf('if(url.pathname==="/public/passport/verify"',reportStart);
-const report=worker.slice(reportStart,reportEnd);
+const reportRoute=worker.slice(reportStart,reportEnd);
+const coreStart=worker.indexOf("async function submitDailyEmployeeReport("),coreEnd=worker.indexOf("async function dailyOpsDashboard(",coreStart);
+const report=worker.slice(coreStart,coreEnd);
+ok(coreStart>=0&&coreEnd>coreStart&&reportRoute.includes("return submitDailyEmployeeReport(env,body,access)"),"bearer route and staff route share canonical report submission core");
 ok(reportStart>=0&&reportEnd>reportStart,"daily reporting submit route located");
-ok(report.includes("revision_count=revision_count+1")&&report.includes("AND revision_count=? RETURNING revision_count"),"report correction uses compare-and-set revision update");
+ok(report.includes("revision_count=revision_count+1")&&report.includes("AND revision_count=? AND ${accessGuard} RETURNING revision_count"),"report correction uses compare-and-set revision update");
 ok(report.includes("ON CONFLICT(tenant_id,employee_id,location_id,report_date) DO NOTHING RETURNING id,revision_count"),"first report insert handles concurrent creation");
 ok(report.includes("dailyReportPayloadMatches(existing,payload)"),"identical report retries are deduplicated");
 ok(!report.includes("INSERT INTO daily_report_revisions(report_id,tenant_id,revision_no,snapshot_json) VALUES(?,?,?,?)"),"route no longer snapshots revisions non-atomically");
