@@ -1,0 +1,101 @@
+name: Employee Cash - protected staging authentication migration
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/employee-cash-staging-authentication-migration.yml'
+      - 'scripts/employee-cash-staging-authentication-apply.mjs'
+      - 'cloudflare/staging/employee-cash-authentication.sql'
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Exact current main SHA
+        required: true
+        type: string
+      expected_migration_sha256:
+        description: Approved staging authentication SQL SHA-256
+        required: true
+        type: string
+      expected_database_id:
+        description: Approved isolated employee staging D1 UUID
+        required: true
+        type: string
+      authorization:
+        description: Owner authorization for the isolated staging migration
+        type: choice
+        required: true
+        default: DO_NOT_RUN
+        options:
+          - DO_NOT_RUN
+          - APPLY_EMPLOYEE_CASH_STAGING_AUTH
+      recovery_acceptance:
+        description: Accept staging-only Time Travel as the manual recovery method
+        type: choice
+        required: true
+        default: DO_NOT_RUN
+        options:
+          - DO_NOT_RUN
+          - ACCEPT_STAGING_TIME_TRAVEL_RECOVERY
+
+permissions:
+  contents: read
+
+concurrency:
+  group: employee-cash-protected-staging-preflight
+  cancel-in-progress: false
+
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: |
+          node --check scripts/employee-cash-staging-authentication-apply.mjs
+          node --test tests/employee-cash.test.mjs tests/employee-cash-protected-staging-preflight.test.mjs
+          node scripts/employee-cash-protected-staging-preflight.mjs --offline
+
+  apply-isolated-staging:
+    needs: offline
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      github.actor == 'adinosassist-stack' &&
+      github.triggering_actor == 'adinosassist-stack' &&
+      github.run_attempt == '1' &&
+      inputs.expected_main_sha == github.sha &&
+      inputs.authorization == 'APPLY_EMPLOYEE_CASH_STAGING_AUTH' &&
+      inputs.recovery_acceptance == 'ACCEPT_STAGING_TIME_TRAVEL_RECOVERY'
+    environment: employee-self-service-staging-protected
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Verify and apply the approved SQL only to isolated employee staging
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          EXPECTED_MIGRATION_SHA256: ${{ inputs.expected_migration_sha256 }}
+          EXPECTED_DATABASE_ID: ${{ inputs.expected_database_id }}
+          MIGRATION_AUTHORIZATION: ${{ inputs.authorization }}
+          RECOVERY_ACCEPTANCE: ${{ inputs.recovery_acceptance }}
+          CLOUDFLARE_ACCOUNT_ID: ddd23cab31928a4bb3d4998df9b26d1d
+          STAFF_STAGING_GITHUB_READ_TOKEN: ${{ secrets.STAFF_STAGING_GITHUB_READ_TOKEN }}
+          STAFF_STAGING_CLOUDFLARE_TOKEN: ${{ secrets.STAFF_STAGING_CLOUDFLARE_TOKEN }}
+          STAFF_STAGING_D1_WRITE_TOKEN: ${{ secrets.STAFF_STAGING_D1_WRITE_TOKEN }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN_SHA"
+          node scripts/employee-cash-staging-authentication-apply.mjs
