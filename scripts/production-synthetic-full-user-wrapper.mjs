@@ -178,7 +178,7 @@ async function runFullUserJourney(credentials){
         dock.dataset.geminiNarrowV274==='1'&&dock.dataset.geminiNarrowExpanded===(expanded?'1':'0');
     },null,{timeout:15000});
     const publicDock=await page.evaluate(()=>{
-      const audio=document.querySelector('#thebeAiDock .thebe-ai-audio');
+      const audio=document.querySelector('#thebeAiDock .thebe-ai-conversation-voice');
       const send=document.querySelector('#thebeAiDock .thebe-ai-send');
       const input=document.getElementById('thebeAiDockInput');
       const voiceCard=document.querySelector('#thebeAiDock .thebe-ai-voice-card');
@@ -199,6 +199,10 @@ async function runFullUserJourney(credentials){
         mascotSvgs:document.querySelectorAll('#thebeAiDock .thebe-mascot-svg').length,
         voiceCardDisplay:voiceCard?getComputedStyle(voiceCard).display:'missing',
         audioVisible:visible(audio),
+        audioCount:document.querySelectorAll('#thebeAiDock .thebe-ai-conversation-voice').length,
+        legacyAudioCount:document.querySelectorAll('#thebeAiDock .thebe-ai-audio').length,
+        attachVisible:visible(document.querySelector('#thebeAiDock .thebe-ai-attach')),
+        quickVisible:visible(document.querySelector('#thebeAiDock .thebe-ai-quick')), 
         audioLabel:String(audio?.getAttribute('aria-label')||''),
         sendHidden:send?.hidden??false,
         sendDisplay:send?getComputedStyle(send).display:'missing',
@@ -210,17 +214,19 @@ async function runFullUserJourney(credentials){
     assert(publicDock.minimizeDisplay==='none','desktop Thebe dock must not expose the mobile minimise control');
     assert(publicDock.mascotImages===0&&publicDock.mascotSvgs===0,
       `Talk to Thebe must stay character-free: ${safe(JSON.stringify(publicDock))}`);
-    assert(publicDock.voiceCardDisplay==='none'&&publicDock.audioVisible&&/Start Thebe voice/i.test(publicDock.audioLabel)&&publicDock.sendHidden&&publicDock.sendDisplay==='none'&&publicDock.composerInputPresent,
+    assert(publicDock.voiceCardDisplay==='none'&&publicDock.audioVisible&&publicDock.audioCount===1&&publicDock.legacyAudioCount===0&&publicDock.audioLabel==='Start voice conversation with Thebe'&&publicDock.sendHidden&&publicDock.sendDisplay==='none'&&publicDock.composerInputPresent,
       `Talk to Thebe must expose the current empty-composer mic contract while the legacy voice card stays hidden: ${safe(JSON.stringify(publicDock))}`);
     mark('Thebe desktop persistence',`release=${publicDock.release} full public dock fixed open; composer mic visible with Send hidden; pill/minimise/legacy voice card hidden`);
-    const marketingCopy=await page.evaluate(()=>({
-      quick:[...document.querySelectorAll('#thebeAiDock .thebe-ai-quick button')].map(x=>(x.textContent||'').trim()),
-      sub:(document.querySelector('#thebeAiDock .thebe-ai-voice-sub')?.textContent||'').trim(),
-      sharedApiRuntime:typeof globalThis.BW?.api?.createClient==='function'
-    }));
-    assert(marketingCopy.sharedApiRuntime,'public marketing page did not load the centralized BW API runtime required by voice');
-    assert(marketingCopy.quick.some(x=>/What is Thebe Desk/i.test(x)),'public Thebe dock did not expose product explainer prompts');
-    assert(/ask about Thebe Desk/i.test(marketingCopy.sub),'public Thebe dock did not advertise voice sampling');
+    assert(!publicDock.attachVisible&&!publicDock.quickVisible,'public composer must hide workspace uploads and retired suggestion row');
+    assert(await page.evaluate(()=>typeof globalThis.BW?.api?.createClient==='function'),'public marketing page did not load the centralized BW API runtime required by voice');
+    const publicInput=page.locator('#thebeAiDockInput');
+    const publicVoice=page.locator('#thebeAiDock .thebe-ai-conversation-voice');
+    const publicSend=page.locator('#thebeAiDock .thebe-ai-send');
+    await publicInput.fill('Synthetic composer control check');
+    assert(await publicVoice.isHidden()&&await publicSend.isVisible(),'typing must switch from voice to Send');
+    await publicInput.fill('');
+    assert(await publicVoice.isVisible()&&await publicSend.isHidden(),'clearing the composer must restore the accessible voice control');
+    mark('public composer transition','single unified voice control; no duplicate mic; typing exposes Send; clearing restores voice; workspace upload hidden');
     const syntheticAudio=await page.evaluate(async()=>{
       try{
         const AudioContextCtor=globalThis.AudioContext||globalThis.webkitAudioContext;
