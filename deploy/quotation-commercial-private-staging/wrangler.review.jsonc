@@ -1,0 +1,23 @@
+{
+  // SOURCE REVIEW ONLY. No deploy/provisioning permission. Default-deny HTTP.
+  "name": "bw-quotation-commercial-private-staging",
+  "main": "./worker.mjs",
+  "compatibility_date": "2026-11-17",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [],
+  "assets": {"directory":"../../public", "binding":"ASSETS", "run_worker_first":true},
+  "d1_databases": [
+    {"binding":"DB", "database_name":"bw-quotation-staging", "database_id":"aec227e9-b0f2-4b00-8de0-105465c4e2d6"},
+    {"binding":"AUTH_DB", "database_name":"bw-quotation-auth-synthetic-staging", "database_id":"d7ad8e99-2ee4-446c-9358-0e186031571d"}
+  ],
+  "services": [{"binding":"QUOTATION_PDF_RENDERER", "service":"bw-quotation-commercial-pdf-private-staging", "entrypoint":"QuotationCommercialPdfPrivateRpc"}],
+  "vars": {
+    "APP_ENV":"quotation-private-staging",
+    "QUOTATION_COMMERCIAL_STAGE_ENABLED":"false",
+    "QUOTATION_COMMERCIAL_STAGE_DB_ID":"aec227e9-b0f2-4b00-8de0-105465c4e2d6",
+    "QUOTATION_COMMERCIAL_STAGE_AUTH_DB_ID":"d7ad8e99-2ee4-446c-9358-0e186031571d"
+  }
+  // Private origin, synthetic tenant ID and staging-only session secret absent.
+  // No public ingress is configured. No production resource or credential.
+}
