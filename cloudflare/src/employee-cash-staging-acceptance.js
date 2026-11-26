@@ -75,7 +75,8 @@ export async function runEmployeeCashStagingAcceptance(service, fixture) {
   const count = await call("POST", staffCash + "/counts", 201, staffSession, { countedMinor: 8000, reportDate: date });
   requireCheck(uuid.test(count.body.id), "cash count identity");
   const expensePath = managerCash + "/entries/" + expense.body.id + "/review";
-  await call("POST", expensePath, 404, otherSession, { decision: "approve" });
+  const rejected = await call("POST", expensePath, 409, otherSession, { decision: "approve" });
+  requireCheck(rejected.body.error === "cash_review_unavailable_or_already_reviewed", "cross-tenant review denial");
   await call("POST", expensePath, 200, managerSession, { decision: "approve" });
   await call("POST", managerCash + "/counts/" + count.body.id + "/review", 200, managerSession, { decision: "approve" });
 
