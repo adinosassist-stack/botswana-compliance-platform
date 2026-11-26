@@ -14,6 +14,7 @@ if(!prefix)throw Error("quotation_browser_acceptance_requires_isolated_engine");
 const {chromium}=createRequire(join(prefix,"custom-browser-test.cjs"))("playwright");
 const root=resolve(process.cwd());
 const allowed=new Set([
+ "/public/js/essentials-document-share.mjs",
  "/public/js/quotation-customizable-page.mjs",
  "/public/js/quotation-customizable-page-model.mjs"
 ]);
