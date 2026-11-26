@@ -80,3 +80,19 @@ test('private onboarding scripts all use the centralized API client and staging 
   assert.doesNotMatch(code,/\bfetch\s*\(/);
  }
 });
+
+test('manager review queue is mobile-readable, locally filtered and fail-closed on refresh',()=>{
+ const html=read('public/manager-invite/dashboard/index.html');
+ const js=read('public/js/manager-invite-dashboard.js');
+ for(const id of ['reportBranch','reportDay','reportMode','refreshReports','reportFilterStatus'])assert.ok(html.includes('id="'+id+'"'));
+ assert.match(html,/Latest 50 reports/);
+ assert.match(html,/not manager decisions/);
+ assert.match(js,/items=reportData\.reports\.filter\(r=>ids\.has\(String\(r\.location_id\)\)\)/);
+ assert.match(js,/r\.report_date===day\.value/);
+ assert.match(js,/Number\(r\.needs_attention\)===1/);
+ assert.match(js,/r\.blockers/);assert.match(js,/r\.incidents/);
+ assert.match(js,/clear\(\);refresh\.disabled=true/);
+ assert.match(js,/clear\(\);status\.textContent='Manager access is unavailable/);
+ assert.doesNotMatch(js,/method:\s*['"](?:POST|PATCH|PUT|DELETE)/);
+ assert.doesNotMatch(js,/innerHTML|localStorage|sessionStorage/);
+});
