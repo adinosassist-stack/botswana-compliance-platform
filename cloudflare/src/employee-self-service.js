@@ -112,7 +112,8 @@ export async function handleStaffPublic({request,url,env,json,readJson,requestOr
  if(path==="/public/employee/tasks"&&method==="GET"){
   if(!staff)return json({error:"unauthenticated"},401);
   const rows=await env.DB.prepare("SELECT t.id,t.title,t.detail,t.due_date,t.priority,t.status,t.version,t.created_at,t.updated_at,n.note latest_note,n.actor_kind latest_note_actor FROM employee_portal_tasks t LEFT JOIN employee_portal_task_events n ON n.rowid=(SELECT MAX(ev.rowid) FROM employee_portal_task_events ev WHERE ev.task_id=t.id AND ev.tenant_id=t.tenant_id AND LENGTH(TRIM(ev.note))>0) WHERE t.tenant_id=? AND t.employee_id=? ORDER BY CASE t.status WHEN 'submitted' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'assigned' THEN 2 ELSE 3 END,t.due_date,t.created_at DESC LIMIT 100").bind(staff.tenant_id,staff.employee_id).all();
-  return json({items:rows.results||[]});
+  const history=await env.DB.prepare("SELECT ev.task_id,ev.actor_kind,ev.action,ev.previous_status,ev.next_status,ev.note,ev.created_at FROM employee_portal_task_events ev JOIN employee_portal_tasks t ON t.id=ev.task_id AND t.tenant_id=ev.tenant_id WHERE t.tenant_id=? AND t.employee_id=? ORDER BY ev.rowid DESC LIMIT 500").bind(staff.tenant_id,staff.employee_id).all();
+  return json({items:rows.results||[],history:history.results||[]},200,{"cache-control":"no-store"});
  }
  if(path==="/public/employee/logout"&&method==="POST"){
   if(!staff||!isCsrfValid(request,staff))return json({error:"unauthenticated"},401,{"set-cookie":clearCookie()});

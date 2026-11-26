@@ -162,6 +162,10 @@ test("employee invitation, login and task lifecycle run on real SQLite D1",async
  const reviewedTask=reviewedStaffTasks.body.items.find(x=>x.id===task.body.id);
  assert.equal(reviewedTask.latest_note,"Checked result");
  assert.equal(reviewedTask.latest_note_actor,"manager");
+ assert.deepEqual(reviewedStaffTasks.body.history.map(x=>x.action),["approve","submit","start","assign"]);
+ assert.ok(reviewedStaffTasks.body.history.every(x=>x.task_id===task.body.id));
+ assert.equal(reviewedStaffTasks.body.history[0].note,"Checked result");
+ assert.ok(reviewedStaffTasks.body.history.every(x=>!Object.hasOwn(x,"actor_id")));
  const events=f.sql.prepare("SELECT action,actor_kind,previous_status,next_status FROM employee_portal_task_events WHERE task_id=? ORDER BY created_at,id").all(task.body.id);
  assert.equal(events.length,4);
  assert.deepEqual(new Set(events.map(x=>x.action)),new Set(["assign","start","submit","approve"]));

@@ -201,3 +201,15 @@ test("manager cash overview retains inactive employee cash history",async t=>{
  assert.equal(overview.body.balances[0].pending_minor,85000);
  assert.equal((await f.manager("/api/employee-self-service/cash/advances","POST",advance(EM_A,20000,"no-cash-to-inactive-0001"))).status,404);
 });
+
+test("employee accommodation expenses retain category and idempotency",async t=>{
+ const f=fixture(t);
+ const input={...expense(35000,"accommodation-receipt-001"),category:"accommodation",purpose:"Overnight stay for installation"};
+ const saved=await f.staff("/public/employee/cash/expenses","POST",input);
+ assert.equal(saved.status,201);
+ assert.equal((await f.staff("/public/employee/cash/expenses","POST",input)).status,200);
+ const list=await f.staff("/public/employee/cash");
+ assert.equal(list.body.items.length,1);
+ assert.equal(list.body.items[0].category,"accommodation");
+ assert.equal(list.body.summary.reportedSpentMinor,35000);
+});

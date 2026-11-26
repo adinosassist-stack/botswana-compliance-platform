@@ -92,3 +92,19 @@ receipt uploads, cash collection/handovers, controlled expense resubmission and
 reimbursement, approval ceilings, schedule/reminder integration and complete
 permission-aware navigation. Keep these in the same consolidated portal batch;
 require isolated hosted qualification and independent review before activation.
+
+### Continuation: task history, accommodation and CI inventory
+
+- Staff task responses now include the latest 500 own-task events, joined by
+  tenant and employee. Actor account identifiers are excluded. The UI shows
+  submission/approval history under each task, using text rendering.
+- Accommodation is accepted as an expense category, with duplicate-request
+  behavior verified against SQLite.
+- GitHub employee cash and self-service offline checks passed at `51ee3cc`.
+  Recovery and audit-remediation CI failed because the historical route inventory
+  test expected 34 pre-auth method/routes and six staff routes. The reviewed
+  additions require 38 and ten respectively; the updated test also verifies
+  exact methods for each of the four added staff paths.
+- Fresh local checks: 45 employee tests pass; route-security adversarial test
+  passes 59 assertions, and route inventory passes. Broader GitHub CI must rerun
+  on the new head; no hosted qualification or activation is implied.

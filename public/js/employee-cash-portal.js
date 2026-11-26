@@ -20,7 +20,7 @@
   host.append(cards,status);
   const forms=h("div",null,"thebe-cash-forms");
   const expense=h("form"),category=h("select"),purpose=input("text"),amount=input("text"),receipt=input("text",false),job=input("text",false),on=input("date");
-  for(const type of ["transport","materials","fuel","meals","supplies","site","other"]){const o=h("option",type);o.value=type;category.append(o)}
+  for(const type of ["transport","materials","fuel","meals","accommodation","supplies","site","other"]){const o=h("option",type);o.value=type;category.append(o)}
   purpose.maxLength=500;purpose.minLength=3;purpose.placeholder="What was this cash used for?";
   amount.inputMode="decimal";amount.placeholder="0.00";receipt.maxLength=160;receipt.placeholder="Receipt number (or explain later)";
   job.maxLength=120;job.placeholder="Job or site reference (optional)";

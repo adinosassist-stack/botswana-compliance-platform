@@ -2,7 +2,7 @@
 const MAX_ENTRY=10000000,MAX_COUNT=100000000;
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const KEY=/^[A-Za-z0-9_-]{16,80}$/;
-const CATEGORIES=new Set(["transport","materials","fuel","meals","supplies","site","other"]);
+const CATEGORIES=new Set(["transport","materials","fuel","meals","accommodation","supplies","site","other"]);
 const enabled=env=>env?.THEBE_EMPLOYEE_CASH_ENABLED==="true";
 const clean=(v,max)=>typeof v==="string"&&v.trim().length<=max?v.trim():null;
 const validDate=v=>{

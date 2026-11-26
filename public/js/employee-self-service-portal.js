@@ -50,6 +50,15 @@ function renderTask(item){
   task.append(actions);
  }else if(item.status==="submitted")task.append(element("p",null,"Waiting for your manager to review this work."));
  else if(item.status==="completed")task.append(element("p",null,"Approved and completed."));
+ if(item.history?.length){
+  const details=element("details"),summary=element("summary",null,"Submission and approval history"),list=element("ol");
+  for(const event of item.history){
+   const row=element("li",null,String(event.created_at||"")+" · "+(event.actor_kind==="manager"?"Manager":"You")+" · "+String(event.action||"").replaceAll("_"," "));
+   if(event.note)row.append(element("p","thebe-staff-task__note",event.note));
+   list.append(row);
+  }
+  details.append(summary,list);task.append(details);
+ }
  return task;
 }
 async function refreshTasks(){
@@ -59,7 +68,7 @@ async function refreshTasks(){
   let open=0,pending=0,done=0;
   for(const item of items){
    if(item.status==="submitted")pending++;else if(item.status==="completed")done++;else open++;
-   list.append(renderTask(item));
+   list.append(renderTask({...item,history:(response.history||[]).filter(event=>event.task_id===item.id)}));
   }
   byId("staffOpenCount").textContent=String(open);
   byId("staffPendingCount").textContent=String(pending);
