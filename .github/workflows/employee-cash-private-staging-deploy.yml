@@ -94,6 +94,9 @@ jobs:
               config = tomllib.loads(Path(f"cloudflare/wrangler.employee-cash-{file}.toml").read_text())
               allowed = {"name", "main", "compatibility_date", "workers_dev", "preview_urls", "keep_vars",
                          "vars", "d1_databases", "ratelimits" if file == "authenticated-staging" else "services"}
+              if file == "staging-acceptance":
+                  allowed.add("workflows")
+                  assert config["workflows"] == [{"name": name, "binding": "ACCEPTANCE", "class_name": "EmployeeCashAcceptance"}]
               assert set(config) == allowed
               assert config["name"] == name and config["main"] == f"src/employee-cash-{entry}-entry.js"
               assert all(config[key] is False for key in ("workers_dev", "preview_urls", "keep_vars"))
@@ -145,3 +148,50 @@ jobs:
             --var THEBE_STAFF_PORTAL_ENABLED:true --var THEBE_EMPLOYEE_CASH_ENABLED:true \
             --secrets-file "$secret_file"
           npx --no-install wrangler deploy --config cloudflare/wrangler.employee-cash-staging-acceptance.toml
+      - name: Run one private hosted acceptance instance
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ddd23cab31928a4bb3d4998df9b26d1d
+          CLOUDFLARE_API_TOKEN: ${{ secrets.STAFF_STAGING_WORKERS_DEPLOY_TOKEN }}
+        run: |
+          node --input-type=module <<'JS'
+          import assert from "node:assert/strict";
+          import { setTimeout as delay } from "node:timers/promises";
+
+          const { CLOUDFLARE_ACCOUNT_ID: account, CLOUDFLARE_API_TOKEN: token, GITHUB_RUN_ID: run } = process.env;
+          assert.equal(account, "ddd23cab31928a4bb3d4998df9b26d1d");
+          assert.ok(token && /^\d+$/.test(run));
+          const endpoint = `https://api.cloudflare.com/client/v4/accounts/${account}/workflows/bw-employee-cash-staging-acceptance/instances`;
+          const id = "github-" + run;
+          async function call(url, body) {
+            const response = await fetch(url, {
+              method: body ? "POST" : "GET",
+              headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+              body: body ? JSON.stringify(body) : undefined,
+              redirect: "error",
+              signal: AbortSignal.timeout(15000),
+            });
+            assert.equal(response.ok, true, `Acceptance API returned HTTP ${response.status}`);
+            const payload = await response.json();
+            assert.equal(payload.success, true, "Acceptance API rejected request");
+            return payload.result;
+          }
+
+          console.log("Private acceptance instance: " + id);
+          await call(endpoint, { instance_id: id });
+          for (let attempt = 0; attempt < 36; attempt++) {
+            const result = await call(endpoint + "/" + id);
+            if (result.status === "complete") {
+              assert.equal(result.output?.result, "PASS", "Hosted checks did not return PASS");
+              for (const field of ["employeeSession", "managerSession", "cashFlow", "tenantIsolation"]) {
+                assert.equal(result.output[field], true, "Missing hosted evidence: " + field);
+              }
+              console.log("Hosted employee and manager sessions, cash flow and tenant isolation passed.");
+              process.exit(0);
+            }
+            if (!["queued", "running", "waiting", "waitingForPause"].includes(result.status)) {
+              throw Error("Hosted acceptance ended without PASS. Inspect the private instance before retrying.");
+            }
+            await delay(5000);
+          }
+          throw Error("Hosted acceptance is unconfirmed. Inspect the private instance before retrying.");
+          JS
