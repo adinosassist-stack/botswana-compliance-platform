@@ -286,7 +286,8 @@
     },
     {
       "methods": [
-        "GET"
+        "GET",
+        "POST"
       ],
       "kind": "exact",
       "pattern": "/public/employee/reports",
