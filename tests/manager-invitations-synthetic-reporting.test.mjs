@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {createManagerScopedReadHttp} from '../cloudflare/src/manager-invitations-scoped-read.js';
-import {createManagerDailyReportReview} from '../cloudflare/src/manager-daily-report-review.js';
+import {createManagerDailyReportReview,managerDailyReviewEnabled,readStaffDailyReviewNotices} from '../cloudflare/src/manager-daily-report-review.js';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const sql=read('db/drafts/manager-invitations-2578-synthetic-reporting.sql');
 function fixture(){
@@ -91,5 +91,38 @@ test('revision-bound manager decisions are append-only, scoped and idempotent in
   assert.equal((await review.inspect(manager,'report-a')).status,404);
   assert.equal((await decide('approve','',manager,{expectedRevision:1})).status,404);
   assert.equal(d.prepare("SELECT COUNT(*) n FROM daily_report_manager_reviews").get().n,3);
+ }finally{d.close()}
+});
+
+test('review activation is default off, staging only and requires every readiness flag',()=>{
+ const flags=['MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED','MANAGER_INVITATIONS_SCHEMA_READY','MANAGER_INVITATIONS_ACCESS_READY','MANAGER_DAILY_REPORT_REVIEW_ENABLED','MANAGER_DAILY_REPORT_REVIEW_SCHEMA_READY'];
+ const enabled={APP_ENV:'staging',...Object.fromEntries(flags.map(k=>[k,'true']))};
+ assert.equal(managerDailyReviewEnabled({}),false);
+ assert.equal(managerDailyReviewEnabled({...enabled,APP_ENV:'production'}),false);
+ assert.equal(managerDailyReviewEnabled(enabled),true);
+ for(const k of flags)assert.equal(managerDailyReviewEnabled({...enabled,[k]:'false'}),false,k);
+});
+test('enabled manager reads and employee notices reflect only the current scoped revision',async()=>{
+ const {d,db}=fixture();
+ try{
+  d.exec(read('db/drafts/manager-daily-report-review.sql'));
+  const review=createManagerDailyReportReview({db,id:()=>'review-a'});
+  const actor={tenantId:'a',userId:'manager-a',role:'manager'};
+  const reportId='report-a',reason='Please correct delivery evidence';
+  assert.equal((await review.decide(actor,{reportId,expectedRevision:0,action:'return',note:reason})).status,201);
+  const request=new Request('https://private.example.invalid/api/workspace/managers/my-reports');
+  const enabled=createManagerScopedReadHttp({db,reviewEnabled:true});
+  const off=createManagerScopedReadHttp({db});
+  let result=await (await enabled(request,actor)).json();
+  assert.equal(result.reviewEnabled,true);assert.equal(result.reports[0].review_status,'correction_requested');assert.equal(result.reports[0].review_note,reason);
+  result=await (await off(request,actor)).json();
+  assert.equal(result.reviewEnabled,false);assert.equal(result.reports[0].review_status,undefined);
+  assert.equal((await readStaffDailyReviewNotices(db,'a','employee-a'))[0].note,reason);
+  assert.deepEqual(await readStaffDailyReviewNotices(db,'b','employee-b'),[]);
+  assert.deepEqual(await readStaffDailyReviewNotices(db,'a','employee-b'),[]);
+  d.prepare("UPDATE daily_employee_reports SET revision_count=1 WHERE id=?").run(reportId);
+  assert.deepEqual(await readStaffDailyReviewNotices(db,'a','employee-a'),[]);
+  result=await (await enabled(request,actor)).json();
+  assert.equal(result.reports[0].review_status,'pending');
  }finally{d.close()}
 });
