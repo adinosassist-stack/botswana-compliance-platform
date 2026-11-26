@@ -7,13 +7,13 @@ on:
         required: true
         type: string
       mode:
-        description: Verify policy, bootstrap disabled Worker, or provision protected inert resources
+        description: Verify policy, bootstrap a disabled Worker, or provision protected inert resources
         required: true
         type: choice
-        options: [preflight, bootstrap-inert, provision-inert-resources]
+        options: [preflight, bootstrap-inert, provision-inert-resources, bootstrap-private-backend]
         default: preflight
       authorization:
-        description: PREFLIGHT_ONLY, BOOTSTRAP_INERT_DOCK_STAGING or PROVISION_INERT_DOCK_STAGING
+        description: PREFLIGHT_ONLY, BOOTSTRAP_INERT_DOCK_STAGING, PROVISION_INERT_DOCK_STAGING or BOOTSTRAP_PRIVATE_DOCK_BACKEND
         required: true
         type: string
 permissions:
@@ -40,7 +40,7 @@ jobs:
           [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]
           test "$GITHUB_SHA" = "$EXPECTED_SHA"
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
-          [[ "$MODE:$AUTHORIZATION" == "preflight:PREFLIGHT_ONLY" || "$MODE:$AUTHORIZATION" == "bootstrap-inert:BOOTSTRAP_INERT_DOCK_STAGING" || "$MODE:$AUTHORIZATION" == "provision-inert-resources:PROVISION_INERT_DOCK_STAGING" ]]
+          [[ "$MODE:$AUTHORIZATION" == "preflight:PREFLIGHT_ONLY" || "$MODE:$AUTHORIZATION" == "bootstrap-inert:BOOTSTRAP_INERT_DOCK_STAGING" || "$MODE:$AUTHORIZATION" == "provision-inert-resources:PROVISION_INERT_DOCK_STAGING" || "$MODE:$AUTHORIZATION" == "bootstrap-private-backend:BOOTSTRAP_PRIVATE_DOCK_BACKEND" ]]
           api="repos/$GITHUB_REPOSITORY/environments/general-ai-private-staging"
           reviewer="$(gh api users/thusico --jq .id)"
           gh api "$api" | jq -e --argjson reviewer "$reviewer" '
@@ -131,3 +131,81 @@ jobs:
           DOCK_STAGING_BOOTSTRAP_VERSION_ID: ${{ vars.DOCK_STAGING_BOOTSTRAP_VERSION_ID }}
           DOCK_STAGING_TESTER_EMAILS: ${{ secrets.DOCK_STAGING_TESTER_EMAILS }}
         run: node scripts/dock-provision-inert-resources.mjs
+
+  bootstrap-private-backend:
+    needs: verify
+    if: github.ref == 'refs/heads/main' && github.actor == 'adinosassist-stack' && inputs.mode == 'bootstrap-private-backend' && inputs.authorization == 'BOOTSTRAP_PRIVATE_DOCK_BACKEND'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: general-ai-private-staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - name: Verify the disabled private backend profile
+        run: |
+          python3 - <<'PY'
+          import tomllib
+          from pathlib import Path
+          profile = tomllib.loads(Path('cloudflare/wrangler.dock-hosted-staging-backend.review.toml').read_text())
+          assert set(profile) == {'name', 'main', 'compatibility_date', 'workers_dev', 'preview_urls', 'keep_vars', 'vars', 'd1_databases'}
+          assert profile['name'] == 'bw-dock-private-ai-staging'
+          assert profile['main'] == 'src/general-ai-staging-entry.js'
+          assert profile['workers_dev'] is profile['preview_urls'] is profile['keep_vars'] is False
+          assert profile['d1_databases'] == [{
+              'binding': 'DB',
+              'database_name': 'bw-dock-hosted-synthetic-staging',
+              'database_id': 'c63255cf-c589-4f6b-99c7-2d2e437566b5',
+          }]
+          assert profile['vars'] == {
+              'APP_ENV': 'staging',
+              'THEBE_GENERAL_AI_ENABLED': 'false',
+              'THEBE_GENERAL_AI_RESEARCH_ENABLED': 'false',
+              'PUBLIC_ORIGIN': 'https://ai-staging.thebedesk.com',
+              'PUBLIC_APP_URL': 'https://ai-staging.thebedesk.com',
+              'AI_FEATURES_DEFAULT': 'off',
+              'REGISTRATION_MODE': 'hold',
+              'PAYMENT_PROVIDER': 'none',
+              'AGENT_BOUNDED_TASK_EXECUTION_ENABLED': '0',
+              'THEBE_INTERNAL_AUTONOMY_ENABLED': 'false',
+              'THEBE_LIVE_VOICE_ENABLED': 'false',
+              'THEBE_GPT_LIVE_PREVIEW_ENABLED': 'false',
+          }
+          PY
+      - name: Create and verify the absent private backend
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.DOCK_STAGING_BOOTSTRAP_CLOUDFLARE_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.GENERAL_AI_STAGING_CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test "$CLOUDFLARE_ACCOUNT_ID" = ddd23cab31928a4bb3d4998df9b26d1d
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/bw-dock-private-ai-staging"
+          status="$(curl --silent --show-error --max-time 30 -o "$tmp/before" -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api/settings")"
+          test "$status" = 404
+          jq -e 'any(.errors[]; .code == 10007)' "$tmp/before" >/dev/null
+          npx --no-install wrangler deploy --config cloudflare/wrangler.dock-hosted-staging-backend.review.toml
+          for endpoint in settings subdomain deployments; do
+            curl --fail --silent --show-error --max-time 30 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api/$endpoint" > "$tmp/$endpoint"
+          done
+          jq -e '.success == true and .result.enabled == false and .result.previews_enabled == false' "$tmp/subdomain" >/dev/null
+          jq -e '
+            .result.bindings as $bindings | .success == true
+            and ([.result.bindings[] | select(.type != "plain_text")] | length == 1)
+            and any(.result.bindings[]; .type == "d1" and .name == "DB" and .id == "c63255cf-c589-4f6b-99c7-2d2e437566b5")
+            and all(["THEBE_GENERAL_AI_ENABLED", "THEBE_GENERAL_AI_RESEARCH_ENABLED", "THEBE_LIVE_VOICE_ENABLED"][];
+              . as $flag | any($bindings[]; .name == $flag and .type == "plain_text" and .text == "false"))
+          ' "$tmp/settings" >/dev/null
+          jq -e '.success == true and (.result.deployments[0].versions | length == 1) and .result.deployments[0].versions[0].percentage == 100' "$tmp/deployments" >/dev/null
+          jq -r '"Private Dock backend version: " + .result.deployments[0].versions[0].version_id' "$tmp/deployments"
