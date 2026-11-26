@@ -23,7 +23,7 @@ export async function runEmployeeCashStagingAcceptance(service, fixture) {
     const headers = new Headers({ origin, accept: "application/json" });
     if (session) {
       headers.set("cookie", session.cookie);
-      headers.set("x-csrf-token", session.csrf);
+      headers.set(session.csrfHeader, session.csrf);
     }
     if (payload) headers.set("content-type", "application/json");
     const route = `${method} ${path.replace(uuidInPath, "[id]")}`;
@@ -52,7 +52,7 @@ export async function runEmployeeCashStagingAcceptance(service, fixture) {
     if (cookieName === "__Host-bw_session") {
       requireCheck(body.user?.role === "manager" && body.user.tenantId === account.tenantId, "manager role");
     }
-    return { cookie, csrf: body.csrfToken };
+    return { cookie, csrf: body.csrfToken, csrfHeader: cookieName === "__Host-thebe_staff_session" ? "x-staff-csrf" : "x-csrf-token" };
   }
 
   const managerSession = await signIn("/api/auth/login", manager, "__Host-bw_session");
