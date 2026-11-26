@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {createManagerScopedReadHttp} from '../cloudflare/src/manager-invitations-scoped-read.js';
+import {createManagerDailyReportReview} from '../cloudflare/src/manager-daily-report-review.js';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const sql=read('db/drafts/manager-invitations-2578-synthetic-reporting.sql');
 function fixture(){
@@ -55,4 +56,40 @@ test('real sqlite scoped dashboard and reports reject foreign and ungranted rows
   d.prepare("UPDATE memberships SET status='suspended' WHERE user_id=?").run('manager-a');
   assert.equal((await get('/api/workspace/managers/my-dashboard')).status,403);
  }finally{d.close();}
+});
+
+test('revision-bound manager decisions are append-only, scoped and idempotent in isolated SQLite',async()=>{
+ const {d,db}=fixture();
+ try{
+  d.exec(read('db/drafts/manager-daily-report-review.sql'));
+  let sequence=0;
+  const review=createManagerDailyReportReview({db,id:()=>String(++sequence)});
+  const manager={tenantId:'a',userId:'manager-a',role:'manager'};
+  const other={tenantId:'b',userId:'manager-b',role:'manager'};
+  const input={reportId:'report-a',expectedRevision:0};
+  const decide=(action,note='',actor=manager,extra={})=>review.decide(actor,{...input,action,note,...extra});
+  assert.equal((await review.inspect(manager,'report-a')).reviewStatus,'pending');
+  assert.equal((await review.inspect(other,'report-a')).status,404);
+  assert.equal((await decide('approve','',other)).status,404);
+  assert.equal((await decide('return','no')).status,400);
+  assert.equal((await decide('acknowledge')).status,201);
+  assert.equal((await decide('acknowledge')).idempotent,true);
+  assert.equal((await review.inspect(manager,'report-a')).reviewStatus,'acknowledged');
+  assert.equal((await decide('return','Please correct installation details')).status,201);
+  assert.equal((await decide('approve')).status,409);
+  assert.equal((await review.inspect(manager,'report-a')).reviewStatus,'correction_requested');
+  assert.equal((await decide('return','Please correct installation details')).idempotent,true);
+  assert.equal((await decide('return','Different reason')).status,409);
+  d.prepare("UPDATE daily_employee_reports SET revision_count=1,work_summary='Corrected' WHERE id='report-a'").run();
+  assert.equal((await review.inspect(manager,'report-a')).reviewStatus,'pending');
+  assert.equal((await decide('approve')).status,409);
+  assert.equal((await decide('approve','',manager,{expectedRevision:1})).status,201);
+  assert.equal((await review.inspect(manager,'report-a')).reviewStatus,'approved');
+  assert.equal(d.prepare("SELECT COUNT(*) n FROM daily_report_manager_reviews WHERE report_id='report-a'").get().n,3);
+  assert.equal(d.prepare("SELECT work_summary FROM daily_employee_reports WHERE id='report-a'").get().work_summary,'Corrected');
+  d.prepare("UPDATE workspace_manager_location_grants SET status='revoked' WHERE tenant_id='a' AND manager_user_id='manager-a'").run();
+  assert.equal((await review.inspect(manager,'report-a')).status,404);
+  assert.equal((await decide('approve','',manager,{expectedRevision:1})).status,404);
+  assert.equal(d.prepare("SELECT COUNT(*) n FROM daily_report_manager_reviews").get().n,3);
+ }finally{d.close()}
 });
