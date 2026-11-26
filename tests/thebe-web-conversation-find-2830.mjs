@@ -166,7 +166,7 @@ try{
     window.apiJson=async (url,options)=>{
       if(url!=="/api/ai/general")return original(url,options);
       window.researchRequests.push(JSON.parse(options.body));
-      return {ok:true,answer:"Synthetic cited research",researchPerformed:true,verification:"search_snippets_only",citations:[{url:"https://example.org/source",title:"Example source"},{url:"javascript:alert(1)",title:"Unsafe scheme"},{url:"https://localhost/private",title:"Private host"}]};
+      return {ok:true,answer:"Synthetic cited research",researchPerformed:true,verification:"provider_citations",citations:[{url:"https://example.org/source",title:"Example source"},{url:"javascript:alert(1)",title:"Unsafe scheme"},{url:"https://localhost/private",title:"Private host"}]};
     };
     for(const name of ["thebe-general-ai-enabled","thebe-general-ai-research-enabled"]){
       const meta=document.createElement("meta");meta.name=name;meta.content="true";document.head.append(meta);
@@ -179,6 +179,7 @@ try{
   await composer.press("Enter");
   await page.waitForFunction(()=>document.querySelector(".thebe-ai-web-sources")?.textContent.includes("Example source"));
   assert.deepEqual(await page.evaluate(()=>window.researchRequests),[{question:"Search the web: Search the live web for Botswana’s official census total."}]);
+  await dock.getByText("Web search citations — verify original sources",{exact:true}).waitFor();
   const links=dock.locator(".thebe-ai-web-sources a");
   assert.equal(await links.count(),1);
   assert.equal(await links.getAttribute("href"),"https://example.org/source");
