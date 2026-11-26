@@ -1,0 +1,116 @@
+name: Thebe Desk Production Employee Cash Schema
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Reviewed current main SHA containing this workflow
+        required: true
+        type: string
+      authorization:
+        description: Schema only, after recovery readiness is verified
+        required: true
+        type: choice
+        default: DO_NOT_RUN
+        options:
+          - DO_NOT_RUN
+          - APPLY_EMPLOYEE_CASH_PRODUCTION_SCHEMA
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == 'adinosassist-stack' &&
+      github.triggering_actor == 'adinosassist-stack' &&
+      github.run_attempt == '1' &&
+      inputs.expected_main_sha == github.sha &&
+      inputs.authorization == 'APPLY_EMPLOYEE_CASH_PRODUCTION_SCHEMA'
+    concurrency:
+      group: thebe-desk-production
+      cancel-in-progress: false
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Apply only the two authorized SQL files to production D1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TARGET_D1: ${{ vars.D1_DATABASE_ID }}
+        run: |
+          node --input-type=module <<'JS'
+          import assert from "node:assert/strict";
+          import { execFileSync } from "node:child_process";
+          import { createHash } from "node:crypto";
+
+          const source = "3428914ad7a2fdcb2f502aeae4663faad19327be";
+          const database = "8e6ae3fe-e7bc-4e98-a310-ce5dd85a3dce";
+          const env = process.env;
+          const account = "ddd23cab31928a4bb3d4998df9b26d1d";
+          assert.equal(env.CF_ACCOUNT, account, "Unexpected Cloudflare account");
+          assert.equal(env.TARGET_D1, database, "Unexpected production database");
+          assert.ok(env.CF_TOKEN && env.GH_TOKEN, "Required protected credentials unavailable");
+          assert.equal(env.GITHUB_REPOSITORY, "adinosassist-stack/botswana-compliance-platform");
+          assert.equal(execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(), env.GITHUB_SHA);
+          execFileSync("git", ["merge-base", "--is-ancestor", source, env.GITHUB_SHA]);
+          const files = [
+            ["20261108_employee_self_service.sql", "8696124cd855300c77a104801621f264ed52e2fd3ea765b7b95dd4d2640ea208"],
+            ["20261118_employee_cash_reports.sql", "59066acb4135e5face4d2b3fbbf2cff6cd2eab0434b6c032b16e4bb67d4ce2ab"],
+          ];
+          const sql = files.map(([file, checksum]) => {
+            const bytes = execFileSync("git", ["show", source + ":cloudflare/migrations/" + file]);
+            assert.equal(createHash("sha256").update(bytes).digest("hex"), checksum, "SQL checksum mismatch");
+            return bytes.toString("utf8");
+          }).join("\n");
+
+          async function json(url, token, body) {
+            const response = await fetch(url, {
+              method: body ? "POST" : "GET",
+              headers: { Authorization: "Bearer " + token, Accept: "application/json", "Content-Type": "application/json" },
+              redirect: "error",
+              signal: AbortSignal.timeout(30000),
+              body: body ? JSON.stringify(body) : undefined,
+            });
+            assert.ok(response.ok, "Provider returned HTTP " + response.status);
+            return response.json();
+          }
+
+          const base = "https://api.cloudflare.com/client/v4/accounts/" + account + "/d1/database/" + database;
+          async function query(statement) {
+            const payload = await json(base + "/query", env.CF_TOKEN, { sql: statement });
+            assert.ok(payload.success && payload.result?.length && payload.result.every(row => row.success), "D1 batch failed");
+            return payload.result;
+          }
+
+          const info = await json(base, env.CF_TOKEN);
+          assert.ok(info.success && info.result?.name === "bw-compliance-os" && info.result?.uuid === database);
+          const inspect = "SELECT type, COUNT(*) AS n FROM sqlite_master WHERE name GLOB 'employee_portal_*' OR name GLOB 'employee_cash_*' GROUP BY type ORDER BY type";
+          const [prerequisites] = await query("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('employees','tenants','users') ORDER BY name");
+          assert.deepEqual(prerequisites.results.map(row => row.name), ["employees", "tenants", "users"]);
+          const [before] = await query(inspect);
+          assert.deepEqual(before.results, [], "Existing or partially applied employee schema requires review");
+          const recoveryTimestamp = new Date().toISOString();
+          const bookmark = await json(base + "/time_travel/bookmark", env.CF_TOKEN);
+          assert.ok(bookmark.success && typeof bookmark.result?.bookmark === "string" && bookmark.result.bookmark.length, "Production recovery checkpoint unavailable");
+          const main = await json("https://api.github.com/repos/" + env.GITHUB_REPOSITORY + "/branches/main", env.GH_TOKEN);
+          assert.equal(main.commit?.sha, env.GITHUB_SHA, "Main advanced before write");
+          console.log(JSON.stringify({ phase: "before_write", recoveryTimestamp, database, source }));
+          await query(sql);
+          const [after, violations] = await query(inspect + "; PRAGMA foreign_key_check");
+          assert.deepEqual(after.results, [{ type: "index", n: 10 }, { type: "table", n: 8 }, { type: "trigger", n: 3 }]);
+          assert.equal(violations.results.length, 0, "Foreign-key integrity check failed");
+          console.log(JSON.stringify({ phase: "verified", database, source, tables: 8, indexes: 10, triggers: 3 }));
+          JS
