@@ -1,0 +1,107 @@
+name: Dock protected inert staging bootstrap
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Exact reviewed current main SHA
+        required: true
+        type: string
+      mode:
+        description: Verify policy or bootstrap a new route-free disabled Worker
+        required: true
+        type: choice
+        options: [preflight, bootstrap-inert]
+        default: preflight
+      authorization:
+        description: PREFLIGHT_ONLY or BOOTSTRAP_INERT_DOCK_STAGING
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: dock-hosted-staging-bootstrap
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main' && github.actor == 'adinosassist-stack'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+      MODE: ${{ inputs.mode }}
+      AUTHORIZATION: ${{ inputs.authorization }}
+    steps:
+      - name: Verify exact main and existing staging environment before referencing it
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = adinosassist-stack/botswana-compliance-platform
+          [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          [[ "$MODE:$AUTHORIZATION" == "preflight:PREFLIGHT_ONLY" || "$MODE:$AUTHORIZATION" == "bootstrap-inert:BOOTSTRAP_INERT_DOCK_STAGING" ]]
+          api="repos/$GITHUB_REPOSITORY/environments/general-ai-private-staging"
+          reviewer="$(gh api users/thusico --jq .id)"
+          gh api "$api" | jq -e --argjson reviewer "$reviewer" '
+            .name == "general-ai-private-staging" and .can_admins_bypass == false and
+            ([.protection_rules[] | select(.type=="required_reviewers")] | length == 1) and
+            any(.protection_rules[]; .type=="required_reviewers" and .prevent_self_review==true and
+              (.reviewers | length==1) and ([.reviewers[]|select(.type=="User")|.reviewer.id]==[$reviewer])) and
+            .deployment_branch_policy.protected_branches==false and .deployment_branch_policy.custom_branch_policies==true' >/dev/null
+          gh api "$api/deployment-branch-policies?per_page=100" | jq -e '
+            .total_count==1 and (.branch_policies|length==1) and .branch_policies[0].name=="main" and .branch_policies[0].type=="branch"' >/dev/null
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - run: python3 tests/dock-hosted-staging-auth-contract.py
+      - run: node --test tests/general-ai-*.test.mjs
+      - run: python3 scripts/verify-dock-inert-bootstrap.py
+      - run: npx --no-install wrangler deploy --dry-run --config cloudflare/wrangler.dock-hosted-staging-inert.toml --outdir /tmp/dock-inert
+  bootstrap:
+    needs: verify
+    if: github.ref == 'refs/heads/main' && github.actor == 'adinosassist-stack' && inputs.mode == 'bootstrap-inert' && inputs.authorization == 'BOOTSTRAP_INERT_DOCK_STAGING'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: general-ai-private-staging
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - run: python3 scripts/verify-dock-inert-bootstrap.py
+      - name: Create only the absent inert Dock staging Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.DOCK_STAGING_BOOTSTRAP_CLOUDFLARE_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.GENERAL_AI_STAGING_CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_SHA" = "$EXPECTED_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test "$CLOUDFLARE_ACCOUNT_ID" = ddd23cab31928a4bb3d4998df9b26d1d
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/bw-dock-research-workspace-staging"
+          status="$(curl --silent --show-error --max-time 30 -o "$tmp/before" -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api/settings")"
+          test "$status" = 404
+          jq -e 'any(.errors[]; .code==10007)' "$tmp/before" >/dev/null
+          npx --no-install wrangler deploy --config cloudflare/wrangler.dock-hosted-staging-inert.toml
+          for endpoint in settings subdomain; do
+            curl --fail --silent --show-error --max-time 30 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api/$endpoint" > "$tmp/$endpoint"
+          done
+          jq -e '.success==true and .result.enabled==false and .result.previews_enabled==false' "$tmp/subdomain" >/dev/null
+          jq -e '.success==true and ([.result.bindings[]|select(.type!="plain_text" and .type!="assets")]|length==0) and
+            ([.result.bindings[]|select(.name=="DOCK_STAGING_RESEARCH_ENABLED" and .text=="false")]|length==1)' "$tmp/settings" >/dev/null
+          echo "Inert staging Worker created; no hostname, database or provider binding qualified by this job."
