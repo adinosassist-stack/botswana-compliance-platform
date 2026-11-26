@@ -1,0 +1,246 @@
+name: Employee Cash - private staging Worker deployment
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/employee-cash-private-staging-deploy.yml'
+      - 'cloudflare/wrangler.employee-cash*.toml'
+      - 'cloudflare/src/employee-cash-*staging*.js'
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Exact reviewed current main SHA
+        required: true
+        type: string
+      authorization:
+        description: Deploy only the two private Employee Cash staging Workers
+        required: true
+        type: choice
+        default: DO_NOT_RUN
+        options:
+          - DO_NOT_RUN
+          - DEPLOY_PRIVATE_EMPLOYEE_CASH_STAGING
+          - RERUN_PRIVATE_EMPLOYEE_CASH_ACCEPTANCE
+
+permissions:
+  contents: read
+
+concurrency:
+  group: employee-cash-protected-staging-preflight
+  cancel-in-progress: false
+
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: npm ci --ignore-scripts
+      - run: |
+          node --test tests/employee-cash.test.mjs
+          npx --no-install wrangler deploy --dry-run --config cloudflare/wrangler.employee-cash-authenticated-staging.toml
+          npx --no-install wrangler deploy --dry-run --config cloudflare/wrangler.employee-cash-staging-acceptance.toml
+
+  deploy-private:
+    needs: offline
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      github.actor == 'adinosassist-stack' &&
+      github.triggering_actor == 'adinosassist-stack' &&
+      github.run_attempt == '1' &&
+      inputs.expected_main_sha == github.sha &&
+      (inputs.authorization == 'DEPLOY_PRIVATE_EMPLOYEE_CASH_STAGING' ||
+      inputs.authorization == 'RERUN_PRIVATE_EMPLOYEE_CASH_ACCEPTANCE')
+    environment: employee-self-service-staging-protected
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: npm ci --ignore-scripts
+      - name: Verify exact source, staging schema and private Worker configuration
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          RELEASE_MODE: ${{ inputs.authorization }}
+          DEPLOY_MODE: preflight
+          AUTHORIZATION: PREFLIGHT_ONLY
+          CLOUDFLARE_ACCOUNT_ID: ddd23cab31928a4bb3d4998df9b26d1d
+          STAFF_STAGING_GITHUB_READ_TOKEN: ${{ secrets.STAFF_STAGING_GITHUB_READ_TOKEN }}
+          STAFF_STAGING_CLOUDFLARE_TOKEN: ${{ secrets.STAFF_STAGING_CLOUDFLARE_TOKEN }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN_SHA"
+          python3 - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          database = [{"binding": "DB", "database_id": "adfa3871-5ecf-4672-8d2f-be9b142d5fc1",
+                       "database_name": "bw-employee-self-service-staging"}]
+          specs = [
+              ("authenticated-staging", "bw-employee-self-service-staging", "authenticated-staging"),
+              ("staging-acceptance", "bw-employee-cash-staging-acceptance", "staging-acceptance"),
+          ]
+          for file, name, entry in specs:
+              config = tomllib.loads(Path(f"cloudflare/wrangler.employee-cash-{file}.toml").read_text())
+              allowed = {"name", "main", "compatibility_date", "workers_dev", "preview_urls", "keep_vars",
+                         "vars", "d1_databases", "ratelimits" if file == "authenticated-staging" else "services"}
+              if file == "staging-acceptance":
+                  allowed.add("workflows")
+                  assert config["workflows"] == [{"name": name, "binding": "ACCEPTANCE", "class_name": "EmployeeCashAcceptance"}]
+              assert set(config) == allowed
+              assert config["name"] == name and config["main"] == f"src/employee-cash-{entry}-entry.js"
+              assert all(config[key] is False for key in ("workers_dev", "preview_urls", "keep_vars"))
+              assert config["d1_databases"] == database and config["vars"]["APP_ENV"] == "staging"
+              assert config["vars"]["STAFF_STAGING_D1_ID"] == database[0]["database_id"]
+              if file == "staging-acceptance":
+                  assert config["services"] == [{"binding": "EMPLOYEE_CASH_STAGING", "service": specs[0][1]}]
+              else:
+                  assert config["vars"]["DEPLOYMENT_PROFILE"] == "employee-cash-authenticated-staging"
+                  assert config["vars"]["THEBE_EMPLOYEE_CASH_ENABLED"] == "false"
+                  assert config["vars"]["THEBE_STAFF_PORTAL_ENABLED"] == "false"
+          PY
+          node --input-type=module <<'JS'
+          import assert from "node:assert/strict";
+          import { ACCOUNT, verifyRemote } from "./scripts/employee-self-service-protected-bootstrap-guard.mjs";
+          import { STAGING_D1 } from "./scripts/employee-self-service-staging-preflight.mjs";
+          const root = "https://api.cloudflare.com/client/v4/accounts/" + ACCOUNT;
+          const headers = { Authorization: "Bearer " + process.env.STAFF_STAGING_CLOUDFLARE_TOKEN };
+          const runner = "bw-employee-cash-staging-acceptance";
+          const application = "bw-employee-self-service-staging";
+          const recovery = process.env.RELEASE_MODE === "RERUN_PRIVATE_EMPLOYEE_CASH_ACCEPTANCE";
+          const workerPath = name => "/workers/scripts/" + name;
+          async function read(path) {
+            const response = await fetch(root + path, { headers, redirect: "error", signal: AbortSignal.timeout(15000) });
+            assert.equal(response.ok, true, "Staging Worker readback HTTP " + response.status);
+            const payload = await response.json();
+            assert.equal(payload.success, true, "Staging Worker readback failed");
+            return payload.result;
+          }
+          async function verifyPrivate(name, version, settings) {
+            const binding = Object.fromEntries(settings.bindings.map(item => [item.name, item]));
+            assert.equal(binding.DB?.type, "d1");
+            assert.equal(binding.DB.id, STAGING_D1);
+            assert.equal(settings.bindings.filter(item => item.type === "d1").length, 1);
+            assert.equal(binding.APP_ENV?.text, "staging");
+            const exposure = await read(workerPath(name) + "/subdomain");
+            assert.equal(exposure.enabled, false);
+            assert.equal(exposure.previews_enabled, false);
+            assert.deepEqual(await read("/workers/domains?service=" + name), []);
+            const deployments = await read(workerPath(name) + "/deployments");
+            assert.deepEqual(deployments.deployments[0]?.versions, [{ version_id: version, percentage: 100 }]);
+            return binding;
+          }
+
+          if (recovery) {
+            await verifyRemote(process.env, { verifyWorker: async ({ status, body }) => {
+              assert.equal(status, 200);
+              assert.equal(body.success, true);
+              const bindings = await verifyPrivate(application, "0799c7f8-4aea-41a2-ac98-104b8b16e022", body.result);
+              assert.equal(bindings.STAFF_STAGING_SOURCE_SHA?.text, "dd28c753ae9968686d0feadeaf0b532d7099396e");
+              assert.equal(bindings.DEPLOYMENT_PROFILE?.text, "employee-cash-authenticated-staging");
+            } });
+            const settings = await read(workerPath(runner) + "/settings");
+            const bindings = await verifyPrivate(runner, "08781bdb-8c5b-49d9-bd82-aa0e04c2fb15", settings);
+            assert.deepEqual(Object.keys(bindings).sort(), ["ACCEPTANCE", "APP_ENV", "DB", "EMPLOYEE_CASH_STAGING", "STAFF_STAGING_D1_ID"]);
+            assert.equal(bindings.EMPLOYEE_CASH_STAGING?.service, application);
+            assert.equal(bindings.ACCEPTANCE?.workflow_name, runner);
+          } else {
+            await verifyRemote();
+            const absent = await fetch(root + workerPath(runner) + "/settings", { headers, redirect: "error", signal: AbortSignal.timeout(15000) });
+            assert.equal(absent.status, 404);
+            assert.ok((await absent.json()).errors?.some(error => Number(error.code) === 10007));
+          }
+          const response = await fetch(root + "/d1/database/" + STAGING_D1 + "/query", {
+            method: "POST", headers: { ...headers, "Content-Type": "application/json" },
+            redirect: "error", signal: AbortSignal.timeout(15000),
+            body: JSON.stringify({ sql: "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('auth_rate_limits','memberships','sessions','employee_cash_entries','employee_cash_counts','employee_cash_events') ORDER BY name; PRAGMA foreign_key_check" }),
+          });
+          assert.equal(response.ok, true);
+          const payload = await response.json();
+          assert.equal(payload.success, true);
+          assert.ok(payload.result.every(item => item.success === true));
+          assert.deepEqual(payload.result[0].results.map(row => row.name), ["auth_rate_limits","employee_cash_counts","employee_cash_entries","employee_cash_events","memberships","sessions"]);
+          assert.deepEqual(payload.result[1].results, []);
+          JS
+      - name: Deploy the qualified private staging Workers
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          RELEASE_MODE: ${{ inputs.authorization }}
+          CLOUDFLARE_ACCOUNT_ID: ddd23cab31928a4bb3d4998df9b26d1d
+          CLOUDFLARE_API_TOKEN: ${{ secrets.STAFF_STAGING_WORKERS_DEPLOY_TOKEN }}
+          WRANGLER_SEND_METRICS: "false"
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN"
+          if [ "$RELEASE_MODE" = RERUN_PRIVATE_EMPLOYEE_CASH_ACCEPTANCE ]; then
+            npx --no-install wrangler deploy --config cloudflare/wrangler.employee-cash-staging-acceptance.toml
+            exit 0
+          fi
+          umask 077
+          secret_file=$(mktemp)
+          trap 'rm -f "$secret_file"' EXIT
+          node -e 'process.stdout.write(JSON.stringify({SESSION_SECRET: require("node:crypto").randomBytes(48).toString("hex")}))' > "$secret_file"
+          npx --no-install wrangler deploy --config cloudflare/wrangler.employee-cash-authenticated-staging.toml \
+            --var "STAFF_STAGING_SOURCE_SHA:$EXPECTED_MAIN_SHA" \
+            --var THEBE_STAFF_PORTAL_ENABLED:true --var THEBE_EMPLOYEE_CASH_ENABLED:true \
+            --secrets-file "$secret_file"
+          npx --no-install wrangler deploy --config cloudflare/wrangler.employee-cash-staging-acceptance.toml
+      - name: Run one private hosted acceptance instance
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ddd23cab31928a4bb3d4998df9b26d1d
+          CLOUDFLARE_API_TOKEN: ${{ secrets.STAFF_STAGING_WORKERS_DEPLOY_TOKEN }}
+        run: |
+          node --input-type=module <<'JS'
+          import assert from "node:assert/strict";
+          import { setTimeout as delay } from "node:timers/promises";
+
+          const { CLOUDFLARE_ACCOUNT_ID: account, CLOUDFLARE_API_TOKEN: token, GITHUB_RUN_ID: run } = process.env;
+          assert.equal(account, "ddd23cab31928a4bb3d4998df9b26d1d");
+          assert.ok(token && /^\d+$/.test(run));
+          const endpoint = `https://api.cloudflare.com/client/v4/accounts/${account}/workflows/bw-employee-cash-staging-acceptance/instances`;
+          const id = "github-" + run;
+          async function call(url, body) {
+            const response = await fetch(url, {
+              method: body ? "POST" : "GET",
+              headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+              body: body ? JSON.stringify(body) : undefined,
+              redirect: "error",
+              signal: AbortSignal.timeout(15000),
+            });
+            assert.equal(response.ok, true, `Acceptance API returned HTTP ${response.status}`);
+            const payload = await response.json();
+            assert.equal(payload.success, true, "Acceptance API rejected request");
+            return payload.result;
+          }
+
+          console.log("Private acceptance instance: " + id);
+          await call(endpoint, { instance_id: id });
+          for (let attempt = 0; attempt < 36; attempt++) {
+            const result = await call(endpoint + "/" + id);
+            if (result.status === "complete") {
+              assert.equal(result.output?.result, "PASS", "Hosted checks did not return PASS");
+              for (const field of ["employeeSession", "managerSession", "cashFlow", "tenantIsolation"]) {
+                assert.equal(result.output[field], true, "Missing hosted evidence: " + field);
+              }
+              console.log("Hosted employee and manager sessions, cash flow and tenant isolation passed.");
+              process.exit(0);
+            }
+            if (!["queued", "running", "waiting", "waitingForPause"].includes(result.status)) {
+              throw Error("Hosted acceptance ended without PASS. Inspect the private instance before retrying.");
+            }
+            await delay(5000);
+          }
+          throw Error("Hosted acceptance is unconfirmed. Inspect the private instance before retrying.");
+          JS

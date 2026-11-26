@@ -26,11 +26,21 @@ export async function runEmployeeCashStagingAcceptance(service, fixture) {
       headers.set("x-csrf-token", session.csrf);
     }
     if (payload) headers.set("content-type", "application/json");
-    const response = await service.fetch(new Request(origin + path, {
-      method, headers, body: payload ? JSON.stringify(payload) : undefined,
-    }));
-    requireCheck(response.status === status, `${method} ${path.replace(uuidInPath, "[id]")} HTTP ${response.status}`);
-    return { body: await response.json(), headers: response.headers };
+    const route = `${method} ${path.replace(uuidInPath, "[id]")}`;
+    let response;
+    try {
+      response = await service.fetch(new Request(origin + path, {
+        method, headers, body: payload ? JSON.stringify(payload) : undefined,
+      }));
+    } catch {
+      throw new Error(`Employee Cash staging check failed: ${route} service request`);
+    }
+    requireCheck(response.status === status, `${route} HTTP ${response.status}`);
+    try {
+      return { body: await response.json(), headers: response.headers };
+    } catch {
+      throw new Error(`Employee Cash staging check failed: ${route} invalid JSON`);
+    }
   }
 
   async function signIn(path, account, cookieName) {
@@ -50,6 +60,7 @@ export async function runEmployeeCashStagingAcceptance(service, fixture) {
   const invitation = await call("POST", "/api/employee-self-service/invitations", 201, managerSession, {
     employeeId: employee.id, email: employee.email,
   });
+  requireCheck(typeof invitation.body.link === "string" && URL.canParse(invitation.body.link), "synthetic invitation URL");
   const link = new URL(invitation.body.link);
   const token = new URLSearchParams(link.hash.slice(1)).get("invite");
   requireCheck(link.origin === origin && /^[a-f0-9]{64}$/.test(token ?? ""), "synthetic invitation");
