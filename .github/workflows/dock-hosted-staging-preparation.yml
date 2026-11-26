@@ -5,6 +5,7 @@ on:
       - '.github/workflows/dock-hosted-staging-preparation.yml'
       - '.github/workflows/dock-protected-staging-bootstrap.yml'
       - 'cloudflare/wrangler.dock-hosted-staging-inert.toml'
+      - 'cloudflare/wrangler.dock-hosted-staging-*.review.toml'
       - 'scripts/verify-dock-inert-bootstrap.py'
       - 'scripts/dock-hosted-ingress-guard.mjs'
       - 'scripts/dock-provision-inert-resources.mjs'
@@ -50,7 +51,43 @@ jobs:
           assert v['AGENT_BOUNDED_TASK_EXECUTION_ENABLED']=='0'
           assert v['AI_FEATURES_DEFAULT']=='off'
           PY
+      - name: Verify review profile isolation
+        run: |
+          python3 - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          folder = Path('cloudflare')
+          workspace, backend = [
+              tomllib.loads((folder / f'wrangler.dock-hosted-staging-{name}.review.toml').read_text())
+              for name in ('workspace', 'backend')
+          ]
+          assert workspace['d1_databases'] == backend['d1_databases'] == [{
+              'binding': 'DB',
+              'database_name': 'bw-dock-hosted-synthetic-staging',
+              'database_id': 'c63255cf-c589-4f6b-99c7-2d2e437566b5',
+          }]
+          assert backend['name'] == 'bw-dock-private-ai-staging'
+          assert workspace['services'] == [{'binding': 'STAGING_AI', 'service': backend['name']}]
+          assert 'DOCK_STAGING_WORKSPACE_ORIGIN' not in workspace['vars']
+          assert 'services' not in backend
+          for profile in (workspace, backend):
+              assert profile['workers_dev'] is False and profile['preview_urls'] is False
+              assert profile['keep_vars'] is False
+              assert not any(key in profile for key in ('routes', 'route', 'env', 'triggers', 'r2_buckets'))
+              assert profile['vars']['APP_ENV'] == 'staging'
+              assert 'SESSION_SECRET' not in profile['vars']
+              for flag in ('THEBE_GENERAL_AI_ENABLED', 'THEBE_GENERAL_AI_RESEARCH_ENABLED', 'THEBE_LIVE_VOICE_ENABLED'):
+                  assert profile['vars'][flag] == 'false', flag
+          assert workspace['vars']['DOCK_STAGING_RESEARCH_ENABLED'] == 'false'
+          PY
       - run: npm ci --ignore-scripts
+      - name: Bundle both review profiles without publishing
+        run: |
+          set -euo pipefail
+          for profile in workspace backend; do
+            npx --no-install wrangler deploy --dry-run --config "cloudflare/wrangler.dock-hosted-staging-${profile}.review.toml" --outdir "/tmp/dock-review-${profile}"
+          done
       - run: python3 tests/general-ai-staging-session-contract.py
       - run: python3 tests/dock-hosted-staging-auth-contract.py
       - run: python3 scripts/verify-dock-inert-bootstrap.py
