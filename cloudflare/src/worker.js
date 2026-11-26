@@ -8804,7 +8804,7 @@ export default {
   }
 };
 
-export const __v782157Test=Object.freeze({auth,dailyReportPayloadMatches});
+export const __v782157Test=Object.freeze({auth,dailyReportPayloadMatches,submitDailyEmployeeReport});
 export const __v782158Test=Object.freeze({claimPaymentWebhookEvent,completePaymentWebhookEvent,failPaymentWebhookEvent,paymentWebhookRetryable,claimTenantDeletion,releaseTenantDeletionClaim,heartbeatTenantDeletionClaim,PAYMENT_WEBHOOK_MAX_ATTEMPTS,TENANT_DELETION_MAX_ATTEMPTS,TENANT_DELETION_STALE_MINUTES});
 export const __v782160Test=Object.freeze({validPasswordResetToken});
 export const __v782161Test=Object.freeze({authSubjectRateLimit});
