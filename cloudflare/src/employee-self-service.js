@@ -1,4 +1,5 @@
 import {parseReportSchedules,dueDeliveryReminders} from "./delivery-installation-reminders.js";
+import {managerDailyReviewEnabled,readStaffDailyReviewNotices} from "./manager-daily-report-review.js";
 import {handleEmployeeCashStaff,handleEmployeeCashManager} from "./employee-cash.js";
 import {staffPortalEnabled,staffEmail,staffPasswordValid,staffUuidValid,staffTaskInput,staffTaskTransition,staffNote} from "./employee-self-service-policy.js";
 
@@ -112,7 +113,8 @@ export async function handleStaffPublic({request,url,env,json,readJson,requestOr
   const deliveryReminders=await dueDeliveryReminders(env,{tenantId:staff.tenant_id,employeeId:staff.employee_id,today:reportDate});
   const items=(rows.results||[]).map(({kpi_json,...row})=>({...row,jobs:parseReportSchedules(kpi_json)}));
   const locations=await env.DB.prepare("SELECT l.id,l.name FROM employee_reporting_access a JOIN operating_locations l ON l.id=a.location_id AND l.tenant_id=a.tenant_id WHERE a.tenant_id=? AND a.employee_id=? AND a.status='active' AND a.expires_at>CURRENT_TIMESTAMP AND l.active=1 ORDER BY l.name,l.id").bind(staff.tenant_id,staff.employee_id).all();
-  return json({items,reportDate,deliveryReminders,assignedLocations:locations.results||[]},200,{"cache-control":"no-store"});
+  const reviewNotices=managerDailyReviewEnabled(env)?await readStaffDailyReviewNotices(env.DB,staff.tenant_id,staff.employee_id):[];
+  return json({items,reportDate,deliveryReminders,assignedLocations:locations.results||[],reviewNotices},200,{"cache-control":"no-store"});
  }
  if(path==="/public/employee/reports"&&method==="POST"){
   const headers={"cache-control":"no-store"};
