@@ -5,7 +5,7 @@ import test from 'node:test';
 
 const source=readFileSync(new URL('../public/js/thebe-live-voice.js',import.meta.url),'utf8');
 const start=source.indexOf('  function requireAdvisorAnswer(result){');
-const end=source.indexOf('  function renderResult(result){',start);
+const end=source.indexOf('  function renderResult(result,',start);
 assert.ok(start>=0&&end>start,'fail-closed advisor answer guard exists');
 const context=vm.createContext({});
 vm.runInContext(source.slice(start,end),context);

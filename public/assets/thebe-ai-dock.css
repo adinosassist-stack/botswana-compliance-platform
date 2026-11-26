@@ -2332,3 +2332,22 @@ html body dialog#thebeVoiceScreen[open] {
 #thebeAiDock .thebe-aura-edit-prompt:focus-visible{
   outline:2px solid #d1d5db;outline-offset:2px;
 }
+
+/* Native message actions are compact, named and available only when supported. */
+#thebeAiDock .thebe-ai-message-tools{display:flex;flex-wrap:wrap;align-items:center;gap:4px;max-width:100%}
+#thebeAiDock .thebe-ai-message-tool{display:inline-flex;align-items:center;justify-content:center;flex:0 0 44px;min-width:44px;min-height:44px;padding:8px;border:0;border-radius:10px;background:transparent;color:inherit}
+#thebeAiDock .thebe-ai-message-tool[aria-pressed="true"]{background:#3a3d42}
+#thebeAiDock .thebe-ai-message-tool:focus-visible{outline:2px solid #ddd;outline-offset:-3px}
+#thebeAiDock .thebe-ai-message-tool-status{font-size:12px;overflow-wrap:anywhere}
+
+/* Search is a header action; its input occupies space only after opening. */
+#thebeAiDock .thebe-ai-find{display:contents;position:static;padding:0;background:transparent}
+#thebeAiDock .thebe-ai-find:has(.thebe-ai-find-panel:not([hidden])){display:flex;position:sticky;top:0;z-index:5;padding:4px 0;background:#202124}
+#thebeAiDock>.thebe-ai-dock-head>.thebe-ai-find-actions{gap:4px;flex:0 0 auto}
+#thebeAiDock .thebe-ai-find-actions :is(.thebe-ai-find-toggle,.thebe-ai-web-search){border:0;background:transparent}
+#thebeAiDock .thebe-aura-edit-prompt{margin-top:0;border:0;background:transparent}
+html body.thebe-voice-active #thebeAiDock .thebe-ai-find-actions .thebe-ai-web-search{display:none!important}
+
+#thebeAiDock .thebe-ai-dictation-status{flex:0 0 auto;align-self:center;max-width:90%;padding:4px 8px;color:#d5d7db;font-size:12px;overflow-wrap:anywhere}
+#thebeAiDock .thebe-ai-dictation-status[hidden]{display:none!important}
+#thebeAiDock .thebe-ai-dictate[aria-pressed="true"]{background:#45484e!important}

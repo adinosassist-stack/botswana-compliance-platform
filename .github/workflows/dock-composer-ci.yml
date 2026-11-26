@@ -40,6 +40,9 @@ jobs:
         run: npm install --no-save --ignore-scripts --no-audit --no-fund playwright-core@1.55.0
       - name: Verify authenticated file review and credit failure handling
         run: node --no-warnings tests/advisor-attachments-integration.mjs
+      - name: Verify consolidated chat, voice and advice regressions
+        run: |
+          node --test tests/ai-dock-general-conversation-routing.test.mjs tests/ai-dock-general-answer-presentation.test.mjs tests/ai-dock-voice-start-race.test.mjs tests/ai-dock-advisor-deadline.test.mjs tests/ai-dock-copy-answer-snapshot.test.mjs tests/ai-dock-empty-advisor-response.test.mjs tests/ai-advisor-business-guidance.test.mjs tests/ai-dock-dictation.test.mjs tests/ai-dock-native-message-tools.test.mjs tests/ai-dock-mobile-controls-alignment.test.mjs
       - name: Verify advisor compatibility and API transport
         run: |
           node --no-warnings tests/ai-advisor-planner-integration.mjs

@@ -6,7 +6,7 @@ const js=readFileSync(new URL('../public/js/thebe-live-voice.js',import.meta.url
 test('hidden composer controls remain invisible even when base CSS sets display inline-flex',()=>{
  assert.match(css,/#thebeAiDock \.thebe-ai-compose :is\(\.thebe-ai-composer-action,\.thebe-ai-send\)\[hidden\]\s*\{\s*display:none!important/);
  assert.match(js,/sendButton\.hidden=!draft&&!textBusy/);
- assert.match(js,/audioButton\.hidden=draft\|\|textBusy/);
+ assert.match(js,/conversationVoiceButton\.hidden=draft\|\|textBusy/);
  assert.match(js,/attachButton\.hidden=!shellVisible\(\)/);
 });
 test('mobile composer keeps actions bounded and text input shrinkable',()=>{
