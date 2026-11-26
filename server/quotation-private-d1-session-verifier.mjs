@@ -11,7 +11,7 @@ const deny=code=>{throw Error(code)};
 const uuid=value=>typeof value==="string"&&
  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 const names=new Set(["__Host-bw_session","bw_session"]);
-const sessionSql="SELECT s.user_id,s.tenant_id,m.role,s.csrf_token "+
+const sessionSql="SELECT s.user_id,s.tenant_id,m.role,s.csrf_token,s.expires_at "+
  "FROM sessions s JOIN users u ON u.id=s.user_id "+
  "JOIN memberships m ON m.user_id=s.user_id AND m.tenant_id=s.tenant_id AND m.status='active' "+
  "WHERE s.token_hash=? AND s.tenant_id=? "+
@@ -72,6 +72,16 @@ export function createQuotationPrivateD1SessionVerifier({
   }catch{return null}
  }
  return Object.freeze({
+  // For the separately qualified private browser host only. Never return this
+  // object to an unverified request; the host must still enforce owner scope.
+  async readVerifiedBrowserSession({request}={}){
+   const row=await readRow(request);
+   if(!row)return null;
+   const expiresAt=Date.parse(String(row.expires_at).replace(" ","T")+"Z");
+   if(!Number.isFinite(expiresAt)||expiresAt<=Date.now()||expiresAt>Date.now()+15*60*1000)return null;
+   return Object.freeze({authenticated:true,userId:row.user_id,
+    tenantId:expectedTenantId,role:String(row.role).toLowerCase(),csrfToken:row.csrf_token});
+  },
   async readVerifiedSession({request}={}){
    const row=await readRow(request);
    if(!row)return null;
