@@ -3,6 +3,7 @@
  * No route is mounted, no network requests, no customer issuance, no storage.
  * The original SHA-pinned two-page contract PDF remains untouched.
  */
+import {prepareDocumentPdf,sharePreparedDocumentPdf} from "./essentials-document-share.mjs";
 import {
  QUOTATION_CUSTOM_DEFAULT_COPY,QUOTATION_CUSTOM_MAX_ITEMS,
  quotationCustomSample,quotationCustomFormatMoney,validateQuotationCustomPage
@@ -193,6 +194,7 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
  const state=initial===undefined?makeSample():JSON.parse(JSON.stringify(initial));
  let checked=validateQuotationCustomPage(state);
  let logoUrl=null,logoWidth=32,logoX=0,disposed=false,logoRevision=0;
+ let selectedPdf=null,shareRevision=0,shareBusy=false;
  const shell=elt("section","qcp-shell");
  const sidebar=elt("aside","qcp-sidebar"),stage=elt("div","qcp-stage");
  const style=elt("style");style.textContent=css;
@@ -211,7 +213,15 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
  const importButton=elt("button","","Import draft JSON");importButton.type="button";
  const importInput=elt("input");importInput.type="file";importInput.accept=".json,application/json";
  importInput.hidden=true;importInput.setAttribute("aria-label","Import quotation draft JSON file");
+ const choosePdf=elt("button","","Choose saved PDF to share");choosePdf.type="button";
+ const sharePdf=elt("button","","Share selected PDF (WhatsApp)");sharePdf.type="button";sharePdf.disabled=true;
+ const pdfInput=elt("input");pdfInput.type="file";pdfInput.accept=".pdf,application/pdf";pdfInput.hidden=true;
+ pdfInput.setAttribute("aria-label","Choose the quotation PDF saved on this device");
  actions.append(print,download,importButton,reset,importInput);
+ if(customerReady){
+  actions.append(choosePdf,sharePdf,pdfInput);
+  printHelp.content.append(elt("p","qcp-hint","After saving the quotation as a PDF, choose that exact saved file, verify its contents, and tap Share selected PDF. Choose WhatsApp in the system share sheet. The editor cannot directly retrieve the browser-generated print file."));
+ }
  const basic=details("Quotation and customer details",true);
  for(const [key,name] of [
   ["quoteNumber","Quote number"],["issueDate","Date (YYYY-MM-DD)"],
@@ -378,6 +388,7 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
  }
  function refresh(){
   if(disposed)return;
+  shareRevision++;selectedPdf=null;sharePdf.disabled=true;
   try{
    checked=validateQuotationCustomPage(state);
    renderPreview();download.disabled=false;
@@ -427,6 +438,44 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
    // Keep the browser call in the direct click gesture; no async rendering or fake PDF success.
    window.print();
   }catch(error){status.textContent="Cannot print: "+String(error?.message||"invalid draft");status.focus({preventScroll:true});}
+ });
+ choosePdf.addEventListener("click",()=>{
+  if(disposed||!customerReady||shareBusy)return;
+  try{
+   const blocker=customerReadyBlocker(validateQuotationCustomPage(state));
+   if(blocker){status.textContent="Cannot share yet: "+blocker;return}
+   pdfInput.click();
+  }catch{status.textContent="Correct the quotation fields before sharing."}
+ });
+ pdfInput.addEventListener("change",async()=>{
+  const original=pdfInput.files?.[0];pdfInput.value="";
+  if(disposed||!customerReady||!original)return;
+  const revision=++shareRevision;
+  selectedPdf=null;sharePdf.disabled=true;
+  try{
+   const name=String(original.name||"quotation.pdf").replace(/\.pdf$/i,"").replace(/[^a-zA-Z0-9_-]/g,"_").slice(0,80)||"quotation";
+   const file=await prepareDocumentPdf({blob:original,filename:name+".pdf"});
+   if(disposed||revision!==shareRevision)return;
+   selectedPdf=file;sharePdf.disabled=!file||shareBusy;
+   status.textContent=file?"Selected "+file.name+". Verify this is the correct saved quotation before sharing.":"File sharing is unavailable in this browser. Attach your saved PDF from WhatsApp.";
+  }catch{if(!disposed&&revision===shareRevision)status.textContent="Select a valid PDF saved on this device (maximum 20 MB)."}
+ });
+ sharePdf.addEventListener("click",async()=>{
+  if(disposed||shareBusy||!customerReady||!selectedPdf)return;
+  const file=selectedPdf;
+  shareBusy=true;sharePdf.disabled=true;
+  try{
+   const blocker=customerReadyBlocker(validateQuotationCustomPage(state));
+   if(blocker){status.textContent="Cannot share yet: "+blocker;return}
+   const result=await sharePreparedDocumentPdf({navigatorApi:globalThis.navigator,file,message:{title:"Quotation",text:"Review the selected quotation PDF."}});
+   if(!disposed&&selectedPdf===file)status.textContent=result.shared?
+    "Share sheet completed. Confirm the PDF attachment in WhatsApp; delivery is not verified.":
+    "Native file sharing is unavailable. Attach your saved PDF directly from WhatsApp.";
+  }catch(error){
+   if(!disposed&&selectedPdf===file)status.textContent=error?.name==="AbortError"?
+    "Sharing cancelled. You can share the selected PDF again.":
+    "Unable to share. Attach the saved PDF directly from WhatsApp.";
+  }finally{shareBusy=false;if(!disposed)sharePdf.disabled=!selectedPdf}
  });
  importButton.addEventListener("click",()=>{if(!disposed)importInput.click()});
  importInput.addEventListener("change",async()=>{
@@ -484,6 +533,6 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
  drawItemInputs();refresh();
  return Object.freeze({
   getDraft(){if(disposed)throw Error("quotation_custom_preview_disposed");return JSON.parse(JSON.stringify(state));},
-  destroy(){disposed=true;logoRevision++;if(logoUrl)URL.revokeObjectURL(logoUrl);root.replaceChildren();}
+  destroy(){disposed=true;shareRevision++;selectedPdf=null;logoRevision++;if(logoUrl)URL.revokeObjectURL(logoUrl);root.replaceChildren();}
  });
 }

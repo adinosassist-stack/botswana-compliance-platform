@@ -224,3 +224,15 @@ test("opt-in composed draft workspace saves and reopens only after explicit conf
   assert.equal(session.getRevision().revision,1);
  }finally{session.destroy();globalThis.document=previous}
 });
+
+
+test("prepared draft offers an actual PDF share action and invalidates it after an edit",async()=>{
+ const {root,restore}=mount();const previous=Object.getOwnPropertyDescriptor(globalThis,"navigator");let payload;
+ Object.defineProperty(globalThis,"navigator",{configurable:true,value:{canShare:p=>p.files.length===1,share:p=>{payload=p;return Promise.resolve()}}});
+ try{
+  const form=getAll(root,n=>n.tagName==="FORM")[0],share=getButton(root,"Share PDF (WhatsApp)");
+  assert.equal(share.disabled,true);await form.fire("submit");assert.equal(share.disabled,false);await share.fire("click");
+  assert.equal(payload.files[0].type,"application/pdf");assert.equal(payload.files[0].name,"quotation-draft-QT-001.pdf");assert.equal(await payload.files[0].text(),"%PDF-1.7\nTEST");assert.equal(Object.hasOwn(payload,"url"),false);
+  const qty=getInput(root,"Qty");qty.value="2";await qty.fire("input");assert.equal(share.disabled,true);assert.equal(share.hidden,true);
+ }finally{restore();if(previous)Object.defineProperty(globalThis,"navigator",previous);else delete globalThis.navigator}
+});
