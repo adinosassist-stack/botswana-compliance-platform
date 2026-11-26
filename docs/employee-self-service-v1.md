@@ -125,3 +125,12 @@ runs successful, including Recovery, audit remediation and Employee Cash. Those
 results apply to that head only. New reminder integration tests verify D-4/due-day
 visibility, D-5 and completed suppression, same-tenant peer and cross-tenant
 isolation, and inactive-branch exclusion using actual SQLite queries.
+
+
+### Consolidated Daily Reports continuation
+
+- A signed-in employee can submit or correct text reports from the existing staff portal using only their assigned active reporting locations. The new POST uses the staff cookie, CSRF, origin and rate-limit boundaries and current operating-locations entitlement. The original bearer reporter and staff portal share the canonical daily report submission and atomic revision storage; there is no new database migration or separate report ledger.
+- Staff corrections require the displayed report revision and retain existing KPI and job data. Job-specific data entry and attachments continue through the private reporting portal. A fresh report uses a null expected revision, and identical retries are idempotent. The write SQL rechecks active employee, reporting grant, location and (staff mode only) active unexpired session. Existing link-mode reports do not depend on the optional staff tables.
+- Assignment is deliberately derived from an existing active, unexpired manager-issued reporting grant; the employee cannot grant themselves a location. A revoked grant disables staff reporting there. Historical reports remain viewable through the existing staff read path.
+- SQLite acceptance tests exercise actual shared report code, assigned/unassigned and cross-tenant branch denial, CSRF, repeat-day records, duplicate retries, revision conflicts, preserved schedules and audit history. New tests are not claimed to have passed until exact-head CI returns green. D1 hosted tests must prove the transactional rotation and report writes, and actual Android owner/manager/employee acceptance must confirm the dashboard shows the corresponding records.
+- Runtime bundle parity was preserved by deduplicating link issuance; measured candidate external runtime is 549,958 bytes against the existing 550,000-byte limit (no budget relaxation). Protected main synchronization, independent review, staging credential qualification, and separate production authorization remain mandatory. No production deployment or operational writes are included.
