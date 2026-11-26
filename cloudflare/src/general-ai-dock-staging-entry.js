@@ -7,7 +7,9 @@ export function handleStagingDockResearch(request, env) {
     environment: env?.APP_ENV,
     enabled: env?.DOCK_STAGING_RESEARCH_ENABLED === "true",
     workspaceOrigin: env?.DOCK_STAGING_WORKSPACE_ORIGIN,
-    authorizeSyntheticSession: ({csrf}) => verifyDockResearchFixture(request, env, csrf),
+    authorizeSyntheticSession: ({token, csrf}) => verifyDockResearchFixture(new Request(request.url, {
+      headers: {cookie: "__Host-bw_session=" + token}
+    }), env, csrf),
     service: env?.STAGING_AI
   });
 }
