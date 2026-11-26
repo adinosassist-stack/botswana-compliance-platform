@@ -100,3 +100,15 @@ test('manager review queue is mobile-readable, locally filtered and fail-closed 
  assert.match(js,/method:'POST'/);assert.doesNotMatch(js,/method:\s*['"](?:PATCH|PUT|DELETE)/);
  assert.doesNotMatch(js,/innerHTML|localStorage|sessionStorage/);
 });
+
+test('owner review overview is staging-gated and cleared before a new scope loads',()=>{
+ const worker=read('cloudflare/src/worker.js');
+ const js=read('public/js/daily-report-money-v331.js');
+ assert.match(worker,/a\.role==="owner"&&managerDailyReviewEnabled\(env\)\?await readOwnerDailyReviewOverview/);
+ assert.match(js,/renderReviewOverview\(panel,null\)/);
+ assert.match(js,/if\(role==="owner"\)renderReviewOverview\(panel,ops\.reviewOverview\)/);
+ assert.match(js,/if\(!current\(\)\)return/);
+ assert.match(js,/Correction reason:/);
+ assert.match(js,/Current report revision/);
+ assert.match(js,/host\.replaceChildren\(\);host\.hidden=true/);
+});
