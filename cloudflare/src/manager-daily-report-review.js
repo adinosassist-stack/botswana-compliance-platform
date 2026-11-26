@@ -1,8 +1,7 @@
-// Offline-qualified candidate only. No HTTP route or deployment binding.
-// Caller must eventually supply verified workspace identity and CSRF/origin checks.
+// Private staging candidate. HTTP caller must enforce verified session and mutation boundaries.
 const denied={status:404,error:"report_not_available"};
 const actions=new Set(["acknowledge","approve","return"]);
-const scopeSql=`FROM daily_employee_reports r
+const inviteScope=`FROM daily_employee_reports r
  JOIN employees e ON e.id=r.employee_id AND e.tenant_id=r.tenant_id
  JOIN operating_locations l ON l.id=r.location_id AND l.tenant_id=r.tenant_id AND l.active=1
  WHERE r.tenant_id=? AND r.id=? AND EXISTS (
@@ -10,7 +9,8 @@ const scopeSql=`FROM daily_employee_reports r
  ON g.tenant_id=m.tenant_id AND g.manager_user_id=m.user_id AND g.status='active' AND g.location_id=r.location_id
  WHERE m.tenant_id=r.tenant_id AND m.user_id=? AND m.role='manager' AND m.status='active'
  AND EXISTS (SELECT 1 FROM workspace_manager_invites i WHERE i.tenant_id=m.tenant_id AND i.accepted_by_user_id=m.user_id AND i.status='accepted'))`;
-export function createManagerDailyReportReview({db,id=()=>crypto.randomUUID()}={}){
+export function createManagerDailyReportReview({db,id=()=>crypto.randomUUID(),allowProvisioned=false}={}){
+ const scopeSql=allowProvisioned?inviteScope.replace("AND EXISTS (SELECT 1 FROM workspace_manager_invites i WHERE i.tenant_id=m.tenant_id AND i.accepted_by_user_id=m.user_id AND i.status='accepted')","AND (EXISTS (SELECT 1 FROM workspace_manager_invites i WHERE i.tenant_id=m.tenant_id AND i.accepted_by_user_id=m.user_id AND i.status='accepted') OR EXISTS (SELECT 1 FROM workspace_manager_access_requests q WHERE q.tenant_id=m.tenant_id AND q.requester_user_id=m.user_id AND q.status='provisioned'))"):inviteScope;
  if(!db||typeof db.prepare!=="function")throw new TypeError("d1_binding_required");
  function identityValid(actor){return actor?.role==="manager"&&typeof actor.tenantId==="string"&&!!actor.tenantId&&typeof actor.userId==="string"&&!!actor.userId}
  async function inspect(actor,reportId){
@@ -40,4 +40,12 @@ export function createManagerDailyReportReview({db,id=()=>crypto.randomUUID()}={
   return replay?{status:200,reportId,revision:expectedRevision,action,idempotent:true}:{status:409,error:"report_review_already_decided"};
  }
  return {inspect,decide};
+}
+
+export function managerDailyReviewEnabled(env){
+ return String(env.APP_ENV||"").toLowerCase()==="staging"&&["MANAGER_INVITATIONS_PRIVATE_STAGING_ENABLED","MANAGER_INVITATIONS_SCHEMA_READY","MANAGER_INVITATIONS_ACCESS_READY","MANAGER_DAILY_REPORT_REVIEW_ENABLED","MANAGER_DAILY_REPORT_REVIEW_SCHEMA_READY"].every(k=>String(env[k]||"").toLowerCase()==="true");
+}
+export async function readStaffDailyReviewNotices(db,tenantId,employeeId){
+ const result=await db.prepare("SELECT v.report_id,v.revision_no,v.action,v.note,v.created_at FROM daily_report_manager_reviews v JOIN daily_employee_reports r ON r.id=v.report_id AND r.tenant_id=v.tenant_id AND r.revision_count=v.revision_no JOIN operating_locations l ON l.id=r.location_id AND l.tenant_id=r.tenant_id WHERE r.tenant_id=? AND r.employee_id=? ORDER BY v.created_at DESC,v.id DESC LIMIT 90").bind(tenantId,employeeId).all();
+ return result.results||[];
 }
