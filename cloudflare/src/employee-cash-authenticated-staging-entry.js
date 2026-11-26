@@ -70,34 +70,20 @@ async function handleSyntheticManager(request, url, env) {
   }
 }
 
-class StaffPasswordDerivationError extends Error {}
-
-async function derivePassword(password, salt, iterations) {
-  try {
-    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
-    return new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations }, key, 256));
-  } catch {
-    throw new StaffPasswordDerivationError();
-  }
-}
-
 async function handleSyntheticStaffAuth(request, url, env) {
   const json = (body, status = 200, headers = {}) => Response.json(body, {
     status, headers: { ...headers, "cache-control": "no-store" },
   });
   try {
     return await handleStaffPublic({
-      request, url, env, json, readJson, requestOriginAllowed, edgeScopedRateLimit, derivePassword,
-      syntheticPasswordIterations: 100000,
+      request, url, env, json, readJson, requestOriginAllowed, edgeScopedRateLimit,
       rateLimitResponse: result => json({ error: "rate_limited" }, 429, {
         "retry-after": String(result.retryAfterSeconds || 60),
       }),
       id: () => crypto.randomUUID(),
     }) ?? error("not_found", 404);
-  } catch (failure) {
-    return error(failure instanceof StaffPasswordDerivationError
-      ? "employee_cash_staging_password_derivation_failed"
-      : "employee_cash_staging_staff_auth_failed", 503);
+  } catch {
+    return error("employee_cash_staging_staff_auth_failed", 503);
   }
 }
 

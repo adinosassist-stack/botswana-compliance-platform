@@ -1,3 +1,5 @@
+import { pbkdf2Async } from "@noble/hashes/pbkdf2.js";
+import { sha256 as sha256Digest } from "@noble/hashes/sha2.js";
 import {parseReportSchedules,dueDeliveryReminders} from "./delivery-installation-reminders.js";
 import {managerDailyReviewEnabled,readStaffDailyReviewNotices} from "./manager-daily-report-review.js";
 import {handleEmployeeCashStaff,handleEmployeeCashManager} from "./employee-cash.js";
@@ -20,9 +22,8 @@ const validEmailOrReject=body=>staffEmail(body?.email);
 const dataBody=async(readJson,request,maxBytes=4096)=>{
  try{const b=await readJson(request,{maxBytes});return b&&typeof b==="object"&&!Array.isArray(b)?b:null}catch{return null}
 };
-async function deriveStaffPassword(password,salt,iterations){
- const key=await crypto.subtle.importKey("raw",encoder.encode(password),"PBKDF2",false,["deriveBits"]);
- return new Uint8Array(await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt,iterations},key,256));
+function deriveStaffPassword(password,salt,iterations){
+ return pbkdf2Async(sha256Digest,encoder.encode(password),salt,{c:iterations,dkLen:32});
 }
 async function passwordHash(password,derive,iterations){
  const salt=crypto.getRandomValues(new Uint8Array(16));
