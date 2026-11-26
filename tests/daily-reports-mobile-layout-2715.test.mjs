@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
+import vm from "node:vm";
 const read=p=>readFileSync(new URL(p,import.meta.url),"utf8");
 test("daily reports keeps stable metric IDs and accessible compact KPI labels",()=>{
  const shard=JSON.parse(read("../public/assets/workspace-view-fragments-20261001a-6.json"));
@@ -172,4 +173,59 @@ test("compact notification cap uses actual visual viewport and never exposes the
  assert.ok(js.includes('panel.style.setProperty("--thebe-vv-height",height+"px")'));
  assert.ok(css.includes("visibility:hidden!important;pointer-events:none!important"),"foreground sheet hides the background navigation rail");
  assert.doesNotMatch(section,/thebe-delivery-sheet-open[\s\S]*visibility:visible!important/,"do not show navigation behind notification");
+});
+
+
+test("Daily Reports exposes expected, received and missing counts on each branch card and clears failed reads",()=>{
+ const js=read("../public/js/workspace-runtime-20261001b.js");
+ const html=read("../public/index.html");
+ const components=read("../public/js/components.js");
+ for(const label of ["Expected","Received","Missing"])assert.ok(components.includes('metric("'+label+'",value('));
+ assert.ok(components.includes("expected-received:null"));
+ for(const source of [js,html]){
+  assert.ok(source.includes("BW.dailyReportUi.render("));
+  assert.ok(source.includes('if(dashboardR.status==="fulfilled")applyOpsDashboard(dashboard);else clearOpsDashboard();'));
+  assert.ok(source.includes('company!==store.activeCompanyId||role!==currentWorkspaceRole()'));
+  assert.ok(source.includes('startsWith("/api/daily-reporting/dashboard?"))throw error'));
+ }
+ assert.ok(read("../public/assets/workspace-command-center-v231.css").includes("#opsBranchPerformance .ops-branch-card"));
+});
+
+
+test("branch roll-up distinguishes missing, optional and excused reports without hiding metrics",()=>{
+ const js=read("../public/js/components.js");
+ const source=js.slice(js.indexOf("function renderOpsBranches("),js.indexOf("\nfunction clearOpsDashboard("));
+ const node={safeHTML:""};
+ const ctx=vm.createContext({document:{getElementById:()=>node},escapeHtml:s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),moneyBwp:n=>"P"+n,trendLabel:n=>String(n)});
+ vm.runInContext(source,ctx);
+ ctx.rows=[{name:"<Gaborone>",expected:3,submittedExpected:1,submitted:2,excused:1,coverage:33,revenue:123,tasks:2,customers:1,incidents:0,attention:1},{name:"Maun",expected:0,submittedExpected:0,submitted:0,excused:2,coverage:0},{name:"Unknown",expected:3}];
+ vm.runInContext("renderOpsBranches(rows,{escapeHtml,moneyBwp,trendLabel})",ctx);
+ assert.match(node.safeHTML,/&lt;Gaborone&gt;/);assert.doesNotMatch(node.safeHTML,/<Gaborone>/);
+ assert.match(node.safeHTML,/<small>Expected<\/small><b>3<\/b>/);
+ assert.match(node.safeHTML,/<small>Received<\/small><b>1<\/b>/);
+ assert.match(node.safeHTML,/<small>Missing<\/small><b>2<\/b>/);
+ assert.match(node.safeHTML,/Optional reports: 1 · Not expected: 1/);
+ assert.match(node.safeHTML,/No reports expected/);assert.match(node.safeHTML,/Reporting status unavailable/);
+ for(const label of ["Tasks","Customers / jobs","Revenue","Incidents","Attention"])assert.ok(node.safeHTML.includes("<small>"+label+"</small>"));
+ vm.runInContext("renderOpsBranches(null,{escapeHtml,moneyBwp,trendLabel})",ctx);assert.match(node.safeHTML,/unavailable/);
+ vm.runInContext("renderOpsBranches([],{escapeHtml,moneyBwp,trendLabel})",ctx);assert.match(node.safeHTML,/No locations returned/);
+});
+
+test("incomplete or failed dashboard clears numbers and follow-up instead of showing success",()=>{
+ const js=read("../public/js/workspace-runtime-20261001b.js");
+ const source=js.slice(js.indexOf("function applyOpsDashboard("),js.indexOf("let opsLiveRefreshInFlight="));
+ const nodes=new Map();
+ const get=id=>{if(!nodes.has(id))nodes.set(id,{textContent:"old",style:{},safeHTML:"old"});return nodes.get(id)};
+ let applied=0;
+ const ctx=vm.createContext({document:{getElementById:get},setText:(id,v)=>get(id).textContent=String(v),renderOpsBranches:()=>applied++,renderOpsMissing:()=>applied++,renderOpsExceptions:()=>applied++,renderOpsReports:()=>applied++,setTimeout:()=>{}});
+ const c=read("../public/js/components.js");
+ const start=c.indexOf("function clearOpsDashboard("),end=c.indexOf("\nglobal.BW.dailyReportUi=",start);
+ vm.runInContext(c.slice(start,end).replace("function clearOpsDashboard(","function clearDashboardComponent(").replace("function opsDashboardAvailable(","function dashboardAvailableComponent("),ctx);
+ vm.runInContext("var BW={dailyReportUi:{clear:clearDashboardComponent,available:dashboardAvailableComponent}};",ctx);
+ vm.runInContext(source,ctx);
+ vm.runInContext("applyOpsDashboard({})",ctx);
+ assert.equal(applied,0);assert.equal(get("opsVisualExpected").textContent,"—");assert.match(get("opsMissingReports").textContent,/unavailable/);
+ vm.runInContext("applyOpsDashboard({branches:[],reports:[],missing:[],exceptions:[],reportingPopulation:{expected:0},coverage:0})",ctx);
+ assert.equal(applied,4);assert.equal(get("opsVisualExpected").textContent,"0");
+ vm.runInContext("clearOpsDashboard()",ctx);assert.equal(get("opsCoverage").textContent,"—");assert.equal(get("opsReportingExceptionsWrap").style.display,"none");
 });

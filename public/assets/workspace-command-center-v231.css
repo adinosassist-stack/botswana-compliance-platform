@@ -664,3 +664,6 @@
 
 /* V268 shrink-safe shared workspace controls. */
 #appShell :where(.card,h1,h2,p,.row>*,.grid>*,button,input){min-width:0;max-width:100%;overflow-wrap:anywhere}
+
+/* #2715: compact, fully visible location reporting cards. */
+#opsBranchPerformance{display:grid;gap:12px;min-width:0}#opsBranchPerformance .ops-branch-card{border:1px solid var(--line,#dce4ef);border-radius:12px;padding:12px;display:grid;gap:10px;min-width:0;overflow-wrap:anywhere}#opsBranchPerformance .ops-branch-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap}#opsBranchPerformance .ops-branch-card-head>div{min-width:0;display:grid;gap:4px}#opsBranchPerformance .ops-branch-card-head small,#opsBranchPerformance .ops-branch-metric small{color:var(--muted,#58677b);font-size:.85em}#opsBranchPerformance .ops-branch-counts,#opsBranchPerformance .ops-branch-output{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,88px),1fr));gap:8px}#opsBranchPerformance .ops-branch-metric{display:grid;gap:4px;min-width:0;padding:8px;border:1px solid var(--line,#dce4ef);border-radius:8px}#opsBranchPerformance .ops-branch-metric b{font-size:1.08em;overflow-wrap:anywhere}
