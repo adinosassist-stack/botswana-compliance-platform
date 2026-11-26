@@ -157,3 +157,14 @@ test('invoice numbering resumes beyond canonical Finance numbers and conversion 
  const issued=await f.call('documents/'+converted.data.id+'/issue','POST',{revision:1});assert.equal(issued.status,200);assert.equal(issued.data.number,'INV-000008');
  }finally{await f.mf.dispose()}
 });
+
+test('new invoices receive current company banking defaults without changing the issued quote or replayed draft',async()=>{
+ const f=await fixture();try{
+ await f.call('banking','PUT',{revision:0,banking:bank});await f.call('documents/q1','PUT',{revision:0,document:draft()});await f.call('documents/q1/issue','POST',{revision:1});
+ await f.call('banking','PUT',{revision:1,banking:{...bank,accountNumber:'00999999'}});
+ const converted=await f.call('documents/q1/convert','POST',{customerId:'ca',dueOn:'2026-12-30'});assert.equal(converted.data.document.copy.bankAccount,'00999999');
+ assert.equal((await f.call('documents/q1')).data.document.copy.bankAccount,bank.accountNumber);
+ await f.call('banking','PUT',{revision:2,banking:{...bank,accountNumber:'00888888'}});
+ const replay=await f.call('documents/q1/convert','POST',{customerId:'ca',dueOn:'2026-12-30'});assert.equal(replay.data.document.copy.bankAccount,'00999999');
+ }finally{await f.mf.dispose()}
+});

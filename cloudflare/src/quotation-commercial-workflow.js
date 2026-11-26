@@ -100,6 +100,8 @@ export async function handleQuotationCommercialRequest({request,env,auth}={}){
   const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(tenant+':'+docId));
   const convertedId='inv_'+Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
   const document=JSON.parse(row.document_json);document.quoteNumber='DRAFT';document.copy.heading='INVOICE';document.copy.quoteNumberLabel='Invoice No';
+  const defaults=await db.prepare('SELECT banking_json FROM quotation_company_banking WHERE tenant_id=?').bind(tenant).first();
+  if(defaults){const bank=validateCompanyBanking(JSON.parse(defaults.banking_json));Object.assign(document.copy,{bankName:bank.bankName,bankAccountHolder:bank.accountHolder,bankAccount:bank.accountNumber,bankBranch:bank.branch,bankBranchCode:bank.branchCode,bankPaymentReference:bank.paymentReference});}
   await db.prepare("INSERT OR IGNORE INTO quotation_commercial_documents(tenant_id,id,kind,revision,document_json,source_quote_id,finance_customer_id,finance_invoice_id,due_on,total_minor,schedule_json,updated_by) VALUES(?,?,'invoice',1,?,?,?,?,?,?,?,?)")
    .bind(tenant,convertedId,JSON.stringify(document),docId,body.customerId,crypto.randomUUID(),body.dueOn,row.total_minor,row.schedule_json,actor).run();
   const converted=await read(db,tenant,convertedId);
