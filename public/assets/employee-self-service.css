@@ -56,3 +56,10 @@
 .thebe-cash-table-wrap th{background:#f6f8fc}
 .thebe-cash-table-wrap td:last-child{white-space:normal}
 @media(max-width:680px){.thebe-cash-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.thebe-cash-forms{grid-template-columns:1fr}.thebe-staff-cash{padding:12px}}
+
+.thebe-staff-reports{margin-top:28px}.thebe-staff-reports>button{margin-top:10px}
+.thebe-staff-task h3,.thebe-staff-task h4{margin:6px 0;overflow-wrap:anywhere}
+.thebe-cash-count-history{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr))}
+.thebe-staff-page select{max-width:100%;width:100%;padding:11px 12px;border:1px solid #bac7d8;border-radius:10px;background:#fff;color:#111827;font:inherit}
+.thebe-staff-page select:focus-visible{outline:3px solid #89b5fd;outline-offset:2px}
+.thebe-staff-task,.thebe-staff-reports,#staffProfile{min-width:0;overflow-wrap:anywhere}

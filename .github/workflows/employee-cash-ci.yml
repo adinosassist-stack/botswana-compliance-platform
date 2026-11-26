@@ -4,6 +4,7 @@ on:
     paths:
       - 'cloudflare/src/employee-cash.js'
       - 'cloudflare/src/employee-self-service.js'
+      - 'cloudflare/src/delivery-installation-reminders.js'
       - 'cloudflare/migrations/20261118_employee_cash_reports.sql'
       - 'cloudflare/wrangler.toml'
       - 'public/js/employee-cash-portal.js'
@@ -13,6 +14,9 @@ on:
       - 'public/staff/index.html'
       - 'public/assets/employee-self-service.css'
       - 'tests/employee-cash.test.mjs'
+      - 'tests/employee-cash-portal-history.test.mjs'
+      - 'cloudflare/src/worker.js'
+      - 'cloudflare/config/route-security-policy.json'
       - '.github/workflows/employee-cash-ci.yml'
 permissions:
   contents: read
@@ -44,5 +48,5 @@ jobs:
           node --check public/js/employee-self-service-manager.js
       - name: Exercise isolated SQLite schema, access and authorization
         run: |
-          node --test tests/employee-cash.test.mjs
-          node --test tests/employee-self-service-runtime.test.mjs
+          node --test tests/employee-cash.test.mjs tests/employee-cash-portal-history.test.mjs
+          node --test tests/employee-self-service-runtime.test.mjs tests/delivery-installation-reminders.test.mjs

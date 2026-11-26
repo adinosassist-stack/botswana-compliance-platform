@@ -80,3 +80,35 @@ test('private onboarding scripts all use the centralized API client and staging 
   assert.doesNotMatch(code,/\bfetch\s*\(/);
  }
 });
+
+test('manager review queue is mobile-readable, locally filtered and fail-closed on refresh',()=>{
+ const html=read('public/manager-invite/dashboard/index.html');
+ const js=read('public/js/manager-invite-dashboard.js');
+ for(const id of ['reportBranch','reportDay','reportMode','refreshReports','reportFilterStatus'])assert.ok(html.includes('id="'+id+'"'));
+ assert.match(html,/Latest 50 reports/);
+ assert.match(html,/not manager decisions/);
+ assert.match(js,/items=reportData\.reports\.filter\(r=>ids\.has\(String\(r\.location_id\)\)\)/);
+ assert.match(js,/r\.report_date===day\.value/);
+ assert.match(js,/Number\(r\.needs_attention\)===1/);
+ assert.match(js,/r\.blockers/);assert.match(js,/r\.incidents/);
+ assert.match(js,/clear\(\);refresh\.disabled=true/);
+ assert.match(js,/clear\(\);status\.textContent='Manager access is unavailable/);
+ assert.match(js,/reviewEnabled=reportData\.reviewEnabled===true&&!!sessionCsrf/);
+ assert.match(js,/if\(!reviewEnabled\|\|!sessionCsrf\)return/);
+ assert.match(js,/getCsrfToken:\(\)=>sessionCsrf/);
+ assert.match(js,/expectedRevision:Number\(r\.revision_count\)/);
+ assert.match(js,/method:'POST'/);assert.doesNotMatch(js,/method:\s*['"](?:PATCH|PUT|DELETE)/);
+ assert.doesNotMatch(js,/innerHTML|localStorage|sessionStorage/);
+});
+
+test('owner review overview is staging-gated and cleared before a new scope loads',()=>{
+ const worker=read('cloudflare/src/worker.js');
+ const js=read('public/js/daily-report-money-v331.js');
+ assert.match(worker,/a\.role==="owner"&&managerDailyReviewEnabled\(env\)\?await readOwnerDailyReviewOverview/);
+ assert.match(js,/renderReviewOverview\(panel,null\)/);
+ assert.match(js,/if\(role==="owner"\)renderReviewOverview\(panel,ops\.reviewOverview\)/);
+ assert.match(js,/if\(!current\(\)\)return/);
+ assert.match(js,/Correction reason:/);
+ assert.match(js,/Current report revision/);
+ assert.match(js,/host\.replaceChildren\(\);host\.hidden=true/);
+});

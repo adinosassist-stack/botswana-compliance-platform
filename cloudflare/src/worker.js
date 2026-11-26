@@ -3,6 +3,7 @@ import {hasFounderAiEntitlement} from "./founder-ai-entitlement.js";
 import {createManagerLocationAdminHttp} from './manager-invitations-location-admin-http.js';
 import {createManagerOwnerDirectoryHttp} from './manager-invitations-owner-directory.js';
 import {createManagerScopedReadHttp} from './manager-invitations-scoped-read.js';
+import {createManagerDailyReportReview,managerDailyReviewEnabled,readOwnerDailyReviewOverview} from './manager-daily-report-review.js';
 import {createManagerAccessAdminHttp} from './manager-invitations-admin-http.js';
 import {createManagerInvitationD1Service} from './manager-invitations-d1-service.js';
 import {createManagerInvitationsHttp} from './manager-invitations-http.js';
@@ -1866,6 +1867,53 @@ function dailyReportPayloadMatches(row,payload){
     String(row.incidents||"")===payload.incidents&&String(row.next_plan||"")===payload.nextPlan&&
     stableJson(safeJson(row.kpi_json,{}))===stableJson(payload.kpis||{})&&!!row.needs_attention===!!payload.needsAttention;
 }
+async function submitDailyEmployeeReport(env,body,access,staff=null){
+      const headers={...PASSPORT_PUBLIC_HEADERS,"cache-control":"no-store"};
+      const reportEnt=await entitlement(env,access.tenant_id,"operating_locations");if(!reportEnt.enabled)return json({error:"daily_reporting_not_in_active_plan"},402,headers);
+      const reportDate=String(body.reportDate||gaboroneDate());if(!isoDateValid(reportDate))return json({error:"invalid_report_date"},400,headers);
+      const today=gaboroneDate(),oldest=new Date(`${today}T00:00:00Z`);oldest.setUTCDate(oldest.getUTCDate()-3);const oldestDate=oldest.toISOString().slice(0,10);
+      if(reportDate>today||reportDate<oldestDate)return json({error:"report_date_outside_allowed_window",allowedFrom:oldestDate,allowedTo:today},409,headers);
+      const workSummary=boundedReportText(body.workSummary,2400),wins=boundedReportText(body.wins,1600),blockers=boundedReportText(body.blockers,1600),incidents=boundedReportText(body.incidents,1600),nextPlan=boundedReportText(body.nextPlan,1600);
+      if(!workSummary&&!wins&&!blockers&&!incidents&&!nextPlan)return json({error:"report_content_required"},400,headers);
+      let existing=await env.DB.prepare("SELECT * FROM daily_employee_reports WHERE tenant_id=? AND employee_id=? AND location_id=? AND report_date=? LIMIT 1").bind(access.tenant_id,access.employee_id,access.location_id,reportDate).first();
+      const inputKpis=staff&&body.kpis===undefined?safeJson(existing?.kpi_json,{}):body?.kpis;
+      const scheduleValidation=scheduleEntriesFromInput(inputKpis);
+      if(scheduleValidation.error)return json({error:scheduleValidation.error},400,headers);
+      const kpis={tasksCompleted:numericReportKpi(inputKpis?.tasksCompleted,100000),customersHandled:numericReportKpi(inputKpis?.customersHandled,1000000),revenueBwp:numericReportKpi(inputKpis?.revenueBwp,100000000),incidentsCount:numericReportKpi(inputKpis?.incidentsCount,10000),customLabel:boundedReportText(inputKpis?.customLabel,60),customValue:numericReportKpi(inputKpis?.customValue,100000000),...scheduleValidation.fields};
+      const payload={workSummary,wins,blockers,incidents,nextPlan,kpis,needsAttention:!!body.needsAttention};
+      let reportId=existing?.id||id(),revision=Number(existing?.revision_count||0),created=false,changed=false;
+      const expected=staff?body.expectedRevision:undefined;
+      if(staff&&((existing&&expected!==Number(existing.revision_count||0))||(!existing&&expected!==null))&&!dailyReportPayloadMatches(existing,payload))return json({error:"daily_report_changed_during_submit",retryable:true},409,headers);
+      const accessGuard="EXISTS (SELECT 1 FROM employee_reporting_access a JOIN employees e ON e.id=a.employee_id AND e.tenant_id=a.tenant_id JOIN operating_locations l ON l.id=a.location_id AND l.tenant_id=a.tenant_id WHERE a.id=? AND a.tenant_id=? AND a.employee_id=? AND a.location_id=? AND a.status='active' AND a.expires_at>CURRENT_TIMESTAMP AND lower(trim(coalesce(e.status,'')))='active' AND l.active=1"+(staff?" AND EXISTS (SELECT 1 FROM employee_portal_sessions ss JOIN employee_portal_accounts sa ON sa.id=ss.account_id AND sa.status='active' WHERE ss.token_hash=? AND ss.expires_at>CURRENT_TIMESTAMP AND sa.tenant_id=a.tenant_id AND sa.employee_id=a.employee_id)":"")+")";
+      const guardArgs=[access.access_id,access.tenant_id,access.employee_id,access.location_id,...(staff?[staff.token_hash]:[])];
+      if(existing){
+        if(dailyReportPayloadMatches(existing,payload)){
+          if(!staff)await env.DB.prepare("UPDATE employee_reporting_access SET last_used_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=?").bind(access.access_id,access.tenant_id).run();
+          return json({ok:true,reportId,reportDate,revision,idempotent:true,submittedAt:new Date().toISOString(),message:"Report already up to date."},200,headers);
+        }
+        if(revision>=8)return json({error:"daily_report_revision_limit_reached"},429,headers);
+        const updated=await env.DB.prepare(`UPDATE daily_employee_reports SET work_summary=?,wins=?,blockers=?,incidents=?,next_plan=?,kpi_json=?,needs_attention=?,revision_count=revision_count+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND revision_count=? AND ${accessGuard} RETURNING revision_count`)
+          .bind(workSummary,wins,blockers,incidents,nextPlan,JSON.stringify(kpis),body.needsAttention?1:0,reportId,access.tenant_id,revision,...guardArgs).first();
+        if(!updated){
+          existing=await env.DB.prepare("SELECT * FROM daily_employee_reports WHERE id=? AND tenant_id=? LIMIT 1").bind(reportId,access.tenant_id).first();
+          if(dailyReportPayloadMatches(existing,payload)){revision=Number(existing.revision_count||0);return json({ok:true,reportId,reportDate,revision,idempotent:true,submittedAt:new Date().toISOString(),message:"Report already up to date."},200,headers);}
+          return json({error:"daily_report_changed_during_submit",retryable:true},409,headers);
+        }
+        revision=Number(updated.revision_count);changed=true;
+      }else{
+        const inserted=await env.DB.prepare(`INSERT INTO daily_employee_reports(id,tenant_id,employee_id,location_id,report_date,work_summary,wins,blockers,incidents,next_plan,kpi_json,needs_attention,source,revision_count)
+          SELECT ?,?,?,?,?,?,?,?,?,?,?,?,'employee_link',0 WHERE ${accessGuard} ON CONFLICT(tenant_id,employee_id,location_id,report_date) DO NOTHING RETURNING id,revision_count`).bind(reportId,access.tenant_id,access.employee_id,access.location_id,reportDate,workSummary,wins,blockers,incidents,nextPlan,JSON.stringify(kpis),body.needsAttention?1:0,...guardArgs).first();
+        if(!inserted){
+          existing=await env.DB.prepare("SELECT * FROM daily_employee_reports WHERE tenant_id=? AND employee_id=? AND location_id=? AND report_date=? LIMIT 1").bind(access.tenant_id,access.employee_id,access.location_id,reportDate).first();
+          if(dailyReportPayloadMatches(existing,payload)){reportId=existing.id;revision=Number(existing.revision_count||0);return json({ok:true,reportId,reportDate,revision,idempotent:true,submittedAt:new Date().toISOString(),message:"Report already submitted."},200,headers);}
+          return json({error:"daily_report_created_concurrently",retryable:true},409,headers);
+        }
+        reportId=inserted.id;revision=Number(inserted.revision_count||0);created=true;
+      }
+      if(!staff)await env.DB.prepare("UPDATE employee_reporting_access SET last_used_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=?").bind(access.access_id,access.tenant_id).run();
+      if(created||changed)await appendAuditEvent(env,{tenantId:access.tenant_id,actorUserId:null,eventType:created?"DAILY_REPORT_SUBMITTED":"DAILY_REPORT_UPDATED",entityType:"employee",entityId:access.employee_id,eventData:{reportId,reportDate,locationId:access.location_id,revision,authMode:staff?"staff_session":"private_link"}});
+      return json({ok:true,reportId,reportDate,revision,submittedAt:new Date().toISOString(),message:created?"Daily report submitted.":"Report updated."},created?201:200,headers);
+}
 async function dailyOpsDashboard(env,tenantId,reportDate,locationId=null){
   await ensureDefaultOperatingLocation(env,tenantId);
   const prevDate=previousIsoDate(reportDate);
@@ -1874,15 +1922,15 @@ async function dailyOpsDashboard(env,tenantId,reportDate,locationId=null){
   const [locRes,accessRes,reportRes,prevRes,exceptionRes]=await env.DB.batch([
     env.DB.prepare("SELECT id,name,code,town,active FROM operating_locations WHERE tenant_id=? AND active=1 ORDER BY name").bind(tenantId),
     env.DB.prepare(`SELECT a.id,a.employee_id,a.location_id,a.expires_at,a.last_used_at,e.full_name,e.role_title,l.name location_name
-      FROM employee_reporting_access a JOIN employees e ON e.id=a.employee_id JOIN operating_locations l ON l.id=a.location_id
+      FROM employee_reporting_access a JOIN employees e ON e.id=a.employee_id AND e.tenant_id=a.tenant_id JOIN operating_locations l ON l.id=a.location_id AND l.tenant_id=a.tenant_id
       WHERE a.tenant_id=? AND a.status='active' AND a.expires_at>CURRENT_TIMESTAMP AND lower(trim(coalesce(e.status,'')))='active' AND l.active=1 ORDER BY l.name,e.full_name`).bind(tenantId),
     env.DB.prepare(`SELECT r.id,r.employee_id,r.location_id,r.report_date,r.work_summary,r.wins,r.blockers,r.incidents,r.next_plan,r.kpi_json,r.needs_attention,r.revision_count,r.submitted_at,r.updated_at,
       e.full_name,e.role_title,l.name location_name,l.code location_code
-      FROM daily_employee_reports r JOIN employees e ON e.id=r.employee_id JOIN operating_locations l ON l.id=r.location_id
+      FROM daily_employee_reports r JOIN employees e ON e.id=r.employee_id AND e.tenant_id=r.tenant_id JOIN operating_locations l ON l.id=r.location_id AND l.tenant_id=r.tenant_id
       WHERE r.tenant_id=? AND r.report_date=? ORDER BY l.name,e.full_name`).bind(tenantId,reportDate),
-    env.DB.prepare(`SELECT r.location_id,r.kpi_json,r.needs_attention,r.incidents FROM daily_employee_reports r WHERE r.tenant_id=? AND r.report_date=?`).bind(tenantId,prevDate),
+    env.DB.prepare(`SELECT r.location_id,r.kpi_json,r.needs_attention,r.incidents FROM daily_employee_reports r JOIN employees e ON e.id=r.employee_id AND e.tenant_id=r.tenant_id JOIN operating_locations l ON l.id=r.location_id AND l.tenant_id=r.tenant_id WHERE r.tenant_id=? AND r.report_date=?`).bind(tenantId,prevDate),
     env.DB.prepare(`SELECT x.id,x.employee_id,x.location_id,x.report_date,x.reason_code,x.note,x.created_at,e.full_name,e.role_title,l.name location_name
-      FROM daily_reporting_exceptions x JOIN employees e ON e.id=x.employee_id JOIN operating_locations l ON l.id=x.location_id
+      FROM daily_reporting_exceptions x JOIN employees e ON e.id=x.employee_id AND e.tenant_id=x.tenant_id JOIN operating_locations l ON l.id=x.location_id AND l.tenant_id=x.tenant_id
       WHERE x.tenant_id=? AND x.report_date=? ORDER BY l.name,e.full_name`).bind(tenantId,reportDate)
   ]);
   const locations=locRes.results||[],allAccesses=accessRes.results||[],allExceptions=exceptionRes.results||[];
@@ -5583,6 +5631,11 @@ export default {
     if(url.pathname==="/public/employee/login"&&req.method==="POST")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
     if(url.pathname==="/public/employee/logout"&&req.method==="POST")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
     if(url.pathname==="/public/employee/me"&&req.method==="GET")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
+    if(url.pathname==="/public/employee/reports"&&req.method==="GET")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
+    if(url.pathname==="/public/employee/reports"&&req.method==="POST")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id,submitDailyReport:submitDailyEmployeeReport});
+    if(url.pathname==="/public/employee/cash"&&req.method==="GET")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
+    if(url.pathname==="/public/employee/cash/expenses"&&req.method==="POST")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
+    if(url.pathname==="/public/employee/cash/counts"&&req.method==="POST")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
     if(url.pathname==="/public/employee/tasks"&&req.method==="GET")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
     if(url.pathname.match(/^\/public\/employee\/tasks\/[a-f0-9-]{32,36}\/progress$/)&&req.method==="POST")return handleStaffPublic({request:req,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id});
     if(url.pathname==="/public/daily-reporting/access"&&req.method==="POST"){
@@ -5607,45 +5660,7 @@ export default {
       const publicLimit=await publicBearerRateLimit(req,env,"daily-report-submit",token);if(!publicLimit.ok)return rateLimitResponse(publicLimit);
       const access=await reporterAccessFromToken(env,token);
       if(!access)return json({error:"reporting_link_invalid_or_expired"},404,PASSPORT_PUBLIC_HEADERS);
-      const reportEnt=await entitlement(env,access.tenant_id,"operating_locations");if(!reportEnt.enabled)return json({error:"daily_reporting_not_in_active_plan"},402,PASSPORT_PUBLIC_HEADERS);
-      const reportDate=String(body.reportDate||gaboroneDate());if(!isoDateValid(reportDate))return json({error:"invalid_report_date"},400,PASSPORT_PUBLIC_HEADERS);
-      const today=gaboroneDate(),oldest=new Date(`${today}T00:00:00Z`);oldest.setUTCDate(oldest.getUTCDate()-3);const oldestDate=oldest.toISOString().slice(0,10);
-      if(reportDate>today||reportDate<oldestDate)return json({error:"report_date_outside_allowed_window",allowedFrom:oldestDate,allowedTo:today},409,PASSPORT_PUBLIC_HEADERS);
-      const workSummary=boundedReportText(body.workSummary,2400),wins=boundedReportText(body.wins,1600),blockers=boundedReportText(body.blockers,1600),incidents=boundedReportText(body.incidents,1600),nextPlan=boundedReportText(body.nextPlan,1600);
-      if(!workSummary&&!wins&&!blockers&&!incidents&&!nextPlan)return json({error:"report_content_required"},400,PASSPORT_PUBLIC_HEADERS);
-      const scheduleValidation=scheduleEntriesFromInput(body?.kpis);
-      if(scheduleValidation.error)return json({error:scheduleValidation.error},400,PASSPORT_PUBLIC_HEADERS);
-      const kpis={tasksCompleted:numericReportKpi(body?.kpis?.tasksCompleted,100000),customersHandled:numericReportKpi(body?.kpis?.customersHandled,1000000),revenueBwp:numericReportKpi(body?.kpis?.revenueBwp,100000000),incidentsCount:numericReportKpi(body?.kpis?.incidentsCount,10000),customLabel:boundedReportText(body?.kpis?.customLabel,60),customValue:numericReportKpi(body?.kpis?.customValue,100000000),...scheduleValidation.fields};
-      const payload={workSummary,wins,blockers,incidents,nextPlan,kpis,needsAttention:!!body.needsAttention};
-      let existing=await env.DB.prepare("SELECT * FROM daily_employee_reports WHERE tenant_id=? AND employee_id=? AND location_id=? AND report_date=? LIMIT 1").bind(access.tenant_id,access.employee_id,access.location_id,reportDate).first();
-      let reportId=existing?.id||id(),revision=Number(existing?.revision_count||0),created=false,changed=false;
-      if(existing){
-        if(dailyReportPayloadMatches(existing,payload)){
-          await env.DB.prepare("UPDATE employee_reporting_access SET last_used_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=?").bind(access.access_id,access.tenant_id).run();
-          return json({ok:true,reportId,reportDate,revision,idempotent:true,submittedAt:new Date().toISOString(),message:"Report already up to date."},200,PASSPORT_PUBLIC_HEADERS);
-        }
-        if(revision>=8)return json({error:"daily_report_revision_limit_reached"},429,PASSPORT_PUBLIC_HEADERS);
-        const updated=await env.DB.prepare(`UPDATE daily_employee_reports SET work_summary=?,wins=?,blockers=?,incidents=?,next_plan=?,kpi_json=?,needs_attention=?,revision_count=revision_count+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=? AND revision_count=? RETURNING revision_count`)
-          .bind(workSummary,wins,blockers,incidents,nextPlan,JSON.stringify(kpis),body.needsAttention?1:0,reportId,access.tenant_id,revision).first();
-        if(!updated){
-          existing=await env.DB.prepare("SELECT * FROM daily_employee_reports WHERE id=? AND tenant_id=? LIMIT 1").bind(reportId,access.tenant_id).first();
-          if(dailyReportPayloadMatches(existing,payload)){revision=Number(existing.revision_count||0);return json({ok:true,reportId,reportDate,revision,idempotent:true,submittedAt:new Date().toISOString(),message:"Report already up to date."},200,PASSPORT_PUBLIC_HEADERS);}
-          return json({error:"daily_report_changed_during_submit",retryable:true},409,PASSPORT_PUBLIC_HEADERS);
-        }
-        revision=Number(updated.revision_count);changed=true;
-      }else{
-        const inserted=await env.DB.prepare(`INSERT INTO daily_employee_reports(id,tenant_id,employee_id,location_id,report_date,work_summary,wins,blockers,incidents,next_plan,kpi_json,needs_attention,source,revision_count)
-          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,'employee_link',0) ON CONFLICT(tenant_id,employee_id,location_id,report_date) DO NOTHING RETURNING id,revision_count`).bind(reportId,access.tenant_id,access.employee_id,access.location_id,reportDate,workSummary,wins,blockers,incidents,nextPlan,JSON.stringify(kpis),body.needsAttention?1:0).first();
-        if(!inserted){
-          existing=await env.DB.prepare("SELECT * FROM daily_employee_reports WHERE tenant_id=? AND employee_id=? AND location_id=? AND report_date=? LIMIT 1").bind(access.tenant_id,access.employee_id,access.location_id,reportDate).first();
-          if(dailyReportPayloadMatches(existing,payload)){reportId=existing.id;revision=Number(existing.revision_count||0);return json({ok:true,reportId,reportDate,revision,idempotent:true,submittedAt:new Date().toISOString(),message:"Report already submitted."},200,PASSPORT_PUBLIC_HEADERS);}
-          return json({error:"daily_report_created_concurrently",retryable:true},409,PASSPORT_PUBLIC_HEADERS);
-        }
-        reportId=inserted.id;revision=Number(inserted.revision_count||0);created=true;
-      }
-      await env.DB.prepare("UPDATE employee_reporting_access SET last_used_at=CURRENT_TIMESTAMP WHERE id=? AND tenant_id=?").bind(access.access_id,access.tenant_id).run();
-      if(created||changed)await appendAuditEvent(env,{tenantId:access.tenant_id,actorUserId:null,eventType:created?"DAILY_REPORT_SUBMITTED":"DAILY_REPORT_UPDATED",entityType:"employee",entityId:access.employee_id,eventData:{reportId,reportDate,locationId:access.location_id,revision}});
-      return json({ok:true,reportId,reportDate,revision,submittedAt:new Date().toISOString(),message:created?"Daily report submitted.":"Report updated."},created?201:200,PASSPORT_PUBLIC_HEADERS);
+      return submitDailyEmployeeReport(env,body,access);
     }
 
     if(url.pathname==="/public/passport/verify"&&req.method==="GET"){
@@ -5776,11 +5791,18 @@ export default {
         const isScopedManager=!!(branchInvite?.scoped_manager||provisionedManager?.scoped_manager);
         if(!isScopedManager&&!((url.pathname==='/api/auth/me'&&req.method==='GET')||(url.pathname==='/api/auth/logout'&&req.method==='POST')))
           return json({error:'manager_scope_not_qualified'},403);
+        if(isScopedManager&&url.pathname==='/api/workspace/managers/my-reports'&&req.method==='POST'){
+          if(!managerDailyReviewEnabled(env))return json({error:'manager_report_review_not_enabled'},403);
+          const limit=await authRateLimit(env,req,'manager-daily-report-review',{limit:30,windowSeconds:60});if(!limit.ok)return rateLimitResponse(limit);
+          const body=await readJson(req,{maxBytes:4096}).catch(()=>null);if(!body||typeof body!=='object'||Array.isArray(body))return json({error:'invalid_report_review'},400);
+          const svc=createManagerDailyReportReview({db:env.DB,allowProvisioned:String(env.MANAGER_ACCESS_REQUESTS_ENABLED||'').toLowerCase()==='true'&&String(env.MANAGER_ACCESS_PROVISIONING_ENABLED||'').toLowerCase()==='true'});
+          const result=await svc.decide({tenantId:a.tenant_id,userId:a.user_id,role:a.role},body);return json(result,result.status);
+        }
         if(isScopedManager&&req.method==='GET'&&(
           url.pathname==='/api/workspace/managers/my-locations'||
           url.pathname==='/api/workspace/managers/my-reports'||
           url.pathname==='/api/workspace/managers/my-dashboard')){
-          return createManagerScopedReadHttp({db:env.DB,allowProvisioned:String(env.MANAGER_ACCESS_REQUESTS_ENABLED||'').toLowerCase()==='true'&&String(env.MANAGER_ACCESS_PROVISIONING_ENABLED||'').toLowerCase()==='true'})(req,{
+          return createManagerScopedReadHttp({db:env.DB,reviewEnabled:managerDailyReviewEnabled(env),allowProvisioned:String(env.MANAGER_ACCESS_REQUESTS_ENABLED||'').toLowerCase()==='true'&&String(env.MANAGER_ACCESS_PROVISIONING_ENABLED||'').toLowerCase()==='true'})(req,{
             tenantId:a.tenant_id,userId:a.user_id,role:a.role
           });
         }
@@ -7348,8 +7370,14 @@ export default {
         if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);const body=await readJson(req),employeeId=String(body.employeeId||""),locationId=String(body.locationId||"");
         const [emp,loc]=await Promise.all([env.DB.prepare("SELECT id,full_name,status FROM employees WHERE id=? AND tenant_id=? LIMIT 1").bind(employeeId,a.tenant_id).first(),env.DB.prepare("SELECT id,name,active FROM operating_locations WHERE id=? AND tenant_id=? LIMIT 1").bind(locationId,a.tenant_id).first()]);
         if(!emp||String(emp.status||"").trim().toLowerCase()!=="active")return json({error:"active_employee_required"},404);if(!loc||Number(loc.active)!==1)return json({error:"active_location_required"},404);
-        const days=Math.max(7,Math.min(365,Number(body.expiresInDays||180))),token=randomReporterToken(),tokenHash=await sha256Hex(token),aid=id();
-        await env.DB.batch([env.DB.prepare("UPDATE employee_reporting_access SET status='revoked',last_rotated_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND employee_id=? AND location_id=? AND status='active'").bind(a.tenant_id,employeeId,locationId),env.DB.prepare("INSERT INTO employee_reporting_access(id,tenant_id,employee_id,location_id,token_hash,status,expires_at) VALUES(?,?,?,?,?,'active',datetime('now',?))").bind(aid,a.tenant_id,employeeId,locationId,tokenHash,`+${days} days`)]);
+        const requestedDays=Number(body.expiresInDays??365);
+        if(!Number.isInteger(requestedDays)||requestedDays<7||requestedDays>365)return json({error:"invalid_reporting_link_expiry"},400);
+        const expectedAccessId=body.expectedAccessId==null?null:String(body.expectedAccessId);
+        const current=await env.DB.prepare("SELECT id FROM employee_reporting_access WHERE tenant_id=? AND employee_id=? AND location_id=? AND status='active' LIMIT 1").bind(a.tenant_id,employeeId,locationId).first();
+        if((current?.id||null)!==expectedAccessId)return json({error:"reporting_access_changed_refresh_before_rotation"},409);
+        const days=requestedDays,token=randomReporterToken(),tokenHash=await sha256Hex(token),aid=id();
+        const writes=await env.DB.batch([env.DB.prepare("UPDATE employee_reporting_access SET status='revoked',last_rotated_at=CURRENT_TIMESTAMP WHERE tenant_id=? AND employee_id=? AND location_id=? AND id=? AND status='active'").bind(a.tenant_id,employeeId,locationId,expectedAccessId),env.DB.prepare("INSERT INTO employee_reporting_access(id,tenant_id,employee_id,location_id,token_hash,status,expires_at) SELECT ?,?,?,?,?,'active',datetime('now',?) WHERE (? IS NULL OR changes()=1) AND NOT EXISTS (SELECT 1 FROM employee_reporting_access WHERE tenant_id=? AND employee_id=? AND location_id=? AND status='active') AND EXISTS (SELECT 1 FROM employees WHERE tenant_id=? AND id=? AND lower(trim(coalesce(status,'')))='active') AND EXISTS (SELECT 1 FROM operating_locations WHERE tenant_id=? AND id=? AND active=1)").bind(aid,a.tenant_id,employeeId,locationId,tokenHash,`+${days} days`,expectedAccessId,a.tenant_id,employeeId,locationId,a.tenant_id,employeeId,a.tenant_id,locationId)]);
+        if(Number(writes[1]?.meta?.changes||0)!==1)return json({error:"reporting_access_changed_refresh_before_rotation"},409);
         const origin=(validPublicAppUrl(env.PUBLIC_APP_URL)||`${url.origin}/`).replace(/\/+$/,"");const link=`${origin}/report/?entry=employee&v=20260923e#report=${encodeURIComponent(token)}`;
         await writeAudit(env,a.tenant_id,a.user_id,"EMPLOYEE_REPORTING_ACCESS_ISSUED",{accessId:aid,employeeId,locationId,expiresInDays:days});return json({ok:true,id:aid,employeeName:emp.full_name,locationName:loc.name,expiresInDays:days,link},201);
       }
@@ -7383,7 +7411,7 @@ export default {
         return json({ok:true});
       }
       if(url.pathname==="/api/daily-reporting/dashboard"&&req.method==="GET"){
-        if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);const reportDate=String(url.searchParams.get("date")||gaboroneDate()),locationId=String(url.searchParams.get("locationId")||"")||null;if(!isoDateValid(reportDate))return json({error:"invalid_report_date"},400);const dashboard=await dailyOpsDashboard(env,a.tenant_id,reportDate,locationId);return json({...dashboard,deliveryReminders:await dueDeliveryReminders(env,{tenantId:a.tenant_id,locationId,today:gaboroneDate()})});
+        if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);const reportDate=String(url.searchParams.get("date")||gaboroneDate()),locationId=String(url.searchParams.get("locationId")||"")||null;if(!isoDateValid(reportDate))return json({error:"invalid_report_date"},400);const dashboard=await dailyOpsDashboard(env,a.tenant_id,reportDate,locationId);const reviewOverview=a.role==="owner"&&managerDailyReviewEnabled(env)?await readOwnerDailyReviewOverview(env.DB,{tenantId:a.tenant_id,userId:a.user_id,role:a.role,date:reportDate,locationId}).catch(()=>({available:false})):null;return json({...dashboard,reviewOverview,deliveryReminders:await dueDeliveryReminders(env,{tenantId:a.tenant_id,locationId,today:gaboroneDate()})});
       }
       if(url.pathname==="/api/daily-reporting/summaries"&&req.method==="GET"){
         if(!roleAllowed(a,"owner","manager"))return json({error:"forbidden"},403);const reportDate=String(url.searchParams.get("date")||gaboroneDate());
@@ -8784,7 +8812,7 @@ export default {
   }
 };
 
-export const __v782157Test=Object.freeze({auth,dailyReportPayloadMatches});
+export const __v782157Test=Object.freeze({auth,dailyReportPayloadMatches,submitDailyEmployeeReport,dailyOpsDashboard});
 export const __v782158Test=Object.freeze({claimPaymentWebhookEvent,completePaymentWebhookEvent,failPaymentWebhookEvent,paymentWebhookRetryable,claimTenantDeletion,releaseTenantDeletionClaim,heartbeatTenantDeletionClaim,PAYMENT_WEBHOOK_MAX_ATTEMPTS,TENANT_DELETION_MAX_ATTEMPTS,TENANT_DELETION_STALE_MINUTES});
 export const __v782160Test=Object.freeze({validPasswordResetToken});
 export const __v782161Test=Object.freeze({authSubjectRateLimit});

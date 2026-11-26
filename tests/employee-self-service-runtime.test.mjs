@@ -4,6 +4,8 @@ import {randomUUID} from "node:crypto";
 import {DatabaseSync} from "node:sqlite";
 import {readFileSync} from "node:fs";
 import {handleStaffManager,handleStaffPublic} from "../cloudflare/src/employee-self-service.js";
+import {__v782157Test} from "../cloudflare/src/worker.js";
+import {createManagerScopedReadHttp} from "../cloudflare/src/manager-invitations-scoped-read.js";
 
 // Execute the actual Cloudflare D1 SQL against an isolated in-memory SQLite database.
 // No deployment, remote credentials or live employee data are involved.
@@ -21,7 +23,7 @@ function fixture(t){
  sql.exec("PRAGMA foreign_keys=ON;");
  sql.exec("CREATE TABLE tenants(id TEXT PRIMARY KEY,name TEXT NOT NULL);");
  sql.exec("CREATE TABLE users(id TEXT PRIMARY KEY,email TEXT NOT NULL);");
- sql.exec("CREATE TABLE employees(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL REFERENCES tenants(id),full_name TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'active');");
+ sql.exec("CREATE TABLE employees(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL REFERENCES tenants(id),full_name TEXT NOT NULL,role_title TEXT,status TEXT NOT NULL DEFAULT 'active');");
  sql.exec(readFileSync(new URL("../cloudflare/migrations/20261108_employee_self_service.sql",import.meta.url),"utf8"));
  sql.prepare("INSERT INTO tenants(id,name) VALUES(?,?)").run(IDS.tenantA,"Synthetic A");
  sql.prepare("INSERT INTO tenants(id,name) VALUES(?,?)").run(IDS.tenantB,"Synthetic B");
@@ -40,6 +42,7 @@ function fixture(t){
     async first(){return bound.get(...args)||null},
     async all(){return {results:bound.all(...args)}},
     async run(){
+     if(/^\s*SELECT\b/i.test(query))return {results:bound.all(...args),meta:{changes:0}};
      if(/\bRETURNING\b/i.test(query)){
       const rows=bound.all(...args);
       return {results:rows,meta:{changes:rows.length}};
@@ -70,7 +73,7 @@ function fixture(t){
  const json=(object,status=200,headers={})=>new Response(JSON.stringify(object),{status,headers:{"content-type":"application/json",...headers}});
  const readJson=async req=>req.json();
  const options={
-  env,json,readJson,id:randomUUID,
+  env,json,readJson,id:randomUUID,submitDailyReport:__v782157Test.submitDailyEmployeeReport,
   requestOriginAllowed:()=>true,
   edgeScopedRateLimit:async()=>({ok:true}),
   rateLimitResponse:()=>json({error:"rate_limit"},429)
@@ -162,6 +165,10 @@ test("employee invitation, login and task lifecycle run on real SQLite D1",async
  const reviewedTask=reviewedStaffTasks.body.items.find(x=>x.id===task.body.id);
  assert.equal(reviewedTask.latest_note,"Checked result");
  assert.equal(reviewedTask.latest_note_actor,"manager");
+ assert.deepEqual(reviewedStaffTasks.body.history.map(x=>x.action),["approve","submit","start","assign"]);
+ assert.ok(reviewedStaffTasks.body.history.every(x=>x.task_id===task.body.id));
+ assert.equal(reviewedStaffTasks.body.history[0].note,"Checked result");
+ assert.ok(reviewedStaffTasks.body.history.every(x=>!Object.hasOwn(x,"actor_id")));
  const events=f.sql.prepare("SELECT action,actor_kind,previous_status,next_status FROM employee_portal_task_events WHERE task_id=? ORDER BY created_at,id").all(task.body.id);
  assert.equal(events.length,4);
  assert.deepEqual(new Set(events.map(x=>x.action)),new Set(["assign","start","submit","approve"]));
@@ -293,4 +300,148 @@ test("synthetic staging: origin and edge rate-limit denials happen before any da
  const blocked=await handleStaffPublic({...common,requestOriginAllowed:()=>true,edgeScopedRateLimit:async()=>({ok:false})});
  assert.equal(blocked.status,429);
  assert.equal((await blocked.json()).error,"too_many_requests");
+});
+
+test("staff daily report history is own-only and unauthorized report writes are denied",async t=>{
+ const f=fixture(t);
+ f.sql.exec(readFileSync(new URL("../cloudflare/migrations/015_v73_daily_operations_reporting.sql",import.meta.url),"utf8"));
+ const {cookie}=await inviteAndLogin(f);
+ for(const [location,tenant] of [["branch-a",IDS.tenantA],["branch-b",IDS.tenantB]])f.sql.prepare("INSERT INTO operating_locations(id,tenant_id,name) VALUES(?,?,?)").run(location,tenant,location);
+ for(const [rid,tenant,employee,location,summary] of [["own",IDS.tenantA,IDS.employeeA,"branch-a","Installed monument"],["peer",IDS.tenantA,IDS.employeeC,"branch-a","Private peer report"],["foreign",IDS.tenantB,IDS.employeeB,"branch-b","Private tenant report"],["bad-location",IDS.tenantA,IDS.employeeA,"branch-b","Invalid branch association"]]){
+  f.sql.prepare("INSERT INTO daily_employee_reports(id,tenant_id,employee_id,location_id,report_date,work_summary) VALUES(?,?,?,?,?,?)").run(rid,tenant,employee,location,"2026-11-26",summary);
+ }
+ const result=await f.staff("/public/employee/reports?employeeId="+IDS.employeeC,"GET",undefined,{cookie});
+ assert.equal(result.res.status,200);
+ assert.deepEqual(result.body.items.map(x=>x.id),["own"]);
+ assert.equal(result.body.items[0].work_summary,"Installed monument");
+ assert.equal(result.res.headers.get("cache-control"),"no-store");
+ assert.equal((await f.staff("/public/employee/reports")).res.status,401);
+ assert.equal((await f.staff("/public/employee/reports","POST",{workSummary:"Forged"},{cookie})).res.status,403);
+ assert.equal(f.sql.prepare("SELECT count(*) n FROM daily_employee_reports").get().n,4);
+ await f.manager(IDS.tenantA,"/api/employee-self-service/employees/"+IDS.employeeA+"/revoke","POST",{});
+ assert.equal((await f.staff("/public/employee/reports","GET",undefined,{cookie})).res.status,401);
+});
+
+test("staff reminders enforce D-4 through D+7, tenant scope and latest job status",async t=>{
+ const f=fixture(t);
+ f.sql.exec(readFileSync(new URL("../cloudflare/migrations/015_v73_daily_operations_reporting.sql",import.meta.url),"utf8"));
+ const {cookie}=await inviteAndLogin(f);
+ const today=new Date().toLocaleDateString("en-CA",{timeZone:"Africa/Gaborone"});
+ const after=n=>{const d=new Date(today+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)};
+ f.sql.prepare("INSERT INTO operating_locations(id,tenant_id,name) VALUES('branch-a',?,'Branch A')").run(IDS.tenantA);
+ f.sql.prepare("INSERT INTO operating_locations(id,tenant_id,name) VALUES('branch-b',?,'Branch B')").run(IDS.tenantB);
+ const jobs=[
+  {jobReference:"INSTALL-4",jobType:"installation",scheduledDate:after(4),jobStatus:"scheduled"},
+  {jobReference:"DELIVER-TODAY",jobType:"delivery",scheduledDate:today,jobStatus:"scheduled"},
+  {jobReference:"TOO-EARLY",jobType:"delivery",scheduledDate:after(5),jobStatus:"scheduled"},
+  {jobReference:"FINISHED",jobType:"installation",scheduledDate:today,jobStatus:"completed"},
+  {jobReference:"CANCELLED",jobType:"delivery",scheduledDate:today,jobStatus:"cancelled"},
+  {jobReference:"OVERDUE-7",jobType:"installation",scheduledDate:after(-7),jobStatus:"scheduled"},
+  {jobReference:"OVERDUE-1",jobType:"delivery",scheduledDate:after(-1),jobStatus:"scheduled"},
+  {jobReference:"TOO-OLD",jobType:"delivery",scheduledDate:after(-8),jobStatus:"scheduled"}
+ ];
+ for(const [id,tenant,employee,location,items] of [["own",IDS.tenantA,IDS.employeeA,"branch-a",jobs],["peer",IDS.tenantA,IDS.employeeC,"branch-a",[{...jobs[0],jobReference:"PRIVATE-PEER"}]],["foreign",IDS.tenantB,IDS.employeeB,"branch-b",[{...jobs[0],jobReference:"PRIVATE-TENANT"}]]]){
+  f.sql.prepare("INSERT INTO daily_employee_reports(id,tenant_id,employee_id,location_id,report_date,kpi_json) VALUES(?,?,?,?,?,?)").run(id,tenant,employee,location,today,JSON.stringify({jobs:items}));
+ }
+ // Earlier reports must not resurrect completed or cancelled jobs.
+ f.sql.prepare("INSERT INTO daily_employee_reports(id,tenant_id,employee_id,location_id,report_date,kpi_json) VALUES(?,?,?,?,?,?)").run("own-previous",IDS.tenantA,IDS.employeeA,"branch-a",after(-1),JSON.stringify({jobs:[{...jobs[3],jobStatus:"scheduled"},{...jobs[4],jobStatus:"scheduled"}]}));
+ const result=await f.staff("/public/employee/reports","GET",undefined,{cookie});
+ assert.equal(result.res.status,200);
+ assert.equal(result.body.reportDate,today);
+ assert.deepEqual(result.body.deliveryReminders.map(x=>x.jobReference),["OVERDUE-7","OVERDUE-1","DELIVER-TODAY","INSTALL-4"]);
+ assert.deepEqual(result.body.deliveryReminders.map(x=>x.daysUntil),[-7,-1,0,4]);
+ assert.deepEqual(result.body.deliveryReminders.map(x=>x.urgency),["overdue","overdue","due_today","upcoming"]);
+ assert.equal(result.body.items[0].jobs.length,8);
+ assert.equal(result.body.items[1].jobs.length,2);
+ f.sql.prepare("UPDATE operating_locations SET active=0 WHERE id='branch-a'").run();
+ const disabled=await f.staff("/public/employee/reports","GET",undefined,{cookie});
+ assert.deepEqual(disabled.body.deliveryReminders,[]);
+});
+
+test("direct staff daily reports create and correct canonical records with branch/session/revision controls",async t=>{
+ const f=fixture(t);
+ f.sql.exec(readFileSync(new URL("../cloudflare/migrations/015_v73_daily_operations_reporting.sql",import.meta.url),"utf8"));
+ f.sql.exec(readFileSync(new URL("../cloudflare/migrations/040_v78_authorization_reporting_concurrency.sql",import.meta.url),"utf8"));
+ f.sql.exec(`CREATE TABLE subscriptions(tenant_id TEXT,plan TEXT,status TEXT);
+ CREATE TABLE entitlement_overrides(tenant_id TEXT,feature_key TEXT,enabled INTEGER,limit_value INTEGER,expires_at TEXT);
+ CREATE TABLE plan_entitlements(plan TEXT,feature_key TEXT,enabled INTEGER,limit_value INTEGER);
+ CREATE TABLE audit_chain_state(tenant_id TEXT PRIMARY KEY,last_event_id TEXT,last_hash TEXT,event_count INTEGER,updated_at TEXT);
+ CREATE TABLE audit_events(tenant_id TEXT,actor_user_id TEXT,event_type TEXT,entity_type TEXT,entity_id TEXT,event_data TEXT,occurred_at TEXT,tenant_seq INTEGER,prev_hash TEXT,event_hash TEXT,integrity_version INTEGER,write_source TEXT,UNIQUE(tenant_id,tenant_seq));
+ INSERT INTO plan_entitlements VALUES('starter','operating_locations',1,NULL);`);
+ f.env.AUDIT_INTEGRITY_SECRET="isolated-synthetic-audit-key";
+ const {cookie,csrf}=await inviteAndLogin(f);
+ const headers={cookie,"x-staff-csrf":csrf};
+ const today=new Date().toLocaleDateString("en-CA",{timeZone:"Africa/Gaborone"});
+ const previous=new Date(today+"T00:00:00Z");previous.setUTCDate(previous.getUTCDate()-1);
+ const yesterday=previous.toISOString().slice(0,10);
+ for(const [loc,tenant] of [["assigned",IDS.tenantA],["peer",IDS.tenantA],["foreign",IDS.tenantB]])f.sql.prepare("INSERT INTO operating_locations(id,tenant_id,name) VALUES(?,?,?)").run(loc,tenant,loc);
+ for(const [access,tenant,employee,loc] of [["own",IDS.tenantA,IDS.employeeA,"assigned"],["peer",IDS.tenantA,IDS.employeeC,"peer"],["foreign",IDS.tenantB,IDS.employeeB,"foreign"]])f.sql.prepare("INSERT INTO employee_reporting_access(id,tenant_id,employee_id,location_id,token_hash,expires_at) VALUES(?,?,?,?,?,datetime('now','+365 days'))").run(access,tenant,employee,loc,"hash-"+access);
+ const get=await f.staff("/public/employee/reports","GET",undefined,{cookie});
+ assert.deepEqual(get.body.assignedLocations.map(x=>x.id),["assigned"]);
+ const input={locationId:"assigned",reportDate:today,expectedRevision:null,workSummary:"Delivery complete"};
+ const submit=(body,h=headers)=>f.staff("/public/employee/reports","POST",body,h);
+ assert.equal((await submit(input,{})).res.status,401);
+ assert.equal((await submit(input,{cookie})).res.status,403);
+ assert.equal((await submit({...input,employeeId:IDS.employeeC})).res.status,400);
+ assert.equal((await submit({...input,locationId:"peer"})).res.status,403);
+ assert.equal((await submit({...input,locationId:"foreign"})).res.status,403);
+ const created=await submit(input);assert.equal(created.res.status,201);
+ assert.equal((await submit(input)).body.idempotent,true);
+ const nextDay=await submit({...input,reportDate:yesterday});assert.equal(nextDay.res.status,201);
+ assert.notEqual(created.body.reportId,nextDay.body.reportId);
+ // Existing job data must survive text-only staff corrections.
+ const jobs=JSON.stringify({jobReference:"JOB-1",jobType:"delivery",scheduledDate:today,jobStatus:"completed",revenueBwp:1250});
+ f.sql.prepare("UPDATE daily_employee_reports SET kpi_json=? WHERE id=?").run(jobs,created.body.reportId);
+ assert.equal((await submit({...input,workSummary:"Stale text"})).res.status,409);
+ const corrected=await submit({...input,expectedRevision:0,workSummary:"Delivery signed off"});
+ assert.equal(corrected.res.status,200);assert.equal(corrected.body.revision,1);
+ const row=f.sql.prepare("SELECT work_summary,kpi_json,revision_count FROM daily_employee_reports WHERE id=?").get(created.body.reportId);
+ assert.equal(row.work_summary,"Delivery signed off");assert.equal(JSON.parse(row.kpi_json).jobReference,"JOB-1");assert.equal(JSON.parse(row.kpi_json).revenueBwp,1250);
+ assert.equal(f.sql.prepare("SELECT count(*) n FROM daily_report_revisions WHERE report_id=?").get(created.body.reportId).n,1);
+ assert.equal(f.sql.prepare("SELECT count(*) n FROM daily_employee_reports").get().n,2);
+ assert.equal(f.sql.prepare("SELECT count(*) n FROM audit_events WHERE tenant_id=?").get(IDS.tenantA).n,3);
+ // Both reporting surfaces must read the canonical employee report rather than a copy.
+ const owner=await __v782157Test.dailyOpsDashboard(f.env,IDS.tenantA,today);
+ assert.equal(owner.reportingPopulation.expected,2);
+ assert.equal(owner.reportingPopulation.expectedSubmitted,1);
+ assert.equal(owner.coverage,50);
+ assert.equal(owner.totals.revenue,1250);
+ const assigned=owner.branches.find(x=>x.locationId==="assigned"),peer=owner.branches.find(x=>x.locationId==="peer");
+ assert.equal(assigned.expected,1);assert.equal(assigned.submittedExpected,1);assert.equal(assigned.coverage,100);
+ assert.equal(peer.expected,1);assert.equal(peer.submitted,0);
+ assert.equal(owner.missing[0].employeeId,IDS.employeeC);
+ assert.equal(owner.reports[0].work_summary,"Delivery signed off");
+ const filtered=await __v782157Test.dailyOpsDashboard(f.env,IDS.tenantA,today,"assigned");
+ assert.equal(filtered.coverage,100);assert.equal(filtered.branches.length,1);assert.equal(filtered.reports[0].id,created.body.reportId);
+ const otherDate=await __v782157Test.dailyOpsDashboard(f.env,IDS.tenantA,yesterday,"assigned");
+ assert.equal(otherDate.reports[0].id,nextDay.body.reportId);
+ // Deliberately malformed association must not expose another tenant's name or count.
+ f.sql.prepare("INSERT INTO daily_employee_reports(id,tenant_id,employee_id,location_id,report_date,work_summary) VALUES(?,?,?,?,?,?)").run("bad-tenant-link",IDS.tenantA,IDS.employeeB,"foreign",today,"Foreign private text");
+ const hardened=await __v782157Test.dailyOpsDashboard(f.env,IDS.tenantA,today);
+ assert.equal(hardened.reports.length,1);
+ assert.equal(hardened.totals.revenue,1250);
+ // A missing employee with an approved exception is excused, not overdue.
+ f.sql.prepare("INSERT INTO daily_reporting_exceptions(id,tenant_id,employee_id,location_id,report_date,reason_code) VALUES(?,?,?,?,?,'leave')").run("excused",IDS.tenantA,IDS.employeeC,"peer",today);
+ const excused=await __v782157Test.dailyOpsDashboard(f.env,IDS.tenantA,today);
+ assert.equal(excused.reportingPopulation.expected,1);assert.equal(excused.reportingPopulation.excused,1);assert.equal(excused.missing.length,0);assert.equal(excused.coverage,100);
+ // Seed real peer and foreign reports before checking manager authorization.
+ for(const [rid,tenant,employee,loc] of [["peer-report",IDS.tenantA,IDS.employeeC,"peer"],["foreign-report",IDS.tenantB,IDS.employeeB,"foreign"]])f.sql.prepare("INSERT INTO daily_employee_reports(id,tenant_id,employee_id,location_id,report_date,work_summary) VALUES(?,?,?,?,?,?)").run(rid,tenant,employee,loc,today,"Not visible to assigned manager");
+ // Branch-scoped manager read service uses a separate membership/grant boundary.
+ f.sql.exec("CREATE TABLE memberships(tenant_id TEXT,user_id TEXT,role TEXT,status TEXT); CREATE TABLE workspace_manager_invites(tenant_id TEXT,accepted_by_user_id TEXT,status TEXT); CREATE TABLE workspace_manager_location_grants(tenant_id TEXT,manager_user_id TEXT,location_id TEXT,status TEXT);");
+ f.sql.prepare("INSERT INTO memberships VALUES(?,?,'manager','active')").run(IDS.tenantA,IDS.managerA);
+ f.sql.prepare("INSERT INTO workspace_manager_invites VALUES(?,?,'accepted')").run(IDS.tenantA,IDS.managerA);
+ f.sql.prepare("INSERT INTO workspace_manager_location_grants VALUES(?,?,?,'active')").run(IDS.tenantA,IDS.managerA,"assigned");
+ const scoped=createManagerScopedReadHttp({db:f.DB}),identity={role:"manager",tenantId:IDS.tenantA,userId:IDS.managerA};
+ const managerRead=async path=>{const response=await scoped(new Request("https://example.invalid"+path),identity);assert.equal(response.status,200);return response.json()};
+ const managerReports=await managerRead("/api/workspace/managers/my-reports");
+ assert.equal(managerReports.reports.length,2);assert.ok(managerReports.reports.every(r=>r.location_id==="assigned"));
+ assert.ok(managerReports.reports.some(r=>r.id===created.body.reportId&&r.work_summary==="Delivery signed off"));
+ const managerDashboard=await managerRead("/api/workspace/managers/my-dashboard");
+ assert.equal(managerDashboard.reports,2);assert.deepEqual(managerDashboard.locations.map(l=>l.id),["assigned"]);
+ f.sql.prepare("UPDATE workspace_manager_location_grants SET status='revoked'").run();
+ assert.deepEqual((await managerRead("/api/workspace/managers/my-reports")).reports,[]);
+ f.sql.prepare("UPDATE employee_reporting_access SET status='revoked' WHERE id='own'").run();
+ assert.equal((await submit({...input,expectedRevision:1,workSummary:"Denied"})).res.status,403);
+ await f.manager(IDS.tenantA,"/api/employee-self-service/employees/"+IDS.employeeA+"/revoke","POST",{});
+ assert.equal((await submit(input)).res.status,401);
 });

@@ -35,12 +35,22 @@ assert.match(html,/el\.safeHTML=active\.length\?active\.map/,"employee register 
 assert.match(html,/async function openEmployeeReportingAccess\(id\)/);
 assert.match(html,/async function createEmployeeReportingLinkFromCard\(id\)/);
 assert.match(html,/Previously issued bearer URLs are stored only as hashes/);
-assert.match(html,/opening the employee issues and shows one fresh replacement link for this session/);
+assert.match(html,/Opening the employee does not change existing links/);
 assert.match(html,/data-employee-id=/,"active employee rows must be individually evictable after removal");
 assert.match(html,/showFreshEmployeeReportingLink\(id,locationId\)/);
-assert.match(html,/Show fresh link/);
+assert.match(html,/Rotate reporting link/);
+for(const source of [html,workspaceRuntime]){
+  const readPanel=source.slice(source.indexOf("async function openEmployeeReportingAccess("),source.indexOf("async function showFreshEmployeeReportingLink("));
+  assert.doesNotMatch(readPanel,/createEmployeeReportingLinkFromCard\(id\)|method:"POST"/,"opening a profile must not rotate links");
+  assert.match(source,/issueReportingLink\(id,locationId,365\)/);
+  assert.match(source,/expiresInDays,expectedAccessId:current\?\.id\|\|null/);
+}
+assert.match(worker,/body\.expiresInDays\?\?365/);
+assert.match(worker,/reporting_access_changed_refresh_before_rotation/);
+assert.match(worker,/location_id=\? AND id=\? AND status='active'/);
+assert.match(worker,/WHERE \(\? IS NULL OR changes\(\)=1\) AND NOT EXISTS \(SELECT 1 FROM employee_reporting_access/);
 assert.match(html,/recentlyRemovedEmployeeIds\.add\(String\(id\)\)/,"removed employees must stay hidden during the current session even if a stale read races the delete");
-assert.match(html,/activeAccess\.length===1/,"single reporting access should reveal a fresh link from an employee click");
+assert.match(html,/activeAccess\.length===1/,"single reporting access should select its location without issuing a new link");
 for(const source of [html,workspaceRuntime]){
   assert.ok(source.includes(`const openReportingIds=[...el.querySelectorAll(\'[id^="employeeReportingAccess_"][data-open="1"]\')]`),
     "employee register refresh must capture open reporting-access panels immediately before replacing the register DOM");

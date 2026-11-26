@@ -9,7 +9,7 @@ function scope(identity){
    typeof identity.userId!=='string'||!identity.userId)throw new Error('forbidden');
  return {tenantId:identity.tenantId,userId:identity.userId};
 }
-export function createManagerScopedReadHttp({db,allowProvisioned=false}={}){
+export function createManagerScopedReadHttp({db,allowProvisioned=false,reviewEnabled=false}={}){
  if(!db||typeof db.prepare!=='function')throw new TypeError('d1_binding_required');
  return async function(req,identity){
   const path=new URL(req.url).pathname;
@@ -31,11 +31,12 @@ export function createManagerScopedReadHttp({db,allowProvisioned=false}={}){
     // This is intentionally not the unscoped /api/state dashboard.
     // Every count is joined to a current tenant/location grant.
     const grants=await db.prepare("SELECT l.id,l.name,l.town FROM workspace_manager_location_grants g JOIN operating_locations l ON l.id=g.location_id AND l.tenant_id=g.tenant_id AND l.active=1 WHERE g.tenant_id=? AND g.manager_user_id=? AND g.status='active' ORDER BY l.name,l.id LIMIT 50").bind(actor.tenantId,actor.userId).all();
-    const totals=await db.prepare("SELECT COUNT(*) reports,COALESCE(SUM(CASE WHEN r.needs_attention=1 THEN 1 ELSE 0 END),0) needs_attention FROM daily_employee_reports r JOIN workspace_manager_location_grants g ON g.tenant_id=r.tenant_id AND g.location_id=r.location_id AND g.manager_user_id=? AND g.status='active' JOIN operating_locations l ON l.id=r.location_id AND l.tenant_id=r.tenant_id AND l.active=1 WHERE r.tenant_id=?").bind(actor.userId,actor.tenantId).first();
+    const totals=await db.prepare("SELECT COUNT(*) reports,COALESCE(SUM(CASE WHEN r.needs_attention=1 THEN 1 ELSE 0 END),0) needs_attention FROM daily_employee_reports r JOIN employees e ON e.id=r.employee_id AND e.tenant_id=r.tenant_id JOIN workspace_manager_location_grants g ON g.tenant_id=r.tenant_id AND g.location_id=r.location_id AND g.manager_user_id=? AND g.status='active' JOIN operating_locations l ON l.id=r.location_id AND l.tenant_id=r.tenant_id AND l.active=1 WHERE r.tenant_id=?").bind(actor.userId,actor.tenantId).first();
     return reply(200,{ok:true,scope:'assigned_locations_only',locations:grants.results||[],reports:Number(totals?.reports||0),needsAttention:Number(totals?.needs_attention||0)});
    }
-   const r=await db.prepare("SELECT r.id,r.location_id,r.report_date,r.work_summary,r.wins,r.blockers,r.incidents,r.next_plan,r.needs_attention,r.submitted_at FROM daily_employee_reports r JOIN workspace_manager_location_grants g ON g.tenant_id=r.tenant_id AND g.location_id=r.location_id AND g.manager_user_id=? AND g.status='active' JOIN operating_locations l ON l.tenant_id=r.tenant_id AND l.id=r.location_id AND l.active=1 WHERE r.tenant_id=? ORDER BY r.report_date DESC,r.submitted_at DESC,r.id DESC LIMIT 50").bind(actor.userId,actor.tenantId).all();
-   return reply(200,{ok:true,reports:r.results||[]});
+   const reviewFields=reviewEnabled?",CASE WHEN EXISTS(SELECT 1 FROM daily_report_manager_reviews v WHERE v.tenant_id=r.tenant_id AND v.report_id=r.id AND v.revision_no=r.revision_count AND v.action='approve') THEN 'approved' WHEN EXISTS(SELECT 1 FROM daily_report_manager_reviews v WHERE v.tenant_id=r.tenant_id AND v.report_id=r.id AND v.revision_no=r.revision_count AND v.action='return') THEN 'correction_requested' WHEN EXISTS(SELECT 1 FROM daily_report_manager_reviews v WHERE v.tenant_id=r.tenant_id AND v.report_id=r.id AND v.revision_no=r.revision_count AND v.action='acknowledge') THEN 'acknowledged' ELSE 'pending' END review_status,(SELECT v.note FROM daily_report_manager_reviews v WHERE v.tenant_id=r.tenant_id AND v.report_id=r.id AND v.revision_no=r.revision_count AND v.action='return' LIMIT 1) review_note":"";
+   const r=await db.prepare("SELECT r.id,r.location_id,l.name location_name,e.full_name employee_name,r.report_date,r.work_summary,r.wins,r.blockers,r.incidents,r.next_plan,r.needs_attention,r.revision_count,r.submitted_at,r.updated_at"+reviewFields+" FROM daily_employee_reports r JOIN employees e ON e.id=r.employee_id AND e.tenant_id=r.tenant_id JOIN workspace_manager_location_grants g ON g.tenant_id=r.tenant_id AND g.location_id=r.location_id AND g.manager_user_id=? AND g.status='active' JOIN operating_locations l ON l.tenant_id=r.tenant_id AND l.id=r.location_id AND l.active=1 WHERE r.tenant_id=? ORDER BY r.report_date DESC,r.submitted_at DESC,r.id DESC LIMIT 50").bind(actor.userId,actor.tenantId).all();
+   return reply(200,{ok:true,reviewEnabled,reports:r.results||[]});
   }catch{return reply(503,{error:'scoped_access_unavailable'});}
  };
 }

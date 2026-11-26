@@ -1,3 +1,5 @@
+import {parseReportSchedules,dueDeliveryReminders} from "./delivery-installation-reminders.js";
+import {managerDailyReviewEnabled,readStaffDailyReviewNotices} from "./manager-daily-report-review.js";
 import {handleEmployeeCashStaff,handleEmployeeCashManager} from "./employee-cash.js";
 import {staffPortalEnabled,staffEmail,staffPasswordValid,staffUuidValid,staffTaskInput,staffTaskTransition,staffNote} from "./employee-self-service-policy.js";
 
@@ -61,7 +63,7 @@ async function changeTask({env,id,actor,kind,action,note="",taskId,employeeId}){
  if(!row||Number(changes?.[1]?.meta?.changes||0)!==1)return {error:"task_changed_retry",status:409};
  return {ok:true,task:{id:row.id,status:row.status,version:row.version},status:200};
 }
-export async function handleStaffPublic({request,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id}){
+export async function handleStaffPublic({request,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id,submitDailyReport}){
  if(!url.pathname.startsWith("/public/employee/"))return null;
  if(!staffPortalEnabled(env)||!env.DB)return json({error:"not_found"},404);
  if(!env.PUBLIC_RATE_LIMITER||!env.SESSION_SECRET)return json({error:"staff_security_configuration_incomplete"},503);
@@ -104,10 +106,32 @@ export async function handleStaffPublic({request,url,env,json,readJson,requestOr
   if(!staff)return json({error:"unauthenticated"},401);
   return json({employee:{id:staff.employee_id,name:staff.full_name,email:staff.email},tenantId:staff.tenant_id,companyName:staff.company_name,csrfToken:staff.csrf_token});
  }
+ if(path==="/public/employee/reports"&&method==="GET"){
+  if(!staff)return json({error:"unauthenticated"},401,{"cache-control":"no-store"});
+  const rows=await env.DB.prepare("SELECT r.id,r.location_id,r.report_date,r.work_summary,r.wins,r.blockers,r.incidents,r.next_plan,r.kpi_json,r.needs_attention,r.revision_count,r.submitted_at,r.updated_at,l.name location_name FROM daily_employee_reports r JOIN operating_locations l ON l.id=r.location_id AND l.tenant_id=r.tenant_id WHERE r.tenant_id=? AND r.employee_id=? ORDER BY r.report_date DESC,r.updated_at DESC,r.id DESC LIMIT 30").bind(staff.tenant_id,staff.employee_id).all();
+  const reportDate=new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Gaborone",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+  const deliveryReminders=await dueDeliveryReminders(env,{tenantId:staff.tenant_id,employeeId:staff.employee_id,today:reportDate});
+  const items=(rows.results||[]).map(({kpi_json,...row})=>({...row,jobs:parseReportSchedules(kpi_json)}));
+  const locations=await env.DB.prepare("SELECT l.id,l.name FROM employee_reporting_access a JOIN operating_locations l ON l.id=a.location_id AND l.tenant_id=a.tenant_id WHERE a.tenant_id=? AND a.employee_id=? AND a.status='active' AND a.expires_at>CURRENT_TIMESTAMP AND l.active=1 ORDER BY l.name,l.id").bind(staff.tenant_id,staff.employee_id).all();
+  const reviewNotices=managerDailyReviewEnabled(env)?await readStaffDailyReviewNotices(env.DB,staff.tenant_id,staff.employee_id):[];
+  return json({items,reportDate,deliveryReminders,assignedLocations:locations.results||[],reviewNotices},200,{"cache-control":"no-store"});
+ }
+ if(path==="/public/employee/reports"&&method==="POST"){
+  const headers={"cache-control":"no-store"};
+  if(!staff)return json({error:"unauthenticated"},401,headers);
+  if(!isCsrfValid(request,staff))return json({error:"csrf_failed"},403,headers);
+  const body=await dataBody(readJson,request,24*1024);
+  if(!body||typeof body.locationId!=="string"||!body.locationId||body.locationId.length>128||!Object.hasOwn(body,"expectedRevision")||!(body.expectedRevision===null||Number.isInteger(body.expectedRevision)&&body.expectedRevision>=0&&body.expectedRevision<=8)||typeof body.reportDate!=="string"||["tenantId","employeeId","token","kpis"].some(k=>Object.hasOwn(body,k)))return json({error:"invalid_staff_report"},400,headers);
+  const access=await env.DB.prepare("SELECT a.id access_id,a.tenant_id,a.employee_id,a.location_id FROM employee_reporting_access a JOIN operating_locations l ON l.id=a.location_id AND l.tenant_id=a.tenant_id WHERE a.tenant_id=? AND a.employee_id=? AND a.location_id=? AND a.status='active' AND a.expires_at>CURRENT_TIMESTAMP AND l.active=1 LIMIT 1").bind(staff.tenant_id,staff.employee_id,body.locationId).first();
+  if(!access)return json({error:"reporting_location_not_assigned"},403,headers);
+  if(typeof submitDailyReport!=="function")return json({error:"staff_reporting_unavailable"},503,headers);
+  return submitDailyReport(env,body,access,staff);
+ }
  if(path==="/public/employee/tasks"&&method==="GET"){
   if(!staff)return json({error:"unauthenticated"},401);
   const rows=await env.DB.prepare("SELECT t.id,t.title,t.detail,t.due_date,t.priority,t.status,t.version,t.created_at,t.updated_at,n.note latest_note,n.actor_kind latest_note_actor FROM employee_portal_tasks t LEFT JOIN employee_portal_task_events n ON n.rowid=(SELECT MAX(ev.rowid) FROM employee_portal_task_events ev WHERE ev.task_id=t.id AND ev.tenant_id=t.tenant_id AND LENGTH(TRIM(ev.note))>0) WHERE t.tenant_id=? AND t.employee_id=? ORDER BY CASE t.status WHEN 'submitted' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'assigned' THEN 2 ELSE 3 END,t.due_date,t.created_at DESC LIMIT 100").bind(staff.tenant_id,staff.employee_id).all();
-  return json({items:rows.results||[]});
+  const history=await env.DB.prepare("SELECT ev.task_id,ev.actor_kind,ev.action,ev.previous_status,ev.next_status,ev.note,ev.created_at FROM employee_portal_task_events ev JOIN employee_portal_tasks t ON t.id=ev.task_id AND t.tenant_id=ev.tenant_id WHERE t.tenant_id=? AND t.employee_id=? ORDER BY ev.rowid DESC LIMIT 500").bind(staff.tenant_id,staff.employee_id).all();
+  return json({items:rows.results||[],history:history.results||[]},200,{"cache-control":"no-store"});
  }
  if(path==="/public/employee/logout"&&method==="POST"){
   if(!staff||!isCsrfValid(request,staff))return json({error:"unauthenticated"},401,{"set-cookie":clearCookie()});

@@ -76,7 +76,8 @@
 
     const notice=el("div",{class:"notice"},"Reported revenue is not automatically treated as verified accounting revenue. FNB transactions, receipts and reconciliation evidence should confirm it before verification.");
     notice.style.marginTop="14px";
-    panel.append(header,metrics,branchSection,notice);
+    const reviews=el("section",{"data-report-review-overview":"1",hidden:true});
+    panel.append(header,metrics,branchSection,notice,reviews);
 
     const anchor=view.querySelector(".hero,.card");
     if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(panel,anchor.nextSibling);else view.prepend(panel);
@@ -118,6 +119,28 @@
     }
   }
 
+  function renderReviewOverview(panel,overview){
+    const host=panel.querySelector("[data-report-review-overview]");
+    host.replaceChildren();host.hidden=true;
+    if(!overview)return;
+    host.hidden=false;host.append(el("h2",{},"Manager review oversight"));
+    if(overview.available!==true){host.append(el("p",{class:"muted small"},"Review oversight unavailable. Reporting records are unchanged."));return}
+    const labels={pending:"Pending",acknowledged:"Acknowledged",approved:"Approved",correction_requested:"Correction requested"};
+    const counts=el("div",{class:"grid g2"});
+    for(const [key,label] of Object.entries(labels))counts.append(metricCard(label,String(Number(overview.counts?.[key]||0)),"Current report revision","data-report-review-"+key));
+    host.append(counts,el("h3",{},"By branch"));
+    for(const branch of overview.branches||[]){
+      const row=el("div",{class:"item"});row.append(el("strong",{},branch.name||"Location"),el("p",{class:"small muted"},Object.entries(labels).map(([key,label])=>label+": "+Number(branch[key]||0)).join(" · ")));host.append(row);
+    }
+    host.append(el("h3",{},"Report review details"));
+    for(const r of overview.items||[]){
+      const row=el("div",{class:"item"});row.append(el("strong",{},String(r.employee_name||"Employee")+" · "+String(r.location_name||"Location")),el("p",{class:"small"},(labels[r.review_status]||"Unknown")+" · Revision "+Number(r.revision_count||0)));
+      if(r.review_note)row.append(el("p",{class:"small"},"Correction reason: "+r.review_note));
+      host.append(row);
+    }
+    if(!overview.total)host.append(el("p",{class:"muted small"},"No submitted reports on the selected date."));
+    if(overview.truncated)host.append(el("p",{class:"muted small"},"Showing the first 100 report details; totals include every matching report."));
+  }
   let renderEpoch=0;
   const companyContext=()=>typeof store!=="undefined"?store.activeCompanyId:null;
   const roleContext=()=>typeof currentWorkspaceRole==="function"?currentWorkspaceRole():null;
@@ -127,6 +150,7 @@
     const current=()=>epoch===renderEpoch&&company===companyContext()&&role===roleContext()&&panel.isConnected&&date===document.getElementById("opsReportDate")?.value&&location===document.getElementById("opsLocationFilter")?.value;
     for(const key of ["total","branches","date","fnb"])panel.querySelector("[data-report-money-"+key+"]").textContent="—";
     panel.querySelector("[data-report-money-list]").textContent="Loading reported revenue…";
+    renderReviewOverview(panel,null);
     try{
       const [ops,connections]=await Promise.all([getDashboard(),getFinanceConnections()]);
       if(!current())return;
@@ -136,6 +160,7 @@
       panel.querySelector("[data-report-money-date]").textContent=`Reported for ${ops?.date||"selected date"}`;
       panel.querySelector("[data-report-money-branches]").textContent=String(ops?.locationsReporting||0);
       renderBranches(panel,ops?.branches||[],total);
+      if(role==="owner")renderReviewOverview(panel,ops.reviewOverview);
       const fnbProvider=connections?.providers?.find?.(p=>p.key==="fnb_bw_business");
       const fnbConnection=connections?.items?.find?.(c=>c.providerKey==="fnb_bw_business"||c.provider_key==="fnb_bw_business");
       const fnb=panel.querySelector("[data-report-money-fnb]");

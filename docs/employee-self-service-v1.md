@@ -55,3 +55,88 @@ When enabled, **both** `PUBLIC_RATE_LIMITER` and `SESSION_SECRET` are mandatory;
 
 ## Rollback
 Leave or set `THEBE_STAFF_PORTAL_ENABLED` absent/false. Do **not** delete employee audit history without a separately reviewed retention/deletion decision. Disabling the feature blocks staff and manager API reads/mutations without changing unrelated People/daily-report operations.
+
+## Employee portal continuation — 26 November 2026
+
+The staff dashboard reads the employee's latest 30 daily work reports from the
+existing `daily_employee_reports` records, including branch names, work completed,
+wins, blockers, incidents, next plans and correction counts. The new GET
+`/public/employee/reports` resolves tenant and employee only from the active staff
+session; query-string employee identifiers cannot select another employee.
+Branch joins require the same tenant. The response is no-store. Submission and
+corrections still use the existing manager-issued private reporting link; this
+change does not add a second reporting write path or expose private link tokens.
+
+The main Worker now delegates the previously unwired staff cash GET, expense POST
+and count POST routes through the existing gated, CSRF-protected cash handler.
+Daily cash count history and manager review reasons are visible in the staff UI.
+Successful sign-out clears rendered private lists; responses from a prior session
+are rejected before consumers render them.
+
+Local verification: real SQLite daily-report isolation test first failed with
+404 before implementation and now passes, including same-tenant peer isolation,
+foreign-tenant isolation, mismatched branch exclusion, anonymous/revoked denial
+and write denial. Cash history UI tests cover count decisions, reasons rendered
+as text and denied feature access. Existing employee lifecycle, cash security,
+staging boundary and bootstrap/preflight tests pass. Syntax and route inventory
+checks pass. These are offline checks, not hosted mobile or staging acceptance.
+
+Hosted staging remains unqualified. On 26 November the cloud browser displayed
+GitHub's signed-out page at the employee environment settings URL, so current
+secret presence and environment controls could not be reverified. Historical
+missing-secret findings must not be presented as fresh evidence. No workflow,
+D1 migration, Worker deployment, feature activation or finance posting was run.
+
+Remaining full-portal scope: session-based report creation/correction and secure
+receipt uploads, cash collection/handovers, controlled expense resubmission and
+reimbursement, approval ceilings, schedule/reminder integration and complete
+permission-aware navigation. Keep these in the same consolidated portal batch;
+require isolated hosted qualification and independent review before activation.
+
+### Continuation: task history, accommodation and CI inventory
+
+- Staff task responses now include the latest 500 own-task events, joined by
+  tenant and employee. Actor account identifiers are excluded. The UI shows
+  submission/approval history under each task, using text rendering.
+- Accommodation is accepted as an expense category, with duplicate-request
+  behavior verified against SQLite.
+- GitHub employee cash and self-service offline checks passed at `51ee3cc`.
+  Recovery and audit-remediation CI failed because the historical route inventory
+  test expected 34 pre-auth method/routes and six staff routes. The reviewed
+  additions require 38 and ten respectively; the updated test also verifies
+  exact methods for each of the four added staff paths.
+- Fresh local checks: 45 employee tests pass; route-security adversarial test
+  passes 59 assertions, and route inventory passes. Broader GitHub CI must rerun
+  on the new head; no hosted qualification or activation is implied.
+
+### Employee delivery and installation reminders
+
+The staff report-history response now includes structured jobs plus reminders from
+`dueDeliveryReminders`, the same service used by the private reporter and manager
+workflows. Every query is scoped to the authenticated employee and tenant before
+reading records. Active branches only; latest completion/cancellation wins.
+The dashboard shows reminders from four days before the scheduled date, due today,
+and up to seven days overdue, and includes branch, date and job reference.
+Dates use Africa/Gaborone. Historical reports retain their recorded job statuses.
+No email, push delivery, new reporting write route or migration is introduced.
+
+The clean continuation checkout started at `9d54a24`, which had 24 returned CI
+runs successful, including Recovery, audit remediation and Employee Cash. Those
+results apply to that head only. New reminder integration tests verify D-4/due-day
+visibility, D-5 and completed suppression, same-tenant peer and cross-tenant
+isolation, and inactive-branch exclusion using actual SQLite queries.
+
+
+### Consolidated Daily Reports continuation
+
+- A signed-in employee can submit or correct text reports from the existing staff portal using only their assigned active reporting locations. The new POST uses the staff cookie, CSRF, origin and rate-limit boundaries and current operating-locations entitlement. The original bearer reporter and staff portal share the canonical daily report submission and atomic revision storage; there is no new database migration or separate report ledger.
+- Staff corrections require the displayed report revision and retain existing KPI and job data. Job-specific data entry and attachments continue through the private reporting portal. A fresh report uses a null expected revision, and identical retries are idempotent. The write SQL rechecks active employee, reporting grant, location and (staff mode only) active unexpired session. Existing link-mode reports do not depend on the optional staff tables.
+- Assignment is deliberately derived from an existing active, unexpired manager-issued reporting grant; the employee cannot grant themselves a location. A revoked grant disables staff reporting there. Historical reports remain viewable through the existing staff read path.
+- SQLite acceptance tests exercise actual shared report code, assigned/unassigned and cross-tenant branch denial, CSRF, repeat-day records, duplicate retries, revision conflicts, preserved schedules and audit history. New tests are not claimed to have passed until exact-head CI returns green. D1 hosted tests must prove the transactional rotation and report writes, and actual Android owner/manager/employee acceptance must confirm the dashboard shows the corresponding records.
+- Runtime bundle parity was preserved by deduplicating link issuance; measured candidate external runtime is 549,958 bytes against the existing 550,000-byte limit (no budget relaxation). Protected main synchronization, independent review, staging credential qualification, and separate production authorization remain mandatory. No production deployment or operational writes are included.
+
+### Manager daily report decision candidate (offline only)
+
+The isolated manager review service supports acknowledge, approve, and return with a required correction reason. Decisions are append-only and bound to the exact report revision. Corrections reopen the report for review without deleting earlier decisions. The SQL write rechecks active membership, accepted invitation, current location grant, tenant-consistent employee/location, and report revision. Exact repeated decisions are idempotent; competing final decisions are rejected by the unique constraint. This first candidate covers accepted-invitation managers, not provisioned-access-request managers.
+
+The schema is a review draft under db/drafts, not an applied migration. No HTTP route, UI write controls, employee correction notice, or staging/production database apply is authorized by this source change. Before wiring, independently review CSRF/origin/session controls, provisioned-manager parity, employee and owner visibility, D1 concurrent writes and deployment isolation. Keep the existing restricted manager dashboard read-only until the dedicated write gate is approved.

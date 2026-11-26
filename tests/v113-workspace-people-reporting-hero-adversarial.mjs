@@ -48,7 +48,10 @@ assert.match(runtime,/Rotate and show fresh link|Create and show reporting link/
 assert.match(runtime,/__employeeReporterLinks/);
 assert.match(runtime,/recentlyRemovedEmployeeIds\.add\(String\(id\)\)/);
 assert.match(runtime,/activeAccess\.length===1/);
-assert.match(runtime,/await createEmployeeReportingLinkFromCard\(id\)/);
+const profileAccess=runtime.slice(runtime.indexOf("async function openEmployeeReportingAccess("),runtime.indexOf("async function showFreshEmployeeReportingLink("));
+assert.ok(profileAccess.length>0);
+assert.doesNotMatch(profileAccess,/createEmployeeReportingLinkFromCard\(id\)|method:"POST"/,"opening an employee must not rotate the existing reporting link");
+assert.match(runtime,/async function showFreshEmployeeReportingLink\(id,locationId\)[^\n]+return createEmployeeReportingLinkFromCard\(id\)/,"explicit replacement must remain available");
 
 // Pass 3: reporting reads get a bounded slow-path, location refresh is view-scoped, and the public page keeps Botswana visual proof while remaining mascot-free.
 assert.match(apiClient,/candidateTimeoutMs=IDEMPOTENT_TRANSPORT_CANDIDATE_MAX_MS/);
