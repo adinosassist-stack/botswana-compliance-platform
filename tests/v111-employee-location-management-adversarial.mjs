@@ -47,7 +47,7 @@ for(const source of [html,workspaceRuntime]){
 assert.match(worker,/body\.expiresInDays\?\?365/);
 assert.match(worker,/reporting_access_changed_refresh_before_rotation/);
 assert.match(worker,/location_id=\? AND id=\? AND status='active'/);
-assert.match(worker,/WHERE NOT EXISTS \(SELECT 1 FROM employee_reporting_access/);
+assert.match(worker,/WHERE \(\? IS NULL OR changes\(\)=1\) AND NOT EXISTS \(SELECT 1 FROM employee_reporting_access/);
 assert.match(html,/recentlyRemovedEmployeeIds\.add\(String\(id\)\)/,"removed employees must stay hidden during the current session even if a stale read races the delete");
 assert.match(html,/activeAccess\.length===1/,"single reporting access should select its location without issuing a new link");
 for(const source of [html,workspaceRuntime]){
