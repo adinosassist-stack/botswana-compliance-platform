@@ -4,6 +4,9 @@ on:
     paths:
       - '.github/workflows/dock-hosted-staging-preparation.yml'
       - 'docs/dock-hosted-staging-provisioning.md'
+      - 'cloudflare/schema/dock-hosted-staging-auth-candidate.sql'
+      - 'tests/dock-hosted-staging-auth-contract.py'
+      - 'cloudflare/src/worker.js'
       - 'cloudflare/src/general-ai-*.js'
       - 'cloudflare/wrangler.dock-research-workspace-offline.toml'
       - 'tests/general-ai-*.test.mjs'
@@ -44,6 +47,7 @@ jobs:
           PY
       - run: npm ci --ignore-scripts
       - run: python3 tests/general-ai-staging-session-contract.py
+      - run: python3 tests/dock-hosted-staging-auth-contract.py
       - run: node --test tests/general-ai-*.test.mjs
       - name: Build offline only
         run: npx --no-install wrangler deploy --dry-run --config cloudflare/wrangler.dock-research-workspace-offline.toml --outdir /tmp/dock-preflight
