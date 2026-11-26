@@ -14,9 +14,10 @@ required = ["SESSION_SECRET", "AUDIT_INTEGRITY_SECRET", "OPERATIONS_SECRET", "AU
 
 [vars]
 THEBE_QUOTATION_PREVIEW_TENANT_ID = "REPLACE_WITH_THEBE_QUOTATION_PREVIEW_TENANT_ID"
-# Employee cash reporting and review is inert until isolated D1 and protected approval.
 THEBE_COMPANY_LOGO_ENABLED = "false"  # #2672; requires private R2 + approved migration
-THEBE_EMPLOYEE_CASH_ENABLED = "false"
+# Staff portal and Employee Cash require the reviewed production schema.
+THEBE_STAFF_PORTAL_ENABLED = "true"
+THEBE_EMPLOYEE_CASH_ENABLED = "true"
 # Corporate asset storage and rollout require separate qualification.
 THEBE_CORPORATE_ASSETS_ENABLED = "false"
 # General AI remains disabled until staging/provider qualification and reviewed rollout.

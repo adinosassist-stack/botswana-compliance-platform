@@ -43,6 +43,8 @@ jobs:
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
+      - name: Install locked test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Check production and client modules compile without migration/deploy
         run: |
           node --check cloudflare/src/company-logo-settings.js
