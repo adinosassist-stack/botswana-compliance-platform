@@ -7,6 +7,7 @@ on:
       - 'cloudflare/wrangler.dock-hosted-staging-inert.toml'
       - 'scripts/verify-dock-inert-bootstrap.py'
       - 'scripts/dock-hosted-ingress-guard.mjs'
+      - 'scripts/dock-provision-inert-resources.mjs'
       - 'docs/dock-hosted-staging-provisioning.md'
       - 'cloudflare/schema/dock-hosted-staging-auth-candidate.sql'
       - 'tests/dock-hosted-staging-auth-contract.py'
