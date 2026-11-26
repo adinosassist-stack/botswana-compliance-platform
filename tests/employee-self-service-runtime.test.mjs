@@ -319,7 +319,7 @@ test("staff daily report history is own-only, tenant-scoped and read-only",async
  assert.equal((await f.staff("/public/employee/reports","GET",undefined,{cookie})).res.status,401);
 });
 
-test("staff reminders include own jobs four days ahead and suppress completed jobs",async t=>{
+test("staff reminders enforce D-4 through D+7, tenant scope and latest job status",async t=>{
  const f=fixture(t);
  f.sql.exec(readFileSync(new URL("../cloudflare/migrations/015_v73_daily_operations_reporting.sql",import.meta.url),"utf8"));
  const {cookie}=await inviteAndLogin(f);
@@ -331,17 +331,25 @@ test("staff reminders include own jobs four days ahead and suppress completed jo
   {jobReference:"INSTALL-4",jobType:"installation",scheduledDate:after(4),jobStatus:"scheduled"},
   {jobReference:"DELIVER-TODAY",jobType:"delivery",scheduledDate:today,jobStatus:"scheduled"},
   {jobReference:"TOO-EARLY",jobType:"delivery",scheduledDate:after(5),jobStatus:"scheduled"},
-  {jobReference:"FINISHED",jobType:"installation",scheduledDate:today,jobStatus:"completed"}
+  {jobReference:"FINISHED",jobType:"installation",scheduledDate:today,jobStatus:"completed"},
+  {jobReference:"CANCELLED",jobType:"delivery",scheduledDate:today,jobStatus:"cancelled"},
+  {jobReference:"OVERDUE-7",jobType:"installation",scheduledDate:after(-7),jobStatus:"scheduled"},
+  {jobReference:"OVERDUE-1",jobType:"delivery",scheduledDate:after(-1),jobStatus:"scheduled"},
+  {jobReference:"TOO-OLD",jobType:"delivery",scheduledDate:after(-8),jobStatus:"scheduled"}
  ];
  for(const [id,tenant,employee,location,items] of [["own",IDS.tenantA,IDS.employeeA,"branch-a",jobs],["peer",IDS.tenantA,IDS.employeeC,"branch-a",[{...jobs[0],jobReference:"PRIVATE-PEER"}]],["foreign",IDS.tenantB,IDS.employeeB,"branch-b",[{...jobs[0],jobReference:"PRIVATE-TENANT"}]]]){
   f.sql.prepare("INSERT INTO daily_employee_reports(id,tenant_id,employee_id,location_id,report_date,kpi_json) VALUES(?,?,?,?,?,?)").run(id,tenant,employee,location,today,JSON.stringify({jobs:items}));
  }
+ // Earlier reports must not resurrect completed or cancelled jobs.
+ f.sql.prepare("INSERT INTO daily_employee_reports(id,tenant_id,employee_id,location_id,report_date,kpi_json) VALUES(?,?,?,?,?,?)").run("own-previous",IDS.tenantA,IDS.employeeA,"branch-a",after(-1),JSON.stringify({jobs:[{...jobs[3],jobStatus:"scheduled"},{...jobs[4],jobStatus:"scheduled"}]}));
  const result=await f.staff("/public/employee/reports","GET",undefined,{cookie});
  assert.equal(result.res.status,200);
  assert.equal(result.body.reportDate,today);
- assert.deepEqual(result.body.deliveryReminders.map(x=>x.jobReference),["DELIVER-TODAY","INSTALL-4"]);
- assert.deepEqual(result.body.deliveryReminders.map(x=>x.daysUntil),[0,4]);
- assert.equal(result.body.items[0].jobs.length,4);
+ assert.deepEqual(result.body.deliveryReminders.map(x=>x.jobReference),["OVERDUE-7","OVERDUE-1","DELIVER-TODAY","INSTALL-4"]);
+ assert.deepEqual(result.body.deliveryReminders.map(x=>x.daysUntil),[-7,-1,0,4]);
+ assert.deepEqual(result.body.deliveryReminders.map(x=>x.urgency),["overdue","overdue","due_today","upcoming"]);
+ assert.equal(result.body.items[0].jobs.length,8);
+ assert.equal(result.body.items[1].jobs.length,2);
  f.sql.prepare("UPDATE operating_locations SET active=0 WHERE id='branch-a'").run();
  const disabled=await f.staff("/public/employee/reports","GET",undefined,{cookie});
  assert.deepEqual(disabled.body.deliveryReminders,[]);
