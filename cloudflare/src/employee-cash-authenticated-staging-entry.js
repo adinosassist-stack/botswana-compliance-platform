@@ -89,6 +89,7 @@ async function handleSyntheticStaffAuth(request, url, env) {
   try {
     return await handleStaffPublic({
       request, url, env, json, readJson, requestOriginAllowed, edgeScopedRateLimit, derivePassword,
+      syntheticPasswordIterations: 100000,
       rateLimitResponse: result => json({ error: "rate_limited" }, 429, {
         "retry-after": String(result.retryAfterSeconds || 60),
       }),
