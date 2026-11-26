@@ -98,12 +98,14 @@ jobs:
           test "$status" = 404
           jq -e 'any(.errors[]; .code==10007)' "$tmp/before" >/dev/null
           npx --no-install wrangler deploy --config cloudflare/wrangler.dock-hosted-staging-inert.toml
-          for endpoint in settings subdomain; do
+          for endpoint in settings subdomain deployments; do
             curl --fail --silent --show-error --max-time 30 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api/$endpoint" > "$tmp/$endpoint"
           done
           jq -e '.success==true and .result.enabled==false and .result.previews_enabled==false' "$tmp/subdomain" >/dev/null
           jq -e '.success==true and ([.result.bindings[]|select(.type!="plain_text" and .type!="assets")]|length==0) and
             ([.result.bindings[]|select(.name=="DOCK_STAGING_RESEARCH_ENABLED" and .text=="false")]|length==1)' "$tmp/settings" >/dev/null
+          jq -e '.success==true and (.result.deployments[0].versions|length==1) and .result.deployments[0].versions[0].percentage==100' "$tmp/deployments" >/dev/null
+          jq -r '"Reviewed bootstrap version candidate: " + .result.deployments[0].versions[0].version_id' "$tmp/deployments"
           echo "Inert staging Worker created; no hostname, database or provider binding qualified by this job."
 
   provision-inert-resources:
@@ -126,5 +128,6 @@ jobs:
           AUTHORIZATION: ${{ inputs.authorization }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.DOCK_STAGING_PROVISION_CLOUDFLARE_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.GENERAL_AI_STAGING_CLOUDFLARE_ACCOUNT_ID }}
+          DOCK_STAGING_BOOTSTRAP_VERSION_ID: ${{ vars.DOCK_STAGING_BOOTSTRAP_VERSION_ID }}
           DOCK_STAGING_TESTER_EMAILS: ${{ secrets.DOCK_STAGING_TESTER_EMAILS }}
         run: node scripts/dock-provision-inert-resources.mjs
