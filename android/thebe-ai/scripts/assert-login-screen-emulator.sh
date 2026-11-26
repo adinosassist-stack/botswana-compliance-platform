@@ -8,14 +8,17 @@ out="${RUNNER_TEMP:-/tmp}/thebe-browser-evidence"
 mkdir -p "$out"
 xml="$out/unauthenticated-login-ui.xml"
 
-for attempt in 1 2 3 4; do
+# A fresh disposable Chrome WebView can take longer than a browser-handler
+# launch to populate accessibility. Six bounded attempts extend observation,
+# but missing brand/auth content still fails closed; no synthetic pass.
+for attempt in 1 2 3 4 5 6; do
   if timeout 20s adb shell uiautomator dump /sdcard/thebe-unauthenticated-login-ui.xml >/dev/null 2>&1 &&
      adb exec-out cat /sdcard/thebe-unauthenticated-login-ui.xml > "$xml" 2>/dev/null &&
      node android/thebe-ai/scripts/check-login-ui.mjs "$xml"; then
     # Keep synthetic UI evidence only on the CI runner, never an artifact.
     exit 0
   fi
-  if [[ "$attempt" -ne 4 ]]; then sleep 4; fi
+  if [[ "$attempt" -ne 6 ]]; then sleep 5; fi
 done
 
 # The device contains no user session. Only print bounded package categories,

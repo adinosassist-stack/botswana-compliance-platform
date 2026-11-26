@@ -53,9 +53,9 @@ test('emulator diagnostics expose only aggregate signals, never UI text',()=>{
     '<node package="com.android.chrome" class="android.widget.TextView" text="Welcome to Chrome" content-desc="" />'+
     '</hierarchy>';
   const summary=summarizeHierarchy(xml);
-  assert.deepEqual(summary,{nodes:2,labelledNodes:2,chromeOwned:true,webView:true});
+  assert.deepEqual(summary,{nodes:2,labelledNodes:2,chromeOwned:true,webView:true,systemUiOwned:false,launcherOwned:false,permissionOwned:false,androidSettingsOwned:false,targetAppOwned:false});
   assert.doesNotMatch(JSON.stringify(summary),/private@example\.com|Welcome to Chrome/);
-  assert.deepEqual(summarizeHierarchy(null),{nodes:0,labelledNodes:0,chromeOwned:false,webView:false});
+  assert.deepEqual(summarizeHierarchy(null),{nodes:0,labelledNodes:0,chromeOwned:false,webView:false,systemUiOwned:false,launcherOwned:false,permissionOwned:false,androidSettingsOwned:false,targetAppOwned:false});
 });
 
 test('first-run Chrome setup is restricted to disposable Android 15 emulators',()=>{
@@ -94,4 +94,37 @@ test('emulator check is isolated and never uploads/login to user account',()=>{
   assert.match(s,/check-login-ui\.mjs/);
   assert.doesNotMatch(s,/adb install|am start|curl|wget|upload-artifact|api\/auth|input tap|input text/);
   assert.doesNotMatch(cli,/fetch\(|api\/auth|password\s*=|upload/gi);
+});
+
+test('API35 failure diagnostics classify only allowlisted platform ownership booleans',()=>{
+  const synthetic='<?xml version="1.0"?><hierarchy>'+
+    '<node package="com.android.systemui" text="private@example.com" content-desc="secret" />'+
+    '<node package="com.google.android.apps.nexuslauncher" text="TOP SECRET" content-desc="" />'+
+    '<node package="com.android.permissioncontroller" text="deny this?" content-desc="" />'+
+    '<node package="com.android.settings" text="location" content-desc="" />'+
+    '<node package="com.thebedesk.ai" text="some app" content-desc="" />'+
+    '</hierarchy>';
+  const safe=summarizeHierarchy(synthetic);
+  assert.deepEqual(safe,{
+    nodes:5,labelledNodes:5,chromeOwned:false,webView:false,
+    systemUiOwned:true,launcherOwned:true,permissionOwned:true,
+    androidSettingsOwned:true,targetAppOwned:true
+  });
+  assert.doesNotMatch(JSON.stringify(safe),/private@example|TOP SECRET|deny this|location|com\.android\.systemui/);
+  assert.equal(assessLoginHierarchy(synthetic).status,'blocked',
+    'platform classification must NEVER bypass branded sign-in requirements');
+});
+
+test('Android 35 sign-in retry remains bounded and fail-closed without leak-prone output',()=>{
+  const shell=read('android/thebe-ai/scripts/assert-login-screen-emulator.sh');
+  const cli=read('android/thebe-ai/scripts/check-login-ui.mjs');
+  assert.match(shell,/for attempt in 1 2 3 4 5 6; do/);
+  assert.match(shell,/if \[\[ "\$attempt" -ne 6 \]\]; then sleep 5; fi/);
+  assert.match(shell,/exit 1/);
+  assert.match(shell,/check-login-ui\.mjs/);
+  assert.doesNotMatch(shell,/cat "\$xml"|printf.*"\$foreground"|curl|wget|--ignore-certificate-errors/);
+  assert.match(cli,/SAFE_EMULATOR_UI_DIAG/);
+  assert.match(cli,/systemUiOwned/);
+  assert.match(cli,/launcherOwned/);
+  assert.doesNotMatch(cli,/process\.stderr\.write\(xml|console\.log\(xml/);
 });
