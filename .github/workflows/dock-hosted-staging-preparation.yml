@@ -1,0 +1,62 @@
+name: Dock hosted staging preparation
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/dock-hosted-staging-preparation.yml'
+      - 'docs/dock-hosted-staging-provisioning.md'
+      - 'cloudflare/src/general-ai-*.js'
+      - 'cloudflare/wrangler.dock-research-workspace-offline.toml'
+      - 'tests/general-ai-*.test.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: dock-hosted-staging-preparation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  offline-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify offline workspace isolation contract
+        run: |
+          python3 - <<'PY'
+          import tomllib
+          with open('cloudflare/wrangler.dock-research-workspace-offline.toml','rb') as f:
+              c=tomllib.load(f)
+          assert c['name']=='bw-dock-research-workspace-offline'
+          assert c['main']=='src/general-ai-dock-workspace-staging-worker.js'
+          assert c['workers_dev'] is False and c['preview_urls'] is False
+          assert c['keep_vars'] is False
+          assert not any(k in c for k in ('route','routes','services','d1_databases','r2_buckets','env','triggers'))
+          v=c['vars']
+          assert v['APP_ENV']=='staging' and v['PAYMENT_PROVIDER']=='none'
+          for k in ('DOCK_STAGING_RESEARCH_ENABLED','THEBE_GENERAL_AI_ENABLED','THEBE_GENERAL_AI_RESEARCH_ENABLED','THEBE_LIVE_VOICE_ENABLED','THEBE_INTERNAL_AUTONOMY_ENABLED','THEBE_MARKETING_VOICE_ENABLED'):
+              assert v[k]=='false', k
+          assert v['AGENT_BOUNDED_TASK_EXECUTION_ENABLED']=='0'
+          assert v['AI_FEATURES_DEFAULT']=='off'
+          PY
+      - run: npm ci --ignore-scripts
+      - run: python3 tests/general-ai-staging-session-contract.py
+      - run: node --test tests/general-ai-*.test.mjs
+      - name: Build offline only
+        run: npx --no-install wrangler deploy --dry-run --config cloudflare/wrangler.dock-research-workspace-offline.toml --outdir /tmp/dock-preflight
+      - name: Package source provenance and build hashes
+        run: |
+          set -euo pipefail
+          mkdir -p dock-preflight
+          cp -a /tmp/dock-preflight/. dock-preflight/
+          printf '%s\n' "$GITHUB_SHA" > dock-preflight/COMMIT_SHA.txt
+          (cd dock-preflight && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dock-offline-preflight-${{ github.sha }}
+          path: dock-preflight/
+          if-no-files-found: error
+          retention-days: 7
