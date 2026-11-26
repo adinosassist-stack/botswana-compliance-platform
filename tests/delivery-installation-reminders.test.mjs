@@ -120,7 +120,8 @@ test("multi-job portal, manager and API are wired without changing token or role
   assert.match(browser,/function selectReminderJob\(/);
   assert.match(browser,/payload\.kpis\.jobs=scheduled\.jobs/);
   assert.match(manager,/Overdue/);
-  assert.match(worker,/const scheduleValidation=scheduleEntriesFromInput\(body\?\.kpis\)/);
+  assert.match(worker,/const inputKpis=staff&&body\.kpis===undefined\?safeJson\(existing\?\.kpi_json,\{\}\):body\?\.kpis/);
+  assert.match(worker,/const scheduleValidation=scheduleEntriesFromInput\(inputKpis\)/);
   assert.match(worker,/currentReportJobs:parseReportSchedules\(ownToday\?\.kpi_json\)/);
   assert.match(worker,/tenant_id=\? AND employee_id=\? AND location_id=\? AND report_date=\?/);
   assert.match(worker,/roleAllowed\(a,"owner","manager"\)/);
