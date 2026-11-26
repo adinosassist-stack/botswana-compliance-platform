@@ -3,6 +3,7 @@ import {hasFounderAiEntitlement} from "./founder-ai-entitlement.js";
 import {createManagerLocationAdminHttp} from './manager-invitations-location-admin-http.js';
 import {createManagerOwnerDirectoryHttp} from './manager-invitations-owner-directory.js';
 import {createManagerScopedReadHttp} from './manager-invitations-scoped-read.js';
+import {createManagerDailyReportReview,managerDailyReviewEnabled} from './manager-daily-report-review.js';
 import {createManagerAccessAdminHttp} from './manager-invitations-admin-http.js';
 import {createManagerInvitationD1Service} from './manager-invitations-d1-service.js';
 import {createManagerInvitationsHttp} from './manager-invitations-http.js';
@@ -5790,11 +5791,18 @@ export default {
         const isScopedManager=!!(branchInvite?.scoped_manager||provisionedManager?.scoped_manager);
         if(!isScopedManager&&!((url.pathname==='/api/auth/me'&&req.method==='GET')||(url.pathname==='/api/auth/logout'&&req.method==='POST')))
           return json({error:'manager_scope_not_qualified'},403);
+        if(isScopedManager&&url.pathname==='/api/workspace/managers/my-reports'&&req.method==='POST'){
+          if(!managerDailyReviewEnabled(env))return json({error:'manager_report_review_not_enabled'},403);
+          const limit=await authRateLimit(env,req,'manager-daily-report-review',{limit:30,windowSeconds:60});if(!limit.ok)return rateLimitResponse(limit);
+          const body=await readJson(req,{maxBytes:4096}).catch(()=>null);if(!body||typeof body!=='object'||Array.isArray(body))return json({error:'invalid_report_review'},400);
+          const svc=createManagerDailyReportReview({db:env.DB,allowProvisioned:String(env.MANAGER_ACCESS_REQUESTS_ENABLED||'').toLowerCase()==='true'&&String(env.MANAGER_ACCESS_PROVISIONING_ENABLED||'').toLowerCase()==='true'});
+          const result=await svc.decide({tenantId:a.tenant_id,userId:a.user_id,role:a.role},body);return json(result,result.status);
+        }
         if(isScopedManager&&req.method==='GET'&&(
           url.pathname==='/api/workspace/managers/my-locations'||
           url.pathname==='/api/workspace/managers/my-reports'||
           url.pathname==='/api/workspace/managers/my-dashboard')){
-          return createManagerScopedReadHttp({db:env.DB,allowProvisioned:String(env.MANAGER_ACCESS_REQUESTS_ENABLED||'').toLowerCase()==='true'&&String(env.MANAGER_ACCESS_PROVISIONING_ENABLED||'').toLowerCase()==='true'})(req,{
+          return createManagerScopedReadHttp({db:env.DB,reviewEnabled:managerDailyReviewEnabled(env),allowProvisioned:String(env.MANAGER_ACCESS_REQUESTS_ENABLED||'').toLowerCase()==='true'&&String(env.MANAGER_ACCESS_PROVISIONING_ENABLED||'').toLowerCase()==='true'})(req,{
             tenantId:a.tenant_id,userId:a.user_id,role:a.role
           });
         }
