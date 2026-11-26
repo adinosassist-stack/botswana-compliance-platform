@@ -56,3 +56,30 @@ disallowed("UPDATE sessions SET tenant_id=? WHERE token_hash=?",(a[0],b[2]))
 disallowed("UPDATE sessions SET expires_at=datetime(created_at,'+16 minutes') WHERE token_hash=?",(b[2],))
 assert not db.execute("PRAGMA foreign_key_check").fetchall()
 print("PASS: shared workspace/research SQL, tenant scope, expiry, revocation, synthetic constraints and state read")
+
+# Qualify the conversation rehearsal schema against the same synthetic Dock database.
+conversation_schema = root / "docs/rehearsals/conversation-storage-schema.sql"
+db.executescript(conversation_schema.read_text())
+assert db.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+verify(b)
+reject(a[2])
+
+db.execute(
+    "INSERT INTO thebe_conversations_rehearsal(tenant_id,id,created_by_user_id) VALUES(?,?,?)",
+    (b[0], "thread-b", b[1]),
+)
+insert_message = """
+    INSERT INTO thebe_conversation_messages_rehearsal(
+        tenant_id,conversation_id,id,author_user_id,role,source_kind,content_redacted,idempotency_key
+    ) VALUES(?,'thread-b',?,?,'user',?,'synthetic transcript',?)
+"""
+db.execute(insert_message, (b[0], "message-1", b[1], "voice_final", "turn-1"))
+disallowed(insert_message, (a[0], "message-2", a[1], "voice_final", "turn-2"))
+disallowed(insert_message, (b[0], "message-2", b[1], "voice_partial", "turn-2"))
+disallowed(insert_message, (b[0], "message-2", b[1], "typed", "turn-1"))
+messages = db.execute(
+    "SELECT tenant_id,id,source_kind FROM thebe_conversation_messages_rehearsal"
+).fetchall()
+assert [tuple(message) for message in messages] == [(b[0], "message-1", "voice_final")]
+assert not db.execute("PRAGMA foreign_key_check").fetchall()
+print("PASS: combined Dock schema, finalized transcript, tenant boundary and message deduplication")
