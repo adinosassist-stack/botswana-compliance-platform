@@ -1,0 +1,47 @@
+name: Quotation Commercial Private Staging Qualification
+on:
+  pull_request:
+    paths:
+      - 'server/quotation-private-d1-session-verifier.mjs'
+      - 'server/quotation-commercial-private-staging-host.mjs'
+      - 'server/quotation-commercial-staging-gateway.mjs'
+      - 'deploy/quotation-commercial-private-staging/**'
+      - 'deploy/quotation-final-html-private/commercial-*'
+      - 'docs/sql/quotation-commercial-staging-foundation-CANDIDATE.sql'
+      - 'tests/quotation-commercial-staging-qualification.test.mjs'
+      - '.github/workflows/quotation-commercial-staging-qualification.yml'
+permissions:
+  contents: read
+jobs:
+  offline-private-staging:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Install pinned build and browser clients
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm ci --prefix deploy/quotation-final-html-private --ignore-scripts --no-audit --no-fund
+          npm install --prefix "$RUNNER_TEMP/commercial-browser" --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright@1.56.1
+      - name: Qualify additive schema, cryptographic gateway and synthetic-session host
+        run: node --test tests/quotation-commercial-staging-qualification.test.mjs tests/quotation-private-d1-session-verifier.test.mjs tests/quotation-private-host-session-gate.test.mjs tests/quotation-commercial-workflow.test.mjs
+      - name: Build all three inert services without publishing
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          set -eu
+          node node_modules/wrangler/bin/wrangler.js deploy --dry-run --config deploy/quotation-commercial-private-staging/wrangler.review.jsonc --outdir /tmp/commerce-private-app
+          node node_modules/wrangler/bin/wrangler.js deploy --dry-run --config deploy/quotation-commercial-private-staging/gateway.review.wrangler.jsonc --outdir /tmp/commerce-private-gateway
+          node node_modules/wrangler/bin/wrangler.js deploy --dry-run --config deploy/quotation-final-html-private/commercial-review.wrangler.jsonc --outdir /tmp/commerce-private-pdf
+      - name: Recheck mobile quotation invoice and PDF journey
+        env:
+          QUOTATION_BROWSER_ENGINE_ROOT: ${{ runner.temp }}/commercial-browser
+        run: node --test tests/quotation-commercial-browser.test.mjs
