@@ -6,6 +6,7 @@ on:
       - '.github/workflows/dock-protected-staging-bootstrap.yml'
       - 'cloudflare/wrangler.dock-hosted-staging-inert.toml'
       - 'scripts/verify-dock-inert-bootstrap.py'
+      - 'scripts/dock-hosted-ingress-guard.mjs'
       - 'docs/dock-hosted-staging-provisioning.md'
       - 'cloudflare/schema/dock-hosted-staging-auth-candidate.sql'
       - 'tests/dock-hosted-staging-auth-contract.py'
