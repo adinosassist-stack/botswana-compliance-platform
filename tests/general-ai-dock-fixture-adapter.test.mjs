@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {createHmac} from 'node:crypto';
-import {withDockStagingFixture} from '../scripts/run-dock-staging-fixture.mjs';
+import {createDockStagingD1,withDockStagingFixture} from '../scripts/run-dock-staging-fixture.mjs';
 import {readFileSync} from 'node:fs';
 import {createDockFixtureAdapter} from '../cloudflare/src/general-ai-dock-fixture-adapter.js';
 const schema=readFileSync(new URL('../cloudflare/schema/dock-hosted-staging-auth-candidate.sql',import.meta.url),'utf8');
@@ -57,6 +57,32 @@ test('staging fixture hashes its session and is removed when hosted acceptance f
     }),/hosted acceptance failed/);
     assert.equal(sql.prepare('SELECT count(*) AS n FROM sessions').get().n,0);
     assert.equal(sql.prepare('SELECT count(*) AS n FROM tenants').get().n,0);
+  }finally{
+    sql.close();
+  }
+});
+
+test('D1 transport pins the isolated endpoint and sends one batch per fixture mutation',async()=>{
+  const {sql,options}=setup();
+  const databaseId='c63255cf-c589-4f6b-99c7-2d2e437566b5';
+  const mutations=[];
+  try{
+    sql.prepare('UPDATE dock_staging_identity SET database_id=?').run(databaseId);
+    const db=createDockStagingD1(async(method,path,body)=>{
+      assert.equal(method,'POST');
+      assert.equal(path,'/accounts/ddd23cab31928a4bb3d4998df9b26d1d/d1/database/'+databaseId+'/query');
+      if(body.batch){
+        mutations.push(body.batch.length);
+        return {result:await options.db.batch(body.batch.map(({sql,params})=>options.db.prepare(sql).bind(...params)))};
+      }
+      const row=await options.db.prepare(body.sql).bind(...body.params).first();
+      return {result:[{success:true,results:row?[row]:[]}]};
+    });
+    await withDockStagingFixture({db,verifiedDatabaseId:databaseId,sessionSecret:'offline-staging-secret-32-characters'},async fixture=>{
+      assert.ok(sql.prepare('SELECT 1 FROM sessions WHERE user_id=?').get(fixture.userId));
+    });
+    assert.deepEqual(mutations,[5,5]);
+    assert.equal(sql.prepare('SELECT count(*) AS n FROM sessions').get().n,0);
   }finally{
     sql.close();
   }
