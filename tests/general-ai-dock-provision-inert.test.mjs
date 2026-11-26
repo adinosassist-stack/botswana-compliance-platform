@@ -75,19 +75,27 @@ test("activation preflight reads only and rejects a drifted backend binding",asy
  calls.length=0;
  const isolatedId="c63255cf-c589-4f6b-99c7-2d2e437566b5";
  let bindingId=isolatedId;
+ let backendDeploymentReads=0;
+ let driftBackend=false;
  const readApi=async(method,path)=>{
   assert.equal(method,"GET");
   const response=await api(method,path);
   const endpoint=path.split("?")[0];
   if(endpoint.endsWith("/d1/database"))return {result:[{name:DATABASE,uuid:isolatedId}]};
+  if(endpoint.endsWith("/"+PRIVATE_DOCK_BACKEND+"/deployments")&&driftBackend&&++backendDeploymentReads===2){
+   return {result:{deployments:[{versions:[{version_id:db,percentage:100}]}]}};
+  }
   if(endpoint.endsWith("/"+PRIVATE_DOCK_BACKEND+"/settings")){
    return {result:{bindings:[...response.result.bindings,{name:"DB",type:"d1",id:bindingId}]}};
   }
   return response;
  };
  const options={api:readApi,emails,expectedVersion:version};
- assert.deepEqual(await verifyActivationReadiness(options),{ok:true,hostname:DOCK_HOST,databaseId:isolatedId,inert:true});
+ assert.deepEqual(await verifyActivationReadiness(options),{ok:true,hostname:DOCK_HOST,databaseId:isolatedId,inert:true,rollbackVersions:{workspace:version,backend:version}});
  bindingId=db;
  await assert.rejects(verifyActivationReadiness(options),/backend_database_binding_mismatch/);
+ bindingId=isolatedId;
+ driftBackend=true;
+ await assert.rejects(verifyActivationReadiness(options),/inert_deployment_identity_mismatch/);
  assert.ok(calls.every(call=>call.method==="GET"));
 });
