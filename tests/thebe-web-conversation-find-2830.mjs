@@ -166,7 +166,7 @@ try{
     window.apiJson=async (url,options)=>{
       if(url!=="/api/ai/general")return original(url,options);
       window.researchRequests.push(JSON.parse(options.body));
-      return {ok:true,answer:"Synthetic cited research",researchPerformed:true,verification:"search_snippets_only",citations:[{url:"https://example.org/source",title:"Example source"},{url:"javascript:alert(1)",title:"Unsafe scheme"},{url:"https://localhost/private",title:"Private host"}]};
+      return {ok:true,answer:"Synthetic cited research",researchPerformed:true,verification:"provider_citations",citations:[{url:"https://example.org/source",title:"Example source"},{url:"javascript:alert(1)",title:"Unsafe scheme"},{url:"https://localhost/private",title:"Private host"}]};
     };
     for(const name of ["thebe-general-ai-enabled","thebe-general-ai-research-enabled"]){
       const meta=document.createElement("meta");meta.name=name;meta.content="true";document.head.append(meta);
@@ -175,10 +175,11 @@ try{
   });
   await page.evaluate(()=>window.ThebeAiDock.open());
   assert.equal(await research.isVisible(),true);
-  await composer.fill("Public Botswana news");
-  await research.click();
+  await composer.fill("Search the live web for Botswana’s official census total.");
+  await dock.getByRole("button",{name:"Send to Thebe",exact:true}).click();
   await page.waitForFunction(()=>document.querySelector(".thebe-ai-web-sources")?.textContent.includes("Example source"));
-  assert.deepEqual(await page.evaluate(()=>window.researchRequests),[{question:"Search the web: Public Botswana news"}]);
+  assert.deepEqual(await page.evaluate(()=>window.researchRequests),[{question:"Search the web: Search the live web for Botswana’s official census total."}]);
+  await dock.getByText("Web search citations — verify original sources",{exact:true}).waitFor();
   const links=dock.locator(".thebe-ai-web-sources a");
   assert.equal(await links.count(),1);
   assert.equal(await links.getAttribute("href"),"https://example.org/source");
@@ -191,6 +192,12 @@ try{
   await composer.fill("Draft must survive disabled research");
   await research.evaluate(button=>button.click());
   assert.equal(await composer.inputValue(),"Draft must survive disabled research");
+  assert.equal(await page.evaluate(()=>window.researchRequests.length),1);
+  const advisorCallsBefore = await page.evaluate(()=>window.advisorCalls);
+  await composer.fill("Search the live web for Botswana’s official census total.");
+  await dock.getByRole("button",{name:"Send to Thebe",exact:true}).click();
+  await dock.getByText("Live research is not available; current information cannot be verified.",{exact:true}).waitFor();
+  assert.equal(await page.evaluate(()=>window.advisorCalls),advisorCallsBefore);
   assert.equal(await page.evaluate(()=>window.researchRequests.length),1);
   assert.deepEqual(errors,[],"The web Dock creates no browser page errors");
   console.log("THEBE_WEB_FIND_BROWSER_PASS: local search, current response, navigation, reset, responsive geometry");
