@@ -1988,9 +1988,14 @@ html body dialog#thebeVoiceScreen .thebe-voice-screen-controls button{
   // Automatic routing is separately gated until hosted provider and billing acceptance.
   // Keep attachments, private context, actions and follow-ups on the workspace path.
   function chooseAutomaticAiRoute(question,{enabled=false,researchEnabled=false,hasContext=false}={}){
-    if(!enabled||hasContext||typeof question!=="string")return "ask";
+    if(typeof question!=="string")return "ask";
     const q=question.trim();
     if(/\b(my|our|mine|ours|your|workspace|tenant|thebe|client|customer|employee|invoice|payroll|account|password|secret|contract|transfer|approve|activate|delete|send|file tax|business|company)\b/i.test(q)||/@|\b\d{6,}\b/.test(q))return "ask";
+    // Explicit public research must never fall back to an ungrounded advisory answer.
+    if(/^(?:please\s+)?(?:search the (?:live )?web|look up online|browse the web)\b/i.test(q)){
+      return researchEnabled&&!hasContext?"web_research":"research_unavailable";
+    }
+    if(!enabled||hasContext)return "ask";
     const current=/\b(today|latest|current|recent|this week|this month|right now|now|202[6-9]|price|exchange rate|news|weather|who is|research|sources|verify|look up|search the web)\b/i.test(q);
     if(current&&/^(?:what|who|when|where|how|research|look up|search the web|find|tell me)\b/i.test(q))return researchEnabled?"web_research":"research_unavailable";
     if(/^(?:what (?:is|are|was|were)|who was|explain|define|how (?:does|do|did)|why (?:is|are|does|do))\b/i.test(q))return "general";
