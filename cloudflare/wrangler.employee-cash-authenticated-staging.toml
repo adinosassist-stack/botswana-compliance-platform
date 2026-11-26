@@ -1,0 +1,37 @@
+# Private, service-binding-only Employee Cash staging candidate.
+# A protected deploy must supply the reviewed SHA, feature flags, and staging-only SESSION_SECRET.
+name = "bw-employee-self-service-staging"
+main = "src/employee-cash-authenticated-staging-entry.js"
+compatibility_date = "2026-09-03"
+workers_dev = false
+preview_urls = false
+keep_vars = false
+
+[vars]
+APP_ENV = "staging"
+DEPLOYMENT_PROFILE = "employee-cash-authenticated-staging"
+STAFF_STAGING_SOURCE_SHA = "UNQUALIFIED"
+STAFF_STAGING_D1_ID = "adfa3871-5ecf-4672-8d2f-be9b142d5fc1"
+THEBE_STAFF_PORTAL_ENABLED = "false"
+THEBE_EMPLOYEE_CASH_ENABLED = "false"
+PUBLIC_ORIGIN = "https://employee-cash-staging.internal"
+PUBLIC_APP_URL = "https://employee-cash-staging.internal"
+STAFF_STAGING_WRITES_ENABLED = "false"
+REGISTRATION_MODE = "hold"
+PAYMENT_PROVIDER = "none"
+THEBE_GENERAL_AI_ENABLED = "false"
+THEBE_AI_EXPORTS_ENABLED = "false"
+THEBE_INTERNAL_AUTONOMY_ENABLED = "false"
+THEBE_LIVE_VOICE_ENABLED = "false"
+POP_UPLOAD_STAGING_ENABLED = "false"
+EVIDENCE_UPLOADS_ENABLED = "false"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bw-employee-self-service-staging"
+database_id = "adfa3871-5ecf-4672-8d2f-be9b142d5fc1"
+
+[[ratelimits]]
+name = "PUBLIC_RATE_LIMITER"
+namespace_id = "26530001"
+simple = { limit = 20, period = 60 }
