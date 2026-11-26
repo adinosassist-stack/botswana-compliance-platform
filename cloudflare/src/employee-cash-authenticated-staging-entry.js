@@ -1,4 +1,12 @@
-import app from "./worker.js";
+import app, {
+  authenticateWorkspaceSession,
+  __v782179Test,
+  __v782195Test,
+} from "./worker.js";
+import { handleStaffManager } from "./employee-self-service.js";
+
+const { readJson } = __v782179Test;
+const { requestOriginAllowed } = __v782195Test;
 
 const profile = "employee-cash-authenticated-staging";
 const database = "adfa3871-5ecf-4672-8d2f-be9b142d5fc1";
@@ -25,6 +33,40 @@ const error = (code, status) => Response.json({ error: code }, {
   status,
   headers: { "cache-control": "no-store" },
 });
+
+function csrfMatches(request, session) {
+  const expected = session.csrf_token;
+  const supplied = request.headers.get("x-csrf-token");
+  if (!expected || !supplied || expected.length !== supplied.length) return false;
+  let difference = 0;
+  for (let index = 0; index < expected.length; index += 1) {
+    difference |= expected.charCodeAt(index) ^ supplied.charCodeAt(index);
+  }
+  return difference === 0;
+}
+
+async function handleSyntheticManager(request, url, env) {
+  try {
+    const auth = await authenticateWorkspaceSession(request, env);
+    if (!auth) return error("unauthenticated", 401);
+    if (auth.role !== "manager" || !auth.email?.endsWith("@example.test")) {
+      return error("forbidden", 403);
+    }
+    if (!requestOriginAllowed(request, env)) return error("origin_failed", 403);
+    if (request.method !== "GET" && !csrfMatches(request, auth)) {
+      return error("csrf_failed", 403);
+    }
+    return await handleStaffManager({
+      request, url, env, auth, readJson,
+      id: () => crypto.randomUUID(),
+      json: (body, status = 200) => Response.json(body, {
+        status, headers: { "cache-control": "no-store" },
+      }),
+    }) ?? error("not_found", 404);
+  } catch {
+    return error("employee_cash_staging_manager_unavailable", 503);
+  }
+}
 
 export function createEmployeeCashStagingEntry(application = app) {
   return {
@@ -58,6 +100,9 @@ export function createEmployeeCashStagingEntry(application = app) {
         return error("employee_cash_staging_database_unqualified", 503);
       }
 
+      if (url.pathname.startsWith("/api/employee-self-service/")) {
+        return handleSyntheticManager(request, url, env);
+      }
       return application.fetch(request, env, ctx);
     },
   };
