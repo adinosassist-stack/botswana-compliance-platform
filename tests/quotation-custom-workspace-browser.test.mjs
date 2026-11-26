@@ -13,6 +13,7 @@ if(!engine)throw Error("isolated_browser_engine_required");
 const {chromium}=createRequire(join(engine,"quotation-workspace.cjs"))("playwright");
 const root=resolve(process.cwd());
 const allowed=new Set([
+ "/public/js/essentials-document-share.mjs",
  "/public/js/quotation-custom-workspace-bridge.mjs",
  "/public/js/quotation-customizable-page.mjs",
  "/public/js/quotation-customizable-page-model.mjs",

@@ -15,6 +15,7 @@ if(!prefix)throw Error("quotation_browser_acceptance_requires_isolated_engine");
 const {chromium}=createRequire(join(prefix,"browser-test.cjs"))("playwright");
 const root=resolve(process.cwd());
 const allowed=new Set([
+ "/public/js/essentials-document-share.mjs",
  "/public/js/quotation-draft-form.mjs",
  "/public/js/quotation-draft-form-model.mjs",
  "/public/js/quotation-draft-api-client.mjs"
@@ -109,7 +110,7 @@ test("actual desktop browser adds line item, recomputes BWP totals, downloads no
   const awaitedDownload=page.waitForEvent("download");
   await page.getByRole("button",{name:"Download PDF preview"}).click();
   const download=await awaitedDownload;
-  assert.equal(download.suggestedFilename(),"quotation-draft-preview.pdf");
+  assert.equal(download.suggestedFilename(),"quotation-draft-Q-TEST-1.pdf");
   assert.equal(submissions,1);
   assert.equal(recorded.method,"POST");
   assert.equal(recorded.headers["x-csrf-token"],"synthetic-browser-csrf-token");
@@ -168,14 +169,14 @@ test("mobile blocked automatic download retains explicit Save/Open PDF links unt
   const open=page.getByRole("link",{name:"Open PDF"});
   assert.equal(await open.isVisible(),true);
   assert.equal(await page.evaluate(()=>window.blockedAutomaticDownloads),1);
-  assert.match(await page.locator(".qdf-status").innerText(),/If no download appeared, tap Save PDF or Open PDF/);
+  assert.match(await page.locator(".qdf-status").innerText(),/PDF prepared\. Tap Save PDF, Open PDF or Share PDF \(WhatsApp\) when available\. Nothing was issued or saved\./);
   assert.doesNotMatch(await page.locator(".qdf-status").innerText(),/PDF downloaded/);
   const rect=await save.boundingBox();
   assert.ok(rect&&rect.height>=44&&rect.x>=0&&rect.x+rect.width<=375+1,
    "manual save action must remain accessible on mobile");
   const awaitedDownload=page.waitForEvent("download");
   await save.click();
-  assert.equal((await awaitedDownload).suggestedFilename(),"quotation-draft-preview.pdf");
+  assert.equal((await awaitedDownload).suggestedFilename(),"quotation-draft-Q-TEST-1.pdf");
   assert.equal(requests,1,"manual save must not trigger a second network request");
   await page.getByLabel("Customer name").fill("Updated Synthetic Client");
   assert.equal(await save.isVisible(),false,"an old PDF must not stay available after edits");

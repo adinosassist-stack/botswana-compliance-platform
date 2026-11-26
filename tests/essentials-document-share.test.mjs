@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {buildDocumentShare,shareDocumentPdf} from "../public/js/essentials-document-share.mjs";
+import {buildDocumentShare,shareDocumentPdf,prepareDocumentPdf,sharePreparedDocumentPdf} from "../public/js/essentials-document-share.mjs";
 
 test("quotation share metadata contains BWP and reference",()=>{
  const x=buildDocumentShare({kind:"quotation",reference:"Q-001",customerName:"Example Client",amountBwp:"1500.00"});
@@ -38,4 +38,17 @@ test("valid PDF data without native sharing returns unavailable without sending"
  const result=await shareDocumentPdf({navigatorApi:{canShare:()=>false,share:async()=>{throw Error("must_not_send")}},
   blob,filename:"quotation.pdf",message:{title:"Quotation",text:"Review attachment"}});
  assert.deepEqual(result,{shared:false,reason:typeof File==="undefined"?"file_api_unavailable":"native_share_unavailable"});
+});
+
+
+test("prepared PDF invokes native share synchronously from the gesture, file only",async()=>{
+ const file=await prepareDocumentPdf({blob:new Blob(["%PDF-1.7\nTEST"],{type:"application/pdf"}),filename:"quote-01.pdf"});
+ assert.ok(file);let payload;const result=sharePreparedDocumentPdf({file,message:{title:"Quotation",text:"Review attachment"},navigatorApi:{canShare:p=>p.files[0]===file,share:p=>{payload=p;return Promise.resolve()}}});
+ assert.deepEqual(payload,{files:[file]});assert.equal(file.name,"quote-01.pdf");assert.equal(file.type,"application/pdf");assert.equal(await file.text(),"%PDF-1.7\nTEST");assert.deepEqual(await result,{shared:true});
+});
+test("native cancellation remains a cancellation and unprepared files cannot be sent",async()=>{
+ const message={title:"Quotation",text:"Review attachment"};const blob=new Blob(["%PDF-1.7\nTEST"],{type:"application/pdf"});const file=await prepareDocumentPdf({blob,filename:"quote.pdf"});
+ const navigatorApi={canShare:()=>true,share:()=>Promise.reject(Object.assign(Error("cancelled"),{name:"AbortError"}))};
+ await assert.rejects(sharePreparedDocumentPdf({navigatorApi,file,message}),{name:"AbortError"});
+ await assert.rejects(sharePreparedDocumentPdf({navigatorApi,file:new File([blob],"quote.pdf",{type:"application/pdf"}),message}),/unprepared_pdf/);
 });
