@@ -33,3 +33,6 @@ CREATE TABLE app_state (
  tenant_id TEXT PRIMARY KEY REFERENCES tenants(id), version INTEGER NOT NULL CHECK(version>=1),
  state_json TEXT NOT NULL CHECK(json_valid(state_json)), updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Independently verified staging database identity marker; no default seed.
+CREATE TABLE dock_staging_identity (id INTEGER PRIMARY KEY CHECK(id=1), database_id TEXT NOT NULL UNIQUE, environment TEXT NOT NULL CHECK(environment='dock-hosted-staging'));
