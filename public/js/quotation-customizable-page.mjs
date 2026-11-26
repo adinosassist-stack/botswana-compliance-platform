@@ -176,7 +176,7 @@ function customerReadyBlocker(q){
  return "";
 }
 /** Explicit additional capability required; this does NOT mount automatically. */
-export function mountQuotationCustomizablePage(root,{capability,initial,issuerName,defaultBankAccount,documentMode="preview"}={}){
+export function mountQuotationCustomizablePage(root,{capability,initial,issuerName,defaultBankAccount,documentMode="preview",commercialMode=false}={}){
  if(!root||typeof root.replaceChildren!=="function")throw Error("invalid_quotation_custom_root");
  if(documentMode!=="preview"&&documentMode!=="customer")throw Error("invalid_quotation_document_mode");
  const customerReady=documentMode==="customer";
@@ -192,7 +192,7 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
   return sample;
  };
  const state=initial===undefined?makeSample():JSON.parse(JSON.stringify(initial));
- let checked=validateQuotationCustomPage(state);
+ let checked;try{checked=validateQuotationCustomPage(state)}catch(error){if(!commercialMode)throw error;}
  let logoUrl=null,logoWidth=32,logoX=0,disposed=false,logoRevision=0;
  let selectedPdf=null,shareRevision=0,shareBusy=false;
  const shell=elt("section","qcp-shell");
@@ -217,8 +217,9 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
  const sharePdf=elt("button","","Share selected PDF (WhatsApp)");sharePdf.type="button";sharePdf.disabled=true;
  const pdfInput=elt("input");pdfInput.type="file";pdfInput.accept=".pdf,application/pdf";pdfInput.hidden=true;
  pdfInput.setAttribute("aria-label","Choose the quotation PDF saved on this device");
- actions.append(print,download,importButton,reset,importInput);
- if(customerReady){
+ actions.append(print);
+ if(!commercialMode)actions.append(download,importButton,reset,importInput);
+ if(customerReady&&!commercialMode){
   actions.append(choosePdf,sharePdf,pdfInput);
   printHelp.content.append(elt("p","qcp-hint","After saving the quotation as a PDF, choose that exact saved file, verify its contents, and tap Share selected PDF. Choose WhatsApp in the system share sheet. The editor cannot directly retrieve the browser-generated print file."));
  }
@@ -227,7 +228,11 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
   ["quoteNumber","Quote number"],["issueDate","Date (YYYY-MM-DD)"],
   ["customerName","Customer name"],["customerPhone","Customer number"],
   ["location","Installation/location"]
- ])basic.content.append(label(name,state[key],v=>{state[key]=v;refresh()}));
+ ]){
+  const field=label(name,state[key],v=>{state[key]=v;refresh()});
+  if(commercialMode&&key==="quoteNumber")field.querySelector("input").readOnly=true;
+  basic.content.append(field);
+ }
  basic.content.append(label("Discount (P)",state.discount,v=>{state.discount=v;refresh()}));
  const itemsSection=details("Items and prices",true);
  const itemsRoot=elt("div","qcp-editor-grid"),add=elt("button","","Add line item");add.type="button";
@@ -370,8 +375,9 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
   const payment=elt("div","qcp-pay");payment.append(elt("h3","",c.paymentHeading));
   for(const [lab,val] of [
    [c.paymentMethodLabel,c.paymentMethod],[c.bankLabel,c.bankName],
-   [c.bankBranchLabel,c.bankBranch],[c.bankAccountLabel,c.bankAccount||"—"]
-  ])line(payment,lab+": "+val);
+   [c.bankBranchLabel,c.bankBranch],[c.bankAccountLabel,c.bankAccount||"—"],
+   ["Account holder",c.bankAccountHolder],["Branch code",c.bankBranchCode],["Payment reference",c.bankPaymentReference]
+  ]){if(val)line(payment,lab+": "+val);}
   first.append(payment,elt("p","qcp-note",c.note));
   const footer=elt("footer","qcp-page-footer");
   footer.append(elt("div","",c.footerLocations),
@@ -405,7 +411,7 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
     "Preview only: terms have not been loaded; not suitable for customer issue.");
   }catch(error){
    print.disabled=false;download.disabled=true;
-   status.textContent="Fix the fields: "+String(error?.message||"invalid draft");
+   status.textContent=commercialMode?"Complete the customer name, phone, location, date and valid item amounts.":"Fix the fields: "+String(error?.message||"invalid draft");
    firstValueGuide.update({error:true});
    return;
   }
@@ -531,6 +537,7 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
   drawItemInputs();refresh();
  });
  drawItemInputs();refresh();
+ if(commercialMode){sidebar.querySelector(".qcp-first-value-guide")?.remove();}
  return Object.freeze({
   getDraft(){if(disposed)throw Error("quotation_custom_preview_disposed");return JSON.parse(JSON.stringify(state));},
   destroy(){disposed=true;shareRevision++;selectedPdf=null;logoRevision++;if(logoUrl)URL.revokeObjectURL(logoUrl);root.replaceChildren();}

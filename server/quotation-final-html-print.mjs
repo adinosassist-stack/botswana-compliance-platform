@@ -13,15 +13,15 @@ const escapeHtml=value=>String(value).replace(/[&<>"']/g,ch=>({
 }[ch]));
 const tag=(name,text,cls="")=>`<${name}${cls?` class="${cls}"`:""}>${escapeHtml(text)}</${name}>`;
 const currency=quotationCustomFormatMoney;
-const lines=(values)=>values.map(([k,v])=>tag("p",k+": "+v)).join("");
+const lines=(values)=>values.filter(([,v])=>v).map(([k,v])=>tag("p",k+": "+v)).join("");
 const MAX_TERMS_CHARS=7500;
 
 /** Escape all edited fields. Never accept raw HTML/CSS/JS from an operator. */
-export function renderLovelyFinalQuotationPrintHtml(document,{watermark="PRIVATE PREVIEW — NOT FOR CUSTOMER ISSUE",trustedLogo=null}={}){
+export function renderLovelyFinalQuotationPrintHtml(document,{watermark="PRIVATE PREVIEW — NOT FOR CUSTOMER ISSUE",trustedLogo=null,customerReady=false}={}){
  const q=validateQuotationCustomPage(document);
  if(!q.termsText||q.termsText.length>MAX_TERMS_CHARS)
    throw Error("lovely_html_terms_not_qualified");
- if(typeof watermark!=="string"||watermark.length>100||!watermark.trim())
+ if(typeof watermark!=="string"||watermark.length>100||(!watermark.trim()&&!customerReady))
    throw Error("lovely_html_print_watermark_required");
  const c=q.copy;
  // Caller must have decoded and sanitized this PNG via the tenant-scoped
@@ -57,16 +57,16 @@ export function renderLovelyFinalQuotationPrintHtml(document,{watermark="PRIVATE
  @media screen{body{background:#e6e8ed}.page{background:#fff;margin:14px auto;box-shadow:0 3px 15px #17233220}}
  @media print{.page{box-shadow:none;margin:0}body{background:#fff}}`;
  const doc=`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Lovely quotation — private preview</title><style>${style}</style></head><body>
- <article class="page" data-page="1">${tag("div",watermark,"watermark")}${top(c.heading)}
+ <article class="page" data-page="1">${watermark?tag("div",watermark,"watermark"):""}${top(c.heading)}
  <div class="meta"><section><h3>${escapeHtml(c.customerHeading)}</h3>${lines([[c.customerNameLabel,q.customerName],[c.customerPhoneLabel,q.customerPhone],[c.locationLabel,q.location]])}</section>
  <section><h3>${escapeHtml(c.heading)}</h3>${lines([[c.quoteNumberLabel,q.quoteNumber],[c.dateLabel,q.issueDate]])}</section></div>
  <table><thead><tr>${[c.descriptionLabel,c.quantityLabel,c.unitPriceLabel,c.lineTotalLabel].map(h=>tag("th",h)).join("")}</tr></thead><tbody>${rows}</tbody></table>
  <div class="totals"><p><span>${escapeHtml(c.subtotalLabel)}</span><strong>${escapeHtml(currency(q.subtotalCents))}</strong></p>
  <p><span>${escapeHtml(c.discountLabel)}</span><strong>-${escapeHtml(currency(q.discountCents))}</strong></p>
  <p class="grand"><span>${escapeHtml(c.grandTotalLabel)}</span><strong>${escapeHtml(currency(q.totalCents))}</strong></p></div>
- <section class="pay"><h3>${escapeHtml(c.paymentHeading)}</h3>${lines([[c.paymentMethodLabel,c.paymentMethod],[c.bankLabel,c.bankName],[c.bankBranchLabel,c.bankBranch],[c.bankAccountLabel,c.bankAccount||"—"]])}</section>
+ <section class="pay"><h3>${escapeHtml(c.paymentHeading)}</h3>${lines([[c.paymentMethodLabel,c.paymentMethod],[c.bankLabel,c.bankName],[c.bankBranchLabel,c.bankBranch],[c.bankAccountLabel,c.bankAccount||"—"],["Account holder",c.bankAccountHolder],["Branch code",c.bankBranchCode],["Payment reference",c.bankPaymentReference]])}</section>
  ${tag("p",c.note)}${footer(true)}</article>
- <article class="page" data-page="2">${tag("div",watermark,"watermark")}${top(c.termsHeading)}
+ <article class="page" data-page="2">${watermark?tag("div",watermark,"watermark"):""}${top(c.termsHeading)}
  ${tag("div",q.termsText,"terms")}
  ${tag("div",c.signatureLabel+" __________________________","signature")}${footer(false)}</article></body></html>`;
  return Object.freeze({html:doc,pageCount:2,subtotalCents:q.subtotalCents,
