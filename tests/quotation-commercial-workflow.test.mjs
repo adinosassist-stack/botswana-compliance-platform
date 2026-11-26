@@ -112,3 +112,17 @@ test('PDF endpoint requires issued tenant-owned record and qualified private ren
  assert.equal((await f.call('documents/q1/pdf')).status,503);assert.equal(calls,1);
  }finally{await f.mf.dispose()}
 });
+
+test('edge adapter derives identity only from verified session and handles logical API prefix',async()=>{
+ const {handleQuotationCommercialRoute}=await import('../cloudflare/src/quotation-commercial-workflow.js');
+ const f=await fixture();try{
+ const identity={user:{id:'owner',tenantId:'a',role:'owner',onboardingComplete:true},csrfToken:actor.csrf_token};
+ const request=new Request('https://thebedesk.test/__thebe_api/quotation/banking',{headers:{cookie:'session=synthetic'}});
+ const invoke=(value=identity,req=request)=>handleQuotationCommercialRoute({request:req,logicalPath:'/api/quotation/banking',env:f.env,fetchSession:async()=>Response.json(value)});
+ assert.equal((await invoke()).status,200);
+ for(const value of [{...identity,landingPath:'/invitation'},{...identity,user:{...identity.user,role:'employee'}},{...identity,user:{...identity.user,onboardingComplete:false}}])assert.equal((await invoke(value)).status,403);
+ assert.equal((await invoke({})).status,401);
+ assert.equal((await invoke(identity,new Request(request.url))).status,401);
+ assert.equal((await handleQuotationCommercialRoute({request,logicalPath:'/api/other',env:f.env})),null);
+ }finally{await f.mf.dispose()}
+});

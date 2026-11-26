@@ -205,7 +205,7 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
    "Customer-ready print mode. Verify the customer, amounts, account and full terms before sharing. Printing does not send or save a quotation.":
    "PRIVATE PREVIEW ONLY. All wording can be edited. This is not a customer quotation or the approved two-page contract."));
  const status=elt("div","qcp-status",""),actions=elt("div","qcp-actions");status.id="qcp-print-status";status.setAttribute("aria-live","polite");
- const print=elt("button","",customerReady?"Print customer quotation / Save PDF":"Print / Save PDF");print.type="button";print.dataset.primary="";
+ const print=elt("button","",customerReady&&!commercialMode?"Print customer quotation / Save PDF":"Print / Save PDF");print.type="button";print.dataset.primary="";
  const printHelp=details("How to save as PDF on your phone");
  printHelp.content.append(elt("p","qcp-hint","Android Chrome: tap Print / Save PDF, then select Save as PDF in the destination menu. iPhone Safari: tap Print / Save PDF and use the Share / Print options. Some in-app browsers cannot open print dialogs: open this page in Chrome or Safari first. Printing does not save or send a quote to Thebe Desk."));
  const reset=elt("button","","Reset sample");reset.type="button";

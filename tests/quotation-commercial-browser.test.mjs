@@ -37,10 +37,10 @@ test.before(async()=>{
 });
 test.after(async()=>{await new Promise(ok=>server?.close(ok));await browser?.close();await mf?.dispose()});
 async function ready(page){await page.goto(url);await page.waitForFunction(()=>window.ready||window.failed);assert.equal(await page.evaluate(()=>window.failed),undefined)}
-function field(page,text){return page.getByText(text,{exact:true}).locator('..').locator('input')}
+function field(page,text){return page.getByLabel(text,{exact:true})}
 test('mobile company defaults, save/reload across browser sessions, issue, direct two-page PDF, download and native share',async()=>{
  const context=await browser.newContext({viewport:{width:375,height:812},acceptDownloads:true});
- const page=await context.newPage();page.on('dialog',dialog=>dialog.accept());await ready(page);
+ const page=await context.newPage();page.on('pageerror',e=>console.error('browser runtime:',e.message));page.on('dialog',dialog=>dialog.accept());await ready(page);
  await page.getByText('Company Settings — banking details',{exact:true}).click();
  for(const [title,value] of Object.entries({'Bank name':'FNB','Account holder':'Synthetic Company','Account number':'00123456789','Branch':'Riverwalk','Branch code (optional)':'123','Payment reference (optional)':'Quote number'}))await field(page,title).fill(value);
  await page.getByRole('button',{name:'Save company banking details',exact:true}).click();await page.getByRole('status').filter({hasText:'Company banking details saved'}).waitFor();
@@ -52,7 +52,7 @@ test('mobile company defaults, save/reload across browser sessions, issue, direc
  await page.getByRole('button',{name:'Save draft',exact:true}).click();await page.getByRole('status').filter({hasText:'Draft saved to your business account'}).waitFor();
  const savedId=await page.getByRole('combobox',{name:'Saved quotations and invoices'}).inputValue();assert.ok(savedId);
  // A new context models another signed-in session/device with no shared web storage.
- const second=await browser.newContext({viewport:{width:320,height:740}});const other=await second.newPage();other.on('dialog',d=>d.accept());await ready(other);
+ const second=await browser.newContext({viewport:{width:320,height:740}});const other=await second.newPage();other.on('pageerror',e=>console.error('browser runtime:',e.message));other.on('dialog',d=>d.accept());await ready(other);
  assert.equal(await other.locator('.qc-bank input[type=password]').inputValue(),'00123456789');
  await other.getByRole('combobox',{name:'Saved quotations and invoices'}).selectOption(savedId);await other.getByRole('button',{name:'Open saved',exact:true}).click();await other.getByRole('status').filter({hasText:'Saved quote opened'}).waitFor();
  assert.equal(await field(other,'Customer name').inputValue(),'Customer A');
