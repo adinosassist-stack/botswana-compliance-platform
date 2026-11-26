@@ -42,7 +42,8 @@ assert.match(html,/Rotate reporting link/);
 for(const source of [html,workspaceRuntime]){
   const readPanel=source.slice(source.indexOf("async function openEmployeeReportingAccess("),source.indexOf("async function showFreshEmployeeReportingLink("));
   assert.doesNotMatch(readPanel,/createEmployeeReportingLinkFromCard\(id\)|method:"POST"/,"opening a profile must not rotate links");
-  assert.match(source,/expiresInDays:365,expectedAccessId:current\?\.id\|\|null/);
+  assert.match(source,/issueReportingLink\(id,locationId,365\)/);
+  assert.match(source,/expiresInDays,expectedAccessId:current\?\.id\|\|null/);
 }
 assert.match(worker,/body\.expiresInDays\?\?365/);
 assert.match(worker,/reporting_access_changed_refresh_before_rotation/);
