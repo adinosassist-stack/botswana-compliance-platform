@@ -79,9 +79,9 @@ export function assertWorkerAbsent(status,body){
 }
 
 const requireSecret=(env,key)=>{const v=env[key];if(!v||typeof v!=="string")failure("employee_staging_protected_secret_missing_"+key);return v};
-async function githubJson(repoPath,token,base="https://api.github.com"){
- const r=await fetch(base+"/repos/"+repoPath,{headers:{Authorization:"Bearer "+token,Accept:"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"},redirect:"error",signal:AbortSignal.timeout(15000)});
- if(!r.ok)failure("employee_staging_github_evidence_unavailable");
+async function githubJson(repoPath,token,evidence){
+ const r=await fetch("https://api.github.com/repos/"+repoPath,{headers:{Authorization:"Bearer "+token,Accept:"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"},redirect:"error",signal:AbortSignal.timeout(15000)});
+ if(!r.ok)failure(`employee_staging_github_evidence_unavailable: ${evidence} (HTTP ${r.status})`);
  return r.json();
 }
 async function cloudflareJson(method,path,token,body){
@@ -96,10 +96,10 @@ export async function verifyRemote(env=process.env){
  const githubAction=requireSecret(env,"GITHUB_TOKEN");
  const cloudflare=requireSecret(env,"STAFF_STAGING_CLOUDFLARE_TOKEN");
  const repo=env.GITHUB_REPOSITORY;
- const main=await githubJson(repo+"/branches/main",githubAction);
+ const main=await githubJson(repo+"/branches/main",githubAction,"main branch");
  if(main?.commit?.sha!==expected)failure("employee_staging_main_advanced");
- const environment=await githubJson(repo+"/environments/"+ENVIRONMENT,githubRead);
- const policies=await githubJson(repo+"/environments/"+ENVIRONMENT+"/deployment-branch-policies?per_page=100",githubRead);
+ const environment=await githubJson(repo+"/environments/"+ENVIRONMENT,githubRead,"protected environment");
+ const policies=await githubJson(repo+"/environments/"+ENVIRONMENT+"/deployment-branch-policies?per_page=100",githubRead,"deployment branch policies");
  assertProtectedEnvironment(environment,policies);
  const base="/accounts/"+ACCOUNT+"/d1/database/"+STAGING_D1;
  const db=await cloudflareJson("GET",base,cloudflare);
