@@ -19,7 +19,7 @@ export async function mountQuotationCommercialWorkspace(root,{capability,fetchIm
  const response=await fetchImpl('/api/quotation/'+path,{method,credentials:'same-origin',redirect:'error',cache:'no-store',headers:{'content-type':'application/json','x-csrf-token':csrf},...(body===undefined?{}:{body:JSON.stringify(body)})});
  const data=await response.json();if(!response.ok)throw Error(messages[data.error]||'The action could not be completed. Check your details and retry.');return data;
  }
- async function run(fn){if(busy||disposed)return;busy=true;for(const b of row.querySelectorAll('button'))b.disabled=true;try{await fn()}catch(e){notice(e.message)}finally{busy=false;if(!disposed)paint()}}
+ async function run(fn){if(busy||disposed)return;busy=true;editorHost.inert=true;for(const b of row.querySelectorAll('button'))b.disabled=true;try{await fn()}catch(e){notice(e.message)}finally{busy=false;editorHost.inert=false;if(!disposed)paint()}}
  const newButton=button('New quotation',()=>run(async()=>{
   if(editor&&!globalThis.confirm('Start a new quotation? Save your current edits first.'))return;
   const banking=await request('banking');openNew(banking.banking);notice('New quotation. Company banking defaults are filled in; document edits do not change those defaults.');
@@ -29,7 +29,7 @@ export async function mountQuotationCommercialWorkspace(root,{capability,fetchIm
  const saveButton=button('Save draft',()=>run(async()=>{
   const doc=editor.getDraft();if(current?.status==='issued')throw Error('Issued documents are locked. Start a new quotation.');
   const saved=await request('documents/'+(current?.id||crypto.randomUUID()),'PUT',{revision:current?.revision||0,document:doc,schedule:readSchedule()});
-  current=saved;clearPdf();await list();notice('Draft saved to your business account. You can open it on another device.');
+  current=saved;clearPdf();await list();notice(JSON.stringify(editor.getDraft())===JSON.stringify(saved.document)?'Draft saved to your business account. You can open it on another device.':'Draft saved. Newer edits remain unsaved; save again.');
  }));
  const issueButton=button('Issue document',()=>run(async()=>{
   if(!current||JSON.stringify(editor.getDraft())!==JSON.stringify(current.document)||JSON.stringify(readSchedule())!==JSON.stringify(current.schedule))throw Error('Save your latest changes before issuing.');
