@@ -24,6 +24,8 @@ jobs:
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
+      - name: Install locked test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Confirm staging is inert, isolated, and route-free
         run: node scripts/employee-self-service-staging-preflight.mjs
       - name: Verify deny-by-default Worker and staff lifecycle
