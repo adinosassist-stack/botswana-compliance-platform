@@ -93,6 +93,10 @@ test('manager review queue is mobile-readable, locally filtered and fail-closed 
  assert.match(js,/r\.blockers/);assert.match(js,/r\.incidents/);
  assert.match(js,/clear\(\);refresh\.disabled=true/);
  assert.match(js,/clear\(\);status\.textContent='Manager access is unavailable/);
- assert.doesNotMatch(js,/method:\s*['"](?:POST|PATCH|PUT|DELETE)/);
+ assert.match(js,/reviewEnabled=reportData\.reviewEnabled===true&&!!sessionCsrf/);
+ assert.match(js,/if\(!reviewEnabled\|\|!sessionCsrf\)return/);
+ assert.match(js,/getCsrfToken:\(\)=>sessionCsrf/);
+ assert.match(js,/expectedRevision:Number\(r\.revision_count\)/);
+ assert.match(js,/method:'POST'/);assert.doesNotMatch(js,/method:\s*['"](?:PATCH|PUT|DELETE)/);
  assert.doesNotMatch(js,/innerHTML|localStorage|sessionStorage/);
 });
