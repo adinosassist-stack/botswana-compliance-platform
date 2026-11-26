@@ -6,6 +6,7 @@ import {readFileSync} from "node:fs";
 import {pathToFileURL} from "node:url";
 import {DOCK_HOST,DOCK_WORKER,AI_WORKER,verifyDockIngress} from "./dock-hosted-ingress-guard.mjs";
 export const ACCOUNT="ddd23cab31928a4bb3d4998df9b26d1d";
+const DATABASE_ID="c63255cf-c589-4f6b-99c7-2d2e437566b5";
 export const DATABASE="bw-dock-hosted-synthetic-staging";
 const REPO="adinosassist-stack/botswana-compliance-platform";
 const APP_NAME="Thebe Dock Private Staging";
@@ -17,7 +18,7 @@ const safeEmail=/^[^@\s*]+@[^@\s*]+\.[^@\s*]+$/;
 export function validateInputs(env){
   need(env.GITHUB_REPOSITORY===REPO&&env.GITHUB_REF==="refs/heads/main"&&env.GITHUB_ACTOR==="adinosassist-stack","owner_main_required");
   need(/^[a-f0-9]{40}$/.test(env.EXPECTED_SHA||"")&&env.GITHUB_SHA===env.EXPECTED_SHA,"exact_sha_required");
-  need(env.AUTHORIZATION==="PROVISION_INERT_DOCK_STAGING","explicit_scope_required");
+  need(["PROVISION_INERT_DOCK_STAGING","PREFLIGHT_DOCK_STAGING_ACTIVATION"].includes(env.AUTHORIZATION),"explicit_scope_required");
   need(env.CLOUDFLARE_ACCOUNT_ID===ACCOUNT&&!!env.CLOUDFLARE_API_TOKEN,"dedicated_account_credentials_required");
   need(UUID.test(env.DOCK_STAGING_BOOTSTRAP_VERSION_ID||""),"reviewed_inert_version_required");
   const emails=(env.DOCK_STAGING_TESTER_EMAILS||"").split(",").map(s=>s.trim().toLowerCase()).filter(Boolean);
@@ -132,6 +133,30 @@ export async function provisionInertResources({api,emails,assertMain,expectedVer
  verifyDockIngress({...after,policies:await list(api,appPath+"/policies"),appId:app.id,testerEmails:emails,inventoryComplete:true,phase:"after-attach"});
  return {ok:true,databaseId:database,accessAppId:app.id,domainId:domain.id,hostname:DOCK_HOST,inert:true,productionUntouched:true};
 }
+export async function verifyActivationReadiness({api, emails, expectedVersion}){
+ const account="/accounts/"+ACCOUNT;
+ const zones=await list(api,"/zones?name=thebedesk.com&account.id="+ACCOUNT);
+ need(zones.length===1&&zones[0].name==="thebedesk.com"&&zones[0].account?.id===ACCOUNT&&hex.test(zones[0].id||"")&&zones[0].status==="active","zone_identity_mismatch");
+ const current=await inventory(api,zones[0].id);
+ verifyInertSettings(current.settings);
+ verifyCurrentDeployment(await result(api,account+"/workers/scripts/"+DOCK_WORKER+"/deployments"),expectedVersion);
+ const apps=current.apps.filter(app=>app.name===APP_NAME);
+ need(apps.length===1&&UUID.test(apps[0].id||""),"staging_access_app_identity_mismatch");
+ const appId=apps[0].id;
+ const policies=await list(api,account+"/access/apps/"+appId+"/policies");
+ verifyDockIngress({...current,policies,appId,testerEmails:emails,inventoryComplete:true,phase:"after-attach"});
+ const databases=current.databases.filter(database=>database.name===DATABASE);
+ need(databases.length===1&&databases[0].uuid===DATABASE_ID,"staging_database_identity_mismatch");
+ const settings=await result(api,account+"/workers/scripts/"+AI_WORKER+"/settings");
+ const bindings=settings?.bindings;
+ need(Array.isArray(bindings)&&new Set(bindings.map(binding=>binding.name)).size===bindings.length,"backend_binding_inventory_invalid");
+ const resources=bindings.filter(binding=>binding.type!=="plain_text");
+ need(resources.length===1&&resources[0].type==="d1"&&resources[0].name==="DB"&&resources[0].id===DATABASE_ID,"backend_database_binding_mismatch");
+ for(const name of ["THEBE_GENERAL_AI_ENABLED","THEBE_GENERAL_AI_RESEARCH_ENABLED","THEBE_LIVE_VOICE_ENABLED"]){
+   need(bindings.some(binding=>binding.name===name&&binding.type==="plain_text"&&binding.text==="false"),"backend_feature_not_disabled");
+ }
+ return {ok:true,hostname:DOCK_HOST,databaseId:DATABASE_ID,inert:true};
+}
 async function main(){
  const env=process.env,emails=validateInputs(env);
  need(!!env.GH_TOKEN,"github_read_token_required");
@@ -139,7 +164,15 @@ async function main(){
    const response=await fetch("https://api.github.com/repos/"+REPO+"/git/ref/heads/main",{headers:{Authorization:"Bearer "+env.GH_TOKEN,Accept:"application/vnd.github+json"},redirect:"error",signal:AbortSignal.timeout(15000)});
    need(response.ok&&(await response.json()).object?.sha===env.EXPECTED_SHA,"protected_main_drift");
  };
- const report=await provisionInertResources({api:client(env.CLOUDFLARE_API_TOKEN),emails,assertMain,expectedVersion:env.DOCK_STAGING_BOOTSTRAP_VERSION_ID});
+ const options={api:client(env.CLOUDFLARE_API_TOKEN),emails,assertMain,expectedVersion:env.DOCK_STAGING_BOOTSTRAP_VERSION_ID};
+ let report;
+ if(env.AUTHORIZATION==="PREFLIGHT_DOCK_STAGING_ACTIVATION"){
+   await assertMain();
+   report=await verifyActivationReadiness(options);
+   await assertMain();
+ }else{
+   report=await provisionInertResources(options);
+ }
  console.log(JSON.stringify(report));
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
