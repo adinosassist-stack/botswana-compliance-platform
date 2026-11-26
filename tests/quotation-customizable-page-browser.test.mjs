@@ -23,10 +23,15 @@ const html=String.raw`<!doctype html><html lang="en"><head><meta charset="utf-8"
 <body style="margin:0"><div id="root"></div>
 <script type="module">
 import {mountQuotationCustomizablePage} from "/public/js/quotation-customizable-page.mjs";
+import {quotationCustomSample} from "/public/js/quotation-customizable-page-model.mjs";
 try{
+ const customer=location.hash==="#customer";
+ const initial=quotationCustomSample();
+ if(customer){Object.assign(initial,{quoteNumber:"QT-123",customerName:"Synthetic Customer",customerPhone:"+267 72 123 456"});initial.copy.bankAccount="123456789";}
  window.editor=mountQuotationCustomizablePage(document.getElementById("root"),{
   capability:{enabled:true,authenticated:true,canEditQuotations:true,
-   canCustomizeQuotationPreview:true}
+   canCustomizeQuotationPreview:true,canPrepareCustomerQuotation:customer},
+  ...(customer?{documentMode:"customer",initial}:{})
  });
  window.ready=true;
 }catch(error){window.fixtureError=String(error)}
@@ -53,10 +58,10 @@ test.after(async()=>{
  await browser?.close();
  await new Promise(ok=>server?.close(ok));
 });
-async function open(viewport){
+async function open(viewport,customer=false){
  const context=await browser.newContext({viewport});
  const page=await context.newPage();
- await page.goto(url);
+ await page.goto(url+(customer?"#customer":""));
  await page.waitForFunction(()=>window.ready===true||window.fixtureError);
  assert.equal(await page.evaluate(()=>window.fixtureError||null),null);
  return {context,page};
@@ -297,5 +302,34 @@ test("first-value guidance keeps invalid quotation status separate from server s
   assert.match(await guide.locator("#qcp-first-value-status").innerText(),/Fix the invalid fields/);
   assert.match(await guide.innerText(),/Nothing was saved|No record was saved/);
   assert.equal(await guide.getByRole("button",{name:"4. Review print / PDF options"}).getAttribute("aria-current"),null);
+ }finally{await context.close()}
+});
+
+
+test("customer quotation mobile share uses selected PDF bytes and invalidates after edits",async()=>{
+ const {context,page}=await open({width:390,height:844},true);
+ try{
+  await page.evaluate(()=>{
+   window.sharePayloads=[];
+   Object.defineProperty(navigator,"canShare",{configurable:true,value:p=>p.files?.length===1});
+   Object.defineProperty(navigator,"share",{configurable:true,value:async p=>{
+    window.sharePayloads.push({name:p.files[0].name,type:p.files[0].type,bytes:await p.files[0].text(),keys:Object.keys(p)});
+   }});
+  });
+  const share=page.getByRole("button",{name:"Share selected PDF (WhatsApp)",exact:true});
+  const input=page.locator('input[aria-label="Choose the quotation PDF saved on this device"]');
+  assert.equal(await share.isEnabled(),false);
+  await input.setInputFiles({name:"invalid.pdf",mimeType:"application/pdf",buffer:Buffer.from("not a PDF")});
+  await page.waitForFunction(()=>document.querySelector(".qcp-status").textContent.includes("Select a valid PDF"));
+  assert.equal(await share.isEnabled(),false);
+  const bytes="%PDF-1.7\\nSYNTHETIC TEST";
+  await input.setInputFiles({name:"quotation.pdf",mimeType:"application/pdf",buffer:Buffer.from(bytes)});
+  await page.waitForFunction(()=>document.querySelector(".qcp-status").textContent.includes("Selected quotation.pdf"));
+  assert.equal(await share.isEnabled(),true);
+  await share.click();
+  await page.waitForFunction(()=>window.sharePayloads.length===1);
+  assert.deepEqual(await page.evaluate(()=>window.sharePayloads[0]),{name:"quotation.pdf",type:"application/pdf",bytes,keys:["files"]});
+  await page.getByLabel("Customer name",{exact:true}).fill("Updated synthetic customer");
+  assert.equal(await share.isEnabled(),false);
  }finally{await context.close()}
 });
