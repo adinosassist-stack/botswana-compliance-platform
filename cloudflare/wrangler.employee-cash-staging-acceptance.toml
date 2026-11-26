@@ -1,0 +1,19 @@
+name = "bw-employee-cash-staging-acceptance"
+main = "src/employee-cash-staging-acceptance-entry.js"
+compatibility_date = "2026-09-03"
+workers_dev = false
+preview_urls = false
+keep_vars = false
+
+[vars]
+APP_ENV = "staging"
+STAFF_STAGING_D1_ID = "adfa3871-5ecf-4672-8d2f-be9b142d5fc1"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bw-employee-self-service-staging"
+database_id = "adfa3871-5ecf-4672-8d2f-be9b142d5fc1"
+
+[[services]]
+binding = "EMPLOYEE_CASH_STAGING"
+service = "bw-employee-self-service-staging"
