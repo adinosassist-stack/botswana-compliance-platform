@@ -20,18 +20,20 @@ const validEmailOrReject=body=>staffEmail(body?.email);
 const dataBody=async(readJson,request,maxBytes=4096)=>{
  try{const b=await readJson(request,{maxBytes});return b&&typeof b==="object"&&!Array.isArray(b)?b:null}catch{return null}
 };
-async function passwordHash(password){
- const salt=crypto.getRandomValues(new Uint8Array(16)),iterations=240000;
+async function deriveStaffPassword(password,salt,iterations){
  const key=await crypto.subtle.importKey("raw",encoder.encode(password),"PBKDF2",false,["deriveBits"]);
- const bits=await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt,iterations},key,256);
+ return new Uint8Array(await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt,iterations},key,256));
+}
+async function passwordHash(password,derive){
+ const salt=crypto.getRandomValues(new Uint8Array(16)),iterations=240000;
+ const bits=await derive(password,salt,iterations);
  return "staff-pbkdf2$"+iterations+"$"+hex(salt)+"$"+hex(new Uint8Array(bits));
 }
-async function passwordMatches(password,stored){
+async function passwordMatches(password,stored,derive){
  const parts=String(stored||"").split("$");
  if(parts.length!==4||parts[0]!=="staff-pbkdf2"||Number(parts[1])!==240000||!(/^[a-f0-9]{32}$/.test(parts[2]))||!(/^[a-f0-9]{64}$/.test(parts[3])))return false;
  const salt=Uint8Array.from(parts[2].match(/../g).map(x=>parseInt(x,16)));
- const key=await crypto.subtle.importKey("raw",encoder.encode(password),"PBKDF2",false,["deriveBits"]);
- const bits=hex(new Uint8Array(await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt,iterations:240000},key,256)));
+ const bits=hex(await derive(password,salt,240000));
  let mismatch=0;for(let i=0;i<64;i++)mismatch|=bits.charCodeAt(i)^parts[3].charCodeAt(i);
  return mismatch===0;
 }
@@ -63,7 +65,7 @@ async function changeTask({env,id,actor,kind,action,note="",taskId,employeeId}){
  if(!row||Number(changes?.[1]?.meta?.changes||0)!==1)return {error:"task_changed_retry",status:409};
  return {ok:true,task:{id:row.id,status:row.status,version:row.version},status:200};
 }
-export async function handleStaffPublic({request,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id,submitDailyReport}){
+export async function handleStaffPublic({request,url,env,json,readJson,requestOriginAllowed,edgeScopedRateLimit,rateLimitResponse,id,submitDailyReport,derivePassword=deriveStaffPassword}){
  if(!url.pathname.startsWith("/public/employee/"))return null;
  if(!staffPortalEnabled(env)||!env.DB)return json({error:"not_found"},404);
  if(!env.PUBLIC_RATE_LIMITER||!env.SESSION_SECRET)return json({error:"staff_security_configuration_incomplete"},503);
@@ -79,7 +81,7 @@ export async function handleStaffPublic({request,url,env,json,readJson,requestOr
   if(!acceptLimit.ok)return rateLimitResponse(acceptLimit);
   const tokenHash=await sha256(token),inv=await env.DB.prepare("SELECT i.id,i.tenant_id,i.employee_id,i.email FROM employee_portal_invites i JOIN employees e ON e.id=i.employee_id AND e.tenant_id=i.tenant_id AND lower(trim(coalesce(e.status,'')))='active' WHERE i.token_hash=? AND i.status='active' AND i.expires_at>CURRENT_TIMESTAMP LIMIT 1").bind(tokenHash).first();
   if(!inv)return json({error:"invalid_or_expired_invitation"},410);
-  const ph=await passwordHash(password),nonce=id(),accountId=id();
+  const ph=await passwordHash(password,derivePassword),nonce=id(),accountId=id();
   const results=await env.DB.batch([
    env.DB.prepare("UPDATE employee_portal_invites SET status='used',used_at=CURRENT_TIMESTAMP,consumed_nonce=? WHERE id=? AND token_hash=? AND status='active' AND expires_at>CURRENT_TIMESTAMP AND EXISTS(SELECT 1 FROM employees e WHERE e.id=employee_portal_invites.employee_id AND e.tenant_id=employee_portal_invites.tenant_id AND lower(trim(coalesce(e.status,'')))='active') RETURNING id").bind(nonce,inv.id,tokenHash),
    env.DB.prepare("DELETE FROM employee_portal_sessions WHERE account_id IN (SELECT a.id FROM employee_portal_accounts a JOIN employee_portal_invites i ON i.tenant_id=a.tenant_id AND i.employee_id=a.employee_id WHERE i.id=? AND i.consumed_nonce=?)").bind(inv.id,nonce),
@@ -94,7 +96,7 @@ export async function handleStaffPublic({request,url,env,json,readJson,requestOr
   const loginLimit=await edgeScopedRateLimit(request,env,"staff-portal-login",email);
   if(!loginLimit.ok)return rateLimitResponse(loginLimit);
   const row=await env.DB.prepare("SELECT a.id,a.password_hash FROM employee_portal_accounts a JOIN employees e ON e.id=a.employee_id AND e.tenant_id=a.tenant_id AND lower(trim(coalesce(e.status,'')))='active' WHERE a.tenant_id=? AND a.email=? AND a.status='active' LIMIT 1").bind(tenantId,email).first();
-  if(!row||!(await passwordMatches(password,row.password_hash)))return json({error:"invalid_credentials"},401);
+  if(!row||!(await passwordMatches(password,row.password_hash,derivePassword)))return json({error:"invalid_credentials"},401);
   const token=random(),csrf=random();
   await env.DB.prepare("INSERT INTO employee_portal_sessions(token_hash,account_id,csrf_token,expires_at) VALUES(?,?,?,datetime('now','+12 hours'))").bind(await sha256(token),row.id,csrf).run();
   return json({ok:true,csrfToken:csrf},200,{"set-cookie":sessionCookie(token)});
