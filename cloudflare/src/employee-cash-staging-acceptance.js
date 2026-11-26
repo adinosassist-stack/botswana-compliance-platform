@@ -35,6 +35,12 @@ export async function runEmployeeCashStagingAcceptance(service, fixture) {
     } catch {
       throw new Error(`Employee Cash staging check failed: ${route} service request`);
     }
+    if (response.status === 503 && path === "/public/employee/accept") {
+      const reason = (await response.clone().json().catch(() => null))?.error;
+      if (reason === "employee_cash_staging_password_derivation_failed") {
+        requireCheck(false, "employee invitation password derivation failed");
+      }
+    }
     requireCheck(response.status === status, `${route} HTTP ${response.status}`);
     try {
       return { body: await response.json(), headers: response.headers };
