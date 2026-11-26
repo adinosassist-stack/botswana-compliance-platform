@@ -3,7 +3,6 @@
 name = "bw-employee-self-service-staging"
 main = "src/employee-cash-authenticated-staging-entry.js"
 compatibility_date = "2026-09-03"
-compatibility_flags = ["nodejs_compat"]
 workers_dev = false
 preview_urls = false
 keep_vars = false
