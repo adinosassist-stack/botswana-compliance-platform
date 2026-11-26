@@ -6,7 +6,8 @@ const byId=id=>document.getElementById(id);
 // the main workspace retains its normal production-canonical policy.
 const STAFF_PATH=/^\/public\/employee\/(?:accept|login|logout|me|reports|tasks(?:\/[a-f0-9-]{32,36}\/progress)?|cash(?:\/(?:expenses|counts))?)$/i;
 const client=globalThis.BW?.api?.createClient?.({timeoutMs:30000,retries:0});
-let staffCsrf="",sessionVersion=0;
+let staffCsrf="",sessionVersion=0,reportEdit=null,reportToday="";
+const reportFields={workSummary:"staffReportWork",wins:"staffReportWins",blockers:"staffReportBlockers",incidents:"staffReportIncidents",nextPlan:"staffReportPlan"};
 const api=async(path,{method="GET",body=null,csrf=false}={})=>{
  if(!STAFF_PATH.test(String(path||"")))throw Error("Unsupported employee service route.");
  if(!client)throw Error("Unable to load the employee service.");
@@ -76,15 +77,31 @@ async function refreshTasks(){
   byId("staffTasksStatus").textContent=items.length?"": "No work has been assigned yet.";
  }catch(error){byId("staffTasksStatus").textContent=failure(error)}
 }
+function resetReportForm(){
+ byId("staffReportForm").reset();reportEdit=null;byId("staffReportDate").value=reportToday;
+ byId("staffReportFormHeading").textContent="Submit daily work report";byId("staffReportResult").textContent="";
+}
+function editStaffReport(item){
+ const form=byId("staffReportForm"),location=byId("staffReportLocation");
+ if(form.hidden||![...location.options].some(x=>x.value===item.location_id))return;
+ reportEdit={locationId:item.location_id,reportDate:item.report_date,revision:Number(item.revision_count||0)};
+ location.value=item.location_id;byId("staffReportDate").value=item.report_date;
+ for(const [id,value] of [["staffReportWork",item.work_summary],["staffReportWins",item.wins],["staffReportBlockers",item.blockers],["staffReportIncidents",item.incidents],["staffReportPlan",item.next_plan]])byId(id).value=value||"";
+ byId("staffReportAttention").checked=!!item.needs_attention;
+ byId("staffReportFormHeading").textContent="Correct daily work report";byId("staffReportResult").textContent="";
+ byId("staffReportWork").focus();
+}
 async function refreshReports(){
  const list=byId("staffReportsList"),status=byId("staffReportsStatus"),reminders=byId("staffDeliveryReminders");
  reminders.replaceChildren();
  list.replaceChildren();status.textContent="Loading your daily reports…";
  try{
   const response=await api("/public/employee/reports");
+  const location=byId("staffReportLocation"),previous=location.value;reportToday=response.reportDate||"";const dates=byId("staffReportDate");dates.max=reportToday;const oldest=new Date(reportToday+"T00:00:00Z");oldest.setUTCDate(oldest.getUTCDate()-3);dates.min=oldest.toISOString().slice(0,10);if(!dates.value)dates.value=reportToday;
+  location.replaceChildren();for(const branch of response.assignedLocations||[]){const option=element("option",null,branch.name);option.value=branch.id;location.append(option)}if([...location.options].some(x=>x.value===previous))location.value=previous;byId("staffReportForm").hidden=!location.options.length;
   for(const item of response.deliveryReminders||[]){
    const card=element("article","thebe-staff-task"),when=item.daysUntil<0?"Overdue":item.daysUntil===0?"Due today":item.daysUntil===1?"Tomorrow":"In "+item.daysUntil+" days";
-   card.append(element("h3",null,when+" · "+(item.jobType==="installation"?"Installation":"Delivery")),element("p",null,item.jobReference+" · "+item.scheduledDate+" · "+item.locationName),element("p",null,"Submit your employee report on the delivery or installation day using your private reporting link."));
+   card.append(element("h3",null,when+" · "+(item.jobType==="installation"?"Installation":"Delivery")),element("p",null,item.jobReference+" · "+item.scheduledDate+" · "+item.locationName),element("p",null,"Submit your employee report on the delivery or installation day."));
    reminders.append(card);
   }
   for(const item of response.items||[]){
@@ -95,10 +112,11 @@ async function refreshReports(){
    }
    for(const job of item.jobs||[])card.append(element("p",null,(job.jobType==="installation"?"Installation":"Delivery")+" · "+job.jobReference+" · "+job.scheduledDate+" · "+job.jobStatus));
    card.append(element("p",null,"Submitted"+(item.needs_attention?" · Manager attention requested":"")+" · Corrections: "+Number(item.revision_count||0)));
+   if((response.assignedLocations||[]).some(x=>x.id===item.location_id)&&item.report_date>=dates.min&&item.report_date<=dates.max){const edit=element("button","thebe-staff-secondary","Correct report");edit.type="button";edit.addEventListener("click",()=>editStaffReport(item));card.append(edit)}
    list.append(card);
   }
-  status.textContent=list.children.length?"Latest 30 reports. Use your manager's private reporting link to submit or correct a daily report.":"No daily reports yet. Use the private reporting link provided by your manager to submit your work, delivery and installation updates.";
- }catch{status.textContent="Your report history could not load. Try Refresh reports.";}
+  status.textContent=list.children.length?"Latest 30 reports.":"No daily reports yet. If no branch is assigned, contact your manager.";
+ }catch{byId("staffReportForm").hidden=true;status.textContent="Your report history could not load. Try Refresh reports.";}
 }
 async function showDashboard(){
  const info=await api("/public/employee/me");staffCsrf=String(info.csrfToken||"");
@@ -118,6 +136,20 @@ async function bootstrap(){
  try{await showDashboard()}catch{panel("staffLogin")}
 }
 document.addEventListener("DOMContentLoaded",()=>{
+ const reportForm=byId("staffReportForm");
+ byId("staffReportReset").addEventListener("click",resetReportForm);
+ for(const id of ["staffReportLocation","staffReportDate"])byId(id).addEventListener("change",()=>{if(reportEdit){const branch=byId("staffReportLocation").value,date=byId("staffReportDate").value;resetReportForm();byId("staffReportLocation").value=branch;byId("staffReportDate").value=date}});
+ reportForm.addEventListener("submit",async event=>{
+  event.preventDefault();if(reportForm.hidden)return;
+  const version=sessionVersion,locationId=byId("staffReportLocation").value,reportDate=byId("staffReportDate").value,result=byId("staffReportResult");
+  const expectedRevision=reportEdit?.locationId===locationId&&reportEdit?.reportDate===reportDate?reportEdit.revision:null;
+  const body={locationId,reportDate,expectedRevision,needsAttention:byId("staffReportAttention").checked};
+  for(const [field,id] of Object.entries(reportFields))body[field]=byId(id).value;
+  setBusy(reportForm,true);result.textContent="Saving report…";
+  try{await api("/public/employee/reports",{method:"POST",csrf:true,body});if(version!==sessionVersion)return;resetReportForm();await refreshReports();if(version===sessionVersion)result.textContent="Report saved."}
+  catch(error){if(version===sessionVersion)result.textContent=failure(error)+" Your draft has been retained. Refresh and select the existing report to correct a conflicting revision."}
+  finally{setBusy(reportForm,false)}
+ });
  byId("staffRefreshReports").addEventListener("click",async event=>{event.currentTarget.disabled=true;try{await refreshReports()}finally{byId("staffRefreshReports").disabled=false}});
  const form=byId("staffInviteForm");
  form.addEventListener("submit",async event=>{
@@ -152,7 +184,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   const button=byId("staffSignOut");button.disabled=true;message("");
   try{
    await api("/public/employee/logout",{method:"POST",csrf:true});
-   sessionVersion++;staffCsrf="";byId("staffTasksList").replaceChildren();byId("staffReportsList").replaceChildren();byId("staffDeliveryReminders").replaceChildren();byId("staffCash").replaceChildren();byId("staffProfile").textContent="";panel("staffLogin");message("Signed out.");
+   sessionVersion++;staffCsrf="";reportToday="";resetReportForm();byId("staffReportLocation").replaceChildren();byId("staffReportForm").hidden=true;byId("staffTasksList").replaceChildren();byId("staffReportsList").replaceChildren();byId("staffDeliveryReminders").replaceChildren();byId("staffCash").replaceChildren();byId("staffProfile").textContent="";panel("staffLogin");message("Signed out.");
   }catch(error){message("Sign-out could not be confirmed. Your session may still be active; please retry.")}
   finally{button.disabled=false}
  });
