@@ -5,6 +5,7 @@
 export const DOCK_HOST="dock-staging.thebedesk.com";
 export const DOCK_WORKER="bw-dock-research-workspace-staging";
 export const AI_WORKER="bw-general-ai-staging";
+export const PRIVATE_DOCK_BACKEND="bw-dock-private-ai-staging";
 const fail=(ok,msg)=>{if(!ok)throw Error(msg)};
 const uuid=/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
 const email=/^[^@\s*]+@[^@\s*]+\.[^@\s*]+$/;
@@ -37,8 +38,8 @@ export function verifyDockIngress({apps,policies,domains,routes,workspaceSubdoma
   fail((p.exclude||[]).length===0&&(p.require||[]).length===0,"unreviewed_policy_condition");
   fail(p.session_duration===undefined||p.session_duration===null||p.session_duration==="15m","access_policy_session_too_long");
   for(const s of [workspaceSubdomain,backendSubdomain])fail(s?.enabled===false&&s?.previews_enabled===false,"worker_direct_ingress_enabled");
-  fail(!routes.some(r=>r.script===DOCK_WORKER||r.script===AI_WORKER||mayCover(r.pattern)),"unreviewed_worker_route");
-  fail(!domains.some(d=>d.service===AI_WORKER||d.hostname==="ai-staging.thebedesk.com"),"backend_public_domain");
+  fail(!routes.some(r=>r.script===DOCK_WORKER||r.script===AI_WORKER||r.script===PRIVATE_DOCK_BACKEND||mayCover(r.pattern)),"unreviewed_worker_route");
+  fail(!domains.some(d=>d.service===AI_WORKER||d.service===PRIVATE_DOCK_BACKEND||d.hostname==="ai-staging.thebedesk.com"),"backend_public_domain");
   const found=domains.filter(d=>d.hostname===DOCK_HOST||d.service===DOCK_WORKER);
   if(phase==="before-attach")fail(found.length===0,"dock_domain_already_attached");
   else fail(found.length===1&&found[0].hostname===DOCK_HOST&&found[0].service===DOCK_WORKER&&found[0].zone_name==="thebedesk.com"&&found[0].enabled===true&&found[0].previews_enabled===false,"dock_domain_mismatch");
