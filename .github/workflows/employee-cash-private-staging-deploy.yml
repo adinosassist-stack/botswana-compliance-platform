@@ -20,6 +20,7 @@ on:
         options:
           - DO_NOT_RUN
           - DEPLOY_PRIVATE_EMPLOYEE_CASH_STAGING
+          - RERUN_PRIVATE_EMPLOYEE_CASH_ACCEPTANCE
 
 permissions:
   contents: read
@@ -55,7 +56,8 @@ jobs:
       github.triggering_actor == 'adinosassist-stack' &&
       github.run_attempt == '1' &&
       inputs.expected_main_sha == github.sha &&
-      inputs.authorization == 'DEPLOY_PRIVATE_EMPLOYEE_CASH_STAGING'
+      (inputs.authorization == 'DEPLOY_PRIVATE_EMPLOYEE_CASH_STAGING' ||
+      inputs.authorization == 'RERUN_PRIVATE_EMPLOYEE_CASH_ACCEPTANCE')
     environment: employee-self-service-staging-protected
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -73,6 +75,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          RELEASE_MODE: ${{ inputs.authorization }}
           DEPLOY_MODE: preflight
           AUTHORIZATION: PREFLIGHT_ONLY
           CLOUDFLARE_ACCOUNT_ID: ddd23cab31928a4bb3d4998df9b26d1d
@@ -113,12 +116,53 @@ jobs:
           import assert from "node:assert/strict";
           import { ACCOUNT, verifyRemote } from "./scripts/employee-self-service-protected-bootstrap-guard.mjs";
           import { STAGING_D1 } from "./scripts/employee-self-service-staging-preflight.mjs";
-          await verifyRemote();
           const root = "https://api.cloudflare.com/client/v4/accounts/" + ACCOUNT;
           const headers = { Authorization: "Bearer " + process.env.STAFF_STAGING_CLOUDFLARE_TOKEN };
-          const absent = await fetch(root + "/workers/scripts/bw-employee-cash-staging-acceptance/settings", { headers, redirect: "error", signal: AbortSignal.timeout(15000) });
-          assert.equal(absent.status, 404);
-          assert.ok((await absent.json()).errors?.some(error => Number(error.code) === 10007));
+          const runner = "bw-employee-cash-staging-acceptance";
+          const application = "bw-employee-self-service-staging";
+          const recovery = process.env.RELEASE_MODE === "RERUN_PRIVATE_EMPLOYEE_CASH_ACCEPTANCE";
+          const workerPath = name => "/workers/scripts/" + name;
+          async function read(path) {
+            const response = await fetch(root + path, { headers, redirect: "error", signal: AbortSignal.timeout(15000) });
+            assert.equal(response.ok, true, "Staging Worker readback HTTP " + response.status);
+            const payload = await response.json();
+            assert.equal(payload.success, true, "Staging Worker readback failed");
+            return payload.result;
+          }
+          async function verifyPrivate(name, version, settings) {
+            const binding = Object.fromEntries(settings.bindings.map(item => [item.name, item]));
+            assert.equal(binding.DB?.type, "d1");
+            assert.equal(binding.DB.id, STAGING_D1);
+            assert.equal(settings.bindings.filter(item => item.type === "d1").length, 1);
+            assert.equal(binding.APP_ENV?.text, "staging");
+            const exposure = await read(workerPath(name) + "/subdomain");
+            assert.equal(exposure.enabled, false);
+            assert.equal(exposure.previews_enabled, false);
+            assert.deepEqual(await read("/workers/domains?service=" + name), []);
+            const deployments = await read(workerPath(name) + "/deployments");
+            assert.deepEqual(deployments.deployments[0]?.versions, [{ version_id: version, percentage: 100 }]);
+            return binding;
+          }
+
+          if (recovery) {
+            await verifyRemote(process.env, { verifyWorker: async ({ status, body }) => {
+              assert.equal(status, 200);
+              assert.equal(body.success, true);
+              const bindings = await verifyPrivate(application, "0799c7f8-4aea-41a2-ac98-104b8b16e022", body.result);
+              assert.equal(bindings.STAFF_STAGING_SOURCE_SHA?.text, "dd28c753ae9968686d0feadeaf0b532d7099396e");
+              assert.equal(bindings.DEPLOYMENT_PROFILE?.text, "employee-cash-authenticated-staging");
+            } });
+            const settings = await read(workerPath(runner) + "/settings");
+            const bindings = await verifyPrivate(runner, "08781bdb-8c5b-49d9-bd82-aa0e04c2fb15", settings);
+            assert.deepEqual(Object.keys(bindings).sort(), ["ACCEPTANCE", "APP_ENV", "DB", "EMPLOYEE_CASH_STAGING", "STAFF_STAGING_D1_ID"]);
+            assert.equal(bindings.EMPLOYEE_CASH_STAGING?.service, application);
+            assert.equal(bindings.ACCEPTANCE?.workflow_name, runner);
+          } else {
+            await verifyRemote();
+            const absent = await fetch(root + workerPath(runner) + "/settings", { headers, redirect: "error", signal: AbortSignal.timeout(15000) });
+            assert.equal(absent.status, 404);
+            assert.ok((await absent.json()).errors?.some(error => Number(error.code) === 10007));
+          }
           const response = await fetch(root + "/d1/database/" + STAGING_D1 + "/query", {
             method: "POST", headers: { ...headers, "Content-Type": "application/json" },
             redirect: "error", signal: AbortSignal.timeout(15000),
@@ -134,11 +178,16 @@ jobs:
       - name: Deploy the qualified private staging Workers
         env:
           EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          RELEASE_MODE: ${{ inputs.authorization }}
           CLOUDFLARE_ACCOUNT_ID: ddd23cab31928a4bb3d4998df9b26d1d
           CLOUDFLARE_API_TOKEN: ${{ secrets.STAFF_STAGING_WORKERS_DEPLOY_TOKEN }}
           WRANGLER_SEND_METRICS: "false"
         run: |
           test -n "$CLOUDFLARE_API_TOKEN"
+          if [ "$RELEASE_MODE" = RERUN_PRIVATE_EMPLOYEE_CASH_ACCEPTANCE ]; then
+            npx --no-install wrangler deploy --config cloudflare/wrangler.employee-cash-staging-acceptance.toml
+            exit 0
+          fi
           umask 077
           secret_file=$(mktemp)
           trap 'rm -f "$secret_file"' EXIT
