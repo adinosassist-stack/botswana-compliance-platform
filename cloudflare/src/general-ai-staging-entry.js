@@ -25,6 +25,17 @@ async function authenticate(request,env){
     WHERE s.token_hash=? AND s.session_generation=u.session_generation AND s.expires_at>CURRENT_TIMESTAMP
     LIMIT 1`).bind(hash).first();
 }
+export async function verifyDockResearchFixture(request, env, csrf) {
+  if (env?.APP_ENV !== "staging" || !env.DOCK_RESEARCH_FIXTURE_USER_ID ||
+      !env.DOCK_RESEARCH_FIXTURE_TENANT_ID) return false;
+  const session = await authenticate(request, env);
+  return Boolean(session &&
+    session.user_id === env.DOCK_RESEARCH_FIXTURE_USER_ID &&
+    session.tenant_id === env.DOCK_RESEARCH_FIXTURE_TENANT_ID &&
+    typeof session.email === "string" && session.email.endsWith(".invalid") &&
+    session.csrf_token === csrf);
+}
+
 export default {
   async fetch(request,env){
     const path=new URL(request.url).pathname;
