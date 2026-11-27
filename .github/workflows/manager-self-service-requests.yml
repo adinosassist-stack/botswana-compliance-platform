@@ -14,6 +14,7 @@ on:
       - 'public/js/manager-invite-owner-entry.js'
       - 'public/manager-invite/request/**'
       - 'tests/manager-access-requests-http.test.mjs'
+      - 'tests/manager-request-ui-runtime.test.mjs'
       - 'tests/manager-access-provisioning.test.mjs'
       - 'tests/manager-request-codes-external.test.mjs'
       - 'tests/manager-registered-external-sqlite.test.mjs'
@@ -33,6 +34,7 @@ jobs:
           node-version: '22'
       - name: Isolated HTTP permissions and owner-review tests
         run: |
+          node --test tests/manager-request-ui-runtime.test.mjs
           node --test tests/manager-registered-external-sqlite.test.mjs tests/manager-request-codes-external.test.mjs tests/manager-access-requests-http.test.mjs tests/manager-access-provisioning.test.mjs tests/manager-invitations-functional-staging-config.test.mjs tests/manager-invitations-scoped-read.test.mjs
           node --check cloudflare/src/manager-access-requests-http.js
           node --check cloudflare/src/manager-access-provisioning.js

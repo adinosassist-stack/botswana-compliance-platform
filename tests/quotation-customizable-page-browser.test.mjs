@@ -52,7 +52,7 @@ test.before(async()=>{
  });
  await new Promise(ok=>server.listen(0,"127.0.0.1",ok));
  url="http://127.0.0.1:"+server.address().port+"/";
- browser=await chromium.launch({headless:true});
+ browser=await chromium.launch({headless:true,...(process.env.QUOTATION_CHROMIUM_EXECUTABLE?{executablePath:process.env.QUOTATION_CHROMIUM_EXECUTABLE}:{}),args:["--no-sandbox"]});
 });
 test.after(async()=>{
  await browser?.close();
@@ -131,6 +131,8 @@ test("reset restores draft without invalidating the mounted editor handle",async
  try{
   await page.getByLabel("Customer name",{exact:true}).fill("Changed sample");
   assert.equal(await page.evaluate(()=>window.editor.getDraft().customerName),"Changed sample");
+  const draftTools=page.locator("details").filter({has:page.getByText("Draft tools",{exact:true})});
+  if(!await draftTools.evaluate(node=>node.open))await draftTools.locator("summary").click();
   await page.getByRole("button",{name:"Reset sample"}).click();
   assert.equal(await page.evaluate(()=>window.editor.getDraft().customerName),"Sample customer");
   assert.match(await page.locator(".qcp-meta").innerText(),/Sample customer/);
@@ -215,6 +217,8 @@ test("logo chooser accepts a browser PNG preview, rejects corrupt image and neve
   await logoFile.setInputFiles({name:"corrupt.jpg",mimeType:"image/jpeg",buffer:Buffer.alloc(100,42)});
   await page.waitForFunction(()=>document.querySelector(".qcp-status").textContent.includes("could not be opened"));
   assert.equal(await page.locator(".qcp-brand img").count(),2,"Failed replacement must not clear existing preview");
+  const draftTools=page.locator("details").filter({has:page.getByText("Draft tools",{exact:true})});
+  if(!await draftTools.evaluate(node=>node.open))await draftTools.locator("summary").click();
   await page.getByRole("button",{name:"Reset sample"}).click();
   assert.equal(await page.locator(".qcp-brand img").count(),0,"Reset clears local object URL");
  }finally{await context.close()}
@@ -272,7 +276,7 @@ test("first-value guide focuses each quotation editor section without changing t
   await guide.getByRole("button",{name:"4. Review print / PDF options"}).click();
   assert.match(await page.evaluate(()=>document.activeElement?.textContent),/Print \/ Save PDF/);
   assert.deepEqual(await page.evaluate(()=>window.editor.getDraft()),before);
-  assert.match(await guide.innerText(),/Invoice drafting and issuance are not available/);
+  assert.match(await guide.innerText(),/A quotation PDF does not create an invoice/);
  }finally{await context.close()}
 });
 
