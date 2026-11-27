@@ -20,6 +20,10 @@ on:
         description: Exact active backend Worker version for a repeat deployment or research rehearsal
         required: false
         type: string
+      enable_private_voice:
+        description: Enable private Dock voice with the operator-provisioned one-use invitation
+        type: boolean
+        default: false
       authorization:
         description: PREFLIGHT_ONLY, BOOTSTRAP_INERT_DOCK_STAGING, PROVISION_INERT_DOCK_STAGING or BOOTSTRAP_PRIVATE_DOCK_BACKEND or PREFLIGHT_DOCK_STAGING_ACTIVATION or REHEARSE_DOCK_STAGING_RESEARCH or DEPLOY_DOCK_PRIVATE_STAGING
         required: true
@@ -269,6 +273,9 @@ jobs:
           DOCK_WORKER_WRITE_TOKEN: ${{ secrets.DOCK_STAGING_BOOTSTRAP_CLOUDFLARE_TOKEN }}
           DOCK_ROLLBACK_WORKSPACE_VERSION: ${{ inputs.rollback_workspace_version }}
           DOCK_ROLLBACK_BACKEND_VERSION: ${{ inputs.rollback_backend_version }}
+          DOCK_ENABLE_PRIVATE_VOICE: ${{ inputs.enable_private_voice }}
+          DOCK_VOICE_INVITATION: ${{ secrets.DOCK_STAGING_VOICE_INVITATION }}
+          DOCK_ACCESS_TEAM_ORIGIN: ${{ vars.DOCK_STAGING_ACCESS_TEAM_ORIGIN }}
           DOCK_VOICE_OPENAI_KEY: ${{ secrets.DOCK_STAGING_VOICE_OPENAI_KEY }}
           DOCK_RESEARCH_OPENAI_KEY: ${{ secrets.DOCK_STAGING_RESEARCH_OPENAI_KEY }}
           DOCK_RESEARCH_SERVICE_TOKEN_ID: ${{ vars.DOCK_STAGING_RESEARCH_SERVICE_TOKEN_ID }}
