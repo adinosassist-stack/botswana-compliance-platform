@@ -202,8 +202,7 @@ function realtimeSessionConfig(preference={},allowDelegation=true){
       output:{voice:"marin"}
     },
     instructions:instructions(preference),
-    tools:allowDelegation?[delegationTool()]:[],
-    tool_choice:allowDelegation?"auto":"none"
+    ...(allowDelegation ? {tools:[delegationTool()],tool_choice:"auto"} : {tools:[],tool_choice:"none"})
   };
 }
 

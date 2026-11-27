@@ -30,13 +30,12 @@ jobs:
           node-version: '22'
       - name: Isolated staging authentication contract
         run: python3 tests/general-ai-staging-session-contract.py
+      - run: npm ci --ignore-scripts
       - name: General AI security and behavior tests
         run: node --test tests/general-ai-*.test.mjs
 
       - name: Bundle private staging entrypoint without deploying
-        run: |
-          npm ci --ignore-scripts
-          npx wrangler deploy --dry-run --config cloudflare/wrangler.general-ai-staging.toml --outdir /tmp/thebe-general-ai-staging-build
+        run: npx wrangler deploy --dry-run --config cloudflare/wrangler.general-ai-staging.toml --outdir /tmp/thebe-general-ai-staging-build
 
       - name: Bundle the offline Dock staging workspace without deploying
         run: npx --no-install wrangler deploy --dry-run --config cloudflare/wrangler.dock-research-workspace-offline.toml --outdir /tmp/thebe-dock-research-workspace-build
