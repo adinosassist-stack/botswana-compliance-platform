@@ -1,3 +1,4 @@
+import {handleAgenticLiveVoiceRequest} from "./agentic-live-voice.js";
 import workspace from "./release-governance-entry.js";
 import {readDockResearchFixture} from "./general-ai-staging-entry.js";
 import {handleStagingDockResearch} from "./general-ai-dock-staging-entry.js";
@@ -10,6 +11,19 @@ export default {
       return new Response(null, {status: 404, headers: {"cache-control": "no-store"}});
     }
     if (url.pathname === "/api/ai/general") return handleStagingDockResearch(request, env);
+    if (url.pathname.startsWith("/api/agentic/live/")) {
+      const allowedRoute =
+        (url.pathname === "/api/agentic/live/status" && request.method === "GET") ||
+        (url.pathname === "/api/agentic/live/session" && request.method === "POST");
+      if (!allowedRoute || env.THEBE_LIVE_VOICE_ENABLED !== "true") {
+        return new Response(null, {status: 404, headers: {"cache-control": "no-store"}});
+      }
+      const fixture = await readDockResearchFixture(request, env).catch(() => null);
+      if (!fixture) {
+        return new Response(null, {status: 401, headers: {"cache-control": "no-store"}});
+      }
+      return handleAgenticLiveVoiceRequest({request, env, dockStagingOnly: true});
+    }
     const response = await workspace.fetch(request, env, ctx);
     if (request.method !== "GET" || url.pathname !== "/app/" || !response.ok ||
         !response.headers.get("content-type")?.toLowerCase().startsWith("text/html") ||

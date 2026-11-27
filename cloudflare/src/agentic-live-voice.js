@@ -192,7 +192,7 @@ function delegationTool(){
   });
 }
 
-function realtimeSessionConfig(preference={}){
+function realtimeSessionConfig(preference={},allowDelegation=true){
   return {
     type:"realtime",
     model:LIVE_MODEL,
@@ -202,8 +202,8 @@ function realtimeSessionConfig(preference={}){
       output:{voice:"marin"}
     },
     instructions:instructions(preference),
-    tools:[delegationTool()],
-    tool_choice:"auto"
+    tools:allowDelegation?[delegationTool()]:[],
+    tool_choice:allowDelegation?"auto":"none"
   };
 }
 
@@ -442,7 +442,7 @@ async function status(env,auth){
   });
 }
 
-async function createSession({request,env,auth}){
+async function createSession({request,env,auth,dockStagingOnly=false}){
   const [telemetry,languagePreference]=await Promise.all([recentLiveTelemetry(env,auth.tenant_id,auth.user_id),loadVoiceLanguagePreference(env,auth.tenant_id)]);
   const gate=liveGate(env,telemetry);
   if(!gate.allowed){
@@ -475,7 +475,7 @@ async function createSession({request,env,auth}){
   const safetyIdentifier=await sha256Hex(`${auth.tenant_id}:${auth.user_id}`);
   const form=new FormData();
   form.set("sdp",sdp);
-  form.set("session",JSON.stringify(realtimeSessionConfig(languagePreference)));
+  form.set("session",JSON.stringify(realtimeSessionConfig(languagePreference,!dockStagingOnly)));
   try{
     upstream=await fetch(OPENAI_REALTIME_CALLS_URL,{
       method:"POST",
@@ -947,7 +947,7 @@ async function delegateBusinessWork({request,env,ctx,auth,coreFetch,taskFetch}){
   },201);
 }
 
-export async function handleAgenticLiveVoiceRequest({request,logicalPath,env,ctx,coreFetch,taskFetch}){
+export async function handleAgenticLiveVoiceRequest({request,logicalPath,env,ctx,coreFetch,taskFetch,dockStagingOnly=false}){
   const path=String(logicalPath||new URL(request.url).pathname);
   if(!path.startsWith("/api/agentic/live"))return null;
 
@@ -968,7 +968,7 @@ export async function handleAgenticLiveVoiceRequest({request,logicalPath,env,ctx
   }
 
   if(path==="/api/agentic/live/status"&&request.method==="GET")return status(env,auth);
-  if(path==="/api/agentic/live/session"&&request.method==="POST")return createSession({request,env,auth});
+  if(path==="/api/agentic/live/session"&&request.method==="POST")return createSession({request,env,auth,dockStagingOnly});
   if(path==="/api/agentic/live/delegation"&&request.method==="POST"){
     return delegateBusinessWork({request,env,ctx,auth,coreFetch,taskFetch});
   }
