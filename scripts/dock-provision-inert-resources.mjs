@@ -133,7 +133,7 @@ export async function provisionInertResources({api,emails,assertMain,expectedVer
  verifyDockIngress({...after,policies:await list(api,appPath+"/policies"),appId:app.id,testerEmails:emails,inventoryComplete:true,phase:"after-attach"});
  return {ok:true,databaseId:database,accessAppId:app.id,domainId:domain.id,hostname:DOCK_HOST,inert:true,productionUntouched:true};
 }
-export async function verifyActivationReadiness({api, emails, expectedVersion}){
+export async function verifyActivationReadiness({api, emails, expectedVersion, serviceTokenId}){
  const account="/accounts/"+ACCOUNT;
  const zones=await list(api,"/zones?name=thebedesk.com&account.id="+ACCOUNT);
  need(zones.length===1&&zones[0].name==="thebedesk.com"&&zones[0].account?.id===ACCOUNT&&hex.test(zones[0].id||"")&&zones[0].status==="active","zone_identity_mismatch");
@@ -144,7 +144,7 @@ export async function verifyActivationReadiness({api, emails, expectedVersion}){
  need(apps.length===1&&UUID.test(apps[0].id||""),"staging_access_app_identity_mismatch");
  const appId=apps[0].id;
  const policies=await list(api,account+"/access/apps/"+appId+"/policies");
- verifyDockIngress({...current,policies,appId,testerEmails:emails,inventoryComplete:true,phase:"after-attach"});
+ verifyDockIngress({...current,policies,appId,testerEmails:emails,serviceTokenId,inventoryComplete:true,phase:"after-attach"});
  const databases=current.databases.filter(database=>database.name===DATABASE);
  need(databases.length===1&&databases[0].uuid===DATABASE_ID,"staging_database_identity_mismatch");
  const backendSubdomain=await result(api,account+"/workers/scripts/"+PRIVATE_DOCK_BACKEND+"/subdomain");
@@ -178,7 +178,7 @@ async function main(){
  let report;
  if(env.AUTHORIZATION==="PREFLIGHT_DOCK_STAGING_ACTIVATION"){
    await assertMain();
-   report=await verifyActivationReadiness(options);
+   report=await verifyActivationReadiness({...options,serviceTokenId:env.DOCK_RESEARCH_SERVICE_TOKEN_ID||undefined});
    await assertMain();
  }else{
    report=await provisionInertResources(options);
