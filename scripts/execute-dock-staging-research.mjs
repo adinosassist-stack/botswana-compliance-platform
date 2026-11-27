@@ -3,7 +3,8 @@ import {execFileSync} from 'node:child_process';
 import {mkdtempSync, writeFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
-import {ACCOUNT, client, validateInputs} from './dock-provision-inert-resources.mjs';
+import {ACCOUNT, client, validateInputs, verifyActivationReadiness, verifyCurrentDeployment} from './dock-provision-inert-resources.mjs';
+import {DOCK_WORKER, PRIVATE_DOCK_BACKEND} from './dock-hosted-ingress-guard.mjs';
 import {runDockStagingResearch} from './run-dock-staging-research.mjs';
 
 const env = process.env;
@@ -11,7 +12,8 @@ const repository = 'adinosassist-stack/botswana-compliance-platform';
 const versionPattern = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
 
 async function main() {
-  if (env.AUTHORIZATION !== 'REHEARSE_DOCK_STAGING_RESEARCH') throw new Error('Protected rehearsal authorization required');
+  const deployOnly = env.AUTHORIZATION === 'DEPLOY_DOCK_PRIVATE_STAGING';
+  if (!deployOnly && env.AUTHORIZATION !== 'REHEARSE_DOCK_STAGING_RESEARCH') throw new Error('Protected rehearsal authorization required');
   const emails = validateInputs({...env, AUTHORIZATION: 'PREFLIGHT_DOCK_STAGING_ACTIVATION'});
   const serviceAuth = env.DOCK_RESEARCH_SERVICE_TOKEN_ID ? {
     tokenId: env.DOCK_RESEARCH_SERVICE_TOKEN_ID,
@@ -23,7 +25,7 @@ async function main() {
       .every(value => /^[a-zA-Z0-9_.-]{16,256}$/.test(value ?? ''))
     : /^[\w-]+\.[\w-]+\.[\w-]+$/.test(env.DOCK_RESEARCH_ACCESS_TOKEN ?? '');
   if (!env.GH_TOKEN || !env.DOCK_WORKER_WRITE_TOKEN || !env.DOCK_RESEARCH_OPENAI_KEY ||
-      !validAccess) {
+      (!deployOnly && !validAccess)) {
     throw new Error('Protected Dock rehearsal credentials are missing or malformed');
   }
 
@@ -85,6 +87,7 @@ async function main() {
       attempted.add(role);
       wrangler('versions', 'deploy', versions[role] + '@100%', '--config', files[role], '--yes');
     }
+    return versions;
   }
 
   async function restore(versions) {
@@ -101,6 +104,33 @@ async function main() {
   }
 
   try {
+    if (deployOnly) {
+      await assertMain();
+      const expectedVersion = env.DOCK_STAGING_BOOTSTRAP_VERSION_ID;
+      const baseline = await verifyActivationReadiness({api, emails, expectedVersion, serviceTokenId: serviceAuth?.tokenId});
+      console.log(JSON.stringify({rollbackVersions: baseline.rollbackVersions}));
+      try {
+        const versions = await activate({suffix: randomBytes(16).toString('hex')});
+        for (const [role, worker] of Object.entries({backend: PRIVATE_DOCK_BACKEND, workspace: DOCK_WORKER})) {
+          const path = '/accounts/' + ACCOUNT + '/workers/scripts/' + worker;
+          const deployments = await api('GET', path + '/deployments');
+          verifyCurrentDeployment(deployments.result, versions[role]);
+          const subdomain = (await api('GET', path + '/subdomain')).result;
+          if (subdomain?.enabled !== false || subdomain?.previews_enabled !== false) {
+            throw new Error('Unexpected public ingress for Dock ' + role);
+          }
+        }
+        console.log(JSON.stringify({versions, hostedAcceptance: 'deferred'}));
+      } catch (error) {
+        await restore(baseline.rollbackVersions);
+        const restored = await verifyActivationReadiness({api, emails, expectedVersion, serviceTokenId: serviceAuth?.tokenId});
+        if (restored.rollbackVersions.backend !== baseline.rollbackVersions.backend) {
+          throw new Error('Dock backend rollback version could not be verified');
+        }
+        throw error;
+      }
+      return;
+    }
     const evidence = await runDockStagingResearch({
       api, emails, expectedVersion: env.DOCK_STAGING_BOOTSTRAP_VERSION_ID,
       sessionSecret,
