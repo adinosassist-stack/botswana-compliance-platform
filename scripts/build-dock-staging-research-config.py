@@ -18,7 +18,12 @@ WORKERS = {
 }
 
 
-def build_profile(role, fixture_suffix, voice=False):
+def build_profile(role, fixture_suffix, voice=False, access_team_origin=None, access_audience=None):
+    if access_team_origin is not None or access_audience is not None:
+        if (role != "workspace" or not voice
+                or not re.fullmatch(r"https://[a-z0-9-]+\.cloudflareaccess\.com", access_team_origin or "")
+                or not re.fullmatch(r"[a-f0-9]{64}", access_audience or "")):
+            raise ValueError("Dock invitation admission requires a voice workspace and exact Access issuer and audience")
     if not re.fullmatch(r"[a-f0-9]{32}", fixture_suffix):
         raise ValueError("Expected a 32-character hexadecimal synthetic fixture suffix")
     directory = ROOT / "cloudflare"
@@ -72,6 +77,12 @@ def build_profile(role, fixture_suffix, voice=False):
             "namespace_id": "78212079",
             "simple": {"limit": 3, "period": 60},
         }]
+    if access_team_origin:
+        variables.update(
+            DOCK_STAGING_ADMISSION_ENABLED="true",
+            DOCK_STAGING_ACCESS_TEAM_ORIGIN=access_team_origin,
+            DOCK_STAGING_ACCESS_AUD=access_audience,
+        )
     profile["vars"] = variables
     return profile
 
@@ -81,8 +92,10 @@ def main():
     parser.add_argument("role", choices=WORKERS)
     parser.add_argument("fixture_suffix")
     parser.add_argument("--voice", action="store_true")
+    parser.add_argument("--access-team-origin")
+    parser.add_argument("--access-audience")
     args = parser.parse_args()
-    print(json.dumps(build_profile(args.role, args.fixture_suffix, args.voice), indent=2))
+    print(json.dumps(build_profile(args.role, args.fixture_suffix, args.voice, args.access_team_origin, args.access_audience), indent=2))
 
 
 if __name__ == "__main__":

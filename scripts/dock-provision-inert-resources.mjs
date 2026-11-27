@@ -133,7 +133,7 @@ export async function provisionInertResources({api,emails,assertMain,expectedVer
  verifyDockIngress({...after,policies:await list(api,appPath+"/policies"),appId:app.id,testerEmails:emails,inventoryComplete:true,phase:"after-attach"});
  return {ok:true,databaseId:database,accessAppId:app.id,domainId:domain.id,hostname:DOCK_HOST,inert:true,productionUntouched:true};
 }
-export async function verifyActivationReadiness({api, emails, expectedVersion, serviceTokenId, expectedBackendVersion}){
+export async function verifyActivationReadiness({api, emails, expectedVersion, serviceTokenId, expectedBackendVersion, includeAccessAudience=false}){
  const account="/accounts/"+ACCOUNT;
  const zones=await list(api,"/zones?name=thebedesk.com&account.id="+ACCOUNT);
  need(zones.length===1&&zones[0].name==="thebedesk.com"&&zones[0].account?.id===ACCOUNT&&hex.test(zones[0].id||"")&&zones[0].status==="active","zone_identity_mismatch");
@@ -168,6 +168,7 @@ export async function verifyActivationReadiness({api, emails, expectedVersion, s
  verifyCurrentDeployment(await result(api,backendPath+"/deployments"),backendVersion);
  verifyCurrentDeployment(await result(api,account+"/workers/scripts/"+DOCK_WORKER+"/deployments"),expectedVersion);
  return {ok:true,hostname:DOCK_HOST,databaseId:DATABASE_ID,inert,
+   ...(includeAccessAudience?{accessAudience:apps[0].aud}:{}),
    rollbackVersions:{workspace:expectedVersion,backend:backendVersion}};
 }
 async function main(){

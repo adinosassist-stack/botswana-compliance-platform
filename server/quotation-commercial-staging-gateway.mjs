@@ -3,15 +3,24 @@ const denied=()=>new Response('Not Found',{status:404,headers:{'cache-control':'
 const decode=value=>{if(typeof value!=='string'||value.length>16384||!/^[A-Za-z0-9_-]+$/.test(value))throw Error('invalid_jwt');return Uint8Array.from(atob(value.replaceAll('-','+').replaceAll('_','/')),c=>c.charCodeAt(0))};
 const parse=value=>JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(decode(value)));
 export function createQuotationCommercialStagingGateway({env,fetchImpl=fetch,now=()=>Date.now()}={}){
+ if(typeof env?.COMMERCIAL?.fetch!=='function')throw Error('gateway_unconfigured');
  if(env?.APP_ENV!=='quotation-private-staging'||env.QUOTATION_COMMERCIAL_GATEWAY_ENABLED!=='true')throw Error('gateway_disabled');
+ return createAccessProtectedGateway({
+  workspaceOrigin:env.QUOTATION_COMMERCIAL_PRIVATE_ORIGIN,
+  teamOrigin:env.QUOTATION_ACCESS_TEAM_ORIGIN,
+  audience:env.QUOTATION_ACCESS_AUD,
+  forward:request=>env.COMMERCIAL.fetch(request),
+  fetchImpl,now
+ });
+}
+export function createAccessProtectedGateway({workspaceOrigin,teamOrigin,audience,forward,fetchImpl=fetch,now=()=>Date.now()}){
  let origin,issuer;
  try{
-  const u=new URL(env.QUOTATION_COMMERCIAL_PRIVATE_ORIGIN),i=new URL(env.QUOTATION_ACCESS_TEAM_ORIGIN);
+  const u=new URL(workspaceOrigin),i=new URL(teamOrigin);
   if(u.protocol!=='https:'||u.hostname==='www.thebedesk.com'||!u.hostname.endsWith('.thebedesk.com')||u.port||u.username||u.password||u.pathname!=='/'||u.search||u.hash||i.protocol!=='https:'||!/^[-a-z0-9]+\.cloudflareaccess\.com$/.test(i.hostname)||i.port||i.username||i.password||i.pathname!=='/'||i.search||i.hash)throw Error();
   origin=u.origin;issuer=i.origin;
  }catch{throw Error('gateway_origin_required')}
- const audience=env.QUOTATION_ACCESS_AUD;
- if(typeof audience!=='string'||!audience||audience.length>256||typeof env.COMMERCIAL?.fetch!=='function'||typeof fetchImpl!=='function')throw Error('gateway_unconfigured');
+ if(typeof audience!=='string'||!audience||audience.length>256||typeof forward!=='function'||typeof fetchImpl!=='function')throw Error('gateway_unconfigured');
  let keys=[],loaded=0;
  async function getKey(kid){
   let key=keys.find(k=>k.kid===kid);
@@ -43,7 +52,7 @@ export function createQuotationCommercialStagingGateway({env,fetchImpl=fetch,now
    const key=await getKey(head.kid);
    if(!await crypto.subtle.verify('RSASSA-PKCS1-v1_5',key,decode(parts[2]),new TextEncoder().encode(parts[0]+'.'+parts[1])))return denied();
    // The application independently checks its synthetic HMAC cookie/session.
-   return await env.COMMERCIAL.fetch(request);
+   return await forward(request);
   }catch{return denied()}
  }};
 }

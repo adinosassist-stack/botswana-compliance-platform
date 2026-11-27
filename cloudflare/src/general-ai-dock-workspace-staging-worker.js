@@ -1,3 +1,4 @@
+import {handleDockStagingAdmission} from "./general-ai-dock-staging-admission.js";
 import {handleAgenticLiveVoiceRequest} from "./agentic-live-voice.js";
 import workspace from "./release-governance-entry.js";
 import {readDockResearchFixture} from "./general-ai-staging-entry.js";
@@ -9,6 +10,15 @@ export default {
     const url = new URL(request.url);
     if (env?.APP_ENV !== "staging" || url.origin !== env.DOCK_STAGING_WORKSPACE_ORIGIN) {
       return new Response(null, {status: 404, headers: {"cache-control": "no-store"}});
+    }
+    if (url.pathname === "/dock-staging/sign-in") return handleDockStagingAdmission(request, env);
+    if (env.DOCK_STAGING_ADMISSION_ENABLED === "true") {
+      const sessionCookies = (request.headers.get("cookie") ?? "").split(";")
+        .map(cookie => cookie.trim())
+        .filter(cookie => /^(?:__Host-bw_session|bw_session)\s*=/.test(cookie));
+      if (sessionCookies.some(cookie => !/^(?:__Host-bw_session|bw_session)=[a-f0-9]{64}$/.test(cookie))) {
+        return new Response(null, {status: 401, headers: {"cache-control": "no-store"}});
+      }
     }
     if (url.pathname === "/api/ai/general") return handleStagingDockResearch(request, env);
     if (url.pathname.startsWith("/api/agentic/live/")) {

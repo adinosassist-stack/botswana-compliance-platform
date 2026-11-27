@@ -1,10 +1,12 @@
-import {randomBytes} from 'node:crypto';
+import {createHmac, randomBytes} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
-import {mkdtempSync, writeFileSync, rmSync} from 'node:fs';
+import {mkdtempSync, readFileSync, writeFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 import {ACCOUNT, client, validateInputs, verifyActivationReadiness, verifyCurrentDeployment} from './dock-provision-inert-resources.mjs';
 import {DOCK_WORKER, PRIVATE_DOCK_BACKEND} from './dock-hosted-ingress-guard.mjs';
+import {createDockStagingD1} from './run-dock-staging-fixture.mjs';
+import {createDockFixtureAdapter} from '../cloudflare/src/general-ai-dock-fixture-adapter.js';
 import {runDockStagingResearch} from './run-dock-staging-research.mjs';
 
 const env = process.env;
@@ -20,7 +22,14 @@ async function main() {
       (!versionPattern.test(workspacePin ?? '') || !versionPattern.test(backendPin ?? ''))) {
     throw new Error('Both exact rollback versions are required for a post-deployment rehearsal');
   }
-  const voice = !deployOnly && Boolean(env.DOCK_VOICE_OPENAI_KEY);
+  const voiceDeployment = env.DOCK_ENABLE_PRIVATE_VOICE === 'true';
+  if (voiceDeployment && (!deployOnly || !workspacePin ||
+      !/^dock-test-[a-f0-9]{64}$/.test(env.DOCK_VOICE_INVITATION ?? '') ||
+      !/^https:\/\/[a-z0-9-]+\.cloudflareaccess\.com$/.test(env.DOCK_ACCESS_TEAM_ORIGIN ?? '') ||
+      (env.DOCK_VOICE_OPENAI_KEY?.trim().length ?? 0) <= 20)) {
+    throw new Error('Private voice deploy requires both rollback versions, an Access issuer, a voice key and a one-use invitation');
+  }
+  const voice = voiceDeployment || (!deployOnly && Boolean(env.DOCK_VOICE_OPENAI_KEY));
   if (voice && !workspacePin) throw new Error("Voice rehearsal requires exact deployed rollback versions");
   const emails = validateInputs({...env, AUTHORIZATION: 'PREFLIGHT_DOCK_STAGING_ACTIVATION'});
   const serviceAuth = env.DOCK_RESEARCH_SERVICE_TOKEN_ID ? {
@@ -70,12 +79,15 @@ async function main() {
     });
   }
 
-  async function activate({suffix}) {
+  async function activate({suffix, accessAudience}) {
     const versions = {};
     for (const role of ['backend', 'workspace']) {
       const config = join(directory, role + '.json');
       const secretsPath = join(directory, role + '-secrets.json');
-      const profile = execFileSync('python3', ['scripts/build-dock-staging-research-config.py', role, suffix, ...(voice ? ['--voice'] : [])], {
+      const admissionArgs = voiceDeployment && role === 'workspace'
+        ? ['--access-team-origin', env.DOCK_ACCESS_TEAM_ORIGIN, '--access-audience', accessAudience]
+        : [];
+      const profile = execFileSync('python3', ['scripts/build-dock-staging-research-config.py', role, suffix, ...(voice ? ['--voice'] : []), ...admissionArgs], {
         env: {PATH: env.PATH}, encoding: 'utf8', timeout: 15000,
       });
       const secrets = {SESSION_SECRET: sessionSecret};
@@ -121,11 +133,36 @@ async function main() {
         expectedVersion: workspacePin || env.DOCK_STAGING_BOOTSTRAP_VERSION_ID,
         expectedBackendVersion: backendPin || undefined,
         serviceTokenId: serviceAuth?.tokenId,
+        includeAccessAudience: voiceDeployment,
       };
       const baseline = await verifyActivationReadiness(readiness);
       console.log(JSON.stringify({rollbackVersions: baseline.rollbackVersions}));
+      const suffix = randomBytes(16).toString('hex');
+      let invitationFixture;
       try {
-        const versions = await activate({suffix: randomBytes(16).toString('hex')});
+        if (voiceDeployment) {
+          if (!/^[a-f0-9]{64}$/.test(baseline.accessAudience ?? '')) {
+            throw new Error('Verified Dock Access application did not provide its audience');
+          }
+          const db = createDockStagingD1(api);
+          const identity = await db.prepare('SELECT database_id,environment FROM dock_staging_identity WHERE id=1').bind().first();
+          if (identity?.database_id !== baseline.databaseId || identity.environment !== 'dock-hosted-staging') {
+            throw new Error('Dock staging voice database marker did not match');
+          }
+          await assertMain();
+          const schema = readFileSync(new URL('../cloudflare/schema/dock-staging-voice-audit.sql', import.meta.url), 'utf8');
+          await db.batch([db.prepare(schema).bind()]);
+          const fixture = createDockFixtureAdapter({
+            db, databaseId: baseline.databaseId, qualifiedDatabaseId: baseline.databaseId,
+            fixtureId: 'dock-fixture-' + suffix,
+            tokenHash: createHmac('sha256', sessionSecret).update(env.DOCK_VOICE_INVITATION).digest('hex'),
+            csrfToken: randomBytes(32).toString('hex'),
+          });
+          await fixture.assertAbsent();
+          await fixture.create();
+          invitationFixture = fixture;
+        }
+        const versions = await activate({suffix, accessAudience: baseline.accessAudience});
         for (const [role, worker] of Object.entries({backend: PRIVATE_DOCK_BACKEND, workspace: DOCK_WORKER})) {
           const path = '/accounts/' + ACCOUNT + '/workers/scripts/' + worker;
           const deployments = await api('GET', path + '/deployments');
@@ -135,9 +172,13 @@ async function main() {
             throw new Error('Unexpected public ingress for Dock ' + role);
           }
         }
-        console.log(JSON.stringify({versions, hostedAcceptance: 'deferred'}));
+        console.log(JSON.stringify({versions, privateVoiceEnabled: voiceDeployment, hostedAcceptance: 'deferred'}));
       } catch (error) {
-        await restore(baseline.rollbackVersions);
+        try {
+          await restore(baseline.rollbackVersions);
+        } finally {
+          if (invitationFixture) await invitationFixture.remove();
+        }
         const restored = await verifyActivationReadiness(readiness);
         if (restored.rollbackVersions.backend !== baseline.rollbackVersions.backend) {
           throw new Error('Dock backend rollback version could not be verified');
