@@ -18,7 +18,7 @@ export async function checkDockStagingResearch({accessToken, serviceAuth, fixtur
     throw new Error('Temporary Access and synthetic Dock session credentials required');
   }
 
-  async function request(label, status, {session = true, csrf = fixture.csrfToken, requestOrigin = origin} = {}) {
+  async function request(label, status, {session = true, csrf = fixture.csrfToken, requestOrigin = origin, question = censusQuestion} = {}) {
     const cookie = [!serviceAuth && 'CF_Authorization=' + accessToken,
       session && '__Host-bw_session=' + fixture.sessionToken].filter(Boolean).join('; ');
     const response = await fetchImpl(endpoint, {
@@ -30,7 +30,7 @@ export async function checkDockStagingResearch({accessToken, serviceAuth, fixtur
         'content-type': 'application/json',
         'x-csrf-token': csrf,
       },
-      body: JSON.stringify({question: censusQuestion}),
+      body: JSON.stringify({question}),
       redirect: 'manual',
       signal: AbortSignal.timeout(45000),
     });
@@ -43,6 +43,11 @@ export async function checkDockStagingResearch({accessToken, serviceAuth, fixtur
   await request('Missing session', 401, {session: false});
   await request('Invalid CSRF', 403, {csrf: '0'.repeat(64)});
   await request('Foreign origin', 403, {requestOrigin: 'https://untrusted.invalid'});
+  const chat = await request('General chat', 200, {question: 'What is 2 plus 2? Reply with the numeral only.'});
+  const reply = await chat.json();
+  if (reply.ok !== true || reply.researchPerformed !== false || !/^4[.!]?$/.test(reply.answer?.trim() ?? '')) {
+    throw new Error('General chat did not return the expected answer without web research');
+  }
   const response = await request('Census research', 200);
   const data = await response.json();
   const officialCitation = (data.citations ?? []).find(citation => {
@@ -55,5 +60,5 @@ export async function checkDockStagingResearch({accessToken, serviceAuth, fixtur
       !/\b(?:2,359,609|2 359 609|2359609)\b/.test(data.answer ?? '') || !officialCitation) {
     throw new Error('Census response lacks the expected population or official citation');
   }
-  return {population: 2359609, citation: officialCitation.url};
+  return {chatVerified: true, population: 2359609, citation: officialCitation.url};
 }
