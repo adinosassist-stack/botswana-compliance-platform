@@ -16,7 +16,9 @@ export function createQuotationCommercialStagingGateway({env,fetchImpl=fetch,now
  async function getKey(kid){
   let key=keys.find(k=>k.kid===kid);
   if(!key||now()-loaded>300000){
-   const res=await fetchImpl(issuer+'/cdn-cgi/access/certs',{redirect:'error',cache:'no-store'});
+   // workerd rejects redirect:'error' before issuing the request. Manual mode
+   // preserves the pinned certificate origin: every redirect remains non-ok.
+   const res=await fetchImpl(issuer+'/cdn-cgi/access/certs',{redirect:'manual',cache:'no-store'});
    if(!res.ok)throw Error('keys_unavailable');
    const reader=res.body?.getReader();if(!reader)throw Error('keys_unavailable');
    const chunks=[];let size=0;

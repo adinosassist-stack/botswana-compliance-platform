@@ -83,10 +83,30 @@ async function accessFixture(){
  async function token(patch={},headerPatch={}){const a=b64(JSON.stringify({alg:'RS256',kid:'test-key',...headerPatch})),b=b64(JSON.stringify({...claims,...patch}));return a+'.'+b+'.'+b64(await crypto.subtle.sign('RSASSA-PKCS1-v1_5',pair.privateKey,new TextEncoder().encode(a+'.'+b)))}
  let calls=0,keyReads=0;
  const env={APP_ENV:'quotation-private-staging',QUOTATION_COMMERCIAL_GATEWAY_ENABLED:'true',QUOTATION_COMMERCIAL_PRIVATE_ORIGIN:origin,QUOTATION_ACCESS_TEAM_ORIGIN:claims.iss,QUOTATION_ACCESS_AUD:'synthetic-audience',COMMERCIAL:{fetch:async()=>{calls++;return new Response('private')}}};
- const gateway=createQuotationCommercialStagingGateway({env,now:()=>now,fetchImpl:async(url,options)=>{keyReads++;assert.equal(url,claims.iss+'/cdn-cgi/access/certs');assert.equal(options.redirect,'error');return Response.json({keys:[jwk]})}});
+ const gateway=createQuotationCommercialStagingGateway({env,now:()=>now,fetchImpl:async(url,options)=>{keyReads++;assert.equal(url,claims.iss+'/cdn-cgi/access/certs');assert.equal(options.redirect,'manual');return Response.json({keys:[jwk]})}});
  const req=t=>new Request(origin+'/api/auth/me',{headers:t?{'cf-access-jwt-assertion':t}:{}});
- return {env,gateway,token,req,counts:()=>({calls,keyReads}),now};
+ return {env,gateway,token,req,counts:()=>({calls,keyReads}),now,jwk};
 }
+test('Access gateway accepts a signed token using the native Workers fetch boundary',async()=>{
+ const f=await accessFixture();let calls=0,keyReads=0,keyStatus=200;
+ const {COMMERCIAL,...bindings}=f.env;
+ const script=await readFile('server/quotation-commercial-staging-gateway.mjs','utf8');
+ // Use the same date supported by this repository's pinned workerd as the D1 fixtures.
+ const mf=new Miniflare(convertV4MiniflareOptions({modules:true,compatibilityDate:'2026-09-03',
+  script:script+'\nexport default {fetch(request,env){return createQuotationCommercialStagingGateway({env}).fetch(request)}};',bindings,
+  serviceBindings:{COMMERCIAL:async()=>{calls++;return new Response('private')}},
+  outboundService:async request=>{keyReads++;assert.equal(request.url,bindings.QUOTATION_ACCESS_TEAM_ORIGIN+'/cdn-cgi/access/certs');return Response.json({keys:[f.jwk]},{status:keyStatus,headers:keyStatus===200?{}:{location:'https://untrusted.example/certs'}})}
+ }));
+ try{
+  const response=await mf.dispatchFetch(origin+'/api/auth/me',{headers:{'cf-access-jwt-assertion':await f.token()}});
+  assert.equal(response.status,200);assert.equal(await response.text(),'private');assert.equal(calls,1);assert.equal(keyReads,1);
+  for(const status of [301,302,303,307,308]){
+   keyStatus=status;
+   assert.equal((await mf.dispatchFetch(origin+'/api/auth/me',{headers:{'cf-access-jwt-assertion':await f.token()}})).status,404);
+  }
+  assert.equal(calls,1);assert.equal(keyReads,6); // No redirect target was fetched.
+ }finally{await mf.dispose()}
+});
 test('Access gateway verifies real RSA signatures, exact issuer/audience/time and caches only public keys',async()=>{
  const f=await accessFixture(),valid=await f.token();
  assert.equal((await f.gateway.fetch(f.req(valid))).status,200);assert.equal((await f.gateway.fetch(f.req(valid))).status,200);assert.deepEqual(f.counts(),{calls:2,keyReads:1});
