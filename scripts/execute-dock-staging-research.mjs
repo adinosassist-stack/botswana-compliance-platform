@@ -1,3 +1,4 @@
+import {randomBytes} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {mkdtempSync, writeFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
@@ -13,7 +14,6 @@ async function main() {
   if (env.AUTHORIZATION !== 'REHEARSE_DOCK_STAGING_RESEARCH') throw new Error('Protected rehearsal authorization required');
   const emails = validateInputs({...env, AUTHORIZATION: 'PREFLIGHT_DOCK_STAGING_ACTIVATION'});
   if (!env.GH_TOKEN || !env.DOCK_WORKER_WRITE_TOKEN || !env.DOCK_RESEARCH_OPENAI_KEY ||
-      (env.DOCK_RESEARCH_SESSION_SECRET ?? '').length < 32 ||
       !/^[\w-]+\.[\w-]+\.[\w-]+$/.test(env.DOCK_RESEARCH_ACCESS_TOKEN ?? '')) {
     throw new Error('Protected Dock rehearsal credentials are missing or malformed');
   }
@@ -29,6 +29,7 @@ async function main() {
     }
   }
 
+  const sessionSecret = randomBytes(32).toString('hex');
   const api = client(env.CLOUDFLARE_API_TOKEN);
   const directory = mkdtempSync(join(tmpdir(), 'dock-research-'));
   const files = {};
@@ -58,7 +59,7 @@ async function main() {
       const profile = execFileSync('python3', ['scripts/build-dock-staging-research-config.py', role, suffix], {
         env: {PATH: env.PATH}, encoding: 'utf8', timeout: 15000,
       });
-      const secrets = {SESSION_SECRET: env.DOCK_RESEARCH_SESSION_SECRET};
+      const secrets = {SESSION_SECRET: sessionSecret};
       if (role === 'backend') secrets.OPENAI_API_KEY = env.DOCK_RESEARCH_OPENAI_KEY;
       writeFileSync(config, profile, {mode: 0o600});
       writeFileSync(secretsPath, JSON.stringify(secrets), {mode: 0o600});
@@ -93,7 +94,7 @@ async function main() {
   try {
     const evidence = await runDockStagingResearch({
       api, emails, expectedVersion: env.DOCK_STAGING_BOOTSTRAP_VERSION_ID,
-      sessionSecret: env.DOCK_RESEARCH_SESSION_SECRET,
+      sessionSecret,
       accessToken: env.DOCK_RESEARCH_ACCESS_TOKEN,
       assertMain, activate, restore,
     });
