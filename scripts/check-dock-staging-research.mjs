@@ -4,21 +4,29 @@ const origin = 'https://' + DOCK_HOST;
 const endpoint = origin + '/api/ai/general';
 const censusQuestion = 'Search the web for the population of Botswana in the 2022 Population and Housing Census. Cite the official Statistics Botswana source.';
 
-export async function checkDockStagingResearch({accessToken, fixture, fetchImpl = fetch}) {
-  if (!/^[\w-]+\.[\w-]+\.[\w-]+$/.test(accessToken ?? '') ||
+export async function checkDockStagingResearch({accessToken, serviceAuth, fixture, fetchImpl = fetch}) {
+  const machineHeaders = serviceAuth ? {
+    'CF-Access-Client-Id': serviceAuth.clientId,
+    'CF-Access-Client-Secret': serviceAuth.clientSecret,
+  } : {};
+  const validAccess = serviceAuth
+    ? Object.values(machineHeaders).every(value => /^[a-zA-Z0-9_.-]{16,256}$/.test(value ?? ''))
+    : /^[\w-]+\.[\w-]+\.[\w-]+$/.test(accessToken ?? '');
+  if (!validAccess ||
       !/^[a-f0-9]{64}$/.test(fixture?.sessionToken ?? '') ||
       !/^[a-f0-9]{64}$/.test(fixture?.csrfToken ?? '')) {
     throw new Error('Temporary Access and synthetic Dock session credentials required');
   }
 
   async function request(label, status, {session = true, csrf = fixture.csrfToken, requestOrigin = origin} = {}) {
-    const cookie = 'CF_Authorization=' + accessToken +
-      (session ? '; __Host-bw_session=' + fixture.sessionToken : '');
+    const cookie = [!serviceAuth && 'CF_Authorization=' + accessToken,
+      session && '__Host-bw_session=' + fixture.sessionToken].filter(Boolean).join('; ');
     const response = await fetchImpl(endpoint, {
       method: 'POST',
       headers: {
         origin: requestOrigin,
-        cookie,
+        ...machineHeaders,
+        ...(cookie ? {cookie} : {}),
         'content-type': 'application/json',
         'x-csrf-token': csrf,
       },
