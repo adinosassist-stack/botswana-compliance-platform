@@ -13,11 +13,11 @@ on:
         options: [preflight, bootstrap-inert, provision-inert-resources, bootstrap-private-backend, activation-preflight, rehearse-research, deploy-private-dock]
         default: preflight
       rollback_workspace_version:
-        description: Exact active workspace Worker version for a post-deployment research rehearsal
+        description: Exact active workspace Worker version for a repeat deployment or research rehearsal
         required: false
         type: string
       rollback_backend_version:
-        description: Exact active backend Worker version for a post-deployment research rehearsal
+        description: Exact active backend Worker version for a repeat deployment or research rehearsal
         required: false
         type: string
       authorization:

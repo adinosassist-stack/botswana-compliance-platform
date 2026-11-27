@@ -17,7 +17,7 @@ async function main() {
   const workspacePin = env.DOCK_ROLLBACK_WORKSPACE_VERSION;
   const backendPin = env.DOCK_ROLLBACK_BACKEND_VERSION;
   if ((workspacePin || backendPin) &&
-      (deployOnly || !versionPattern.test(workspacePin ?? '') || !versionPattern.test(backendPin ?? ''))) {
+      (!versionPattern.test(workspacePin ?? '') || !versionPattern.test(backendPin ?? ''))) {
     throw new Error('Both exact rollback versions are required for a post-deployment rehearsal');
   }
   const voice = !deployOnly && Boolean(env.DOCK_VOICE_OPENAI_KEY);
@@ -115,8 +115,14 @@ async function main() {
   try {
     if (deployOnly) {
       await assertMain();
-      const expectedVersion = env.DOCK_STAGING_BOOTSTRAP_VERSION_ID;
-      const baseline = await verifyActivationReadiness({api, emails, expectedVersion, serviceTokenId: serviceAuth?.tokenId});
+      const readiness = {
+        api,
+        emails,
+        expectedVersion: workspacePin || env.DOCK_STAGING_BOOTSTRAP_VERSION_ID,
+        expectedBackendVersion: backendPin || undefined,
+        serviceTokenId: serviceAuth?.tokenId,
+      };
+      const baseline = await verifyActivationReadiness(readiness);
       console.log(JSON.stringify({rollbackVersions: baseline.rollbackVersions}));
       try {
         const versions = await activate({suffix: randomBytes(16).toString('hex')});
@@ -132,7 +138,7 @@ async function main() {
         console.log(JSON.stringify({versions, hostedAcceptance: 'deferred'}));
       } catch (error) {
         await restore(baseline.rollbackVersions);
-        const restored = await verifyActivationReadiness({api, emails, expectedVersion, serviceTokenId: serviceAuth?.tokenId});
+        const restored = await verifyActivationReadiness(readiness);
         if (restored.rollbackVersions.backend !== baseline.rollbackVersions.backend) {
           throw new Error('Dock backend rollback version could not be verified');
         }
