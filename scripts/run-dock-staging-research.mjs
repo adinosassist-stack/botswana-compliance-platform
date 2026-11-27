@@ -4,11 +4,12 @@ import {checkDockStagingResearch} from './check-dock-staging-research.mjs';
 
 // The protected job supplies exact-main verification and the two Worker deployment operations.
 export async function runDockStagingResearch({
-  api, emails, expectedVersion, sessionSecret, accessToken, serviceAuth, assertMain,
+  api, emails, expectedVersion, expectedBackendVersion, sessionSecret, accessToken, serviceAuth, assertMain,
   activate, restore, fetchImpl,
 }) {
   await assertMain();
-  const baseline = await verifyActivationReadiness({api, emails, expectedVersion, serviceTokenId: serviceAuth?.tokenId});
+  const readiness = {api, emails, expectedVersion, expectedBackendVersion, serviceTokenId: serviceAuth?.tokenId};
+  const baseline = await verifyActivationReadiness(readiness);
   return withDockStagingFixture({
     db: createDockStagingD1(api),
     verifiedDatabaseId: baseline.databaseId,
@@ -21,7 +22,7 @@ export async function runDockStagingResearch({
       evidence = await checkDockStagingResearch({accessToken, serviceAuth, fixture, fetchImpl});
     } finally {
       await restore(baseline.rollbackVersions);
-      const restored = await verifyActivationReadiness({api, emails, expectedVersion, serviceTokenId: serviceAuth?.tokenId});
+      const restored = await verifyActivationReadiness(readiness);
       if (restored.rollbackVersions.backend !== baseline.rollbackVersions.backend) {
         throw new Error('Dock backend rollback version could not be verified');
       }
