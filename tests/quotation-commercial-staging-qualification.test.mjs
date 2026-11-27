@@ -10,7 +10,7 @@ import {quotationCustomSample} from '../public/js/quotation-customizable-page-mo
 const tenant='00000000-0000-4000-8000-000000000001',user='00000000-0000-4000-8000-000000000002';
 const foreign='00000000-0000-4000-8000-000000000003',origin='https://quotation-commercial-staging.thebedesk.com';
 const secret='synthetic-stage-only-secret-1234567890',rawCookie='synthetic-stage-cookie-with-no-real-secret',csrf='synthetic-csrf-token-123456';
-async function hashCookie(){const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);return [...new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(rawCookie)))].map(b=>b.toString(16).padStart(2,'0')).join('')}
+async function hashCookie(cookie=rawCookie){const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);return [...new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(cookie)))].map(b=>b.toString(16).padStart(2,'0')).join('')}
 async function fixture(){
  const mf=new Miniflare(convertV4MiniflareOptions({modules:true,script:"export default {fetch(){return new Response('offline')}}",compatibilityDate:'2026-09-03',d1Databases:{DB:'commercial-private-test',AUTH_DB:'commercial-private-auth'}}));
  try{
@@ -29,6 +29,54 @@ async function fixture(){
  return {mf,db,authDb,env,host,req,cookieHash,counts:()=>({assets,pdfs})};
  }catch(e){console.error('fixture failure:',e.message);await mf.dispose();throw e}
 }
+async function admissionFixture(){
+ const f=await fixture(),ticket='quotation-test-'+Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64url'),ticketHash=await hashCookie(ticket);
+ await f.authDb.prepare('UPDATE sessions SET token_hash=? WHERE token_hash=?').bind(ticketHash,f.cookieHash).run();
+ const admission=(body=new URLSearchParams({ticket}).toString(),headers={})=>new Request(origin+'/private/quotation-test-session',{method:'POST',headers:{origin,'sec-fetch-site':'same-origin','content-type':'application/x-www-form-urlencoded',...headers},body});
+ return {...f,ticket,ticketHash,admission};
+}
+test('one-use staging invitation becomes a distinct HttpOnly cookie without extending expiry',async()=>{
+ const f=await admissionFixture();try{
+  const form=await f.host.fetch(new Request(origin+'/private/quotation-test-session'));
+  assert.equal(form.status,200);assert.match(form.headers.get('content-security-policy'),/form-action 'self'/);assert.doesNotMatch(await form.text(),new RegExp(f.ticket));
+  assert.equal((await f.host.fetch(f.req('/api/auth/me','GET',undefined,{cookie:'__Host-bw_session='+f.ticket}))).status,401);
+  const expiry=(await f.authDb.prepare('SELECT expires_at FROM sessions WHERE token_hash=?').bind(f.ticketHash).first()).expires_at;
+  const admitted=await f.host.fetch(f.admission());assert.equal(admitted.status,303);assert.equal(admitted.headers.get('location'),'/app/quotations/customer-ready/');
+  const setCookie=admitted.headers.get('set-cookie');assert.match(setCookie,/; Path=\/; Secure; HttpOnly; SameSite=Strict; Max-Age=\d+$/);
+  assert.ok(Number(setCookie.match(/Max-Age=(\d+)/)[1])<=600);assert.match(admitted.headers.get('cache-control'),/no-store/);
+  const cookie=setCookie.split(';')[0];assert.notEqual(cookie.split('=')[1],f.ticket);
+  const me=await f.host.fetch(f.req('/api/auth/me','GET',undefined,{cookie}));assert.equal(me.status,200);assert.equal((await me.json()).csrfToken,csrf);
+  assert.equal((await f.authDb.prepare('SELECT COUNT(*) n FROM sessions WHERE token_hash=?').bind(f.ticketHash).first()).n,0);
+  assert.equal((await f.authDb.prepare('SELECT expires_at FROM sessions').first()).expires_at,expiry);
+  const replay=await f.host.fetch(f.admission());assert.equal(replay.status,401);assert.equal(replay.headers.get('set-cookie'),null);
+  assert.equal((await f.host.fetch(f.admission(new URLSearchParams({ticket:cookie.split('=')[1]}).toString()))).status,401);
+  assert.equal((await f.host.fetch(f.req('/api/auth/me','GET',undefined,{cookie}))).status,200);
+ }finally{await f.mf.dispose()}
+});
+test('concurrent staging invitation redemption has exactly one winner',async()=>{
+ const f=await admissionFixture();try{
+  const responses=await Promise.all([f.host.fetch(f.admission()),f.host.fetch(f.admission())]);assert.deepEqual(responses.map(r=>r.status).sort(),[303,401]);
+  assert.equal((await f.authDb.prepare('SELECT COUNT(*) n FROM sessions').first()).n,1);
+  assert.equal(responses.filter(r=>r.headers.has('set-cookie')).length,1);
+ }finally{await f.mf.dispose()}
+});
+test('staging invitation denies unsafe requests, non-owner or stale identity and foreign tenants without consumption',async()=>{
+ const f=await admissionFixture();try{
+  for(const request of [f.admission(undefined,{origin:''}),f.admission(undefined,{origin:'https://evil.test'}),f.admission(undefined,{'sec-fetch-site':'cross-site'})])assert.equal((await f.host.fetch(request)).status,403);
+  for(const request of [f.admission(JSON.stringify({ticket:f.ticket}),{'content-type':'application/json'}),f.admission('ticket='+f.ticket+'&ticket='+f.ticket),f.admission('ticket='+f.ticket+'&extra=1'),f.admission('ticket='+'x'.repeat(1100)),f.admission(new Uint8Array([255])),f.admission('ticket=quotation-test-'+'a'.repeat(43))]){
+   const r=await f.host.fetch(request);assert.equal(r.status,401);assert.equal(r.headers.get('set-cookie'),null);
+  }
+  for(const expiry of ['+20 minutes','-1 minute']){await f.authDb.prepare("UPDATE sessions SET expires_at=datetime('now',?)").bind(expiry).run();assert.equal((await f.host.fetch(f.admission())).status,401)}
+  await f.authDb.prepare("UPDATE sessions SET expires_at=datetime('now','+10 minutes')").run();
+  await f.authDb.prepare("UPDATE memberships SET role='staff'").run();assert.equal((await f.host.fetch(f.admission())).status,401);
+  await f.authDb.prepare("UPDATE memberships SET role='owner',status='disabled'").run();assert.equal((await f.host.fetch(f.admission())).status,401);
+  await f.authDb.prepare("UPDATE memberships SET status='active'").run();await f.authDb.prepare('UPDATE users SET session_generation=2').run();assert.equal((await f.host.fetch(f.admission())).status,401);
+  await f.authDb.prepare('UPDATE users SET session_generation=1').run();
+  const other=createQuotationCommercialPrivateStagingHost({env:{...f.env,QUOTATION_SYNTHETIC_TENANT_ID:foreign}});assert.equal((await other.fetch(f.admission())).status,401);
+  const unavailable=createQuotationCommercialPrivateStagingHost({env:{...f.env,AUTH_DB:{prepare(){throw Error('private detail')}}}});const failure=await unavailable.fetch(f.admission());assert.equal(failure.status,401);assert.doesNotMatch(await failure.text(),/private detail/);
+  assert.equal((await f.authDb.prepare('SELECT COUNT(*) n FROM sessions WHERE token_hash=?').bind(f.ticketHash).first()).n,1);
+ }finally{await f.mf.dispose()}
+});
 test('complete schema sequence is compatible, additive and replay fails closed',async()=>{
  const f=await fixture();try{
  assert.equal((await f.db.prepare('SELECT id FROM quotation_drafts').first()).id,'preserved');
@@ -83,10 +131,30 @@ async function accessFixture(){
  async function token(patch={},headerPatch={}){const a=b64(JSON.stringify({alg:'RS256',kid:'test-key',...headerPatch})),b=b64(JSON.stringify({...claims,...patch}));return a+'.'+b+'.'+b64(await crypto.subtle.sign('RSASSA-PKCS1-v1_5',pair.privateKey,new TextEncoder().encode(a+'.'+b)))}
  let calls=0,keyReads=0;
  const env={APP_ENV:'quotation-private-staging',QUOTATION_COMMERCIAL_GATEWAY_ENABLED:'true',QUOTATION_COMMERCIAL_PRIVATE_ORIGIN:origin,QUOTATION_ACCESS_TEAM_ORIGIN:claims.iss,QUOTATION_ACCESS_AUD:'synthetic-audience',COMMERCIAL:{fetch:async()=>{calls++;return new Response('private')}}};
- const gateway=createQuotationCommercialStagingGateway({env,now:()=>now,fetchImpl:async(url,options)=>{keyReads++;assert.equal(url,claims.iss+'/cdn-cgi/access/certs');assert.equal(options.redirect,'error');return Response.json({keys:[jwk]})}});
+ const gateway=createQuotationCommercialStagingGateway({env,now:()=>now,fetchImpl:async(url,options)=>{keyReads++;assert.equal(url,claims.iss+'/cdn-cgi/access/certs');assert.equal(options.redirect,'manual');return Response.json({keys:[jwk]})}});
  const req=t=>new Request(origin+'/api/auth/me',{headers:t?{'cf-access-jwt-assertion':t}:{}});
- return {env,gateway,token,req,counts:()=>({calls,keyReads}),now};
+ return {env,gateway,token,req,counts:()=>({calls,keyReads}),now,jwk};
 }
+test('Access gateway accepts a signed token using the native Workers fetch boundary',async()=>{
+ const f=await accessFixture();let calls=0,keyReads=0,keyStatus=200;
+ const {COMMERCIAL,...bindings}=f.env;
+ const script=await readFile('server/quotation-commercial-staging-gateway.mjs','utf8');
+ // Use the same date supported by this repository's pinned workerd as the D1 fixtures.
+ const mf=new Miniflare(convertV4MiniflareOptions({modules:true,compatibilityDate:'2026-09-03',
+  script:script+'\nexport default {fetch(request,env){return createQuotationCommercialStagingGateway({env}).fetch(request)}};',bindings,
+  serviceBindings:{COMMERCIAL:async()=>{calls++;return new Response('private')}},
+  outboundService:async request=>{keyReads++;assert.equal(request.url,bindings.QUOTATION_ACCESS_TEAM_ORIGIN+'/cdn-cgi/access/certs');return Response.json({keys:[f.jwk]},{status:keyStatus,headers:keyStatus===200?{}:{location:'https://untrusted.example/certs'}})}
+ }));
+ try{
+  const response=await mf.dispatchFetch(origin+'/api/auth/me',{headers:{'cf-access-jwt-assertion':await f.token()}});
+  assert.equal(response.status,200);assert.equal(await response.text(),'private');assert.equal(calls,1);assert.equal(keyReads,1);
+  for(const status of [301,302,303,307,308]){
+   keyStatus=status;
+   assert.equal((await mf.dispatchFetch(origin+'/api/auth/me',{headers:{'cf-access-jwt-assertion':await f.token()}})).status,404);
+  }
+  assert.equal(calls,1);assert.equal(keyReads,6); // No redirect target was fetched.
+ }finally{await mf.dispose()}
+});
 test('Access gateway verifies real RSA signatures, exact issuer/audience/time and caches only public keys',async()=>{
  const f=await accessFixture(),valid=await f.token();
  assert.equal((await f.gateway.fetch(f.req(valid))).status,200);assert.equal((await f.gateway.fetch(f.req(valid))).status,200);assert.deepEqual(f.counts(),{calls:2,keyReads:1});

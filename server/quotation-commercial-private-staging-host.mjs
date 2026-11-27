@@ -7,6 +7,17 @@ const QUOTE_DB='aec227e9-b0f2-4b00-8de0-105465c4e2d6';
 const AUTH_DB='d7ad8e99-2ee4-446c-9358-0e186031571d';
 const ASSETS=new Set(['/js/quotation-commercial-workspace.mjs','/js/quotation-customizable-page.mjs','/js/quotation-customizable-page-model.mjs','/js/essentials-document-share.mjs']);
 const response=(status,error)=>Response.json({error},{status,headers:{'cache-control':'private, no-store','x-content-type-options':'nosniff'}});
+async function admissionTicket(request){
+ if(request.headers.get('content-type')?.split(';')[0].trim()!=='application/x-www-form-urlencoded')return null;
+ const reader=request.body?.getReader();if(!reader)return null;
+ const chunks=[];let size=0;
+ try{
+  while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>1024)return null;chunks.push(value)}
+  const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length}
+  const fields=[...new URLSearchParams(new TextDecoder('utf-8',{fatal:true}).decode(bytes))];
+  return fields.length===1&&fields[0][0]==='ticket'?fields[0][1]:null;
+ }catch{return null}finally{await reader.cancel().catch(()=>{});reader.releaseLock()}
+}
 export function createQuotationCommercialPrivateStagingHost({env}={}){
  if(env?.APP_ENV!=='quotation-private-staging'||env.QUOTATION_COMMERCIAL_STAGE_ENABLED!=='true')throw Error('commercial_stage_disabled');
  if(env.QUOTATION_COMMERCIAL_STAGE_DB_ID!==QUOTE_DB||env.QUOTATION_COMMERCIAL_STAGE_AUTH_DB_ID!==AUTH_DB||typeof env.DB?.prepare!=='function'||typeof env.QUOTATION_PDF_RENDERER?.fetch!=='function'||typeof env.ASSETS?.fetch!=='function')throw Error('commercial_stage_unconfigured');
@@ -17,6 +28,21 @@ export function createQuotationCommercialPrivateStagingHost({env}={}){
   if(url.origin!==origin)return response(404,'not_found');
   if(!['GET','PUT','POST'].includes(request.method))return response(405,'method_not_allowed');
   if(request.headers.get('origin')&&request.headers.get('origin')!==origin)return response(403,'origin_denied');
+  // This host is reachable only through the independently JWT-verifying Access
+  // gateway. Admission additionally needs an operator-created one-use ticket.
+  if(url.pathname==='/private/quotation-test-session'){
+   // Keep a concrete Origin on the native same-origin form POST. Cross-origin
+   // destinations still receive no referrer, and tickets never enter URLs.
+   const headers={'cache-control':'private, no-store','x-content-type-options':'nosniff','x-frame-options':'DENY','referrer-policy':'same-origin','x-robots-tag':'noindex, nofollow'};
+   if(request.method==='GET')return new Response('<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Private quotation test</title><main><h1>Start private quotation test</h1><p>Use the short-lived invitation supplied for this test. It can be used once.</p><form method="post" action="/private/quotation-test-session"><label>Staging invitation <input name="ticket" type="password" autocomplete="one-time-code" minlength="43" maxlength="128" required></label><button type="submit">Start private test session</button></form></main></html>',{headers:{...headers,'content-type':'text/html; charset=utf-8','content-security-policy':"default-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"}});
+   if(request.method!=='POST')return response(405,'method_not_allowed');
+   if(request.headers.get('origin')!==origin||!['same-origin',null].includes(request.headers.get('sec-fetch-site')))return response(403,'origin_denied');
+   const admitted=await verifier.exchangeSyntheticAdmission({ticket:await admissionTicket(request)});
+   if(!admitted)return response(401,'staging_invitation_invalid');
+   const seconds=Math.min(900,Math.floor((admitted.expiresAt-Date.now())/1000));
+   if(seconds<1)return response(401,'staging_invitation_invalid');
+   return new Response(null,{status:303,headers:{...headers,location:'/app/quotations/customer-ready/','set-cookie':'__Host-bw_session='+admitted.cookie+'; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age='+seconds}});
+  }
   const session=await verifier.readVerifiedBrowserSession({request});
   if(!session)return response(401,'synthetic_session_required');
   if(session.role!=='owner')return response(403,'owner_required');
