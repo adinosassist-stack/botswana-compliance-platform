@@ -10,10 +10,10 @@ on:
         description: Verify policy, bootstrap a disabled Worker, or provision protected inert resources
         required: true
         type: choice
-        options: [preflight, bootstrap-inert, provision-inert-resources, bootstrap-private-backend, activation-preflight, rehearse-research]
+        options: [preflight, bootstrap-inert, provision-inert-resources, bootstrap-private-backend, activation-preflight, rehearse-research, deploy-private-dock]
         default: preflight
       authorization:
-        description: PREFLIGHT_ONLY, BOOTSTRAP_INERT_DOCK_STAGING, PROVISION_INERT_DOCK_STAGING or BOOTSTRAP_PRIVATE_DOCK_BACKEND or PREFLIGHT_DOCK_STAGING_ACTIVATION or REHEARSE_DOCK_STAGING_RESEARCH
+        description: PREFLIGHT_ONLY, BOOTSTRAP_INERT_DOCK_STAGING, PROVISION_INERT_DOCK_STAGING or BOOTSTRAP_PRIVATE_DOCK_BACKEND or PREFLIGHT_DOCK_STAGING_ACTIVATION or REHEARSE_DOCK_STAGING_RESEARCH or DEPLOY_DOCK_PRIVATE_STAGING
         required: true
         type: string
 permissions:
@@ -40,7 +40,7 @@ jobs:
           [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]
           test "$GITHUB_SHA" = "$EXPECTED_SHA"
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$EXPECTED_SHA"
-          [[ "$MODE:$AUTHORIZATION" == "preflight:PREFLIGHT_ONLY" || "$MODE:$AUTHORIZATION" == "bootstrap-inert:BOOTSTRAP_INERT_DOCK_STAGING" || "$MODE:$AUTHORIZATION" == "provision-inert-resources:PROVISION_INERT_DOCK_STAGING" || "$MODE:$AUTHORIZATION" == "bootstrap-private-backend:BOOTSTRAP_PRIVATE_DOCK_BACKEND" || "$MODE:$AUTHORIZATION" == "activation-preflight:PREFLIGHT_DOCK_STAGING_ACTIVATION" || "$MODE:$AUTHORIZATION" == "rehearse-research:REHEARSE_DOCK_STAGING_RESEARCH" ]]
+          [[ "$MODE:$AUTHORIZATION" == "preflight:PREFLIGHT_ONLY" || "$MODE:$AUTHORIZATION" == "bootstrap-inert:BOOTSTRAP_INERT_DOCK_STAGING" || "$MODE:$AUTHORIZATION" == "provision-inert-resources:PROVISION_INERT_DOCK_STAGING" || "$MODE:$AUTHORIZATION" == "bootstrap-private-backend:BOOTSTRAP_PRIVATE_DOCK_BACKEND" || "$MODE:$AUTHORIZATION" == "activation-preflight:PREFLIGHT_DOCK_STAGING_ACTIVATION" || "$MODE:$AUTHORIZATION" == "rehearse-research:REHEARSE_DOCK_STAGING_RESEARCH" || "$MODE:$AUTHORIZATION" == "deploy-private-dock:DEPLOY_DOCK_PRIVATE_STAGING" ]]
           api="repos/$GITHUB_REPOSITORY/environments/general-ai-private-staging"
           reviewer="$(gh api users/thusico --jq .id)"
           gh api "$api" | jq -e --argjson reviewer "$reviewer" '
@@ -237,7 +237,7 @@ jobs:
 
   rehearse-research:
     needs: verify
-    if: github.ref == 'refs/heads/main' && github.actor == 'adinosassist-stack' && inputs.mode == 'rehearse-research' && inputs.authorization == 'REHEARSE_DOCK_STAGING_RESEARCH'
+    if: github.ref == 'refs/heads/main' && github.actor == 'adinosassist-stack' && ((inputs.mode == 'rehearse-research' && inputs.authorization == 'REHEARSE_DOCK_STAGING_RESEARCH') || (inputs.mode == 'deploy-private-dock' && inputs.authorization == 'DEPLOY_DOCK_PRIVATE_STAGING'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: general-ai-private-staging
@@ -249,7 +249,7 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci --ignore-scripts
-      - name: Rehearse authenticated research and restore both staging Workers
+      - name: Deploy private Dock staging or run the authenticated rehearsal
         env:
           GH_TOKEN: ${{ github.token }}
           EXPECTED_SHA: ${{ inputs.expected_main_sha }}
