@@ -13,8 +13,17 @@ const versionPattern = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
 async function main() {
   if (env.AUTHORIZATION !== 'REHEARSE_DOCK_STAGING_RESEARCH') throw new Error('Protected rehearsal authorization required');
   const emails = validateInputs({...env, AUTHORIZATION: 'PREFLIGHT_DOCK_STAGING_ACTIVATION'});
+  const serviceAuth = env.DOCK_RESEARCH_SERVICE_TOKEN_ID ? {
+    tokenId: env.DOCK_RESEARCH_SERVICE_TOKEN_ID,
+    clientId: env.DOCK_RESEARCH_SERVICE_CLIENT_ID,
+    clientSecret: env.DOCK_RESEARCH_SERVICE_CLIENT_SECRET,
+  } : undefined;
+  const validAccess = serviceAuth
+    ? versionPattern.test(serviceAuth.tokenId) && [serviceAuth.clientId, serviceAuth.clientSecret]
+      .every(value => /^[a-zA-Z0-9_.-]{16,256}$/.test(value ?? ''))
+    : /^[\w-]+\.[\w-]+\.[\w-]+$/.test(env.DOCK_RESEARCH_ACCESS_TOKEN ?? '');
   if (!env.GH_TOKEN || !env.DOCK_WORKER_WRITE_TOKEN || !env.DOCK_RESEARCH_OPENAI_KEY ||
-      !/^[\w-]+\.[\w-]+\.[\w-]+$/.test(env.DOCK_RESEARCH_ACCESS_TOKEN ?? '')) {
+      !validAccess) {
     throw new Error('Protected Dock rehearsal credentials are missing or malformed');
   }
 
@@ -95,7 +104,7 @@ async function main() {
     const evidence = await runDockStagingResearch({
       api, emails, expectedVersion: env.DOCK_STAGING_BOOTSTRAP_VERSION_ID,
       sessionSecret,
-      accessToken: env.DOCK_RESEARCH_ACCESS_TOKEN,
+      accessToken: env.DOCK_RESEARCH_ACCESS_TOKEN, serviceAuth,
       assertMain, activate, restore,
     });
     console.log(JSON.stringify(evidence));

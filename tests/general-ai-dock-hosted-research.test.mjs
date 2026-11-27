@@ -23,3 +23,14 @@ test('Dock hosted probe checks the staging boundary before spending a research r
   assert.equal(requests[2].origin, 'https://untrusted.invalid');
   assert.equal(requests[3]['x-csrf-token'], fixture.csrfToken);
 });
+
+test('machine authentication sends Access headers without a personal cookie',async()=>{
+ const serviceAuth={clientId:'synthetic-client-id',clientSecret:'synthetic-client-secret'};
+ const fixture={sessionToken:'a'.repeat(64),csrfToken:'b'.repeat(64)};
+ await assert.rejects(checkDockStagingResearch({serviceAuth,fixture,fetchImpl:async(url,{headers})=>{
+  assert.equal(headers['CF-Access-Client-Id'],serviceAuth.clientId);
+  assert.equal(headers['CF-Access-Client-Secret'],serviceAuth.clientSecret);
+  assert.equal(headers.cookie,undefined);
+  return new Response(null,{status:302});
+ }}),/Missing session expected HTTP 401/);
+});

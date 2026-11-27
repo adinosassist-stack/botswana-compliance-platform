@@ -34,3 +34,17 @@ test('reject missing or bypassed Access, partial routes, and unexpected tester p
  ];
  for(const change of cases){const x=sample();change(x);assert.throws(()=>verifyDockIngress(x));}
 });
+
+test('only the exact dedicated service token may join the tester allowlist',()=>{
+ const x=sample();
+ x.phase='after-attach';
+ x.domains=[{hostname:DOCK_HOST,service:DOCK_WORKER,zone_name:'thebedesk.com',enabled:true,previews_enabled:false}];
+ x.serviceTokenId=id;
+ x.policies.push({decision:'non_identity',include:[{service_token:{token_id:id}}]});
+ assert.equal(verifyDockIngress(x).ok,true);
+ delete x.serviceTokenId;
+ assert.throws(()=>verifyDockIngress(x));
+ x.serviceTokenId=id;
+ x.policies[1].include=[{any_valid_service_token:{}}];
+ assert.throws(()=>verifyDockIngress(x),/exact_dock_service_policy_required/);
+});
