@@ -23,11 +23,19 @@ async function main() {
     throw new Error('Both exact rollback versions are required for a post-deployment rehearsal');
   }
   const voiceDeployment = env.DOCK_ENABLE_PRIVATE_VOICE === 'true';
-  if (voiceDeployment && (!deployOnly || !workspacePin ||
-      !/^dock-test-[a-f0-9]{64}$/.test(env.DOCK_VOICE_INVITATION ?? '') ||
-      !/^https:\/\/[a-z0-9-]+\.cloudflareaccess\.com$/.test(env.DOCK_ACCESS_TEAM_ORIGIN ?? '') ||
-      (env.DOCK_VOICE_OPENAI_KEY?.trim().length ?? 0) <= 20)) {
-    throw new Error('Private voice deploy requires both rollback versions, an Access issuer, a voice key and a one-use invitation');
+  if (voiceDeployment) {
+    if (!deployOnly || !workspacePin || !backendPin) {
+      throw new Error('Private voice requires deploy-private-dock and both rollback versions');
+    }
+    if (!/^https:\/\/[a-z0-9-]+\.cloudflareaccess\.com$/.test(env.DOCK_ACCESS_TEAM_ORIGIN ?? '')) {
+      throw new Error('DOCK_STAGING_ACCESS_TEAM_ORIGIN is missing or invalid');
+    }
+    if ((env.DOCK_VOICE_OPENAI_KEY?.trim().length ?? 0) <= 20) {
+      throw new Error('DOCK_STAGING_VOICE_OPENAI_KEY is missing or too short');
+    }
+    if (!/^dock-test-[a-f0-9]{64}$/.test(env.DOCK_VOICE_INVITATION?.trim() ?? '')) {
+      throw new Error('DOCK_STAGING_VOICE_INVITATION must be dock-test- followed by 64 lowercase hex characters');
+    }
   }
   const voice = voiceDeployment || (!deployOnly && Boolean(env.DOCK_VOICE_OPENAI_KEY));
   if (voice && !workspacePin) throw new Error("Voice rehearsal requires exact deployed rollback versions");
@@ -155,7 +163,7 @@ async function main() {
           const fixture = createDockFixtureAdapter({
             db, databaseId: baseline.databaseId, qualifiedDatabaseId: baseline.databaseId,
             fixtureId: 'dock-fixture-' + suffix,
-            tokenHash: createHmac('sha256', sessionSecret).update(env.DOCK_VOICE_INVITATION).digest('hex'),
+            tokenHash: createHmac('sha256', sessionSecret).update(env.DOCK_VOICE_INVITATION.trim()).digest('hex'),
             csrfToken: randomBytes(32).toString('hex'),
           });
           await fixture.assertAbsent();
