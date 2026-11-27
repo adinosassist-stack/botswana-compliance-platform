@@ -24,15 +24,27 @@ function exactApp(app){
   }
   return app.session_duration==="15m" && app.options_preflight_bypass!==true && app.skip_interstitial!==true;
 }
-export function verifyDockIngress({apps,policies,domains,routes,workspaceSubdomain,backendSubdomain,appId,testerEmails,inventoryComplete,phase}={}){
+export function verifyDockIngress({apps,policies,domains,routes,workspaceSubdomain,backendSubdomain,appId,testerEmails,serviceTokenId,inventoryComplete,phase}={}){
   fail(inventoryComplete===true&&[apps,policies,domains,routes].every(Array.isArray),"complete_inventory_required");
   fail(phase==="before-attach"||phase==="after-attach","invalid_phase");
   fail(uuid.test(appId||""),"qualified_access_id_required");
   fail(Array.isArray(testerEmails)&&testerEmails.length>0&&testerEmails.length<=5&&testerEmails.every(e=>email.test(e)&&e===e.toLowerCase())&&new Set(testerEmails).size===testerEmails.length,"reviewed_tester_allowlist_required");
   const matching=apps.filter(a=>mayCover(a.domain)||(a.self_hosted_domains||[]).some(mayCover)||(a.destinations||[]).some(d=>mayCover(d.uri)||["all_workers","all_preview_workers"].includes(d.type)));
   fail(matching.length===1&&matching[0].id===appId&&exactApp(matching[0]),"exact_access_application_required");
-  fail(policies.length===1&&policies[0].decision==="allow","sole_allow_policy_required");
-  const p=policies[0];
+  const servicePolicyExpected=serviceTokenId!==undefined;
+  if(servicePolicyExpected){
+    fail(phase==="after-attach"&&uuid.test(serviceTokenId),"invalid_dock_service_token_id");
+    const service=policies.find(policy=>policy.decision==="non_identity");
+    const selector=service?.include?.[0];
+    fail(policies.length===2&&service?.include?.length===1&&
+      Object.keys(selector??{}).length===1&&Object.keys(selector?.service_token??{}).length===1&&
+      selector.service_token.token_id===serviceTokenId&&
+      (service.exclude??[]).length===0&&(service.require??[]).length===0,
+      "exact_dock_service_policy_required");
+  }
+  const allowed=policies.filter(policy=>policy.decision==="allow");
+  fail(policies.length===(servicePolicyExpected?2:1)&&allowed.length===1,"sole_allow_policy_required");
+  const p=allowed[0];
   fail(Array.isArray(p.include)&&p.include.length===testerEmails.length&&p.include.every(i=>Object.keys(i).length===1&&Object.keys(i.email||{}).length===1&&typeof i.email?.email==="string"),"explicit_email_policy_required");
   fail(JSON.stringify(p.include.map(i=>i.email.email.toLowerCase()).sort())===JSON.stringify([...testerEmails].sort()),"tester_allowlist_mismatch");
   fail((p.exclude||[]).length===0&&(p.require||[]).length===0,"unreviewed_policy_condition");
