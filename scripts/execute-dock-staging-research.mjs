@@ -20,6 +20,8 @@ async function main() {
       (deployOnly || !versionPattern.test(workspacePin ?? '') || !versionPattern.test(backendPin ?? ''))) {
     throw new Error('Both exact rollback versions are required for a post-deployment rehearsal');
   }
+  const voice = !deployOnly && Boolean(env.DOCK_VOICE_OPENAI_KEY);
+  if (voice && !workspacePin) throw new Error("Voice rehearsal requires exact deployed rollback versions");
   const emails = validateInputs({...env, AUTHORIZATION: 'PREFLIGHT_DOCK_STAGING_ACTIVATION'});
   const serviceAuth = env.DOCK_RESEARCH_SERVICE_TOKEN_ID ? {
     tokenId: env.DOCK_RESEARCH_SERVICE_TOKEN_ID,
@@ -73,11 +75,12 @@ async function main() {
     for (const role of ['backend', 'workspace']) {
       const config = join(directory, role + '.json');
       const secretsPath = join(directory, role + '-secrets.json');
-      const profile = execFileSync('python3', ['scripts/build-dock-staging-research-config.py', role, suffix], {
+      const profile = execFileSync('python3', ['scripts/build-dock-staging-research-config.py', role, suffix, ...(voice ? ['--voice'] : [])], {
         env: {PATH: env.PATH}, encoding: 'utf8', timeout: 15000,
       });
       const secrets = {SESSION_SECRET: sessionSecret};
       if (role === 'backend') secrets.OPENAI_API_KEY = env.DOCK_RESEARCH_OPENAI_KEY;
+      if (voice && role === 'workspace') secrets.OPENAI_API_KEY = env.DOCK_VOICE_OPENAI_KEY;
       writeFileSync(config, profile, {mode: 0o600});
       writeFileSync(secretsPath, JSON.stringify(secrets), {mode: 0o600});
       files[role] = config;
@@ -140,7 +143,7 @@ async function main() {
     const evidence = await runDockStagingResearch({
       api, emails, expectedVersion: workspacePin || env.DOCK_STAGING_BOOTSTRAP_VERSION_ID,
       expectedBackendVersion: backendPin || undefined,
-      sessionSecret,
+      sessionSecret, voice,
       accessToken: env.DOCK_RESEARCH_ACCESS_TOKEN, serviceAuth,
       assertMain, activate, restore,
     });
