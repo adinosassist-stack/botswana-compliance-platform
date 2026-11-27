@@ -93,6 +93,10 @@ test("activation preflight reads only and rejects a drifted backend binding",asy
  };
  const options={api:readApi,emails,expectedVersion:version};
  assert.deepEqual(await verifyActivationReadiness(options),{ok:true,hostname:DOCK_HOST,databaseId:isolatedId,inert:true,rollbackVersions:{workspace:version,backend:version}});
+ const pinned=await verifyActivationReadiness({...options,expectedBackendVersion:version});
+ assert.deepEqual(pinned.rollbackVersions,{workspace:version,backend:version});
+ assert.equal(pinned.inert,false);
+ await assert.rejects(verifyActivationReadiness({...options,expectedBackendVersion:db}),/inert_deployment_identity_mismatch/);
  bindingId=db;
  await assert.rejects(verifyActivationReadiness(options),/backend_database_binding_mismatch/);
  bindingId=isolatedId;

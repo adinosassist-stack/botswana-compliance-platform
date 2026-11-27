@@ -18,7 +18,7 @@ WORKERS = {
 }
 
 
-def build_profile(role, fixture_suffix):
+def build_profile(role, fixture_suffix, voice=False):
     if not re.fullmatch(r"[a-f0-9]{32}", fixture_suffix):
         raise ValueError("Expected a 32-character hexadecimal synthetic fixture suffix")
     directory = ROOT / "cloudflare"
@@ -46,7 +46,7 @@ def build_profile(role, fixture_suffix):
         "PAYMENT_PROVIDER": "none",
         "AGENT_BOUNDED_TASK_EXECUTION_ENABLED": "0",
         "THEBE_INTERNAL_AUTONOMY_ENABLED": "false",
-        "THEBE_LIVE_VOICE_ENABLED": "false",
+        "THEBE_LIVE_VOICE_ENABLED": "true" if voice and role == "workspace" else "false",
         "THEBE_GPT_LIVE_PREVIEW_ENABLED": "false",
         "THEBE_MARKETING_VOICE_ENABLED": "false",
         "THEBE_GENERAL_AI_ENABLED": "true" if role == "backend" else "false",
@@ -80,8 +80,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("role", choices=WORKERS)
     parser.add_argument("fixture_suffix")
+    parser.add_argument("--voice", action="store_true")
     args = parser.parse_args()
-    print(json.dumps(build_profile(args.role, args.fixture_suffix), indent=2))
+    print(json.dumps(build_profile(args.role, args.fixture_suffix, args.voice), indent=2))
 
 
 if __name__ == "__main__":

@@ -133,12 +133,13 @@ export async function provisionInertResources({api,emails,assertMain,expectedVer
  verifyDockIngress({...after,policies:await list(api,appPath+"/policies"),appId:app.id,testerEmails:emails,inventoryComplete:true,phase:"after-attach"});
  return {ok:true,databaseId:database,accessAppId:app.id,domainId:domain.id,hostname:DOCK_HOST,inert:true,productionUntouched:true};
 }
-export async function verifyActivationReadiness({api, emails, expectedVersion, serviceTokenId}){
+export async function verifyActivationReadiness({api, emails, expectedVersion, serviceTokenId, expectedBackendVersion}){
  const account="/accounts/"+ACCOUNT;
  const zones=await list(api,"/zones?name=thebedesk.com&account.id="+ACCOUNT);
  need(zones.length===1&&zones[0].name==="thebedesk.com"&&zones[0].account?.id===ACCOUNT&&hex.test(zones[0].id||"")&&zones[0].status==="active","zone_identity_mismatch");
  const current=await inventory(api,zones[0].id);
- verifyInertSettings(current.settings);
+ const inert=expectedBackendVersion===undefined;
+ if(inert)verifyInertSettings(current.settings);
  verifyCurrentDeployment(await result(api,account+"/workers/scripts/"+DOCK_WORKER+"/deployments"),expectedVersion);
  const apps=current.apps.filter(app=>app.name===APP_NAME);
  need(apps.length===1&&UUID.test(apps[0].id||""),"staging_access_app_identity_mismatch");
@@ -151,20 +152,22 @@ export async function verifyActivationReadiness({api, emails, expectedVersion, s
  need(backendSubdomain?.enabled===false&&backendSubdomain?.previews_enabled===false,"private_backend_direct_ingress_present");
  const backendPath=account+"/workers/scripts/"+PRIVATE_DOCK_BACKEND;
  const backendDeployments=await result(api,backendPath+"/deployments");
- const backendVersion=backendDeployments?.deployments?.[0]?.versions?.[0]?.version_id;
+ const backendVersion=expectedBackendVersion??backendDeployments?.deployments?.[0]?.versions?.[0]?.version_id;
  verifyCurrentDeployment(backendDeployments,backendVersion);
- const settings=await result(api,backendPath+"/settings");
- const bindings=settings?.bindings;
- need(Array.isArray(bindings)&&new Set(bindings.map(binding=>binding.name)).size===bindings.length,"backend_binding_inventory_invalid");
- const resources=bindings.filter(binding=>binding.type!=="plain_text");
- need(resources.length===1&&resources[0].type==="d1"&&resources[0].name==="DB"&&resources[0].id===DATABASE_ID,"backend_database_binding_mismatch");
- for(const name of ["THEBE_GENERAL_AI_ENABLED","THEBE_GENERAL_AI_RESEARCH_ENABLED","THEBE_LIVE_VOICE_ENABLED"]){
-   need(bindings.some(binding=>binding.name===name&&binding.type==="plain_text"&&binding.text==="false"),"backend_feature_not_disabled");
+ if(inert){
+  const settings=await result(api,backendPath+"/settings");
+  const bindings=settings?.bindings;
+  need(Array.isArray(bindings)&&new Set(bindings.map(binding=>binding.name)).size===bindings.length,"backend_binding_inventory_invalid");
+  const resources=bindings.filter(binding=>binding.type!=="plain_text");
+  need(resources.length===1&&resources[0].type==="d1"&&resources[0].name==="DB"&&resources[0].id===DATABASE_ID,"backend_database_binding_mismatch");
+  for(const name of ["THEBE_GENERAL_AI_ENABLED","THEBE_GENERAL_AI_RESEARCH_ENABLED","THEBE_LIVE_VOICE_ENABLED"]){
+    need(bindings.some(binding=>binding.name===name&&binding.type==="plain_text"&&binding.text==="false"),"backend_feature_not_disabled");
+  }
  }
  // Confirm neither Worker changed while the inventory and bindings were checked.
  verifyCurrentDeployment(await result(api,backendPath+"/deployments"),backendVersion);
  verifyCurrentDeployment(await result(api,account+"/workers/scripts/"+DOCK_WORKER+"/deployments"),expectedVersion);
- return {ok:true,hostname:DOCK_HOST,databaseId:DATABASE_ID,inert:true,
+ return {ok:true,hostname:DOCK_HOST,databaseId:DATABASE_ID,inert,
    rollbackVersions:{workspace:expectedVersion,backend:backendVersion}};
 }
 async function main(){
