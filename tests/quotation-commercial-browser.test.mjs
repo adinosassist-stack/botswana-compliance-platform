@@ -85,11 +85,12 @@ test('private invitation form installs an HttpOnly session once without putting 
 });
 test('mobile company defaults, save/reload across browser sessions, issue, direct two-page PDF, download and native share',async()=>{
  const context=await browser.newContext({viewport:{width:375,height:812},acceptDownloads:true});
- const page=await context.newPage();page.on('pageerror',e=>console.error('browser runtime:',e.message));page.on('dialog',dialog=>dialog.accept());await ready(page);
+ const page=await context.newPage();page.on('pageerror',e=>console.error('browser runtime:',e.message));await ready(page);
  await page.getByText('Company Settings — banking details',{exact:true}).click();
  for(const [title,value] of Object.entries({'Bank name':'FNB','Account holder':'Synthetic Company','Account number':'00123456789','Branch':'Riverwalk','Branch code (optional)':'123','Payment reference (optional)':'Quote number'}))await field(page,title).fill(value);
  await page.getByRole('button',{name:'Save company banking details',exact:true}).click();await page.getByRole('status').filter({hasText:'Company banking details saved'}).waitFor();
- await page.getByRole('button',{name:'New quotation',exact:true}).click();await page.getByRole('status').filter({hasText:'New quotation.'}).waitFor();
+ await page.getByRole('button',{name:'New quotation',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();assert.equal(await page.getByRole('dialog').count(),0);
+ await page.getByRole('button',{name:'New quotation',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('status').filter({hasText:'New quotation.'}).waitFor();
  assert.equal(await page.getByRole('button',{name:'Export draft JSON',exact:true}).count(),0);
  assert.equal(await page.getByRole('button',{name:'Choose saved PDF to share',exact:true}).count(),0);
  assert.equal(await page.getByText('Invoice drafting and issuance are not available from this editor.',{exact:false}).count(),0);
@@ -97,11 +98,11 @@ test('mobile company defaults, save/reload across browser sessions, issue, direc
  await page.getByRole('button',{name:'Save draft',exact:true}).click();await page.getByRole('status').filter({hasText:'Draft saved to your business account'}).waitFor();
  const savedId=await page.getByRole('combobox',{name:'Saved quotations and invoices'}).inputValue();assert.ok(savedId);
  // A new context models another signed-in session/device with no shared web storage.
- const second=await browser.newContext({viewport:{width:320,height:740}});const other=await second.newPage();other.on('pageerror',e=>console.error('browser runtime:',e.message));other.on('dialog',d=>d.accept());await ready(other);
+ const second=await browser.newContext({viewport:{width:320,height:740}});const other=await second.newPage();other.on('pageerror',e=>console.error('browser runtime:',e.message));await ready(other);
  assert.equal(await other.locator('.qc-bank input[type=password]').inputValue(),'00123456789');
- await other.getByRole('combobox',{name:'Saved quotations and invoices'}).selectOption(savedId);await other.getByRole('button',{name:'Open saved',exact:true}).click();await other.getByRole('status').filter({hasText:'Saved quote opened'}).waitFor();
+ await other.getByRole('combobox',{name:'Saved quotations and invoices'}).selectOption(savedId);await other.getByRole('button',{name:'Open saved',exact:true}).click();await other.getByRole('dialog').getByRole('button',{name:'Continue',exact:true}).click();await other.getByRole('status').filter({hasText:'Saved quote opened'}).waitFor();
  assert.equal(await field(other,'Customer name').inputValue(),'Customer A');
- await other.getByRole('button',{name:'Issue document',exact:true}).click();await other.getByRole('status').filter({hasText:'Issued QT-000001'}).waitFor();
+ await other.getByRole('button',{name:'Issue document',exact:true}).click();await other.getByRole('dialog').getByRole('button',{name:'Continue',exact:true}).click();await other.getByRole('status').filter({hasText:'Issued QT-000001'}).waitFor();
  assert.equal(await other.getByRole('button',{name:'Save draft',exact:true}).isDisabled(),true);
  await other.getByRole('button',{name:'Prepare PDF',exact:true}).click();await other.getByRole('status').filter({hasText:'PDF ready.'}).waitFor({timeout:30000});
  const downloadWait=other.waitForEvent('download');await other.getByRole('button',{name:'Download PDF',exact:true}).click();const download=await downloadWait;assert.equal(download.suggestedFilename(),'QT-000001.pdf');
@@ -110,7 +111,10 @@ test('mobile company defaults, save/reload across browser sessions, issue, direc
  await other.getByRole('button',{name:'Share PDF',exact:true}).click();const share=await other.evaluate(()=>window.shareEvidence);assert.equal(share.name,'QT-000001.pdf');assert.equal(share.type,'application/pdf');assert.ok(share.size>1000);assert.equal(share.activation,true);assert.deepEqual(share.keys,['files']);
  await other.getByRole('combobox',{name:'Invoice customer',exact:true}).selectOption('ca');await other.getByLabel('Invoice due date',{exact:true}).fill('2026-12-30');
  await other.getByRole('button',{name:'Create invoice draft',exact:true}).click();await other.getByRole('status').filter({hasText:'Invoice draft created'}).waitFor();
- await other.getByRole('button',{name:'Issue document',exact:true}).click();await other.getByRole('status').filter({hasText:'Issued INV-000001'}).waitFor();
+ await other.getByRole('button',{name:'Issue document',exact:true}).click();await other.getByRole('dialog').getByRole('button',{name:'Continue',exact:true}).click();await other.getByRole('status').filter({hasText:'Issued INV-000001'}).waitFor();
+ assert.equal((await db.prepare('SELECT count(*) n FROM finance_invoices').first()).n,1);
+ await other.route('**/api/quotation/documents/*',route=>route.fulfill({status:401,contentType:'application/json',body:JSON.stringify({error:'synthetic_session_required'})}));
+ await other.getByRole('button',{name:'Open saved',exact:true}).click();await other.getByRole('dialog').getByRole('button',{name:'Continue',exact:true}).click();await other.getByRole('status').filter({hasText:'Your session has expired. Sign in again.'}).waitFor();
  assert.equal((await db.prepare('SELECT count(*) n FROM finance_invoices').first()).n,1);
  assert.ok(await other.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
  await second.close();await context.close();
@@ -118,10 +122,10 @@ test('mobile company defaults, save/reload across browser sessions, issue, direc
 
 test('commercial controls reflow at mobile/tablet widths, landscape and 200-percent-equivalent widths',async()=>{
  for(const [width,height] of [[320,740],[375,812],[414,896],[430,932],[768,1024],[812,375],[640,900]]){
- const context=await browser.newContext({viewport:{width,height}});const page=await context.newPage();page.on('dialog',d=>d.accept());
+ const context=await browser.newContext({viewport:{width,height}});const page=await context.newPage();
  try{
   await ready(page);
-  await page.getByRole('button',{name:'Open saved',exact:true}).click();await page.getByRole('status').filter({hasText:/Saved (quote|invoice) opened/}).waitFor();
+  await page.getByRole('button',{name:'Open saved',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('status').filter({hasText:/Saved (quote|invoice) opened/}).waitFor();
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'overflow at '+width+'x'+height);
   for(const name of ['New quotation','Open saved','Prepare PDF','Company Settings — banking details']){
    const locator=name.startsWith('Company')?page.getByText(name,{exact:true}):page.getByRole('button',{name,exact:true});
