@@ -14,17 +14,30 @@ export async function mountQuotationCommercialWorkspace(root,{capability,fetchIm
  const button=(text,fn)=>{const b=node('button',text);b.type='button';b.addEventListener('click',fn);row.append(b);return b};
  const selected=node('select');selected.setAttribute('aria-label','Saved quotations and invoices');row.append(selected);
  const editorHost=node('div');const notice=text=>{if(!disposed)status.textContent=text};
- const messages={revision_conflict:'A newer version exists. Open the saved copy before saving again.',quotation_commercial_disabled:'Saved quotations are awaiting activation. Your current editor is still available.',quotation_storage_unavailable:'Saving is temporarily unavailable. Your edits are still here.',complete_customer_amount_bank_and_terms:'Complete the customer, amount, banking details and terms before issuing.',pdf_renderer_unavailable:'Direct PDF download is awaiting activation. Use Print / Save PDF below.',invalid_document_or_schedule:'Complete valid customer details, dates, amounts and payment schedule.',customer_not_found:'Choose an active customer belonging to this business.'};
+ let pendingConfirmation=null;
+ async function confirmAction(message){
+  const previous=document.activeElement,dialog=node('dialog'),title=node('h2','Confirm document action'),description=node('p',message),cancel=node('button','Cancel'),proceed=node('button','Continue');
+  title.id='qc-confirm-title';description.id='qc-confirm-description';dialog.setAttribute('aria-labelledby',title.id);dialog.setAttribute('aria-describedby',description.id);
+  dialog.style.cssText='max-width:min(440px,calc(100vw - 32px));box-sizing:border-box;padding:20px;border:1px solid #687481;border-radius:12px';
+  cancel.type=proceed.type='button';dialog.append(title,description,cancel,proceed);panel.append(dialog);
+  return new Promise(resolve=>{
+   const finish=value=>{if(pendingConfirmation!==finish)return;pendingConfirmation=null;dialog.close();dialog.remove();if(!disposed)previous?.focus();resolve(value)};
+   pendingConfirmation=finish;cancel.addEventListener('click',()=>finish(false));proceed.addEventListener('click',()=>finish(true));dialog.addEventListener('cancel',event=>{event.preventDefault();finish(false)});
+   dialog.showModal();cancel.focus();
+  });
+ }
+ const messages={revision_conflict:'A newer version exists. Open the saved copy before saving again.',quotation_commercial_disabled:'Saved quotations are awaiting activation. Your current editor is still available.',quotation_storage_unavailable:'Saving is temporarily unavailable. Your edits are still here.',complete_customer_amount_bank_and_terms:'Complete the customer, amount, banking details and terms before issuing.',pdf_renderer_unavailable:'Direct PDF download is awaiting activation. Use Print / Save PDF below.',invalid_document_or_schedule:'Complete valid customer details, dates, amounts and payment schedule.',customer_not_found:'Choose an active customer belonging to this business.',synthetic_session_required:'Your private test session has expired. Start a new private test session; your saved documents and banking details are unchanged.',unauthorized:'Your session has expired. Sign in again.'};
  async function request(path,method='GET',body){
  const response=await fetchImpl('/api/quotation/'+path,{method,credentials:'same-origin',redirect:'error',cache:'no-store',headers:{'content-type':'application/json','x-csrf-token':csrf},...(body===undefined?{}:{body:JSON.stringify(body)})});
+ if(response.status===401)throw Error('Your session has expired. Sign in again. Your saved documents and banking details are unchanged.');
  const data=await response.json();if(!response.ok)throw Error(messages[data.error]||'The action could not be completed. Check your details and retry.');return data;
  }
- async function run(fn){if(busy||disposed)return;busy=true;editorHost.inert=true;for(const b of row.querySelectorAll('button'))b.disabled=true;try{await fn()}catch(e){notice(e.message)}finally{busy=false;editorHost.inert=false;if(!disposed)paint()}}
+ async function run(fn){if(busy||disposed)return;const returnFocus=document.activeElement;busy=true;editorHost.inert=true;for(const b of row.querySelectorAll('button'))b.disabled=true;try{await fn()}catch(e){notice(e.message)}finally{busy=false;editorHost.inert=false;if(!disposed){paint();if(returnFocus?.isConnected&&!returnFocus.disabled)returnFocus.focus()}}}
  const newButton=button('New quotation',()=>run(async()=>{
-  if(editor&&!globalThis.confirm('Start a new quotation? Save your current edits first.'))return;
+  if(editor&&!await confirmAction('Start a new quotation? Save your current edits first.'))return;
   const banking=await request('banking');openNew(banking.banking);notice('New quotation. Company banking defaults are filled in; document edits do not change those defaults.');
  }));
- button('Open saved',()=>run(async()=>{if(!selected.value)return;if(editor&&!globalThis.confirm('Replace current fields with this saved copy? Unsaved edits will be lost.'))return;open(await request('documents/'+selected.value));notice('Saved '+current.kind+' opened.')}));
+ button('Open saved',()=>run(async()=>{if(!selected.value)return;if(editor&&!await confirmAction('Replace current fields with this saved copy? Unsaved edits will be lost.'))return;open(await request('documents/'+selected.value));notice('Saved '+current.kind+' opened.')}));
  const reviseButton=button('Revise quotation',()=>run(async()=>{if(current?.kind!=='quote'||current?.status!=='issued')return;const document=editor.getDraft();document.quoteNumber='DRAFT';current=null;clearPdf();deposit.disabled=instalments.disabled=false;render(document);notice('Revision started as a new draft. The issued quotation remains unchanged.');}));
  const saveButton=button('Save draft',()=>run(async()=>{
   const doc=editor.getDraft();if(current?.status==='issued')throw Error('Issued documents are locked. Start a new quotation.');
@@ -33,7 +46,7 @@ export async function mountQuotationCommercialWorkspace(root,{capability,fetchIm
  }));
  const issueButton=button('Issue document',()=>run(async()=>{
   if(!current||JSON.stringify(editor.getDraft())!==JSON.stringify(current.document)||JSON.stringify(readSchedule())!==JSON.stringify(current.schedule))throw Error('Save your latest changes before issuing.');
-  if(!globalThis.confirm('Issue this '+current.kind+'? Its number and contents will be permanent.'))return;
+  if(!await confirmAction('Issue this '+current.kind+'? Its number and contents will be permanent.'))return;
   open(await request('documents/'+current.id+'/issue','POST',{revision:current.revision}));await list();notice('Issued '+current.number+'. The saved copy is locked.');
  }));
  const customer=node('select');customer.setAttribute('aria-label','Invoice customer');const due=node('input');due.type='date';due.setAttribute('aria-label','Invoice due date');row.append(customer,due);
@@ -92,5 +105,5 @@ export async function mountQuotationCommercialWorkspace(root,{capability,fetchIm
  await list();const customers=await fetchImpl('/api/finance/customers',{credentials:'same-origin',cache:'no-store',redirect:'error'});if(customers.ok){const data=await customers.json();for(const x of data.items||[]){if(x.status&&x.status!=='active')continue;const option=node('option',x.name);option.value=x.id;customer.append(option)}}
  busy=false;openNew(bank.banking);notice('Ready. Enter customer details and amounts, then save your quotation.');
  }catch(e){notice(e.message);newButton.disabled=true;saveButton.disabled=true;issueButton.disabled=true;convertButton.disabled=true;prepare.disabled=true;download.disabled=true;share.disabled=true;}
- return {destroy(){disposed=true;editor?.destroy();clearPdf();root.replaceChildren()}};
+ return {destroy(){disposed=true;pendingConfirmation?.(false);editor?.destroy();clearPdf();root.replaceChildren()}};
 }
