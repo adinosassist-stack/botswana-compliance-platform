@@ -19,6 +19,14 @@ const sessionSql="SELECT s.user_id,s.tenant_id,m.role,s.csrf_token,s.expires_at 
 const membershipSql="SELECT m.user_id,m.tenant_id,m.role "+
  "FROM memberships m JOIN users u ON u.id=m.user_id "+
  "WHERE m.tenant_id=? AND m.user_id=? AND m.status='active' LIMIT 1";
+// Rekey an operator-created short-lived session exactly once. The admission
+// ticket is never the resulting browser cookie, and expiry is never extended.
+const admissionSql="UPDATE sessions SET token_hash=? WHERE token_hash=? AND tenant_id=? "+
+ "AND expires_at>CURRENT_TIMESTAMP AND expires_at<=datetime('now','+15 minutes') "+
+ "AND EXISTS(SELECT 1 FROM users u JOIN memberships m ON m.user_id=u.id "+
+ "AND m.tenant_id=sessions.tenant_id WHERE u.id=sessions.user_id "+
+ "AND u.session_generation=sessions.session_generation AND m.status='active' AND m.role='owner') "+
+ "RETURNING expires_at";
 const validId=x=>typeof x==="string"&&x.length>0&&x.length<=128;
 function sessionCookie(request){
  if(!(request instanceof Request))return null;
@@ -34,7 +42,8 @@ function sessionCookie(request){
   try{value=decodeURIComponent(segment.slice(pos+1).trim())}
   catch{return null}
  }
- return typeof value==="string"&&value.length>=16&&value.length<=512?value:null;
+ // Pending admission tickets are not browser sessions, even before exchange.
+ return typeof value==="string"&&!value.startsWith('quotation-test-')&&value.length>=16&&value.length<=512?value:null;
 }
 async function sessionHmac(secret,cookie){
  const encoder=new TextEncoder();
@@ -72,6 +81,17 @@ export function createQuotationPrivateD1SessionVerifier({
   }catch{return null}
  }
  return Object.freeze({
+  async exchangeSyntheticAdmission({ticket}={}){
+   if(typeof ticket!=='string'||!/^quotation-test-[A-Za-z0-9_-]{43}$/.test(ticket))return null;
+   try{
+    const cookie=btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).replaceAll('+','-').replaceAll('/','_').replaceAll('=','');
+    const oldHash=await sessionHmac(sessionSecret,ticket),newHash=await sessionHmac(sessionSecret,cookie);
+    const row=await authDb.prepare(admissionSql).bind(newHash,oldHash,expectedTenantId).first();
+    const expiresAt=Date.parse(String(row?.expires_at).replace(' ','T')+'Z');
+    if(!Number.isFinite(expiresAt)||expiresAt<=Date.now()||expiresAt>Date.now()+15*60*1000)return null;
+    return Object.freeze({cookie,expiresAt});
+   }catch{return null}
+  },
   // For the separately qualified private browser host only. Never return this
   // object to an unverified request; the host must still enforce owner scope.
   async readVerifiedBrowserSession({request}={}){
