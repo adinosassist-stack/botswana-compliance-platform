@@ -75,6 +75,7 @@ test('private invitation form installs an HttpOnly session once without putting 
   assert.ok(session);assert.equal(session.httpOnly,true);assert.equal(session.secure,true);assert.equal(session.sameSite,'Strict');assert.notEqual(session.value,ticket);
   assert.doesNotMatch(await page.evaluate(()=>document.cookie),/__Host-bw_session/);
   assert.equal(await page.evaluate(async()=>{const r=await fetch('/api/auth/me');return r.status}),200);
+  await page.getByRole('status').filter({hasText:'Ready. Enter customer details and amounts, then save your quotation.'}).waitFor();
   await page.getByText('Company Settings — banking details',{exact:true}).click();
   for(const [title,value] of Object.entries({'Bank name':'Synthetic Bank','Account holder':'Private test company','Account number':'00110022','Branch':'Synthetic branch'}))await page.getByLabel(title,{exact:true}).fill(value);
   await page.getByRole('button',{name:'Save company banking details',exact:true}).click();await page.getByRole('status').filter({hasText:'Company banking details saved'}).waitFor();
