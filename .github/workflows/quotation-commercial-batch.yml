@@ -7,6 +7,9 @@ on:
       - 'cloudflare/src/production-entry.js'
       - 'public/js/quotation-commercial-workspace.mjs'
       - 'public/js/quotation-customizable-page*.mjs'
+      - 'public/js/essentials-document-share.mjs'
+      - 'tests/essentials-document-share.test.mjs'
+      - 'tests/quotation-customizable-page-browser.test.mjs'
       - 'server/quotation-commercial-pdf-renderer.mjs'
       - 'server/quotation-final-html-print.mjs'
       - 'docs/sql/quotation-commercial-workflow-CANDIDATE.sql'
@@ -37,8 +40,8 @@ jobs:
           node --check cloudflare/src/production-entry.js
           node --check cloudflare/src/quotation-commercial-workflow.js
           node --check public/js/quotation-commercial-workspace.mjs
-          node --test tests/quotation-commercial-workflow.test.mjs tests/quotation-browser-preview.test.mjs tests/quotation-customizable-page-model.test.mjs tests/quotation-final-html-private-pdf.test.mjs tests/essentials-invoice-lifecycle.test.mjs tests/essentials-payment-schedule.test.mjs
+          node --test tests/quotation-commercial-workflow.test.mjs tests/quotation-browser-preview.test.mjs tests/quotation-customizable-page-model.test.mjs tests/quotation-final-html-private-pdf.test.mjs tests/essentials-invoice-lifecycle.test.mjs tests/essentials-payment-schedule.test.mjs tests/essentials-document-share.test.mjs
       - name: Real mobile browser, separate session, PDF and file share acceptance
         env:
           QUOTATION_BROWSER_ENGINE_ROOT: ${{ runner.temp }}/commercial-browser
-        run: node --test tests/quotation-commercial-browser.test.mjs
+        run: node --test tests/quotation-commercial-browser.test.mjs tests/quotation-customizable-page-browser.test.mjs

@@ -11,7 +11,10 @@ export function buildDocumentShare({kind,reference,customerName,amountBwp}={}) {
 const preparedFiles=new WeakSet();
 /** Validate and prepare before the user taps Share. No network or upload. */
 export async function prepareDocumentPdf({blob,filename}={}) {
-  if(!(blob instanceof Blob)||blob.type!=="application/pdf"||blob.size<8||blob.size>20*1024*1024)
+  if(!(blob instanceof Blob)||blob.size<8||blob.size>20*1024*1024)
+    throw new TypeError("invalid_pdf");
+  // Some mobile file pickers return generic MIME metadata for saved PDFs.
+  if(!["application/pdf","application/octet-stream",""].includes(blob.type))
     throw new TypeError("invalid_pdf");
   // MIME type/extension can be forged. Refuse obviously non-PDF payloads
   // before offering an attachment to native sharing (no network or upload).

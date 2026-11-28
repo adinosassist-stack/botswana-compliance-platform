@@ -17,10 +17,18 @@ async function load(){
  for(const item of prev.requests||[]){const p=document.createElement('p');p.textContent=String(item.status||'pending')+' — '+String(item.created_at||'');history.append(p);}
 }
 form.addEventListener('submit',async e=>{
- e.preventDefault();send.disabled=true;show('Submitting…');
- try{const response=await api.request('/api/workspace/managers/access-requests',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({locationId:branch.value,reason:reason.value})});
+ e.preventDefault();
+ if(send.disabled)return;
+ const code=businessCode.value.trim();
+ if(code&&!/^[a-f0-9]{64}$/.test(code)){show('Enter the complete business request code shared by its owner.');return;}
+ if(!code&&!branch.value){show('Enter a business request code or select your existing business branch.');return;}
+ send.disabled=true;show('Submitting…');
+ const payload={...(code?{businessCode:code}:{locationId:branch.value}),reason:reason.value};
+ try{const response=await api.request('/api/workspace/managers/access-requests',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
  if(!response?.ok)throw Error('not_confirmed');
- show('Your request was sent to your business owner for review. Manager access remains inactive.');await load();
+ businessCode.value='';
+ show('Your request was sent to your business owner for review. Manager access remains inactive.');
+ try{await load();}catch{show('Your request was sent. Request history could not be refreshed; reload to check its status. Manager access remains inactive.');}
  }catch{show('Request could not be sent. Check your account and try again.');}
  finally{send.disabled=false;}
 });

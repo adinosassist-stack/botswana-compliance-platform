@@ -80,12 +80,21 @@ try{
  const requestsSection=document.createElement('section');
  requestsSection.setAttribute('aria-label','Manager access requests');
  target.after(requestsSection);
- async function refreshAccessRequests(){
-  const data=await api.request('/api/workspace/managers/access-requests/inbox');
-  if(!data?.ok||!Array.isArray(data.requests))throw Error('requests_unavailable');
+ async function refreshAccessRequests(confirmation=''){
+  let data;
+  try{
+   data=await api.request('/api/workspace/managers/access-requests/inbox');
+   if(!data?.ok||!Array.isArray(data.requests))throw Error('requests_unavailable');
+  }catch(error){
+   if(!confirmation)throw error;
+   requestsSection.replaceChildren();
+   const message=document.createElement('p');message.setAttribute('role','status');message.setAttribute('aria-live','polite');
+   message.textContent=confirmation+' The request list could not be refreshed. Reload before taking another action.';
+   requestsSection.append(message);return;
+  }
   requestsSection.replaceChildren();
   const h=document.createElement('h2');h.textContent='Manager access requests';requestsSection.append(h);
-  const message=document.createElement('p');message.setAttribute('role','status');requestsSection.append(message);
+  const message=document.createElement('p');message.setAttribute('role','status');message.setAttribute('aria-live','polite');message.textContent=confirmation;requestsSection.append(message);
   const list=document.createElement('ul');requestsSection.append(list);
   for(const item of data.requests){
    const li=document.createElement('li');
@@ -97,8 +106,7 @@ try{
      try{
       const result=await api.request('/api/workspace/managers/access-requests/decide',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({requestId:item.id,decision})});
       if(!result?.ok||result.managerActive!==false)throw Error('unexpected_result');
-      await refreshAccessRequests();
-      message.textContent='Decision recorded. Manager access is not active until separately provisioned.';
+      await refreshAccessRequests('Decision recorded. Manager access is not active until separately provisioned.');
      }catch{message.textContent='Could not review this request. Reload and try again.';b.disabled=false;}
     });li.append(b);
    }
@@ -113,8 +121,7 @@ try{
        body:JSON.stringify({requestId:item.id})
       });
       if(!result?.ok||result.status!=='provisioned'||result.reauthenticationRequired!==true)throw Error('provision_unavailable');
-      await refreshAccessRequests();
-      message.textContent='Manager provisioned for the approved branch. They must sign in again.';
+      await refreshAccessRequests('Manager provisioned for the approved branch. They must sign in again.');
      }catch{message.textContent='Provisioning is not enabled or could not be completed. Contact your administrator.';provision.disabled=false;}
     });
     li.append(provision);

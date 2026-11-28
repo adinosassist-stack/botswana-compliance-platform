@@ -52,3 +52,18 @@ test("native cancellation remains a cancellation and unprepared files cannot be 
  await assert.rejects(sharePreparedDocumentPdf({navigatorApi,file,message}),{name:"AbortError"});
  await assert.rejects(sharePreparedDocumentPdf({navigatorApi,file:new File([blob],"quote.pdf",{type:"application/pdf"}),message}),/unprepared_pdf/);
 });
+
+test("accepts saved PDFs with missing or generic picker MIME metadata",async()=>{
+ for(const type of ["","application/octet-stream"]){
+  const blob=new Blob(["%PDF-1.7\nTEST"],{type});
+  const file=await prepareDocumentPdf({blob,filename:"quotation.pdf"});
+  if(typeof File==="undefined"){assert.equal(file,null);continue;}
+  assert.equal(file.type,"application/pdf");
+  assert.equal(await file.text(),await blob.text());
+ }
+});
+
+test("rejects generic picker files without a PDF header",async()=>{
+ const blob=new Blob(["not a PDF"],{type:"application/octet-stream"});
+ await assert.rejects(prepareDocumentPdf({blob,filename:"quotation.pdf"}),/invalid_pdf/);
+});

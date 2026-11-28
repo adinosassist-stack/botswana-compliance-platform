@@ -128,7 +128,7 @@ function mountFirstValueGuide(sidebar,actions,{basic,itemsSection,termsSection,p
   {label:"1. Enter customer details",action:()=>focusArea(basic,"input")},
   {label:"2. Review items and BWP prices",action:()=>focusArea(itemsSection,"input")},
   {label:"3. Check quotation terms",action:()=>focusArea(termsSection,"textarea")},
-  {label:"4. Review print / PDF options",action:()=>print.focus({preventScroll:true})}
+  {label:"4. Review print / PDF options",action:()=>{print.focus({preventScroll:true});print.scrollIntoView?.({block:"nearest"});}}
  ];
  const buttons=steps.map((entry,index)=>{
   const li=elt("li"),button=elt("button","qcp-guide-button",entry.label);
@@ -148,7 +148,7 @@ function mountFirstValueGuide(sidebar,actions,{basic,itemsSection,termsSection,p
  });
  buttons[0].setAttribute("aria-current","step");
  const invoice=elt("p","qcp-guide-invoice",
-  "Next: invoice. Invoice drafting and issuance are not available from this editor. A quotation PDF does not create an invoice. Use only a separately authorized, server-confirmed invoice workflow.");
+  "A quotation PDF does not create an invoice.");
  guide.append(title,intro,list,feedback,invoice);
  sidebar.insertBefore(guide,actions);
  return Object.freeze({
@@ -217,8 +217,11 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
  const sharePdf=elt("button","","Share selected PDF (WhatsApp)");sharePdf.type="button";sharePdf.disabled=true;
  const pdfInput=elt("input");pdfInput.type="file";pdfInput.accept=".pdf,application/pdf";pdfInput.hidden=true;
  pdfInput.setAttribute("aria-label","Choose the quotation PDF saved on this device");
+ const draftTools=details("Draft tools");
+ const draftActions=elt("div","qcp-actions");
+ draftActions.append(download,importButton,reset,importInput);
+ draftTools.content.append(draftActions);
  actions.append(print);
- if(!commercialMode)actions.append(download,importButton,reset,importInput);
  if(customerReady&&!commercialMode){
   actions.append(choosePdf,sharePdf,pdfInput);
   printHelp.content.append(elt("p","qcp-hint","After saving the quotation as a PDF, choose that exact saved file, verify its contents, and tap Share selected PDF. Choose WhatsApp in the system share sheet. The editor cannot directly retrieve the browser-generated print file."));
@@ -316,6 +319,7 @@ export function mountQuotationCustomizablePage(root,{capability,initial,issuerNa
  offsetField.addEventListener("input",()=>{logoX=Number(offsetField.value);refresh()});
  // Keep primary mobile print actions visible before the long editable document.
  sidebar.append(actions,status,printHelp.element,basic.element,itemsSection.element,copySection.element,termsSection.element,logoSection.element);
+ if(!commercialMode)sidebar.append(draftTools.element);
  const firstValueGuide=mountFirstValueGuide(sidebar,actions,{basic,itemsSection,termsSection,print,customerReady});
  shell.append(sidebar,stage);
  root.replaceChildren(style,shell);
