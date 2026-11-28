@@ -9,6 +9,7 @@ on:
       - 'deploy/quotation-final-html-private/commercial-*'
       - 'docs/sql/quotation-commercial-staging-foundation-CANDIDATE.sql'
       - 'tests/quotation-commercial-staging-qualification.test.mjs'
+      - 'tests/quotation-commercial-pdf-worker.test.mjs'
       - '.github/workflows/quotation-commercial-staging-qualification.yml'
 permissions:
   contents: read
@@ -32,7 +33,7 @@ jobs:
           npm ci --prefix deploy/quotation-final-html-private --ignore-scripts --no-audit --no-fund
           npm install --prefix "$RUNNER_TEMP/commercial-browser" --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright@1.56.1
       - name: Qualify additive schema, cryptographic gateway and synthetic-session host
-        run: node --test tests/quotation-commercial-staging-qualification.test.mjs tests/quotation-private-d1-session-verifier.test.mjs tests/quotation-private-host-session-gate.test.mjs tests/quotation-commercial-workflow.test.mjs
+        run: node --test tests/quotation-commercial-pdf-worker.test.mjs tests/quotation-commercial-staging-qualification.test.mjs tests/quotation-private-d1-session-verifier.test.mjs tests/quotation-private-host-session-gate.test.mjs tests/quotation-commercial-workflow.test.mjs
       - name: Build all three inert services without publishing
         env:
           WRANGLER_SEND_METRICS: 'false'
